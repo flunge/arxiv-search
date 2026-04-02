@@ -202,7 +202,8 @@
     <p>给定文本布局，我们遵循先前的工作，并通过场景图到布局管道将其转换为空间布局图（图）。首先，我们构建一个场景图，其中节点表示场景实体（例如，汽车、行人、道路车道），边表示空间关系（例如，前面、顶部）。然后通过将语义特征（通过文本编码器提取）与可学习的几何特征连接来嵌入每个节点和边，从而产生节点嵌入和边嵌入。图嵌入使用图卷积网络进行细化，该网络在整个图上传播上下文信息并更新每个节点……</p>
     <p>$$ \mathcal{D} = \mathcal{G}_\text{description}\big(\mathcal{T}_\mathcal{P}, \mathrm{RAG}(\mathcal{T}_\mathcal{P}, \mathcal{M})\big) $$</p>
     <p>
-      , B, L\ S O B L D 生成为： 其中表示场景描述存储器。每个实体都是使用收集的场景数据集之一自动构建的：1）使用场景图像上的 VLM 进行提取； 2）将空间注释（对象框和道路车道）转换为文本场景图布局。如图所示...
+      公式：\mathcal{D} = \mathcal{G}_\text{描述}\big(\mathcal{T}_\mathcal{P}, \mathrm{RAG}(\mathcal{T}_\mathcal{P}, \mathcal{M})\big)
+上：, B, L\ S O B L D 生成为： 其中表示场景描述内存。每个实体都是使用收集的场景数据集之一自动构建的：1）使用场景图像上的 VLM 进行提取； 2）将空间注释（对象框和道路车道）转换为文本场景图布局。如图所示...
     </p>
     <p>$$ \mathbf{F}_\mathbf{q}(x, y, z) = \sum_{\mathcal{P} \in \{xy, xz, yz\}} 
 \sum_{k=1}^K 
@@ -212,11 +213,19 @@
 \Delta p_k^\mathcal{P}
 \Big) $$</p>
     <p>
-      thbfo R^X Y Z h = \h^xy, h^xz, h^yz\ q = (x, y, z) as: -1mm 其中 是采样点数，表示位置编码，用softmax函数生成注意力权重。投影函数将 3D 坐标映射到 2D 平面（例如 ），以及可学习的偏移量
+      公式：\mathbf{F}_\mathbf{q}(x, y, z) = \sum_{\mathcal{P} \in \{xy, xz, yz\}} 
+\sum_{k=1}^K 
+\sigma\big(\mathbf{W}_\omega^\mathcal{P} \cdot \text{PE}(x, y, z)\big)_k 
+\cdot \mathbf{h}^\mathcal{P}\Big(
+\text{proj}_\mathcal{P}(x, y, z) + 
+\Delta p_k^\mathcal{P}
+\大）
+上：thbfo R^X Y Z h = \h^xy, h^xz, h^yz\ q = (x, y, z) as: -1mm 其中 是采样点数，表示位置编码，用softmax函数生成注意力权重。投影函数将 3D 坐标映射到 2D 平面（例如 ），以及可学习的偏移量
     </p>
     <p>$$ \mathbf{h}^{\text{new}}_{t-1} \gets \left( \sqrt{\bar{\alpha}_t}\mathbf{h}^{\text{ref}}_0 + \sqrt{1 - \bar{\alpha}_t} \boldsymbol{\epsilon} \right) \odot \mathbf{M} + \epsilon_{\theta}^{\textit{occ}}(\mathbf{h}^{\text{new}}_t, t) \odot (1 - \mathbf{M}) $$</p>
     <p>
-      将任务分解为外推三个正交的 2D 平面，如图 1 所示。其核心思想是通过将去噪过程与由重叠掩模引导的已知参考平面的前向扩散同步来生成新的潜在平面。具体来说，在每个去噪步骤中，新的潜在变量是……
+      公式：\mathbf{h}^{\text{new}}_{t-1} \gets \left( \sqrt{\bar{\alpha}_t}\mathbf{h}^{\text{ref}}_0 + \sqrt{1 - \bar{\alpha}_t} \boldsymbol{\epsilon} \right) \odot \mathbf{M} + \epsilon_{\theta}^{\textit{occ}}(\mathbf{h}^{\text{new}}_t, t) \odot (1 - \mathbf{M})
+上下：将任务分解为外推三个正交的2D平面，如图所示。其核心思想是通过将去噪过程与由重叠掩模引导的已知参考平面的前向扩散同步来生成新的潜在平面。具体来说，在每个去噪步骤中，新的潜在变量是……
     </p>
     <figure><img class='paper-fig' src='../assets/2506_13558v3/fig_3.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：文本描述丰富和场景图到布局生成的流程：（a）使用 RAG 增强的 LLM 来丰富输入提示，以生成结构化场景描述； (b) 空间关系被转换为场景图并用图网络进行编码，然后是条件差异……</figcaption></figure>
     <figure><img class='paper-fig' src='../assets/2506_13558v3/fig_4.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：该图展示了论文中的关键模块、实验设置或可视化效果。</figcaption></figure>
