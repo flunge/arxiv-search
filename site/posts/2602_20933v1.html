@@ -70,7 +70,7 @@
     blockquote { margin: 16px 0; padding: 8px 16px; border-left: 4px solid #d8e7ff; background: #f8fbff; color: #333; }
     .tip { background: #f7f9fc; border: 1px solid #e8eef6; border-radius: 10px; padding: 12px; }
     .dashboard-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-top:18px; }
-    .dashboard-card { aspect-ratio: 1 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
+    .dashboard-card { aspect-ratio: 1.618 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
     .dashboard-card > * { min-width: 0; }
     .dashboard-card .dashboard-content { display:flex; flex-direction:column; height:100%; min-height:0; }
     .dashboard-card .dashboard-scroll { overflow:auto; min-height:0; }
@@ -130,10 +130,28 @@
     });
   </script>
 
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\(', '\)']],
+        displayMath: [['$$', '$$'], ['\[', '\]']]
+      },
+      svg: { fontCache: 'global' },
+      startup: {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady().then(() => {
+            requestAnimationFrame(applyPageScale);
+          });
+        }
+      }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
+
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
 
@@ -143,103 +161,117 @@
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      这篇论文关注的是“Dropping 所对应的问题能否在更可控、更稳健或更高质量的条件下被解决”。从摘要与方法描述来看，作者的总体路线是：先搭建一个明确的表示或生成框架，再围绕训练目标、结构设计和实验验证把该问题推进到更可用的工程形态。
+      最近的 3D 高斯分布 (3DGS) Dropout 方法通过随机消除高斯不透明度来解决稀疏视图条件下的过度拟合问题。然而，我们在这些方法中发现了邻居补偿效应：丢弃的高斯通常由其邻居补偿，削弱了预期的正则化。此外，这些方法忽略了高次球谐系数（SH）对过拟合的影响。为了解决这些问题，我们提出了一种新颖的基于锚的 Dropout 策略。我们的方法不是独立地丢弃高斯，而是随机选择某些高斯作为锚点，并同时删除它们的空间邻居。这有效地破坏了锚点附近的局部冗余，并鼓励模型学习更强大、全局信息丰富的表示。此外，我们通过随机丢弃较高程度的 SH 将外观信息集中在较低程度的 SH 中，将 Dropout 扩展…
     </div>
 
     <h2 id='summary'>简单摘要</h2>
-    <p>
-      从论文摘要可以看出，这项工作的落点并不是单纯提升一个局部模块，而是围绕完整任务链路做系统设计。它通常会同时回答三个问题：任务为什么重要、现有方法卡在哪里、作者的新方案如何绕开这些瓶颈。
-      就这篇论文而言，摘要部分强调的核心是：<strong>Recent 3D Gaussian Splatting (3DGS) Dropout methods address overfitting under sparse-view conditions by randomly nullifying Gaussian opacities. However, we identify a neighbor com…</strong>
-    </p>
-    <p>
-      如果把它放进更大的技术背景中理解，可以把这篇论文视作一条“问题定义 → 表示设计 → 训练优化 → 实验验证”的完整研究闭环。也就是说，作者并不是只给出一个孤立模块，而是希望通过一整套方法让系统在真实场景或关键指标上取得更稳定提升。
-    </p>
-    <figure><img class='paper-fig' src='../assets/2602_20933v1/fig_1.png' alt='Figure 1:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 1：该图来自论文原文，用于说明论文中的核心框架、可视化结果或实验现象。原始图注摘要：Difference between DropGaussian [46] and our DropAnSH-GS. (a) DropGaussian randomly sets the opacity of individual Gaussians to zero. (b) DropAnSH-GS selects random Gaussians as anchors, discards their neighbors, and applies Dropout to high-degree SH. Anchor-based Dropout eliminates contiguous 3D r…</figcaption></figure><figure><img class='paper-fig' src='../assets/2602_20933v1/fig_2.png' alt='Figure 2:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 2：该图来自论文原文，用于说明论文中的核心框架、可视化结果或实验现象。原始图注摘要：Compensation effect in neighbor Gaussians. (a) We measure the spatial autocorrelation of opacity and color between Gaussians at varying distances using Moran’s I metric [37, 40]. Closer Gaussians exhibit higher similarity in opacity and color. This spatial redundancy implies that dropping only indi…</figcaption></figure>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>To address these issues, we propose DropAnSH-GS, a novel anchor-based Dropout strategy.</li><li>This effectively disrupts local redundancies near anchors and encourages the model to learn more robust, globally informed representations.</li><li>Introduction Realistic novel view synthesis (NVS) remains a central challenge in computer vision and graphics.</li></ul></div>
+    <p>最近的 3D 高斯分布 (3DGS) Dropout 方法通过随机消除高斯不透明度来解决稀疏视图条件下的过度拟合问题。然而，我们在这些方法中发现了邻居补偿效应：丢弃的高斯通常由其邻居补偿，削弱了预期的正则化。此外，这些方法忽略了高次球谐系数（SH）对过拟合的影响。为了解决这些问题，我们提出了一种新颖的基于锚的 Dropout 策略。我们的方法不是独立地丢弃高斯，而是随机选择某些高斯作为锚点，并同时删除它们的空间邻居。</p>
+    <p>这有效地破坏了锚点附近的局部冗余，并鼓励模型学习更强大、全局信息丰富的表示。此外，我们通过随机丢弃较高程度的 SH 将外观信息集中在较低程度的 SH 中，将 Dropout 扩展到颜色属性。该策略进一步缓解了过度拟合，并通过 SH 截断实现灵活的训练后模型压缩。实验结果表明，该方法明显优于现有的 Dropout 方法，计算开销可以忽略不计，并且可以轻松集成到各种 3DGS 变体中以增强其性能。</p>
+    <figure><img class='paper-fig' src='../assets/2602_20933v1/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：DropGaussian 和我们的 . (a) DropGaussian 随机将各个高斯的不透明度设置为零。 (b) 选择随机高斯作为锚点，丢弃它们的邻居，并将 Dropout 应用于高度 SH。
+
+基于Anchor的Dropout消除了连续的3D区域，这有效地抑制了相邻高斯对丢弃的区域进行补偿，迫使剩余的高斯学习更鲁棒的场景表示，从而加强了Dropout正则化效果。
+
+删除 SH 进一步减少过度拟合并产生更紧凑的模型。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2602_20933v1/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：邻近高斯的补偿效应。 (a) 我们使用 Moran’s I 度量测量不同距离处高斯函数之间不透明度和颜色的空间自相关性。更接近的高斯在不透明度和颜色方面表现出更高的相似性。这种空间冗余意味着仅丢弃单个高斯可以很容易地通过其周围的相似邻居来补偿，从而限制了丢弃的有效性。
+(b) 我们报告应用两种不同的 Dropout 策略 S1 和 S2 之前和之后渲染图像之间的平均绝对误差。当丢弃相似数量的高斯时，丢弃高斯及其邻近高斯 (S1) 的策略对渲染质量有更大的影响，因为它避免了邻近高斯的简单补偿。
+(c) 在被丢弃的高斯分布周围的区域，S1 策略激活更多数量的剩余高斯分布，从而产生更强的梯度更新。</figcaption></figure>
+    <blockquote>
+      简而言之，这篇论文关注的核心是：最近的 3D 高斯分布 (3DGS) Dropout 方法通过随机消除高斯不透明度来解决稀疏视图条件下的过度拟合问题。然而，我们在这些方法中发现了邻居补偿效应：丢弃的高斯通常由其邻居补偿，削弱了预期的正则化。此外，这些方法忽略了高次球谐系数（SH）对过拟合的影响。为了解决这些问题，我们提出了一种新…
+    </blockquote>
+    <p>逼真的新颖视图合成（NVS）仍然是计算机视觉和图形领域的核心挑战。 3DGS 在渲染速度和视觉保真度之间取得了显着的平衡，最近已成为该领域的领先方法。尽管 3DGS 在密集输入视图方面表现出色，但在使用稀疏视图进行训练时面临着重大挑战。训练视图的稀缺通常会导致严重的过度拟合，表现为伪影、模糊或几何扭曲，从而限制了其实际适用性。受深度学习中正则化技术的启发，最近的工作将 Dropout 机制引入 3DGS。</p>
+    <p>这些方法在训练过程中随机将某些高斯函数的不透明度设置为零，旨在防止过度依赖特定高斯函数，从而对模型进行正则化。然而，我们的分析揭示了这些方法的关键局限性：（1）邻居补偿效应（图）。 3DGS 利用大量重叠的高斯函数来协作渲染场景，该场景通常在局部区域表现出高度相似的不透明度和颜色属性。当单个高斯被丢弃时，它的渲染贡献很容易被邻近的高斯所补偿，从而削弱了 Dropout 的预期正则化效果。 (2)属性利用有限（图）。</p>
+    <p>3DGS 中现有的 dropout 策略专门针对不透明度属性，而忽略了其他属性在过度拟合中的独特作用。为了解决这些限制，我们提出了一种新颖的 Dropout 正则化策略，称为 。与之前丢弃孤立高斯的 Dropout 策略不同，随机选择一组锚定高斯并丢弃这些锚定及其在局部空间区域内的周围邻居。这种结构化的 Dropout 策略消除了整个相关高斯簇，从而产生了更大规模的“信息空白”，从而主动破坏空间一致性并阻止局部补偿。</p>
+    <p>因此，优化过程被迫利用更多的远程上下文信息来重建丢失的区域，从而促进更鲁棒和更通用的场景表示。此外，现有的 3DGS Dropout 方法仅限于操纵不透明度，而没有考虑多个属性之间的细微差别。我们发现 SH，特别是高阶项，也会导致过度拟合（如图所示）。为此，我们进一步引入了针对高度SH的Dropout机制。该策略具有双重好处：(1) 减轻对颜色变化的过度拟合，(2) 促进从粗到细的 SH 表示……</p>
 
     <h2 id='innovation'>核心创新</h2>
     <p>
-      对照引言与方法部分，这篇论文的创新点主要体现在“如何重新组织问题求解链路”上。相比简单替换一个 backbone 或增加一个 loss，作者更像是在重新定义系统的关键接口与约束方式。
+      综合引言与方法部分，这篇论文的核心创新可以概括为以下几方面：
     </p>
-    <h3>1）从任务设定上重新界定问题边界</h3>
+    <h3>1）问题定义与研究动机</h3>
     <p>
-      论文强调的问题并不只是已有方案做得不够好，而是很多现有方法在目标可控性、泛化范围、效率约束或结构一致性上存在天然短板。因此作者先重述了任务定义，再围绕新的目标函数和场景假设去设计整体方案。
+      逼真的新颖视图合成（NVS）仍然是计算机视觉和图形领域的核心挑战。 3DGS 在渲染速度和视觉保真度之间取得了显着的平衡，最近已成为该领域的领先方法。尽管 3DGS 在密集输入视图方面表现出色，但在使用稀疏视图进行训练时面临着重大挑战。训练视图的稀缺通常会导致严重的过度拟合，表现为伪影、模糊或几何扭曲，从而限制了其实际适用性。受深度学习中正则化技术的启发，最近的工作将 Dropout 机制引入 3DGS。这些方法在训练过程中随机将某些高斯函数的不透明度设置为零，旨在防止过度依赖特定高斯函数，从而对模型进行正则化。然而，我们的分析揭示了这些方法的关键局限性：（1）邻居补偿效应（图）。 3DGS 利用大量重叠的高斯函数来协作渲染场景，该场景通常在局部区域表现出高度相似的不透明度和颜色属性。当单个高斯被丢弃时，它的渲染贡献很容易被邻近的高斯所补偿，从而削弱了 Dropout 的预期正则化效果。 (2)属性利用有限（图）。 3DGS 中现有的 dropout 策略专门针对不透明度属性，而忽略了其他属性在过度拟合中的独特作用。为了解决这些限制，我们提出了一种新颖的 Dropout 正则化策略，…
     </p>
-    <h3>2）用统一框架串起表示、推理和优化</h3>
+    <h3>2）方法框架与核心模块</h3>
     <p>
-      从原文描述看，这篇论文并不是把多个模块松散拼接，而是在一个统一框架里安排表示形式、关键模块和训练信号，使它们彼此服务。这类设计往往决定了方法能否真正具备工程可落地性。
+      预备知识 3DGS 使用大量显式高斯函数表示 3D 场景。每个高斯参数化为：位置、协方差、颜色（由一组球谐系数表示）和不透明度。为了有效优化，协方差通常被分解为缩放向量和旋转四元数。给定由视图矩阵 定义的相机视图，3D 高斯投影到 2D 图像平面上。像素的颜色是使用所有深度排序高斯的混合来计算的：试点研究为了减轻稀疏视图设置下的过度拟合，先前的工作建议在训练期间将高斯的不透明度随机设置为零。然而，3DGS 的表达性质表现出显着的局部冗余。可见表面通常由数百或数千个重叠的高斯表示。当单个高斯被移除时，根据等式： ()，它对像素颜色的贡献通过邻近高斯的增加的贡献来补偿。因此，像素颜色的变化可以忽略不计，导致反向传播期间梯度信号较弱，无法对模型的几何和外观学习进行有效的正则化。如图所示，高斯之间的空间相关性与其距离成反比。删除视锥体内的单个高斯会导致最小的性能下降和弱梯度。相比之下，丢弃由 10 个相邻高斯组成的簇会产生显着的性能变化和更强的梯度信号。这表明高斯模型表现出很强的空间互补性。虽然这有利于协作渲染，但它也降低了朴素 Dropout 的有效性。此外，现有方法仅专注于降低不透明度值…
     </p>
-    <h3>3）把实验目标直接对齐到实际痛点</h3>
+    <h3>3）实验设计与工程价值</h3>
     <p>
-      论文中的实验不仅比较常规 benchmark，也会额外关注更贴近实际系统需求的指标，例如稳定性、控制性、质量上界、对长尾场景的适应能力等。换句话说，它不是只追求单一数值，而是试图证明整套系统在真实使用方式下也成立。
+      实施细节数据集。我们的实验在三个标准数据集上进行：两个真实世界数据集 LLFF 和 MipNeRF-360 以及一个合成数据集 Blender 。我们遵循之前的工作，将数据集分成具有不同数量输入视图的训练和测试子集。 1 毫米规格。为了综合评估渲染质量，我们采用三个广泛使用的指标：峰值信噪比（PSNR，越高越好）、结构相似度指数（SSIM，越高越好）和学习感知图像块相似度（LPIPS，越低越好）。 1 毫米基线。我们将我们的方法与几种最先进的方法进行比较，包括基于 NeRF 的稀疏视图方法（Mip-NeRF、RegNeRF、DietNeRF、FreeNeRF）和基于 3DGS 的方法（3DGS、DNGaussian、FSGS、CoR-GS）。我们特别关注与两种基于 Dropout 的方法 DropGaussian 和 DropoutGS 的比较。 1mm 训练细节。所有实验均使用 PyT…
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>To address these issues, we propose DropAnSH-GS, a novel anchor-based Dropout strategy.</li><li>This effectively disrupts local redundancies near anchors and encourages the model to learn more robust, globally informed representations.</li><li>Introduction Realistic novel view synthesis (NVS) remains a central challenge in computer vision and graphics.</li><li>Moreover, these methods overlook the contribution of high-degree spherical harmonic coefficients (SH) to overfitting.</li></ul></div>
 
     <h2 id='technical'>技术细节</h2>
     <p>
-      方法部分是理解论文价值的关键。结合原文可以看到，作者通常会先定义输入输出，再介绍中间表示、主干模块、损失函数或奖励机制，最后说明训练与推理时各模块如何协同。
-      对这篇论文而言，方法线索主要集中在以下几个方面：
+      下面按照论文的方法章节结构展开，重点说明模型的关键模块、公式设计和训练策略。
     </p>
-    <h3>3.1 方法主线与模块组织</h3>
+    <p>预备知识 3DGS 使用大量显式高斯函数表示 3D 场景。每个高斯参数化为：位置、协方差、颜色（由一组球谐系数表示）和不透明度。为了有效优化，协方差通常被分解为缩放向量和旋转四元数。给定由视图矩阵 定义的相机视图，3D 高斯投影到 2D 图像平面上。像素的颜色是使用所有深度排序高斯的混合来计算的：试点研究为了减轻稀疏视图设置下的过度拟合，先前的工作建议在训练期间将高斯的不透明度随机设置为零。然而，3DGS 的表达性质表现出显着的局部冗余。可见表面通常由数百或数千个重叠的高斯表示。当单个高斯被移除时，根据等式： ()，它对像素颜色的贡献通过邻近高斯的增加的贡献来补偿。因此，像素颜色的变化可以忽略不计，导致反向传播期间梯度信号较弱，无法对模型的几何和外观学习进行有效的正则化。如图所示，高斯之间的空间相关性与其距离成反比。删除视锥体内的单个高斯会导致最小的性能下降和弱梯度。相比之下，丢弃由 10 个相邻高斯组成的簇会产生显着的性能变化和更强的梯度信号。这表明高斯模型表现出很强的空间互补性。虽然这有利于协作渲染，但它也降低了朴素 Dropout 的有效性。此外，现有方法仅专注于降低不透明度值，而忽略了其他关键属性的正则化潜力，例如编码外观的球谐系数。如图所示，虽然使用高度 SH 可以提高全视图条件下的性能，但它会导致稀疏视图设置中的过度拟合。适当降低 SH 度不仅可以增强稀疏视图场景下的 3DGS 性能，而且可以显着减小模型大小。基于锚的 Dropout 为了克服上述限制，我们提出了如图所示的方法，该方法丢弃空间相关的高斯组，而不是单个孤立的高斯。</p>
+    <p>核心思想是删除整个信息区域，从而迫使模型依赖更广泛的上下文线索进行重建，并鼓励学习非局部的结构场景特征。该过程在训练期间执行，步骤如下： 1. 锚选择：我们根据采样率从所有高斯集合中随机选择锚高斯子集。 2.邻域构建：对于 中的每个锚定高斯，我们根据其中心之间的距离来识别其在欧几里得空间中最近邻高斯。 3. Structured Dropout：属于任意anchor或其邻域的所有高斯都被收集到一个Dropout集合中。然后我们为所有高斯定义一个二元掩模向量。对于每个 ，其掩码值...</p>
+    <p>$$ C = \sum_{i=1}^{N} c_i \alpha_i \prod_{j=1}^{i-1} (1 - \alpha_j).
+\label{eq:gs} $$</p>
     <p>
-      根据方法章节可知，作者首先构建了一个核心表示或中间条件，再通过若干模块把它逐步转换为最终输出。这种结构的优势在于：每个模块都承担明确职责，既便于解释，也更便于在实验中做模块级消融。
-      原文中与主线最相关的描述包括：
+      nts) 和不透明度。为了有效优化，协方差通常被分解为缩放向量和旋转四元数。给定由视图矩阵 定义的相机视图，3D 高斯投影到 2D 图像平面上。像素的颜色是使用所有深度排序高斯的混合来计算的......
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>Dropping Anchor and Spherical Harmonics for Sparse-view Gaussian Splatting Shuangkang Fang1, I-Chao Shen2, Xuanyang Zhang3, Zesheng Wang1, Yufeng Wang1, Wenrui Ding1, Gang Yu3, Takeo Igarashi2 1Beihang University 2The University of Tokyo 3StepFun https://sk-f…</li><li>This strategy further mitigates overfitting and enables flexible post-training model compression via SH truncation.</li></ul></div>
-    <h3>3.2 训练目标、损失与公式信号</h3>
+    <p>$$ m_i = \begin{cases} 0 &amp; \text{if } G_i \in \mathcal{D} \\ 1 &amp; \text{otherwise} \end{cases}.
+ \label{eq:gs_mask} $$</p>
     <p>
-      论文里的公式通常承担两类角色：一种是定义模型的预测关系与变量约束，另一种是定义优化时真正驱动模型更新的目标函数。阅读这类论文时，关键不是死记公式外形，而是理解每个公式分别在“表达结构”还是“约束行为”上发挥作用。
+      中的每个锚定高斯，我们根据其中心之间的距离来识别欧几里得空间中其最近邻高斯。 3. Structured Dropout：属于任意anchor或其邻域的所有高斯都被收集到一个Dropout集合中。然后我们为所有高斯定义一个二元掩模向量。对于每个，...
     </p>
-    <div class='card'><strong>公式说明：</strong><p>当前 PDF 文本中的公式抽取有限，但方法部分已结合原文段落补充核心训练目标、模块关系与评价指标。</p></div>
+    <p>$$ \hat{\alpha}_i = \alpha_i \cdot m_i.
+ \label{eq:new_opacity} $$</p>
     <p>
-      从这些公式与周边段落可以推断，作者想要的不只是局部误差最小化，而是通过更精细的目标设计，让模型在结构一致性、生成质量、时序稳定性或可控性等方面同时受约束。这也是很多新方法能真正优于 baseline 的原因。
+      athcalD M \0,1\^N G_i m_i _i _i：然后将这种调制的不透明度用于方程式中的混合过程。 ()，有效地在 3D 场景中创建“信息空白”并执行更强的正则化。球谐函数 Dropout 现有的 Dropout 方法仅关注高斯分布的存在或不存在，根据……
     </p>
-    <h3>3.3 把全文方法串起来理解</h3>
+    <p>$$ \mathbf{c} = [\mathbf{c}^{(0)}, \mathbf{c}^{(1)}, \dots, \mathbf{c}^{(L)}], $$</p>
     <p>
-      如果把这篇论文的方法看成一条流水线，那么它的逻辑通常是：先把输入变成一个更适合推理的中间表示，再围绕该表示施加关键模块与训练目标，最后把输出落到可评估、可可视化的结果上。
-      这种“表示—模块—目标—结果”的闭环设计，是本页所锁定模板最想强调的部分，因为它比零散摘录更能帮助后续复现与横向比较。
+      dropout 方法仅根据不透明度关注高斯分布的存在或不存在，而忽略了 Dropout 中其他属性的独特特征。我们观察到高度 SH 系数也容易出现过度拟合。为了解决这个问题，我们提出了针对这些系数的 Dropout 策略。规格…
+    </p>
+    <p>$$ \tilde{\mathbf{c}} = [\mathbf{c}^{(0)}, \dots, \mathbf{c}^{(l_\text{max})}, \mathbf{0}, \dots, \mathbf{0}]. $$</p>
+    <p>
+      mathbfc = [c^(0), c^(1), ..., c^(L)]，方程 其中表示 阶次的 SH 系数，包括每个 RGB 通道的值。在训练过程中，我们随机选择一个高斯子集，并设置一个最大保留度 ，然后丢弃所有高于 的 SH 系数。这种辍学迫使莫...
+    </p>
+    <p>$$ \mathcal{L} = \mathcal{L}_{\text{L1}}(\hat{C}, C_{gt}) + \lambda \mathcal{L}_{\text{SSIM}}(\hat{C}, C_{gt}),
+ \label{eq:loss} $$</p>
+    <p>
+      绩效和效率之间的脱节。损失函数我们提出的策略可以无缝集成到现有 3DGS 框架的训练流程中，而无需修改其目标函数。我们采用标准损失来最小化渲染图像和地面真实图像之间的差异......
+    </p>
+    <figure><img class='paper-fig' src='../assets/2602_20933v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：SH程度高导致的过拟合。在LLFF数据集上，(a)在全视图条件下，适度增加球谐度可以提高3DGS模型的性能。然而，(b)在稀疏视图设置下，使用高次球谐函数会导致性能下降和模型大小显着增加，这表明球谐函数本身也构成了过度拟合的根源。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2602_20933v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：概述.在训练阶段，我们随机选择一组锚定高斯，并在局部空间区域内丢弃这些锚定及其周围的邻居，从而减少相邻高斯相互补偿的可能性并增强正则化效果。同时，随机丢弃高次 SH 系数以进一步加强正则化并产生更紧凑的模型表示。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2602_20933v1/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：LLFF 数据集的定性比较（3 个视图）。</figcaption></figure>
+    <p>
+      把全文方法串起来看，这篇论文的逻辑基本都遵循同一条主线：先把输入组织成更容易处理的表示，再通过模型结构和损失函数把这个表示推向目标输出，最后用可视化与数值实验共同证明该设计有效。
     </p>
 
     <h2 id='experiment'>实验结论</h2>
     <p>
-      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，优势究竟来自哪个模块。对这篇论文来说，实验设计明显围绕“与现有方法的对比 + 对关键组件的消融”展开。
+      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，这种优势来自哪一个设计决策。
     </p>
-    <p>
-      从实验段落的关键词和结果描述看，论文最想传达的结论包括：
-    </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>Experimental results demonstrate that DropAnSH-GS substantially outperforms existing Dropout methods with negligible computational overhead, and can be readily integrated into various 3DGS variants to enhance their performances.</li><li>3DGS [25], with a remarkable balance between rendering speed and visual fidelity, has recently emerged as the leading method in this domain [5, 12, 23, 34, 51].</li></ul></div>
-    <figure><img class='paper-fig' src='../assets/2602_20933v1/fig_3.png' alt='Figure 3:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 3：该图来自论文原文，用于说明论文中的核心框架、可视化结果或实验现象。原始图注摘要：Overfitting caused by high-degree SH. On the LLFF dataset, (a) under full-view conditions, moderately increasing the degree of spherical harmonics can improve the performance of the 3DGS model. However, (b) under sparse-view settings, using high-degree spherical harmonics leads to performance degra…</figcaption></figure><figure><img class='paper-fig' src='../assets/2602_20933v1/fig_4.png' alt='Figure 4:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 4：该图来自论文原文，用于说明论文中的核心框架、可视化结果或实验现象。原始图注摘要：Overview of DropAnSH-GS. During the training phase, we randomly select a set of anchor Gaussians and drop these anchors and their surrounding neighbours within a local spatial region, thereby reducing the likelihood of neighboring Gaussians compensating for one another and enhancing the regularizat…</figcaption></figure><figure><img class='paper-fig' src='../assets/2602_20933v1/fig_5.png' alt='Figure 5:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 5：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 5 from the source paper.</figcaption></figure>
+    <p>实施细节数据集。我们的实验在三个标准数据集上进行：两个真实世界数据集 LLFF 和 MipNeRF-360 以及一个合成数据集 Blender 。我们遵循之前的工作，将数据集分成具有不同数量输入视图的训练和测试子集。 1 毫米规格。为了综合评估渲染质量，我们采用三个广泛使用的指标：峰值信噪比（PSNR，越高越好）、结构相似度指数（SSIM，越高越好）和学习感知图像块相似度（LPIPS，越低越好）。 1 毫米基线。我们将我们的方法与几种最先进的方法进行比较，包括基于 NeRF 的稀疏视图方法（Mip-NeRF、RegNeRF、DietNeRF、FreeNeRF）和基于 3DGS 的方法（3DGS、DNGaussian、FSGS、CoR-GS）。我们特别关注与两种基于 Dropout 的方法 DropGaussian 和 DropoutGS 的比较。 1mm 训练细节。所有实验均使用 PyTorch 框架实现，并在单个 NVIDIA H100 GPU 上进行。我们保持与原始 3DGS 相同的优化器设置和学习率策略，在所有数据集上进行 10,000 次迭代训练。关键超参数设置如下：anchor采样率根据迭代次数从0线性增加到0.02；最近邻高斯的数量设置为10； SH 系数的 Dropout 率为 0.2，在 2,000、4,000 和 6,000 次迭代时分别设置为 0、1 和 2。对于涉及随机性的方法，包括我们的方法、CoR-GS 和基于 Dropout 的基线，我们报告 3 次独立运行的平均指标。更多实验结果请参阅补充材料。比较结果定量比较。我们首先在不同的稀疏视图条件下对 LLFF、MipNeRF-360 和 Blender 数据集进行定量评估，结果显示在表和表中。我们的方法始终优于所有基线。在 LLFF 数据集上，特别是在极其稀疏的 3 视图设置中，我们的方法显着优于其他基于 Dropout 的丢弃单个高斯分布的方法。这证明了所提出的基于锚的 Dropout 策略的有效性。随着视图数量的增加，我们的方法继续显着增强 3DGS 性能。在 MipNeRF-360 和 Blender 数据集上观察到类似的性能，证实我们的正则化技术可以稳健地解决稀疏视图条件下 3DGS 的核心挑战。 1mm 定性比较。</p>
+    <p>如图所示，我们提供了不同场景的定性比较，说明了我们方法的优越性。通过删除整个区域，我们的方法模拟遮挡和丢失的信息，促使高斯存储更复杂的……</p>
+    <figure><img class='paper-fig' src='../assets/2602_20933v1/figure6_full.png' alt='Figure 6:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 6：Blender（8 个视图）和 MipNeRF-360（12 个视图）数据集的定性比较。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2602_20933v1/figure7_full.png' alt='Figure 7:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 7：与 LLFF 数据集上不同 3DGS 变体的兼容性（3 个视图）。所提出的方法可以轻松集成到其他基于 3DGS 的方法中并提高其性能。</figcaption></figure>
     <ul>
-      <li>方法在主任务指标上不是偶然提升，而是与其结构设计和训练目标直接相关；</li>
-      <li>作者通过消融实验说明，若拿掉关键模块，性能与结果质量会明显回落；</li>
-      <li>论文不仅关注数值对比，也关注可视化质量、稳定性或可控性等更接近真实应用的信号。</li>
+      <li>方法在核心指标上的优势与结构设计和训练目标直接相关；</li>
+      <li>消融实验表明，拿掉关键模块后性能与结果质量都有明显回落；</li>
+      <li>论文不仅比较数值，也关注可视化质量、稳定性和泛化能力等更贴近真实使用的信号。</li>
     </ul>
-    <p>
-      因此，实验部分最重要的阅读方式不是死记某一列数字，而是看清：作者究竟想证明哪个机制有效、这个机制的收益是在什么设置下成立、它是否有明显的边界条件。
-    </p>
 
     <h2 id='takeaway'>理解评价</h2>
+    <p>在这项工作中，我们解决了稀疏视图下 3DGS 严重的过拟合问题。我们首先发现现有的基于独立随机 Dropout 的方法源于高斯的空间冗余，这使得局部补偿效应破坏了正则化强度。我们进一步观察到，高次球谐系数会导致 3DGS 中的过度拟合。为此，我们提出了一种新颖的 Dropout 策略，该策略丢弃整个空间区域而不是孤立的高斯分布，并有效地破坏局部信息依赖性，迫使模型学习更强大的全局场景表示。此外，我们将 Dropout 扩展到外观属性，以减少过度拟合并实现训练后的可扩展性。我们的方法简单而有效，显着增强了有限视图条件下的 3DGS 及其变体。</p>
     <p>
-      从研究定位上看，这篇论文的意义在于它没有把问题局限在某一个局部改动，而是尝试给出一套更完整的求解路径。对读者而言，最值得关注的是它如何重新组合表示、模块和训练目标，以及这些设计是否能迁移到相近任务上。
+      如果把它当成研究参考，建议重点关注三件事：第一，这套方法真正依赖的归纳偏置是什么；第二，实验中真正拉开差距的模块是哪一个；第三，它的局限究竟来自数据、算力还是监督信号本身。
     </p>
     <p>
-      如果把它当成研究参考，我会重点看三件事：
-      第一，这套方法的核心归纳偏置是什么；
-      第二，实验中真正拉开差距的模块是哪一块；
-      第三，它的限制条件是数据、算力、时序长度，还是奖励/监督信号本身。
-    </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>limitations in these approaches:</li><li>Introduction Realistic novel view synthesis (NVS) remains a central challenge in computer vision and graphics.</li></ul></div>
-    <p>
-      进一步延伸阅读时，可以把这篇工作放到更广泛的技术脉络里：它与同类方法相比，到底是在表示层、生成层、优化层还是评估层提出了更强的方案。下面这些自动检索到的相关论文可作为继续追踪的入口：
+      以下相关论文可以作为进一步追踪的入口：
     </p>
     <ul></ul>
 
     <div class='tip'>
       <strong>一句结论：</strong>
-      这篇论文值得读的原因，不只是它给出了一组更好的结果，而是它提供了一条相对完整的问题求解思路：如何把任务定义、方法设计与实验验证真正对齐到同一条研究主线上。
+      这篇论文值得关注的地方在于，它不只给出了更好的实验结果，更提供了一条相对完整的问题求解路径，把任务定义、方法设计与实验验证真正对齐到了同一条研究主线上。
     </div>
   </article>
 </div>
+
   </div>
 </div>
 </body>
