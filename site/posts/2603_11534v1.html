@@ -70,7 +70,7 @@
     blockquote { margin: 16px 0; padding: 8px 16px; border-left: 4px solid #d8e7ff; background: #f8fbff; color: #333; }
     .tip { background: #f7f9fc; border: 1px solid #e8eef6; border-radius: 10px; padding: 12px; }
     .dashboard-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-top:18px; }
-    .dashboard-card { aspect-ratio: 1 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
+    .dashboard-card { aspect-ratio: 1.618 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
     .dashboard-card > * { min-width: 0; }
     .dashboard-card .dashboard-content { display:flex; flex-direction:column; height:100%; min-height:0; }
     .dashboard-card .dashboard-scroll { overflow:auto; min-height:0; }
@@ -130,10 +130,28 @@
     });
   </script>
 
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\(', '\)']],
+        displayMath: [['$$', '$$'], ['\[', '\]']]
+      },
+      svg: { fontCache: 'global' },
+      startup: {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady().then(() => {
+            requestAnimationFrame(applyPageScale);
+          });
+        }
+      }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
+
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
 
@@ -143,94 +161,131 @@
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      这篇论文关注的是“Risk-Controllable 所对应的问题能否在更可控、更稳健或更高质量的条件下被解决”。从摘要与方法描述来看，作者的总体路线是：先搭建一个明确的表示或生成框架，再围绕训练目标、结构设计和实验验证把该问题推进到更可用的工程形态。
+      这篇论文围绕“Risk-Controllable 所对应的研究问题”提出了一套完整方案：先明确任务目标与现有瓶颈，再通过新的表示、模块或训练目标把问题收敛成一条更稳定的工程链路，最后用实验验证该设计在质量、效率、可控性或泛化性上的改进。
     </div>
 
     <h2 id='summary'>简单摘要</h2>
     <p>
-      从论文摘要可以看出，这项工作的落点并不是单纯提升一个局部模块，而是围绕完整任务链路做系统设计。它通常会同时回答三个问题：任务为什么重要、现有方法卡在哪里、作者的新方案如何绕开这些瓶颈。
-      就这篇论文而言，摘要部分强调的核心是：<strong>Generating safety-critical driving scenarios is crucial for evaluating and improving autonomous driving systems, but long-tail risky situations are rarely observed in real-world d…</strong>
+      这篇工作的落点不是只改进一个局部模块，而是围绕完整任务链路重新组织系统设计。作者首先回答“为什么这个问题值得做”，接着说明现有方案为什么不足，最后再解释自己的方法如何把表示、训练和推理串成一条更可行的路径。
     </p>
     <p>
-      如果把它放进更大的技术背景中理解，可以把这篇论文视作一条“问题定义 → 表示设计 → 训练优化 → 实验验证”的完整研究闭环。也就是说，作者并不是只给出一个孤立模块，而是希望通过一整套方法让系统在真实场景或关键指标上取得更稳定提升。
+      按照论文摘要的原意，这篇工作最关键的信息可以概括为：生成安全关键的驾驶场景对于评估和改进自动驾驶系统至关重要，但长尾风险情况在现实数据中很少观察到，并且很难通过手动场景设计来指定。现有的生成方法通常将风险视为事后标签，并且很难在多视图驾驶场景中保持几何一致性。我们提出了 RiskMV-DPO，这是一个通用且系统的管道，用于生成物理信息丰富、风险可控的多视图场景。通过将目标风险水平与基于物理的风险模型相结合，我们自动合成多样化且高风险的动态轨迹，作为基于扩散的视频生成器的显式几何锚点。为了确保时空一致性和几何保真度，我们引入了几何外观对齐模块和具有运动感知掩蔽的区域…
     </p>
-    <figure><img class='paper-fig' src='../assets/2603_11534v1/fig_1.png' alt='Figure 1:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 1：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 1 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_11534v1/fig_2.png' alt='Figure 2:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 2：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 2 from the source paper.</figcaption></figure>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>We present RiskMV-DPO, a general and systematic pipeline for physically-informed, risk-controllable multi-view scenario generation.</li></ul></div>
+    <p>
+      如果把它放在更大的技术脉络里理解，这篇论文可以视为“问题定义 → 方法设计 → 优化训练 → 实验验证”的完整闭环，而不是只给出一个孤立技巧。这样的工作更适合被写成博客精读，因为它的价值不在某一行代码，而在整条设计链路为什么成立。
+    </p>
+    <figure><img class='paper-fig' src='../assets/2603_11534v1/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：使用建议的每帧风险量化在典型左转场景中挖掘潜在风险的示例。
+ 这些数字表示该位置的自我车辆的风险系数。
+ (a) 在无信号灯的交叉路口，有迎面直行车辆的无保护左转。
+ (b) 平行左转弯，横向间隙较小。
+ (c) 左转，然后经过附近的停车场出口，形成局部盲点。</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_11534v1/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：拟议的 RiskMV-DPO 框架概述。给定多视图观察和场景上下文，风险控制模块在指定风险级别生成的轨迹和 3D 边界框被用作结构化运动条件。
+多模态编码器嵌入视图标记和运动线索，然后将其注入由空间和时间 STDiT3 块组成的扩散主干中。
+区域感知 DPO 进一步将生成过程与局部动态区域对齐，生成与指定的风险条件运动一致的时间连贯的多视图驾驶视频。</figcaption></figure>
+    <div class='card'><strong>摘要中文转述：</strong><p>生成安全关键的驾驶场景对于评估和改进自动驾驶系统至关重要，但长尾风险情况在现实数据中很少观察到，并且很难通过手动场景设计来指定。现有的生成方法通常将风险视为事后标签，并且很难在多视图驾驶场景中保持几何一致性。我们提出了 RiskMV-DPO，这是一个通用且系统的管道，用于生成物理信息丰富、风险可控的多视图场景。通过将目标风险水平与基于物理的风险模型相结合，我们自动合成多样化且高风险的动态轨迹，作为基于扩散的视频生成器的显式几何锚点。为了确保时空一致性和几何保真度，我们引入了几何外观对齐模块和具有运动感知掩蔽的区域感知直接偏好优化（RA-DPO）策略，以将学习重点放在局部动态区域上。 nuScenes 数据集上的实验表明，RiskMV-DPO 可以自由生成各种不同的长尾场景，同时保持最先进的视觉质量，将 3D 检测 mAP 从 18.17 提高到 30.50，并将 FID 降低到 15.70。我们的工作将世界模型的作用从被动环境预测转变为主动、风险可控的综合，为以安全为导向的实体智能开发提供可扩展的工具链。</p></div>
 
     <h2 id='innovation'>核心创新</h2>
     <p>
-      对照引言与方法部分，这篇论文的创新点主要体现在“如何重新组织问题求解链路”上。相比简单替换一个 backbone 或增加一个 loss，作者更像是在重新定义系统的关键接口与约束方式。
+      对照引言与方法部分可以看出，这篇论文的创新点并不只是“做了一个新模块”，而是重新组织了问题的求解顺序与约束方式。作者更关心的是如何把任务定义、表示设计、训练目标和实验验证压到同一条主线上。
     </p>
     <h3>1）从任务设定上重新界定问题边界</h3>
     <p>
-      论文强调的问题并不只是已有方案做得不够好，而是很多现有方法在目标可控性、泛化范围、效率约束或结构一致性上存在天然短板。因此作者先重述了任务定义，再围绕新的目标函数和场景假设去设计整体方案。
+      作者首先重述了任务本身：到底什么才是这个问题里真正重要、且现有方法长期处理不好的部分。只有把问题边界说清楚，后续的新结构与新损失才有意义。
     </p>
     <h3>2）用统一框架串起表示、推理和优化</h3>
     <p>
-      从原文描述看，这篇论文并不是把多个模块松散拼接，而是在一个统一框架里安排表示形式、关键模块和训练信号，使它们彼此服务。这类设计往往决定了方法能否真正具备工程可落地性。
+      从原文来看，作者并不是把很多模块松散拼在一起，而是在一个统一框架中安排中间表示、关键网络和训练目标，使它们彼此约束、彼此服务。这类设计通常决定了方法是否真的具备可复现与可落地性。
     </p>
     <h3>3）把实验目标直接对齐到实际痛点</h3>
     <p>
-      论文中的实验不仅比较常规 benchmark，也会额外关注更贴近实际系统需求的指标，例如稳定性、控制性、质量上界、对长尾场景的适应能力等。换句话说，它不是只追求单一数值，而是试图证明整套系统在真实使用方式下也成立。
+      论文中的实验不只是追求一个漂亮数字，而是尽量把评价方式对齐到真实使用情境，例如质量、稳定性、可控性、几何一致性或长尾场景下的可用性。这样实验结论才真正能支撑方法设计本身。
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>We present RiskMV-DPO, a general and systematic pipeline for physically-informed, risk-controllable multi-view scenario generation.</li><li>arXiv:2603.11534v1 [cs.CV] 12 Mar 2026 Risk-Controllable Multi-View Diffusion A PREPRINT At the same time, the multi-view, outdoor, dynamic nature of driving scenes introduces a second bottleneck:</li><li>geometry and robustness Cai et al.</li></ul></div>
+    <div class='card'><strong>创新点中文提炼：</strong><p>自动驾驶系统最终取决于它们在开放世界中的安全性和可靠性，包括罕见但安全关键的事件。由于现实世界的日志对这些情况的采样不足，因此驾驶场景生成对于数据增强、压力测试和系统安全评估至关重要。由于量产车辆严重依赖摄像头套件，因此生成时间连贯、多视图一致的驾驶序列尤其有价值。尽管进展迅速，但生成长尾风险场景仍然是一个重大瓶颈。常见的做法是生成大量的驾驶场景，然后挖掘罕见事件，但真正的高风险情况发生的概率极低。另一种做法是通过指定参数（例如接近碰撞或道路入侵）来手工制作场景。在提供直接控制的同时，这些“采样和过滤”或手动设计方法不可避免地反映了人类的先验，并且缺乏综合巨大的、非直观的危险相互作用空间的效率。缺少的是一个通用的管道，将“风险”从事后标签转变为主动的、时间分辨的控制信号，可以自主指导各种长尾危害的综合。与此同时，驾驶场景的多视图、户外、动态性质引入了第二个瓶颈：几何和鲁棒性……</p></div>
 
     <h2 id='technical'>技术细节</h2>
     <p>
-      方法部分是理解论文价值的关键。结合原文可以看到，作者通常会先定义输入输出，再介绍中间表示、主干模块、损失函数或奖励机制，最后说明训练与推理时各模块如何协同。
-      对这篇论文而言，方法线索主要集中在以下几个方面：
+      方法部分是理解论文价值的核心。阅读这类论文时，最重要的不是背结论，而是看清楚：输入是什么，中间表示是什么，关键模块如何传递信息，损失或奖励又如何把模型推向作者想要的解。
     </p>
     <h3>3.1 方法主线与模块组织</h3>
     <p>
-      根据方法章节可知，作者首先构建了一个核心表示或中间条件，再通过若干模块把它逐步转换为最终输出。这种结构的优势在于：每个模块都承担明确职责，既便于解释，也更便于在实验中做模块级消融。
-      原文中与主线最相关的描述包括：
+      从方法章节来看，作者首先构建了一个核心表示或条件变量，再通过若干模块逐步把它变成最终输出。这种设计的优势在于：每个模块都有明确职责，既便于解释，也方便在实验中做消融分析。
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>To ensure spatial-temporal coherence and geometric fidelity, we introduce a geometry-appearance alignment module and a region-aware direct preference optimization (RA-DPO) strategy with motion-aware masking to focus learning on localized dynamic regions.</li><li>RISK-CONTROLLABLE MULTI-VIEW DIFFUSION FOR DRIVING SCENARIO GENERATION A PREPRINT Hongyi Lin1,2 Wenxiu Shi3 Heye Huang4* Dingyi Zhuang2* Song Zhang5 Yang Liu1 Xiaobo Qu1 Jinhua Zhao2 1School of Vehicle and Mobility, Tsinghua University, China 2Department of U…</li></ul></div>
+    <div class='card'><strong>方法中文拆解：</strong><p>驾驶场景生成的风险可控多视图扩散 A 预印本 Hongyi Lin1,2 Wenxiu Shi3 Heye Huang4* Dingyi Zhuang2* Song Zhu5 Yang Liu1 Xiaobo Qu1 Jinhua Zhao2 1中国清华大学车辆与交通学院 2美国麻省理工学院城市研究与规划系 3Z-one科技有限公司4新加坡-麻省理工研究技术联盟，新加坡5成都天府英沃科技有限公司摘要生成安全关键的驾驶场景对于评估和改进自动驾驶系统至关重要，但长尾风险情况在现实数据中很少观察到，并且很难通过手动场景设计来指定。现有的生成方法通常将风险视为事后标签，并且很难在多视图驾驶场景中保持几何一致性。我们提出了 RiskMV-DPO，这是一个通用且系统的管道，用于生成物理信息丰富、风险可控的多视图场景。通过将目标风险水平与基于物理的风险模型相结合，我们自动合成多样化且高风险的动态轨迹，作为基于扩散的视频生成器的显式几何锚点。为了确保时空一致性和几何保真度，我们引入了几何外观对齐模块和具有运动感知掩蔽的区域感知直接偏好优化（RA-DPO）策略，以将学习重点放在局部动态区域上。 nuScenes 数据集上的实验表明，RiskMV-DPO 可以自由生成各种不同的长尾场景，同时保持最先进的视觉质量，将 3D 检测 mAP 从 18.17 提高到 30.50，并将 FID 降低到 15.70。我们的工作将世界模型的作用从被动环境预测转变为主动、风险可控的综合，为以安全为导向的实体智能开发提供可扩展的工具链。关键词 自动驾驶，驾驶场景生成，风险可控生成，多视点视频扩散，直接偏好优化 1 引言 自动驾驶系统最终取决于其在开放世界中的安全可靠程度，包括罕见但安全关键的事件。 [2026]，何等人。 [2025a]，费等人。 [2024]。由于现实世界的日志对这些情况的采样不足，驾驶场景生成对于数据增强、压力测试和系统安全评估变得至关重要。 [2025]，林等人。 [2023]，王等人。 [2025a]。
+
+由于量产车辆严重依赖摄像头套件，因此生成时间连贯、多视图一致的驾驶序列尤其有价值。 [2025]，林等人。 [2025a]。尽管取得了快速进展，但生成长尾风险场景仍然是一个重大瓶颈 He 等人。 [2025b]。常见的做法是生成大量驾驶场景，然后挖掘罕见事件，但真正的高风险情况发生的概率极低。 [2024]。另一种做法是通过指定参数（例如接近碰撞或道路入侵）来手工制作场景 Xu 等人。 [2025]。在提供直接控制的同时，</p></div>
+    <div class='card'><strong>方法关键点：</strong><p>驾驶场景生成的风险可控多视图扩散 A 预印本 Hongyi Lin1,2 Wenxiu Shi3 Heye Huang4* Dingyi Zhuang2* Song Zhu5 Yang Liu1 Xiaobo Qu1 Jinhua Zhao2 1中国清华大学车辆与交通学院 2美国麻省理工学院城市研究与规划系 3Z-one科技有限公司4新加坡-麻省理工研究技术联盟，新加坡5成都天府英沃科技有限公司摘要生成安全关键的驾驶场景对于评估和改进自动驾驶系统至关重要，但长尾风险情况在现实数据中很少观察到，并且很难通过手动场景设计来指定。现有的生成方法通常将风险视为事后标签，并且很难在多视图驾驶场景中保持几何一致性。我们提出了 RiskMV-DPO，这是一个通用且系统的管道，用于生成物理信息丰富、风险可控的多视图场景。通过将目标风险水平与基于物理的风险模型相结合，我们自动合成多样化且高风险的动态轨迹，作为基于扩散的视频生成器的显式几何锚点。为了确保时空一致性和几何保真度，我们引入了几何外观对齐模块和区域感知直接偏好优化（RA-...</p></div>
     <h3>3.2 训练目标、损失与公式信号</h3>
     <p>
-      论文里的公式通常承担两类角色：一种是定义模型的预测关系与变量约束，另一种是定义优化时真正驱动模型更新的目标函数。阅读这类论文时，关键不是死记公式外形，而是理解每个公式分别在“表达结构”还是“约束行为”上发挥作用。
+      论文里的公式通常承担两类角色：一类是定义变量之间的结构关系，另一类是定义优化时真正推动模型收敛的损失或目标函数。理解公式时，不应只看符号本身，而应看每一项在约束什么、强调什么、解决什么问题。
     </p>
-    <div class='card'><strong>公式 / 指标片段 1：</strong><pre>3D detection mAP from 18.17 to 30.50 and reducing FID to 15.70. Our work shifts the role of world</pre></div><div class='card'><strong>公式 / 指标片段 2：</strong><pre>We consider the task of generating multi-view driving scenarios at a user-specified risk level. Let V = {1, . . . , V }</pre></div><div class='card'><strong>公式 / 指标片段 3：</strong><pre>denote the camera set and I1:T = {Iv</pre></div><div class='card'><strong>公式 / 指标片段 4：</strong><pre>U = g(I1:T , M, y, r∗) .</pre></div>
+    <div class='card'><strong>公式 1</strong><p>$$ \mathbf{U}=\Big\{\big(\mathbf{x}^{a}_{1:H},\mathbf{b}^{a}_{1:H}\big)\Big\}_{a\in\mathcal{A}} .
+\label{eq:motion-control-signal} $$</p><p>* r^*_1:H H A a A U 作为未来轨迹和 3D 边界框的集合：为了实现风险可控的合成，我们将过程解耦为两个阶段。首先，风险控制模块根据目标风险生成基于物理的运动：其次，多视图扩散生成器渲染未来</p><p>进一步理解时，可以把这条公式拆成“被求解的对象”“约束项/损失项”“它对训练或推理带来的效果”三部分来读，这也是论文方法成立的核心原因。</p></div><div class='card'><strong>公式 2</strong><p>$$ \mathbf{U}=g\!\left(\mathbf{I}_{1:T},\mathbf{M},\mathbf{y},\mathbf{r}^{*}\right).
+\label{eq:risk-conditioned-motion} $$</p><p>作为未来轨迹和 3D 边界框的集合：为了实现风险可控的合成，我们将过程解耦为两个阶段。首先，风险控制模块根据目标风险生成基于物理的运动：其次，多视图扩散生成器根据目标风险渲染未来帧……</p><p>进一步理解时，可以把这条公式拆成“被求解的对象”“约束项/损失项”“它对训练或推理带来的效果”三部分来读，这也是论文方法成立的核心原因。</p></div><div class='card'><strong>公式 3</strong><p>$$ \hat{\mathbf{I}}_{T+1:T+H}=f\!\left(\mathbf{I}_{1:T},\mathbf{M},\mathbf{y},\mathbf{U}\right).
+\label{eq:multi-view-generation} $$</p><p>t，风险控制模块根据目标风险生成基于物理的运动：其次，多视图扩散生成器根据结构化运动控制渲染未来帧：我们的目标是生成多样化的长尾场景，其中诱发的风险匹配，同时保留交叉v…</p><p>进一步理解时，可以把这条公式拆成“被求解的对象”“约束项/损失项”“它对训练或推理带来的效果”三部分来读，这也是论文方法成立的核心原因。</p></div><div class='card'><strong>公式 4</strong><p>$$ \label{eq:rel_vec}
+\mathbf{r}_i^t = \mathbf{p}_i^t - \mathbf{p}_e^t,\;
+\hat{\mathbf{r}}_i^t = \frac{\mathbf{r}_i^t}{\lVert \mathbf{r}_i^t \rVert_2 + \epsilon}. $$</p><p>es 可从日志或注释中获取。我们计算每个智能体的风险贡献，并可选择将它们聚合成每帧标量风险。我们的公式遵循 RiskNet 中受现场启发、方向感知的风险建模原则，并使其适应高效的每帧计算。让亲戚流离失所……</p><p>进一步理解时，可以把这条公式拆成“被求解的对象”“约束项/损失项”“它对训练或推理带来的效果”三部分来读，这也是论文方法成立的核心原因。</p></div><div class='card'><strong>公式 5</strong><p>$$ \label{eq:dot_cues}
+d_{e\rightarrow i}^t = (\mathbf{v}_e^t)^\top \mathbf{r}_i^t,
+\qquad
+d_{i\rightarrow e}^t = (\mathbf{v}_i^t)^\top (-\mathbf{r}_i^t). $$</p><p>t ，并使其适应高效的每帧计算。令相对位移及其单位方向为 我们使用两个点积来表示 ego 和 agent 是否正在向彼此移动：较大的正值意味着 ego 正在向 agent 移动，而较大的正值意味着 agent 正在向 ego 移动。莫…</p><p>进一步理解时，可以把这条公式拆成“被求解的对象”“约束项/损失项”“它对训练或推理带来的效果”三部分来读，这也是论文方法成立的核心原因。</p></div><div class='card'><strong>公式 6</strong><p>$$ \label{eq:interaction}
+\omega_i^t =
+\begin{cases}
+\omega_{\mathrm{bi}}, &amp; d_{e\rightarrow i}^t&gt;0~\wedge~ d_{i\rightarrow e}^t&gt;0,\\
+\omega_{\mathrm{agent}}, &amp; d_{e\rightarrow i}^t\le 0~\wedge~ d_{i\rightarrow e}^t&gt;0,\\
+\omega_{\mathrm{ego}}, &amp; d_{e\rightarrow i}^t&gt;0~\wedge~ d_{i\rightarrow e}^t\le 0,\\
+\omega_{\mathrm{away}}, &amp; \text{otherwise}.
+\end{cases} $$</p><p>t = (v_e^t)^ r_i^t, d_i e^t = (v_i^t)^ (-r_i^t)。方程 较大的正数意味着自我正在向代理人移动，而较大的正数意味着代理人正在向自我移动。此外，我们将接近的线索映射到反映不对称驾驶风险的离散交互权重：通常是最大的，因为......</p><p>进一步理解时，可以把这条公式拆成“被求解的对象”“约束项/损失项”“它对训练或推理带来的效果”三部分来读，这也是论文方法成立的核心原因。</p></div>
     <p>
-      从这些公式与周边段落可以推断，作者想要的不只是局部误差最小化，而是通过更精细的目标设计，让模型在结构一致性、生成质量、时序稳定性或可控性等方面同时受约束。这也是很多新方法能真正优于 baseline 的原因。
+      从这些公式及其上下文可以看出，作者追求的并不只是某个局部误差变小，而是希望通过更精细的目标设计，使模型在结构一致性、生成质量、时序稳定性、语义可控性或物理合理性等方面同时受约束。这往往是新方法真正超过 baseline 的关键原因。
     </p>
-    <h3>3.3 把全文方法串起来理解</h3>
+    <h3>3.3 全部图示与模块可视化</h3>
     <p>
-      如果把这篇论文的方法看成一条流水线，那么它的逻辑通常是：先把输入变成一个更适合推理的中间表示，再围绕该表示施加关键模块与训练目标，最后把输出落到可评估、可可视化的结果上。
-      这种“表示—模块—目标—结果”的闭环设计，是本页所锁定模板最想强调的部分，因为它比零散摘录更能帮助后续复现与横向比较。
+      下面按论文中的图序展示全部已抽取图示。每张图都配有完整中文图注，便于把文字中的方法逻辑与可视化结果对应起来看。
+    </p>
+    <figure><img class='paper-fig' src='../assets/2603_11534v1/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：使用建议的每帧风险量化在典型左转场景中挖掘潜在风险的示例。
+ 这些数字表示该位置的自我车辆的风险系数。
+ (a) 在无信号灯的交叉路口，有迎面直行车辆的无保护左转。
+ (b) 平行左转弯，横向间隙较小。
+ (c) 左转，然后经过附近的停车场出口，形成局部盲点。</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_11534v1/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：拟议的 RiskMV-DPO 框架概述。给定多视图观察和场景上下文，风险控制模块在指定风险级别生成的轨迹和 3D 边界框被用作结构化运动条件。
+多模态编码器嵌入视图标记和运动线索，然后将其注入由空间和时间 STDiT3 块组成的扩散主干中。
+区域感知 DPO 进一步将生成过程与局部动态区域对齐，生成与指定的风险条件运动一致的时间连贯的多视图驾驶视频。</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_11534v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：RiskMV-DPO 在不同目标风险分位数生成的定性示例。
+ 分位数表示所有生成场景中诱发风险系数的相对位置。
+ (a) 风险较高：在部分遮挡的情况下，无信号交叉口与一辆快速左转重型卡车距离非常近。
+ (b) 中等风险：与较慢的转弯和较大的间隙相同的相互作用，降低了接近碰撞的风险。
+ (c) 较低风险：常见的直行场景，没有直接冲突。</figcaption></figure>
+    <p>
+      如果把全文方法串起来看，这篇论文的逻辑基本都遵循同一条主线：先把输入组织成更容易处理的表示，再通过模型结构和损失函数把这个表示推向目标输出，最后用可视化与数值实验共同证明该设计有效。把这条主线看清楚，比死记某个局部模块更重要。
     </p>
 
     <h2 id='experiment'>实验结论</h2>
     <p>
-      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，优势究竟来自哪个模块。对这篇论文来说，实验设计明显围绕“与现有方法的对比 + 对关键组件的消融”展开。
+      实验部分主要回答两个问题：第一，这个方法是否真的优于已有基线；第二，这种优势究竟来自哪一个设计决策。只有这两个问题回答清楚，论文的方法贡献才算真正成立。
     </p>
     <p>
-      从实验段落的关键词和结果描述看，论文最想传达的结论包括：
+      按照实验章节原文，这篇论文想强调的核心结论主要包括：
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>Experiments on the nuScenes dataset show that RiskMV-DPO can freely generate a wide spectrum of diverse long-tail scenarios while maintaining state-of-the-art visual quality, improving 3D detection mAP from 18.17 to 30.50 and reducing FID to 15.70.</li><li>To ensure spatial-temporal coherence and geometric fidelity, we introduce a geometry-appearance alignment module and a region-aware direct preference optimization (RA-DPO) strategy with motion-aware masking to focus learning on localized dynamic regions.</li></ul></div>
-    <figure><img class='paper-fig' src='../assets/2603_11534v1/fig_3.png' alt='Figure 3:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 3：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 3 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_11534v1/fig_4.png' alt='Figure 4:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 4：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 4 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_11534v1/fig_5.png' alt='Figure 5:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 5：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 5 from the source paper.</figcaption></figure>
+    <div class='card'><strong>实验中文转述：</strong><p>实验设置我们使用 MagicDrive-STDiT3 主干在 nuScenes 数据集上进行实验。我们使用 700 个场景进行训练，150 个场景进行评估。所有视频均按每个摄像机的分辨率进行处理，每个剪辑都包含帧。我们将 RiskMV-DPO 与 MagicDriveV2、DriveDreamer-2 和 Panacea 进行比较，并报告我们组件的消融情况。我们报告了八个指标，涵盖视觉保真度、时间质量和多视图几何一致性。 FID 衡量整体视觉质量，FVD 衡量时间相干性。我们使用来自应用于生成视频的预训练 3D 检测器的 mAP 来评估 3D 真实感。为了评估多视图一致性，我们报告了在相邻相机之间的重叠区域上计算的 MV-SSIM。对于几何精度，我们使用 VGGT 预测深度与参考深度来报告 Depth AbsRel。我们进一步报告了裁剪后的前景对象上的前景 FID (Fg-FID) 和 DINO 特征空间中的 DINO-FID，以实现语义保真度。我们从 MagicDriveV2 检查点进行初始化，并使用 AdamW 训练 20,000 步。我们在 8 个 GPU 上使用每个 GPU 的学习率和批量大小 2。我们采用 BF16 训练和具有衰减的 EMA 模型。可训练参数包括 VGGT 几何适配器 (45M)、GAM 模块 (12M) 和运动掩模生成器 (M)，在 2.5B 扩散骨干网之上总共有 58M 可训练参数。所有实验均在 NVIDIA H800-90GB GPU 上运行。主要结果经过大量实验，我们发现在指定风险控制下生成的轨迹和 3D 边界框会产生其测量风险与目标值紧密匹配的合成场景。由于篇幅限制，我们在此省略详细分析。表报告了 nuScenes 的定量结果。 RiskMV-DPO 相对于 MagicDriveV2 实现了一致的改进。它将 FID 从 20.91 降低至 15.70，并将 FVD 从 94.84 提高至 87.65，表明视觉保真度和时间连贯性更好。它还将 3D 检测 mAP 从 18.17 大幅提高到 30.50，这表明生成的视频包含更真实且几何一致的 3D 线索。与其他最新方法相比，RiskMV-DPO 优于 DriveDreamer-2 (FID 25.00 15.70) 和 Panacea (FID 16.96 15.70)。消融研究表评估了我们框架中关键组件的贡献。从基线 (A) 开始，引入随机掩模 DPO (B) 略微提高了时间质量和几何一致性，但 FID 保持不变。
+
+用运动感知掩码替换随机掩码 (C) 会产生更清晰的增益，改善 FID (20.91 19.42) 和 MV-SSIM (0.812 0.825)，表明对动态区域进行集中训练可提供信息更丰富的局部偏好信号。使用 3D 多视图掩模 (D) 进一步增强跨视图一致性，改进……</p></div>
+    <div class='card'><strong>实验结论提炼：</strong><p>实验设置我们使用 MagicDrive-STDiT3 主干在 nuScenes 数据集上进行实验。我们使用 700 个场景进行训练，150 个场景进行评估。所有视频均按每个摄像机的分辨率进行处理，每个剪辑都包含帧。我们将 RiskMV-DPO 与 MagicDriveV2、DriveDreamer-2 和 Panacea 进行比较，并报告我们组件的消融情况。我们报告了八个指标，涵盖视觉保真度、时间质量和多视图几何一致性。 FID 衡量整体视觉质量，FVD 衡量时间相干性。我们使用来自应用于生成视频的预训练 3D 检测器的 mAP 来评估 3D 真实感。为了评估多视图一致性，我们报告了在相邻相机之间的重叠区域上计算的 MV-SSIM。对于几何精度，我们使用 VGGT 预测深度与参考深度来报告 Depth AbsRel。我们进一步报告了裁剪后的前景对象上的前景 FID (Fg-FID) 和 DINO 特征空间中的 DINO-FID，以实现语义保真度。我们从 MagicDriveV2 检查点进行初始化，并使用 AdamW 训练 20,000 步。我们在 8 个 GPU 上使用每个 GPU 的学习率和批量大小 2。我们采用 BF16 训练和具有衰减的 EMA 模型。可训练参数包括 VGGT 几何适配器 (45M)、GAM 模块 (12M) 和运动掩模生成器 (M)，在 2.5B 扩散骨干网之上总共有 58M 可训练参数。所有实验均进行...</p></div>
     <ul>
-      <li>方法在主任务指标上不是偶然提升，而是与其结构设计和训练目标直接相关；</li>
-      <li>作者通过消融实验说明，若拿掉关键模块，性能与结果质量会明显回落；</li>
-      <li>论文不仅关注数值对比，也关注可视化质量、稳定性或可控性等更接近真实应用的信号。</li>
+      <li>方法在核心任务指标上的优势不是偶然的，而是与结构设计和训练目标直接相关；</li>
+      <li>消融实验说明，一旦拿掉关键模块或关键约束，模型性能与结果质量都会明显回落；</li>
+      <li>论文不仅比较数值，也比较可视化质量、稳定性、控制性和泛化能力等更接近真实使用的信号。</li>
     </ul>
     <p>
-      因此，实验部分最重要的阅读方式不是死记某一列数字，而是看清：作者究竟想证明哪个机制有效、这个机制的收益是在什么设置下成立、它是否有明显的边界条件。
+      因此，实验部分最重要的阅读方式并不是死记某一列数字，而是看清：作者究竟在证明哪个机制有效、这个机制的收益在什么设置下成立，以及它是否存在明显边界条件。
     </p>
 
     <h2 id='takeaway'>理解评价</h2>
     <p>
-      从研究定位上看，这篇论文的意义在于它没有把问题局限在某一个局部改动，而是尝试给出一套更完整的求解路径。对读者而言，最值得关注的是它如何重新组合表示、模块和训练目标，以及这些设计是否能迁移到相近任务上。
+      从研究定位上看，这篇论文的意义不在某一个局部 trick，而在于它试图给出一条较完整的问题求解路径。对读者而言，最值得关注的是：它如何重组表示、模块和训练目标，以及这些设计是否能迁移到相近任务上。
     </p>
     <p>
-      如果把它当成研究参考，我会重点看三件事：
-      第一，这套方法的核心归纳偏置是什么；
-      第二，实验中真正拉开差距的模块是哪一块；
-      第三，它的限制条件是数据、算力、时序长度，还是奖励/监督信号本身。
+      如果把它当成研究参考，我建议重点看三件事：第一，这套方法真正依赖的归纳偏置是什么；第二，实验中真正拉开差距的是哪一个模块；第三，它的限制究竟来自数据、算力、时序长度，还是监督/奖励信号本身。
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>Our work shifts the role of world models from passive environment prediction to proactive, risk-controllable synthesis, providing a scalable toolchain for the safety-oriented development of embodied intelligence.</li></ul></div>
+    <div class='card'><strong>结论与局限中文转述：</strong><p>在本文中，我们提出了 RiskMV-DPO，这是一种通用且系统的管道，用于生成物理信息丰富、风险可控的多视图驾驶场景。它将驾驶风险从事后标签转变为指导场景生成的可操作控制信号。通过将风险条件运动合成与基于扩散的多视图视频生成相结合，该框架可生成与指定风险级别一致的时间连贯驾驶场景。 nuScenes 数据集上的实验结果表明，RiskMV-DPO 实现了最先进的性能，特别是将 3D 检测 mAP 提高到 30.50，并将 FID 降低到 15.70。更广泛地说，我们的工作强调了将风险感知建模与生成世界模拟相结合，以实现自动驾驶系统的安全开发的潜力。尽管取得了这些结果，但仍然存在一些局限性。虽然提出的风险建模框架捕获了一系列典型的交通交互，但复杂的现实环境中的许多潜在风险模式仍未得到充分探索。此外，整体性能取决于风险控制模块生成的轨迹和3D边界框的质量。提高风险条件运动生成的鲁棒性和通用性是未来研究的重要方向。</p></div>
+    <div class='card'><strong>进一步思考：</strong><p>在本文中，我们提出了 RiskMV-DPO，这是一种通用且系统的管道，用于生成物理信息丰富、风险可控的多视图驾驶场景。它将驾驶风险从事后标签转变为指导场景生成的可操作控制信号。通过将风险条件运动合成与基于扩散的多视图视频生成相结合，该框架可生成与指定风险级别一致的时间连贯驾驶场景。 nuScenes 数据集上的实验结果表明，RiskMV-DPO 实现了最先进的性能，特别是将 3D 检测 mAP 提高到 30.50，并将 FID 降低到 15.70。更广泛地说，我们的工作强调了将风险感知建模与生成世界模拟相结合，以实现自动驾驶系统的安全开发的潜力。尽管取得了这些结果，但仍然存在一些局限性。虽然提出的风险建模框架捕获了一系列典型的交通交互，但复杂的现实环境中的许多潜在风险模式仍未得到充分探索。此外，整体性能取决于风险控制模块生成的轨迹和3D边界框的质量。改善…</p></div>
     <p>
-      进一步延伸阅读时，可以把这篇工作放到更广泛的技术脉络里：它与同类方法相比，到底是在表示层、生成层、优化层还是评估层提出了更强的方案。下面这些自动检索到的相关论文可作为继续追踪的入口：
+      进一步延伸阅读时，可以把这篇工作放到更广泛的技术脉络里：它与同类方法相比，到底是在表示层、生成层、优化层还是评估层提出了更强的方案。下面这些相关论文可以作为继续追踪的入口：
     </p>
     <ul></ul>
 
@@ -240,6 +295,7 @@
     </div>
   </article>
 </div>
+
   </div>
 </div>
 </body>
