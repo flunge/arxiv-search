@@ -58,6 +58,8 @@ def test_build_blog_outputs_files(tmp_path: Path) -> None:
     assert "sidebar-toggle" in post_html
     assert "min-width: 900px" not in post_html
     assert "layout.sidebar-collapsed { grid-template-columns: minmax(0, 1fr); }" in post_html
+    assert "page-shell" in post_html
+    assert "applyPageScale" in post_html
     assert "站点概览" in home_html
     assert "当前涵盖领域" in home_html
     assert "分类目录" in home_html

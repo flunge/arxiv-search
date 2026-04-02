@@ -12,13 +12,33 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
       width: 100%;
       min-width: 0;
-      max-width: 980px;
+      max-width: none;
       box-sizing: border-box;
-      margin: 24px auto;
-      padding: 0 16px;
+      margin: 0;
+      padding: 0;
       line-height: 1.9;
       color: #1f1f1f;
       background: #fff;
+    }
+    .page-stage {
+      position: relative;
+      width: 100%;
+      min-height: 100vh;
+      padding: 24px 0 32px;
+      box-sizing: border-box;
+      overflow: hidden;
+    }
+    .page-shell {
+      position: absolute;
+      left: 50%;
+      top: 24px;
+      width: 980px;
+      max-width: 980px;
+      box-sizing: border-box;
+      padding: 0 16px;
+      transform-origin: top center;
+      transform: translateX(-50%) scale(1);
+      will-change: transform;
     }
     a { color: #1769c2; text-decoration: none; }
     a:hover { text-decoration: underline; }
@@ -55,25 +75,6 @@
     .layout.sidebar-collapsed .article { width: min(100%, 760px); max-width: min(100%, 760px); justify-self: center; margin-inline: auto; }
     blockquote { margin: 16px 0; padding: 8px 16px; border-left: 4px solid #d8e7ff; background: #f8fbff; color: #333; }
     .tip { background: #f7f9fc; border: 1px solid #e8eef6; border-radius: 10px; padding: 12px; }
-    @media (max-width: 768px) {
-      body {
-        max-width: 100%;
-        margin: 0 auto;
-        padding: 0 10px 24px;
-      }
-      h1 { font-size: 28px; }
-      .layout {
-        grid-template-columns: 88px minmax(0, 1fr);
-        gap: 14px;
-      }
-      .sidebar { top: 10px; padding-right: 10px; }
-      .sidebar-home-link { padding: 3px 8px; font-size: 11px; }
-      .sidebar-toggle { width: 28px; height: 28px; }
-      .layout.sidebar-collapsed .sidebar { left: 0; }
-      .layout.sidebar-collapsed .article { width: 100%; max-width: 100%; }
-      .card { padding: 12px; }
-      figure { margin: 18px 0; }
-    }
   </style>
   <script>
     window.MathJax = {
@@ -95,11 +96,31 @@
       button.setAttribute('aria-expanded', String(!collapsed));
       button.setAttribute('title', collapsed ? '展开目录' : '隐藏目录');
       button.innerHTML = collapsed ? '&#8250;' : '&#8249;';
+      requestAnimationFrame(applyPageScale);
     }
+
+    function applyPageScale() {
+      var stage = document.querySelector('.page-stage');
+      var shell = document.getElementById('page-shell');
+      if (!stage || !shell) return;
+
+      var designWidth = 980;
+      var viewportWidth = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
+      var availableWidth = Math.max(320, viewportWidth - 12);
+      var scale = Math.min(1, availableWidth / designWidth);
+      shell.style.transform = 'translateX(-50%) scale(' + scale + ')';
+      stage.style.height = Math.ceil(shell.offsetHeight * scale + 32) + 'px';
+    }
+
+    window.addEventListener('resize', applyPageScale);
+    window.addEventListener('orientationchange', applyPageScale);
+    document.addEventListener('DOMContentLoaded', applyPageScale);
   </script>
   <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 <body>
+<div class='page-stage'>
+  <div id='page-shell' class='page-shell'>
 
 <section class='card' style='padding:26px 24px;background:linear-gradient(135deg,#f8fbff 0%,#ffffff 100%);'>
   <h1 style='margin-top:6px;'>Raymond's Blogs</h1>
@@ -138,5 +159,7 @@
   </div>
 </section>
 
+  </div>
+</div>
 </body>
 </html>
