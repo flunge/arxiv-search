@@ -197,36 +197,48 @@
       下面按照论文的方法章节结构展开，重点说明模型的关键模块、公式设计和训练策略。
     </p>
     <p>PU-GAT：置信度单调注意力动机：为什么温度缩放失败考虑先前工作中使用的温度缩放注意力：不确定性仅影响 softmax 分布的温度——它无法区分置信和不确定的邻居。命题[温度尺度限制] 对于温度尺度注意力（方程 ），任意两个邻居之间的相对注意力比率与其不确定性无关： 。命题证明 温度在比率中抵消，因为它对所有 logits 的影响相同。证明具有单调性约束的成对不确定性机制定义[PU-GAT Attention] 设 为节点嵌入，为 不确定性估计。成对不确定性引导注意力是： 其中 与 可学习 ，确保 ， 是可学习的自循环偏差，可调节自注意力强度。 （自环偏置）的定义角色。该参数控制节点相对于邻居节点关注自身的程度。当 时，鼓励自我关注；当 时，邻居信息是优先的。与 共同学习。命题[置信度-单调注意力] 对于 的 PU-GAT，注意力比率满足： 该比率为： (1) 增加，(2) 减少，(3) 独立于 。命题证明见附录。备注[解释] 命题确立了 PU-GAT 实现了置信度单调注意力：当更自信（更小）或更不自信（更大）时，对邻居的相对注意力会增加。至关重要的是，该属性与源节点的不确定性无关——该机制比较邻居置信度，而不是源节点置信度。备注 跨层的不确定性传播 每个 PU-GAT 层都会更新特征和不确定性：Softplus 激活确保 .层的不确定性会影响层的注意力，从而创建不确定性感知的消息传递方案。双流时间分解流量表现出明显的趋势（每日/每周模式）和残留（事件、事故）成分。我们分解输入：每个流都有一个专用的 PU-GAT 编码器。综合不确定性解释了相关性：具有可学习的相关性。训练。我们使用异方差高斯 NLL（附录中的方程）。空间自适应共形校准神经网络的原始不确定性通常会被错误校准。我们应用分割共形预测和空间聚类进行异构校准：步骤 1：空间聚类。使用错误统计上的 k 均值，根据历史错误分布将节点划分为集群。步骤2：</p>
-    <p>每簇分位数。对于每个簇 ，计算校准数据的一致性分数： 和 分位数 。第 3 步：自适应更新。遵循 ACI，我们适应分配转变：可交换性合理性。校准和测试窗口不重叠，并以时间步长间隔（6 小时）分隔，以减轻时间依赖性。混合下：定理[混合下的覆盖率保证] 对于大小、校准测试间隙和 ACI 步长的簇校准集：定理证明。参见附录。该术语源于校准测试时间间隙，使得电视界限得到很好的控制......</p>
+    <p>每簇分位数。对于每个簇 ，计算校准数据的一致性分数： 和 分位数 。第 3 步：自适应更新。遵循 ACI，我们适应分配转变：可交换性合理性。校准和测试窗口不重叠，并以时间步长间隔（6 小时）分隔，以减轻时间依赖性。混合下：定理[混合下的覆盖率保证] 对于大小、校准测试间隙和 ACI 步长的簇校准集：定理证明。参见附录。该术语源于校准测试时间间隙，使电视界限得到很好的控制......</p>
     <p>$$ \alpha_{ij} = \text{softmax}_j\Big(e_{ij} + \underbrace{\text{Softplus}(\tilde{\gamma})}_{\gamma \geq 0}(\sigma_i - \sigma_j) + \delta \cdot \mathbf{1}[j = i]\Big)
 \label{eq:pugat_intro} $$</p>
     <p>
-      ed 模型误差（Lipschitz Lyapunov 函数），但很少经过经验验证。我们提出了 STREAM-RL，它具有三个方法论上完整的贡献来解决这些局限性：贡献 1：约束成对不确定性引导注意（PU-GAT）。我们引入了注意力系数，它明确地包含...
+      公式：\alpha_{ij} = \text{softmax}_j\Big(e_{ij} + \underbrace{\text{Softplus}(\tilde{\gamma})}_{\gamma \geq 0}(\sigma_i - \sigma_j) + \delta \cdot \mathbf{1}[j = i]\Big)
+\label{eq:pugat_intro}
+上下文：ed模型误差，Lipschitz Lyapunov函数）很少被经验验证。我们提出了 STREAM-RL，它具有三个方法论上完整的贡献来解决这些局限性：贡献 1：约束成对不确定性引导注意（PU-GAT）。我们引入了注意力系数，它明确地包含...
     </p>
     <p>$$ p_t^{(i)} = \frac{1 + \sum_{j \in \mathcal{C}_{\text{trim}}} \mathbf{1}[s_j \geq s_t^{(i)}]}{1 + |\mathcal{C}_{\text{trim}}|}
 \label{eq:pvalue_intro} $$</p>
     <p>
-      对邻居的关注严格增加。在保形包裹之前，我们通过具有显式校准诊断（PIT 直方图、可靠性图）的异方差高斯 NLL 进行训练。贡献 2：保形 P 值构建 (CRFN-BY)。我们采用 Benjamini-Yekutieli 程序以及精确指定的 p-...
+      公式：p_t^{(i)} = \frac{1 + \sum_{j \in \mathcal{C}_{\text{trim}}} \mathbf{1}[s_j \geq s_t^{(i)}]}{1 + |\mathcal{C}_{\text{trim}}|}
+\label{eq:pvalue_intro}
+上下文：对邻居的关注严格增加。在保形包裹之前，我们通过具有显式校准诊断（PIT 直方图、可靠性图）的异方差高斯 NLL 进行训练。贡献 2：保形 P 值构建 (CRFN-BY)。我们采用 Benjamini-Yekutieli 程序以及精确指定的 p-...
     </p>
     <p>$$ \varepsilon^* = \frac{\delta_{\text{slack}} + \kappa \cdot \bar{d}_C}{\bar{L}_L \cdot (1 + \bar{J}_W)}
 \label{eq:eps_star_intro} $$</p>
     <p>
-      Lipschitz 常数上的 lC_trim ^+ L_L J_W：在训练期间通过谱归一化（不是事后估计）强制执行界限，解决了先前工作中提出的理论假设和实际验证之间的差距。相关工作不确定性感知图神经网络。贝叶斯 GNN zhang2019bay…
+      公式：\varepsilon^* = \frac{\delta_{\text{slack}} + \kappa \cdot \bar{d}_C}{\bar{L}_L \cdot (1 + \bar{J}_W)}
+\label{eq:eps_star_intro}
+上下：lC_trim ^+ L_L J_W on Lipschitz Constants：在训练期间通过谱归一化（不是事后估计）强制执行界限，解决了先前工作中提出的理论假设和实际验证之间的差距。相关工作不确定性感知图神经网络。贝叶斯 GNN zhang2019bay…
     </p>
     <p>$$ \mathbb{P}(Y_{t+h}^{(i)} \in [L_{t+h}^{(i)}, U_{t+h}^{(i)}]) \geq 1 - \alpha, \quad \forall i, h
 \label{eq:coverage} $$</p>
     <p>
-      速度和密度测量。邻接矩阵编码空间连通性。研究问题。我们解决三个相互关联的挑战： RQ1（预测）：给定历史观察结果，预测未来状态，预测间隔满足：间隔尽可能紧密（高覆盖效率......
+      公式：\mathbb{P}(Y_{t+h}^{(i)} \in [L_{t+h}^{(i)}, U_{t+h}^{(i)}]) \geq 1 - \alpha, \quad \forall i, h
+\label{eq:覆盖范围}
+上下：速度和密度测量。邻接矩阵编码空间连通性。研究问题。我们解决三个相互关联的挑战： RQ1（预测）：给定历史观察结果，预测未来状态，预测间隔满足：间隔尽可能紧密（高覆盖效率......
     </p>
     <p>$$ \text{FDR} = \mathbb{E}\left[\frac{|\{i: H_i^0 \text{ true}, p_t^{(i)} \leq \tau\}|}{|\{i: p_t^{(i)} \leq \tau\}| \vee 1}\right] \leq \alpha
 \label{eq:fdr} $$</p>
     <p>
-      动作间隔满足：间隔尽可能紧凑（覆盖效率高）。 RQ2（异常检测）：为每个空间位置生成 p 值，以便控制错误发现率：在 p 值之间的任意时空依赖性下。 RQ3（安全控制）：学习政策最大化期望……
+      公式：\text{FDR} = \mathbb{E}\left[\frac{|\{i: H_i^0 \text{ true}, p_t^{(i)} \leq \tau\}|}{|\{i: p_t^{(i)} \leq \tau\}| \vee 1}\right] \leq \alpha
+\label{eq:fdr}
+上下：动作间隔满足：间隔尽可能紧密（覆盖效率高）。 RQ2（异常检测）：为每个空间位置生成 p 值，以便控制错误发现率：在 p 值之间的任意时空依赖性下。 RQ3（安全控制）：学习政策最大化期望……
     </p>
     <p>$$ \alpha_{ij}^{\text{temp}} = \frac{\exp(e_{ij} / (1 + \beta\sigma_i))}{\sum_{k \in \mathcal{N}(i)} \exp(e_{ik} / (1 + \beta\sigma_i))}
 \label{eq:temp_scaling} $$</p>
     <p>
-      英石。 \; &amp; C_k(_) d_k, k = 1, , K 与验证的李亚普诺夫减少证书对齐，确保约束满足。方法 PU-GAT：置信度单调注意力动机：为什么温度缩放失败考虑先前工作中使用的温度缩放注意力：不确定性仅影响温度......
+      公式：\alpha_{ij}^{\text{temp}} = \frac{\exp(e_{ij} / (1 + \beta\sigma_i))}{\sum_{k \in \mathcal{N}(i)} \exp(e_{ik} / (1 + \beta\sigma_i))}
+\label{eq:temp_scaling}
+上下文：s.t. \; &amp; C_k(_) d_k, k = 1, , K 与验证的李亚普诺夫减少证书对齐，确保约束满足。方法 PU-GAT：置信度单调注意力动机：为什么温度缩放失败考虑先前工作中使用的温度缩放注意力：不确定性仅影响温度......
     </p>
     <figure><img class='paper-fig' src='../assets/2602_04821v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：有/没有上游不确定性的 RL 学习曲线。不确定性增强状态（蓝色）收敛速度更快，方差更低（95% CI，10 个种子）。</figcaption></figure>
     <p>
