@@ -204,7 +204,8 @@
     <p>该优化机制有效地融合了多个高斯点的贡献，这提供了重建适应性，但会损害单个点几何表征的精度。很明显，在高斯分布中使用法线预测模型作为先验约束有利于对象重建，如 所示。然而，正常的预测模型并不总是可靠，尤其是在反射情况下，这突出表明需要一种更稳健的方法来提供先验信息。 -0.8em 反射表面的偏振信息 反射表面重建是一项挑战……</p>
     <p>$$ G(\textbf{x};\textbf{x}_i,\Sigma_i)=\text{exp}(-\frac{1}{2}(\textbf{x}-\textbf{x}_i)^\top\Sigma_i^{-1}(\textbf{x}-\textbf{x}_i)), $$</p>
     <p>
-      3D 高斯的 i=[s^x_i,s^y_i,0]^R^3 x y r_iR^4 o_iR C_iR^k 为： 其中可以表示为： 其中 Diag[·] 表示对角矩阵，是一个旋转矩阵
+      公式：G(\textbf{x};\textbf{x}_i,\Sigma_i)=\text{exp}(-\frac{1}{2}(\textbf{x}-\textbf{x}_i)^\top\Sigma_i^{-1}(\textbf{x}-\textbf{x}_i)),
+上：3D高斯的i=[s^x_i,s^y_i,0]^R^3 x y r_iR^4 o_iR C_iR^k为： 其中可以表示为： 其中Diag[·]表示对角矩阵，是一个旋转
     </p>
     <p>$$ \begin{aligned}
  \label{equation:sigma}
@@ -212,25 +213,36 @@
  &amp;= \textbf{R}(\textbf{r}_i)\text{Diag}[(s^x_i)^2,(s^y_i)^2,0]\textbf{R}(\textbf{r}_i)^\top,
 \end{aligned} $$</p>
     <p>
-      athbbR C_iR^k _i 可以表示为： 其中Diag[·]表示对角矩阵，是 表示的旋转矩阵。高斯喷射新颖的视图渲染过程可以表示为： 其中 是透射率，_i = G&#x27;(\
+      公式：\begin{对齐}
+ \label{方程：西格玛}
+ \Sigma_i &amp;= \textbf{R}(\textbf{r}_i)\textbf{s}_i\textbf{s}_i^\top\textbf{R}(\textbf{r}_i)^\top\\
+ &amp;= \textbf{R}(\textbf{r}_i)\text{Diag}[(s^x_i)^2,(s^y_i)^2,0]\textbf{R}(\textbf{r}_i)^\top,
+\结束{对齐}
+上：athbbR C_iR^k _i 可以表示为： 其中Diag[·]表示对角矩阵，是 表示的旋转矩阵。高斯喷射新颖的视图渲染过程可以表示为： 其中 是透射率，_i = G&#x27;(\
     </p>
     <p>$$ C=\sum_{i=0}^nT_i\alpha_ic_i,
 \label{eq:gs_render} $$</p>
     <p>
-      fs_i^R(r_i)^\\ &amp;= R(r_i)Diag[(s^x_i)^2,(s^y_i)^2,0]R(r_i)^，对齐方程，其中 Diag[·] 表示对角矩阵，是 表示的旋转矩阵。高斯泼溅新颖的视图渲染过程可以表示为：其中 是透射率， 是 alpha 混合权重，它是 opac 的乘积...
+      公式：C=\sum_{i=0}^nT_i\alpha_ic_i,
+\label{eq:gs_render}
+上：fs_i^R(r_i)^\\ &amp;= R(r_i)Diag[(s^x_i)^2,(s^y_i)^2,0]R(r_i)^，对齐方程 其中 Diag[·] 表示对角矩阵，是 表示的旋转矩阵。高斯泼溅新颖的视图渲染过程可以表示为：其中 是透射率， 是 alpha 混合权重，它是 opac 的乘积...
     </p>
     <p>$$ G&#x27;(\textbf{u};\textbf{u}_i,\Sigma&#x27;_i)=\text{exp}(-\frac{1}{2}(\textbf{u}-\textbf{u}_i)^\top {\Sigma&#x27;_i}^{-1}(\textbf{u}-\textbf{u}_i)), $$</p>
     <p>
-      labeleq:gs_render 方程 其中 是透射率， 是 alpha 混合权重，它是不透明度和基于像素 的高斯权重的乘积。为了加速渲染过程，方程：sigma 中的 3D 高斯在 2D 光线空间中重新参数化为： 其中表示…中的协方差矩阵
+      公式：G&#x27;(\textbf{u};\textbf{u}_i,\Sigma&#x27;_i)=\text{exp}(-\frac{1}{2}(\textbf{u}-\textbf{u}_i)^\top {\Sigma&#x27;_i}^{-1}(\textbf{u}-\textbf{u}_i)),
+上：labeleq:gs_render 方程 其中 是透射率， 是 alpha 混合权重，它是不透明度和基于像素的高斯权重的乘积。为了加速渲染过程，方程：sigma 中的 3D 高斯在 2D 光线空间中重新参数化为： 其中表示…中的协方差矩阵
     </p>
     <p>$$ \tilde{D}=\frac{1}{1-T_{n+1}}\sum_{i=0}^{n}T_i\alpha_id_i(\textbf{u}), $$</p>
     <p>
-      textbfW_k_iW_k^J_k^)[:2,:2] 每个像素的 W_k k J_k D N 也可以通过高斯喷射和 alpha 混合来计算：具体来说，根据 ，通过计算喷射过程中穿过像素的光线与高斯椭圆的交集来计算每个高斯核的像素深度。所以…
+      公式：\tilde{D}=\frac{1}{1-T_{n+1}}\sum_{i=0}^{n}T_i\alpha_id_i(\textbf{u}),
+上下：textbfW_k_iW_k^J_k^)[:2,:2] 每个像素的 W_k k J_k D N 也可以通过高斯喷射和 alpha 混合来计算：具体来说，根据 ，通过计算喷射过程中穿过像素的光线与高斯椭圆的交集来计算每个高斯核的像素深度。所以…
     </p>
     <p>$$ \tilde{N}=\frac{1}{1-T_{n+1}}\sum_{i=0}^{n}T_i\alpha_i\textbf{R}_i[:,2].
 \label{eq:gs_normal} $$</p>
     <p>
-      步伐。是输入图像的观察变换矩阵，是投影变换的仿射近似。每个像素的深度和法线也可以通过高斯分布和 alpha 混合来计算：具体来说，根据 ，每个高斯核的像素深度由 c...
+      公式：\tilde{N}=\frac{1}{1-T_{n+1}}\sum_{i=0}^{n}T_i\alpha_i\textbf{R}_i[:,2]。
+\label{eq:gs_normal}
+上下文：节奏。是输入图像的观察变换矩阵，是投影变换的仿射近似。每个像素的深度和法线也可以通过高斯分布和 alpha 混合来计算：具体来说，根据 ，每个高斯核的像素深度由 c...
     </p>
     <figure><img class='paper-fig' src='../assets/2603_10801v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：基于 SDF 的方法和我们基于高斯分布的方法之间的可见性掩模获取策略的比较。</figcaption></figure>
     <figure><img class='paper-fig' src='../assets/2603_10801v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：基于 SDF 的网络和</figcaption></figure>
