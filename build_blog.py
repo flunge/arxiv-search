@@ -1922,7 +1922,7 @@ def build_all_posts(
                     preserve_existing_deep=preserve_existing_deep,
                 )
             )
-            print(f"✅ Built blog post for {doc.arxiv_id} - {doc.title}")
+            print(f"Built blog post for {doc.arxiv_id} - {doc.title}")
         except Exception as exc:
             raise RuntimeError(f"批量生成失败：{doc.arxiv_id} / {doc.title} ({exc})") from exc
     return built_posts
@@ -1955,14 +1955,14 @@ def rewrite_all_posts(
         )
         build_home(site)
         rewritten.append(post_path)
-        print(f"✅ Rewrote {index}/{total}: {doc.arxiv_id} - {doc.title}")
+        print(f"Rewrote {index}/{total}: {doc.arxiv_id} - {doc.title}")
         if commit_each:
             alias = _paper_alias(doc.title)
             committed = _commit_site_snapshot(site, f"rewrite blog: {doc.arxiv_id} {alias}", push=push_each)
             if committed:
-                print(f"📝 Committed {doc.arxiv_id} - {alias}")
+                print(f"Committed {doc.arxiv_id} - {alias}")
             else:
-                print(f"ℹ️ No site diff to commit for {doc.arxiv_id} - {alias}")
+                print(f"No site diff to commit for {doc.arxiv_id} - {alias}")
     return rewritten
 
 
@@ -2137,12 +2137,12 @@ def main() -> None:
 
     if args.reset:
         reset_site(args.site_dir)
-        print(f"✅ Site reset: {Path(args.site_dir).resolve()}")
+        print(f"Site reset: {Path(args.site_dir).resolve()}")
 
     post_path = None
     if args.refresh_pages:
         pages = refresh_existing_pages(args.site_dir)
-        print(f"✅ Refreshed rendered pages: {len(pages)} files")
+        print(f"Refreshed rendered pages: {len(pages)} files")
     elif args.rewrite_all:
         posts = rewrite_all_posts(
             docs_dir=args.docs_dir,
@@ -2152,7 +2152,7 @@ def main() -> None:
             push_each=args.push_each,
             preserve_existing_deep=True,
         )
-        print(f"✅ Full rewrite completed: {len(posts)} posts")
+        print(f"Full rewrite completed: {len(posts)} posts")
     elif args.all:
         posts = build_all_posts(
             docs_dir=args.docs_dir,
@@ -2160,7 +2160,7 @@ def main() -> None:
             max_chars=14000,
             preserve_existing_deep=args.preserve_existing_deep,
         )
-        print(f"✅ Bulk blog generation completed: {len(posts)} posts")
+        print(f"Bulk blog generation completed: {len(posts)} posts")
     elif args.selector:
         post_path = build_post_from_pdf(
             selector=args.selector,
@@ -2169,10 +2169,10 @@ def main() -> None:
             title_override=args.title or None,
             preserve_existing_deep=args.preserve_existing_deep,
         )
-        print(f"✅ Blog post generated: {post_path.resolve()}")
+        print(f"Blog post generated: {post_path.resolve()}")
 
     home = build_home(args.site_dir)
-    print(f"✅ Blog home generated: {home.resolve()}")
+    print(f"Blog home generated: {home.resolve()}")
 
 
 if __name__ == "__main__":
