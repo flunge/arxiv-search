@@ -169,7 +169,7 @@
     <p>我们的框架由两个关键组件组成：(1) 物理条件生成器，将潜在无效的轨迹输入转换为物理上合理的条件；(2) 物理增强视频生成器，在这些条件下生成高保真多视图驾驶视频。为了有效地训练这些组件，我们构建了一个大规模的、物理丰富的异构数据集。具体来说，除了真实世界的驾驶视频外，我们还使用 CARLA 模拟器生成各种具有挑战性的驾驶场景，从中导出监督信号，指导模型学习极端条件下的物理接地动力学。这种具有挑战性的轨迹学习策略可以实现轨迹校正并促进物理一致的视频生成。</p>
     <p>大量实验表明，PhyGenesis 始终优于最先进的方法，尤其是在具有挑战性的轨迹上。我们的项目页面位于：https://wm-research.github.io/PhyGenesis/https://wm-research.github.io/PhyGenesis/。自动驾驶 世界模型 视频生成</p>
     <figure><img class='paper-fig' src='../assets/2603_24506v2/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：不同轨迹条件下视频生成的定性比较（显示了多视图输出的前视图）。先前的方法（例如 DiST-4D）在物理上具有挑战性的轨迹下表现出伪影和几何扭曲，而 PhyGenesis 保留了物理一致性和高视觉保真度。补充材料中提供了其他视频。</figcaption></figure>
-    <figure><img class='paper-fig' src='../assets/2603_24506v2/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：PhyGenesis 概述。 (a) 我们的异构多视图数据集由现实世界的驾驶数据和模拟数据组成，强调物理上具有挑战性的场景，包括自我车辆碰撞和道路偏离等。 (b) 在 PhyGenesis 中，物理条件生成器首先将任意 2D 轨迹（可能是反事实的或违反物理的）纠正为物理上合理的 6-DoF 运动。然后将校正后的轨迹投影到摄像机视图布局条件中，并输入物理增强视频生成器，在异构数据集上进行联合训练，以合成高保真、物理一致的多视图视频。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2603_24506v2/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：PhyGenesis 概述。 (a) 我们的异构多视图数据集由现实世界的驾驶数据和模拟数据组成，强调物理上具有挑战性的场景，包括自我车辆碰撞和道路偏离等。 (b) 在 PhyGenesis 中，物理条件生成器首先将任意 2D 轨迹（可能是反事实的或违反物理的）纠正为物理上合理的 6-DoF 运动。 The rectified trajectories are then projected into camera-view layout conditions and fed into a physics-enhanced video generator, co-trained on the heterogeneous dataset, to synthesize high-fidelity, physically consistent multi-view videos</figcaption></figure>
     <blockquote>
       简而言之，这篇论文关注的核心是：视频生成模型作为自动驾驶模拟的世界模型已显示出强大的潜力。然而，现有的方法主要是在现实世界的驾驶数据集上进行训练，这些数据集大多包含自然和安全的驾驶场景。因此，当前的模型在遇到具有挑战性或反事实的轨迹（例如模拟器或规划系统生成的不完美轨迹）时常常会失败，从而产生具有严重物理不一致和伪影的视频。为了…
     </blockquote>
@@ -203,27 +203,33 @@
     <p>ReSim 等之前的工作尝试将合成数据纳入世界模型训练中，以减轻现实世界分布的有限覆盖范围。他们的合成数据仅限于只有自我轨迹注释的单一视图，这使得训练控制多个代理的模型变得困难。此外，他们的数据收集并没有明确关注物理挑战事件，为加强模型的物理先验提供了有限的监督。为了填补这一空白，我们利用 CARLA 模拟器构建了一个大规模的多视图合成数据集，重点关注具有物理挑战性的场景。我们遵循 Bench2Drive 路由设置来覆盖不同的场景，...</p>
     <p>$$ \mathbf{q}_{s} = \text{SpatialCrossAttn}(\mathbf{q}, \mathcal{F}_{pv}) $$</p>
     <p>
-      R^N D N D F_pv q_s：随后，引入了智能体-智能体自注意力层，使令牌能够感知周围车辆的位置和运动状态，这是解决重叠和穿透冲突的关键设计：此外，地图交叉注意力层集成了矢量化 m…
+      公式：\mathbf{q}_{s} = \text{SpatialCrossAttn}(\mathbf{q}, \mathcal{F}_{pv})
+上下：R^N D N D F_pv q_s: 随后，引入了智能体-智能体自注意力层，使令牌能够感知周围车辆的位置和运动状态，这是解决重叠和穿透冲突的关键设计：此外，地图交叉注意力层集成了向量化 m…
     </p>
     <p>$$ \mathbf{q}_{a} = \text{AgentSelfAttn}(\mathbf{q}_{s}) $$</p>
     <p>
-      内茨。此操作产生基于空间的查询：随后，引入代理-代理自注意力层，使令牌能够感知周围车辆的位置和运动状态，这是解决重叠和渗透冲突的关键设计：此外，地图cro…
+      公式：\mathbf{q}_{a} = \text{AgentSelfAttn}(\mathbf{q}_{s})
+上下文：内茨.此操作产生基于空间的查询：随后，引入代理-代理自注意力层，使令牌能够感知周围车辆的位置和运动状态，这是解决重叠和渗透冲突的关键设计：此外，地图cro…
     </p>
     <p>$$ \mathbf{q}_{m} = \text{MapCrossAttn}(\mathbf{q}_{a}, \mathbf{E}_{map}) $$</p>
     <p>
-      -引入注意力层，使令牌能够感知周围车辆的位置和运动状态，这是解决重叠和穿透冲突的关键设计：此外，地图交叉注意力层集成了矢量化地图嵌入，以实现更好的越野感知：最后，……
+      公式：\mathbf{q}_{m} = \text{MapCrossAttn}(\mathbf{q}_{a}, \mathbf{E}_{map})
+上下：引入-attention层，使token能够感知周围车辆的位置和运动状态，这是解决重叠和穿透冲突的关键设计：此外，地图交叉注意力层集成了矢量化地图嵌入，以实现更好的越野感知：最后，...
     </p>
     <p>$$ \mathbf{q}_{f} = \text{FFN}(\mathbf{q}_{m}) $$</p>
     <p>
-      此外，地图交叉注意力层集成了矢量化地图嵌入，以实现更好的越野意识：最后，应用前馈网络对聚合特征进行非线性转换，在轨迹预测之前产生完全细化的查询：在上述各层之后，细化的查询…
+      公式：\mathbf{q}_{f} = \text{FFN}(\mathbf{q}_{m})
+上下文：quation 此外，地图交叉注意力层集成了矢量化地图嵌入，以实现更好的越野意识：最后，应用前馈网络对聚合特征进行非线性转换，在轨迹预测之前产生完全细化的查询：在上述各层之后，细化的查询…
     </p>
     <p>$$ \mathbf{h}_{i,t} = \text{TCN} \left( \text{Proj}(\mathbf{q}_f[i] \parallel \mathbf{E}_{time}(t)) \right) $$</p>
     <p>
-      作为最终的预测模块。对于第 -th 精炼代理令牌，我们将其扩展到未来的步骤，并将其与特定于步骤的可学习时间嵌入连接起来。然后，连接的特征由时间卷积网络（TCN）进行处理，以捕获局部步间动态变化，然后……
+      公式：\mathbf{h}_{i,t} = \text{TCN} \left( \text{Proj}(\mathbf{q}_f[i] \parallel \mathbf{E}_{time}(t)) \right)
+上下文：作为最终的预测模块。对于第 -th 精炼代理令牌，我们将其扩展到未来的步骤，并将其与特定于步骤的可学习时间嵌入连接起来。然后，连接的特征由时间卷积网络（TCN）进行处理，以捕获局部步间动态变化，然后……
     </p>
     <p>$$ \hat{\mathcal{T}}_{i,t}^{6dof} = \text{MLP}(\mathbf{h}_{i,t}) \in \mathbb{R}^6 $$</p>
     <p>
-      使用特定于步骤的可学习时间嵌入来对其进行测试。然后，连接的特征由时间卷积网络 (TCN) 处理，以捕获局部步间动态变化，然后由 MLP 投影以输出精确的 6-DoF 状态：如图所示，与标准回归头不同，它支持…
+      公式：\hat{\mathcal{T}}_{i,t}^{6dof} = \text{MLP}(\mathbf{h}_{i,t}) \in \mathbb{R}^6
+上下文：使用特定于步骤的可学习时间嵌入来实现它。然后，连接的特征由时间卷积网络 (TCN) 处理，以捕获局部步间动态变化，然后由 MLP 投影以输出精确的 6-DoF 状态：如图所示，与标准回归头不同，它支持…
     </p>
     <figure><img class='paper-fig' src='../assets/2603_24506v2/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：nuScenes、CARLA Ego 和 CARLA ADV 的最大自我车辆加速度分布。模拟的 CARLA 数据集显示出明显的向更高加速度的转变，表明与 nuScenes 中主要的标称驾驶行为相比，更具攻击性的动态和身体挑战事件。</figcaption></figure>
     <figure><img class='paper-fig' src='../assets/2603_24506v2/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：MLP 和时间输出头在模拟碰撞动力学方面的比较。 MLP 显示碰撞后速度逐渐下降，而 GT 和时间方向头部显示瞬时下降到零，从而产生更真实的动态。</figcaption></figure>
