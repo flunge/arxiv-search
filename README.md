@@ -110,10 +110,15 @@ python main.py search-pdf "gaussian splatting" --dir ./docs --limit 20
 
 ## GitHub Pages Blog
 
-### 本地生成静态站点
+目标地址：`https://flunge.github.io/arxiv-search/`
+
+### 本地生成静态站点（含深度解读与插图）
 
 ```powershell
 python build_blog.py
+
+# 为指定论文生成一篇深度解读（技术细节 + 相关工作 + 抽取图）
+python build_blog.py --selector StreetForward --docs-dir ./docs --out-dir ./site
 ```
 
 生成目录：`site/`
@@ -121,6 +126,8 @@ python build_blog.py
 ### 发布到 GitHub Pages
 
 仓库已提供工作流：`.github/workflows/deploy-pages.yml`
+
+当前策略：直接发布仓库中 `site/` 的静态文件，保证远程页面与本地生成结果一致。
 
 建议在仓库设置里开启：
 
