@@ -208,27 +208,33 @@
     <p>表面连续性优先 现有的前馈 3DGS 方法通常会产生不连贯和不连续的表面。这是因为，当仅通过基于梯度的监督进行训练时，可学习的高斯基元很难解耦几何和纹理属性。仔细检查渲染结果会发现颜色分配有偏差、表面不连续和空隙。虽然这些基元可以在常见渲染设置下共同生成视觉上合理的图像，但底层 3D 资产在结构上仍然存在缺陷，并且达不到高质量 3D 生成所需的保真度。为解决…</p>
     <p>$$ f_\theta : \{(I^v, \mathbf{k}^v, \mathbf{T}^v)\}_{v=1}^{V} \mapsto \left\{ \bigcup_{j=1}^{H \times W} \left(\boldsymbol{\mu}_j^v, \boldsymbol{\alpha}_j^v, \mathbf{r}_j^v, \mathbf{s}_j^v, \mathbf{c}_j^v\right) \right\}_{v=1}^{V}, $$</p>
     <p>
-      来自稀疏的多视图图像。与迭代地细化高斯的基于优化的方法不同，前馈方法在单个前向传递中预测所有高斯参数。给定具有相应相机内在特征和姿势的输入图像集合，网络预测每个像素的高斯参数……
+      公式：f_\theta : \{(I^v, \mathbf{k}^v, \mathbf{T}^v)\}_{v=1}^{V} \mapsto \left\{ \bigcup_{j=1}^{H \times W} \left(\boldsymbol{\mu}_j^v, \boldsymbol{\alpha}_j^v, \mathbf{r}_j^v, \mathbf{s}_j^v, \mathbf{c}_j^v\right) \right\}_{v=1}^{V},
+上下文：来自稀疏的多视图图像。与迭代地细化高斯的基于优化的方法不同，前馈方法在单个前向传递中预测所有高斯参数。给定具有相应相机内在特征和姿势的输入图像集合，网络预测每个像素的高斯参数……
     </p>
     <p>$$ \mathbf{t}_1, \mathbf{t}_2 = \mathbf{p}_1-\mathbf{p}_0, \quad \mathbf{p}_2-\mathbf{p}_0. $$</p>
     <p>
-      \）。初始旋转 \( R_0 SO(3) \) 设置为单位矩阵，对应四元数 \( (1, 0, 0, 0) \)。为了估计局部表面方向，我们在 \( p_0 \) 周围的邻域上应用向右和向下的 Sobel 滤波器，获得两个虚拟邻居 \( p_1 \) 和 \( p_2 \)。论文…
+      公式：\mathbf{t}_1, \mathbf{t}_2 = \mathbf{p}_1-\mathbf{p}_0, \quad \mathbf{p}_2-\mathbf{p}_0。
+上面：\).初始旋转 \( R_0 SO(3) \) 设置为单位矩阵，对应四元数 \( (1, 0, 0, 0) \)。为了估计局部表面方向，我们在 \( p_0 \) 周围的邻域上应用向右和向下的 Sobel 滤波器，获得两个虚拟邻居 \( p_1 \) 和 \( p_2 \)。论文…
     </p>
     <p>$$ \mathbf{n} = \frac{\mathbf{t}_1 \times \mathbf{t}_2}{\| \mathbf{t}_1 \times \mathbf{t}_2 \|}. $$</p>
     <p>
-      ighbors 定义两个切向量：虽然 \( t_1 \) 和 \( t_2 \) 不能保证在世界空间中正交，但它们在图像平面上的投影是正交的。然后将局部表面法线 \( n R^3 \) 计算为它们的叉积：给定此目标法线 \( n \)，相应的旋转矩阵...
+      公式：\mathbf{n} = \frac{\mathbf{t}_1 \times \mathbf{t}_2}{\| \mathbf{t}_1 \times \mathbf{t}_2 \|}。
+上下：ighbors 定义了两个切向量：虽然 \( t_1 \) 和 \( t_2 \) 不保证在世界空间中正交，但它们在图像平面上的投影是正交的。然后将局部表面法线 \( n R^3 \) 计算为它们的叉积：给定此目标法线 \( n \)，相应的旋转矩阵...
     </p>
     <p>$$ \mathbf{R} = \mathbf{I} + [\mathbf{v}]_\times + \frac{1 - c}{\| \mathbf{v} \|^2} [\mathbf{v}]_\times^2, $$</p>
     <p>
-      然后将 rmal \( n R^3 \) 计算为其叉积：给定此目标法线 \( n \)，可以使用 Rodrigues 旋转公式计算将 \( n_0 \) 与 \( n \) 对齐的相应旋转矩阵 \( R SO(3) \)：其中 \( v = n_0 n \)、\( c = n_0^ n \) 和 \( [v]_ \) 表示…的斜对称矩阵
+      公式：\mathbf{R} = \mathbf{I} + [\mathbf{v}]_\times + \frac{1 - c}{\| \mathbf{v} \|^2} [\mathbf{v}]_\times^2,
+上：rmal \( n R^3 \) 然后计算为它们的叉积：给定这个目标法线 \( n \)，可以使用 Rodrigues 旋转公式计算将 \( n_0 \) 与 \( n \) 对齐的相应旋转矩阵 \( R SO(3) \)：其中 \( v = n_0 n \)、\( c = n_0^ n \) 和 \( [v]_ \) 表示…的斜对称矩阵
     </p>
     <p>$$ \mathbf{R}_{\text{surf}} = \mathbf{R} \mathbf{R}_0 = \mathbf{R}. $$</p>
     <p>
-      化 R = I + [v]_ + 1 - c\| v \|^2 [v]_^2，方程其中 \( v = n_0 n \)、\( c = n_0^ n \)、\( [v]_ \) 表示 \( v \) 的斜对称矩阵。此旋转将规范框架与估计的局部表面对齐，给出更新的面元旋转：wrapfigurel0.6 -10pt belowskip=-15pt 插图...
+      公式：\mathbf{R}_{\text{surf}} = \mathbf{R} \mathbf{R}_0 = \mathbf{R}.
+上：R = I + [v]_ + 1 - c\| v \|^2 [v]_^2，方程其中 \( v = n_0 n \)、\( c = n_0^ n \)、\( [v]_ \) 表示 \( v \) 的斜对称矩阵。此旋转将规范框架与估计的局部表面对齐，给出更新的面元旋转：wrapfigurel0.6 -10pt belowskip=-15pt 插图...
     </p>
     <p>$$ \bar{\sigma}_u^2, \bar{\sigma}_v^2 = \mathbf{t}_{1x}^2 + \mathbf{t}_{1z}^2, \quad \mathbf{t}_{2y}^2 + \mathbf{t}_{2z}^2. $$</p>
     <p>
-      对应于图像平面中的单位圆，就像在前馈方法中一样，每个 GS 与图像像素一一对应，并且其投影始终覆盖单个像素。然而，通过反转投影矩阵来估计比例通常会产生不稳定的值，从而阻碍收敛。为了解决这个问题，我们采用了一种合作...
+      公式：\bar{\sigma}_u^2, \bar{\sigma}_v^2 = \mathbf{t}_{1x}^2 + \mathbf{t}_{1z}^2, \quad \mathbf{t}_{2y}^2 + \mathbf{t}_{2z}^2。
+上下：对应于图像平面中的单位圆，在前馈方法中，每个GS与图像像素一一对应，并且其投影总是覆盖单个像素。然而，通过反转投影矩阵来估计比例通常会产生不稳定的值，从而阻碍收敛。为了解决这个问题，我们采用了一种合作...
     </p>
     <figure><img class='paper-fig' src='../assets/2602_02000v2/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：与 DepthSplat 进行法线和网格比较。</figcaption></figure>
     <p>
