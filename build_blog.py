@@ -28,7 +28,27 @@ DEEP_DIVE_SECTION_ITEMS = [
 ]
 
 
-def _render_page(title: str, body_html: str) -> str:
+def _render_page(title: str, body_html: str, include_mathjax: bool = False) -> str:
+    mathjax_block = ""
+    if include_mathjax:
+        mathjax_block = """
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']]
+      },
+      svg: { fontCache: 'global' },
+      startup: {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady().then(() => {
+            requestAnimationFrame(applyPageScale);
+          });
+        }
+      }
+    };
+  </script>
+  <script defer src=\"https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js\"></script>"""
     return f"""<!doctype html>
 <html lang=\"zh-CN\">
 <head>
@@ -52,24 +72,18 @@ def _render_page(title: str, body_html: str) -> str:
       background: #fff;
     }}
     .page-stage {{
-      position: relative;
       width: 100%;
-      min-height: 100vh;
       padding: 24px 0 32px;
       box-sizing: border-box;
-      overflow: hidden;
+      overflow: visible;
     }}
     .page-shell {{
-      position: absolute;
-      left: 50%;
-      top: 24px;
       width: 980px;
       max-width: 980px;
+      min-width: 0;
       box-sizing: border-box;
       padding: 0 16px;
-      transform-origin: top center;
-      transform: translateX(-50%) scale(1);
-      will-change: transform;
+      margin: 0 auto;
     }}
     a {{ color: #1769c2; text-decoration: none; }}
     a:hover {{ text-decoration: underline; }}
@@ -106,16 +120,23 @@ def _render_page(title: str, body_html: str) -> str:
     .layout.sidebar-collapsed .article {{ width: min(100%, 760px); max-width: min(100%, 760px); justify-self: center; margin-inline: auto; }}
     blockquote {{ margin: 16px 0; padding: 8px 16px; border-left: 4px solid #d8e7ff; background: #f8fbff; color: #333; }}
     .tip {{ background: #f7f9fc; border: 1px solid #e8eef6; border-radius: 10px; padding: 12px; }}
+    .dashboard-grid {{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-top:18px; }}
+    .dashboard-card {{ aspect-ratio: 1 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }}
+    .dashboard-card > * {{ min-width: 0; }}
+    .dashboard-card .dashboard-content {{ display:flex; flex-direction:column; height:100%; min-height:0; }}
+    .dashboard-card .dashboard-scroll {{ overflow:auto; min-height:0; }}
+    .post-grid {{ display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:14px; margin-top:14px; }}
+    .post-card {{ padding:12px; display:flex; flex-direction:column; gap:10px; }}
+    .post-thumb {{ width:100%; aspect-ratio: 16 / 9; object-fit:cover; border-radius:10px; border:1px solid #e5e5e5; }}
+    @media (max-width: 980px) {{
+      .page-shell {{ width: 100%; max-width: 100%; padding: 0 12px; }}
+      .layout {{ grid-template-columns: minmax(0, 1fr); gap: 16px; }}
+      .sidebar {{ position: relative; top: 0; border-right: none; padding-right: 0; border-bottom: 1px solid #eee; padding-bottom: 12px; }}
+      .dashboard-grid {{ grid-template-columns:1fr; }}
+      .dashboard-card {{ aspect-ratio: auto; min-height: 220px; }}
+    }}
   </style>
   <script>
-    window.MathJax = {{
-      tex: {{
-        inlineMath: [['$', '$'], ['\\(', '\\)']],
-        displayMath: [['$$', '$$'], ['\\[', '\\]']]
-      }},
-      svg: {{ fontCache: 'global' }}
-    }};
-
     function toggleSidebar(button) {{
       var sidebar = button.closest('.sidebar');
       if (!sidebar) return;
@@ -134,20 +155,32 @@ def _render_page(title: str, body_html: str) -> str:
       var stage = document.querySelector('.page-stage');
       var shell = document.getElementById('page-shell');
       if (!stage || !shell) return;
-
-      var designWidth = 980;
-      var viewportWidth = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
-      var availableWidth = Math.max(320, viewportWidth - 12);
-      var scale = Math.min(1, availableWidth / designWidth);
-      shell.style.transform = 'translateX(-50%) scale(' + scale + ')';
-      stage.style.height = Math.ceil(shell.offsetHeight * scale + 32) + 'px';
+      shell.style.transform = 'none';
+      stage.style.height = 'auto';
     }}
 
     window.addEventListener('resize', applyPageScale);
     window.addEventListener('orientationchange', applyPageScale);
+    window.addEventListener('load', applyPageScale);
     document.addEventListener('DOMContentLoaded', applyPageScale);
+    document.addEventListener('DOMContentLoaded', function() {{
+      var shell = document.getElementById('page-shell');
+      if (!shell) return;
+      shell.querySelectorAll('img').forEach(function(img) {{
+        if (!img.complete) {{
+          img.addEventListener('load', applyPageScale, {{ once: true }});
+          img.addEventListener('error', applyPageScale, {{ once: true }});
+        }}
+      }});
+      if ('ResizeObserver' in window) {{
+        var resizeObserver = new ResizeObserver(function() {{
+          requestAnimationFrame(applyPageScale);
+        }});
+        resizeObserver.observe(shell);
+      }}
+    }});
   </script>
-  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+{mathjax_block}
 </head>
 <body>
 <div class='page-stage'>
@@ -318,7 +351,7 @@ def _build_tag_pages(site_dir: Path, manifest: List[Dict]) -> Dict[str, str]:
 </section>
 """
         with open(tags_dir / f"{slug}.html", "w", encoding="utf-8") as f:
-            f.write(_render_page(f"{tag} - 标签目录", body))
+            f.write(_render_page(f"{tag} - 标签目录", _enable_lazy_images(body)))
 
     return tag_paths
 
@@ -727,7 +760,7 @@ def _figure_html_from_entries(figures: List[Dict], slug: str, max_items: int = 2
         if not item.get("path"):
             continue
         html_parts.append(
-            f"<figure><img class='paper-fig' src='../assets/{slug}/{html.escape(item['path'])}' alt='{html.escape(item.get('label', 'Figure'))}' />"
+            f"<figure><img class='paper-fig' src='../assets/{slug}/{html.escape(item['path'])}' alt='{html.escape(item.get('label', 'Figure'))}' loading='lazy' decoding='async' />"
             f"<figcaption style='font-size:12px;'>{html.escape(item.get('caption_cn', ''))}</figcaption></figure>"
         )
     return "".join(html_parts)
@@ -750,6 +783,61 @@ def _deep_dive_section_quote(items: List[str]) -> str:
         return ""
     lis = "".join(f"<li>{html.escape(item)}</li>" for item in items)
     return f"<div class='card'><strong>原文要点摘录：</strong><ul>{lis}</ul></div>"
+
+
+def _page_needs_mathjax(body_html: str) -> bool:
+    return any(token in body_html for token in ["$$", "\\(", "\\[", r"\mathbb", r"\mathbf", r"\sum", r"\lVert"])
+
+
+def _enable_lazy_images(html_text: str) -> str:
+    def repl(match: re.Match) -> str:
+        tag = match.group(0)
+        if " loading=" in tag or " loading='" in tag or ' loading="' in tag:
+            return tag
+        tag = tag[:-1] + " loading='lazy' decoding='async'>"
+        return tag
+
+    return re.sub(r"<img\b[^>]*>", repl, html_text)
+
+
+def _extract_rendered_body(content: str) -> Optional[str]:
+    marker = "<div id='page-shell' class='page-shell'>"
+    start = content.find(marker)
+    if start == -1:
+        return None
+    start += len(marker)
+    end = content.rfind("  </div>\n</div>\n</body>")
+    if end == -1:
+        return None
+    return content[start:end].strip("\n")
+
+
+def _extract_rendered_title(content: str) -> Optional[str]:
+    match = re.search(r"<title>(.*?)</title>", content, flags=re.IGNORECASE | re.DOTALL)
+    if not match:
+        return None
+    return html.unescape(match.group(1).strip())
+
+
+def refresh_existing_pages(site_dir: Union[str, Path] = "./site") -> List[Path]:
+    site = Path(site_dir)
+    targets: List[Path] = []
+    if (site / "index.html").exists():
+        targets.append(site / "index.html")
+    targets.extend(sorted((site / "posts").glob("*.html")))
+    targets.extend(sorted((site / "tags").glob("*.html")))
+
+    rewritten: List[Path] = []
+    for path in targets:
+        content = path.read_text(encoding="utf-8")
+        title = _extract_rendered_title(content)
+        body = _extract_rendered_body(content)
+        if not title or body is None:
+            continue
+        body = _enable_lazy_images(body)
+        path.write_text(_render_page(title, body, include_mathjax=_page_needs_mathjax(body)), encoding="utf-8")
+        rewritten.append(path)
+    return rewritten
 
 
 def _looks_like_deep_dive_post(path: Path) -> bool:
@@ -799,7 +887,7 @@ def _streetforward_post_body(doc, date_str: str, figures: List[Dict], related: L
         if not item or not item.get("path"):
             return ""
         return (
-            f"<figure><img class='paper-fig' src='../assets/{slug}/{html.escape(item['path'])}' alt='{html.escape(label)}' />"
+            f"<figure><img class='paper-fig' src='../assets/{slug}/{html.escape(item['path'])}' alt='{html.escape(label)}' loading='lazy' decoding='async' />"
             f"<figcaption style='font-size:12px;'>{html.escape(item.get('caption_cn', ''))}</figcaption></figure>"
         )
 
@@ -1334,7 +1422,8 @@ def build_post_from_pdf(
         body = _generic_deep_dive_post_body(doc, figure_entries, related, asset_slug, text)
 
     with open(page_path, "w", encoding="utf-8") as f:
-        f.write(_render_page(post_title, body))
+        body = _enable_lazy_images(body)
+        f.write(_render_page(post_title, body, include_mathjax=_page_needs_mathjax(body)))
 
     tags = _infer_tags(doc.title, text)
     thumbnail_rel = ""
@@ -1459,7 +1548,7 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
     latest_html = ""
     if featured := next((item for item in manifest if item.get("featured")), latest):
         cover = (
-            f"<img src='{html.escape(featured['thumbnail_path'])}' alt='cover' style='width:100%;border-radius:12px;border:1px solid #e5e5e5;' />"
+            f"<img src='{html.escape(featured['thumbnail_path'])}' alt='cover' loading='eager' decoding='async' style='width:100%;border-radius:12px;border:1px solid #e5e5e5;' />"
             if featured.get("thumbnail_path")
             else ""
         )
@@ -1487,7 +1576,7 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
             f"<div style='font-size:12px;color:#666;margin-top:2px;'>{html.escape(item.get('tagline', ''))}</div>"
             "</li>"
         )
-        for item in manifest[:5]
+        for item in manifest[:1]
     ) or "<li>暂无文章</li>"
 
     domain_overview = " / ".join(unique_tags) if unique_tags else "暂无领域"
@@ -1505,12 +1594,12 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
         display_title = item.get("title", "")
         tagline = item.get("tagline", "")
         thumb = (
-            f"<img src='{html.escape(item['thumbnail_path'])}' alt='thumb' style='width:100%;height:160px;object-fit:cover;border-radius:10px;border:1px solid #e5e5e5;' />"
+            f"<img src='{html.escape(item['thumbnail_path'])}' alt='thumb' loading='lazy' decoding='async' class='post-thumb' />"
             if item.get("thumbnail_path")
-            else "<div style='height:160px;border-radius:10px;background:linear-gradient(135deg,#f3f7fc,#fff);border:1px solid #e5e5e5;display:flex;align-items:center;justify-content:center;color:#678;'>No Figure</div>"
+            else "<div class='post-thumb' style='background:linear-gradient(135deg,#f3f7fc,#fff);display:flex;align-items:center;justify-content:center;color:#678;'>No Figure</div>"
         )
         card_grid += (
-            f"<article class='card' style='padding:12px;display:flex;flex-direction:column;gap:10px;'>"
+            f"<article class='card post-card'>"
             f"{thumb}"
             f"<a href='{html.escape(item['path'])}' style='font-size:18px;font-weight:700;color:#1f1f1f;'>{html.escape(display_title)}</a>"
             f"<div style='font-size:12px;color:#666;line-height:1.6;'>{html.escape(tagline)}</div>"
@@ -1528,28 +1617,38 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
 
 {latest_html}
 
-<section style='display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:18px;'>
-  <div class='card' style='aspect-ratio:1.618 / 1;display:flex;flex-direction:column;'>
-    <div class='meta' style='font-weight:700;'>最近更新</div>
-    <ul style='padding-left:18px;margin-top:10px;'>{recent_list}</ul>
-  </div>
-  <div class='card' style='aspect-ratio:1.618 / 1;display:flex;flex-direction:column;'>
-    <div class='meta' style='font-weight:700;'>站点概览</div>
-    <p style='margin-top:10px;'>{html.escape(domain_overview)}</p>
-    <div style='display:grid;grid-template-columns:1fr;gap:10px;margin-top:12px;'>
-      <div><span class='meta'>文章数</span><span style='font-size:24px;font-weight:700;margin-left:8px;'>{len(manifest)}</span></div>
+<section class='dashboard-grid'>
+  <div class='card dashboard-card'>
+    <div class='dashboard-content'>
+      <div class='meta' style='font-weight:700;'>最近更新</div>
+      <div class='dashboard-scroll'>
+        <ul style='padding-left:18px;margin-top:10px;'>{recent_list}</ul>
+      </div>
     </div>
   </div>
-  <div class='card' style='aspect-ratio:1.618 / 1;display:flex;flex-direction:column;'>
-    <div class='meta' style='font-weight:700;'>分类目录</div>
-    <div style='margin-top:10px;'>{tag_directory_html}</div>
+  <div class='card dashboard-card'>
+    <div class='dashboard-content'>
+      <div class='meta' style='font-weight:700;'>站点概览</div>
+      <div class='dashboard-scroll'>
+        <p style='margin-top:10px;'>{html.escape(domain_overview)}</p>
+        <div style='display:grid;grid-template-columns:1fr;gap:10px;margin-top:12px;'>
+          <div><span class='meta'>文章数</span><span style='font-size:24px;font-weight:700;margin-left:8px;'>{len(manifest)}</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class='card dashboard-card'>
+    <div class='dashboard-content'>
+      <div class='meta' style='font-weight:700;'>分类目录</div>
+      <div class='dashboard-scroll' style='margin-top:10px;'>{tag_directory_html}</div>
+    </div>
   </div>
 </section>
 
 <section id='all-posts'>
   <h2 style='margin-top:26px;'>全部文章</h2>
   <div class='meta'>按时间倒序展示，支持缩略图与摘要预览</div>
-  <div style='display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-top:14px;'>
+  <div class='post-grid'>
     {card_grid or '<p>暂无文章，请先生成一篇。</p>'}
   </div>
 </section>
@@ -1557,6 +1656,7 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
 
     index_path = site / "index.html"
     with open(index_path, "w", encoding="utf-8") as f:
+        body = _enable_lazy_images(body)
         f.write(_render_page("Raymond's Blogs", body))
     return index_path
 
@@ -1585,6 +1685,7 @@ def main() -> None:
     parser.add_argument("--reset", action="store_true", help="Reset site directory before generating")
     parser.add_argument("--title", default="", help="Optional blog title override")
     parser.add_argument("--rewrite-all", action="store_true", help="Rewrite all blog posts using the locked deep-dive template")
+    parser.add_argument("--refresh-pages", action="store_true", help="Refresh already generated pages with the latest shared shell and lazy-loading behavior")
     parser.add_argument("--commit-each", action="store_true", help="Commit site changes after each rewritten post")
     parser.add_argument("--push-each", action="store_true", help="Push after each commit (implies --commit-each)")
     parser.add_argument("--preserve-existing-deep", action="store_true", help="Skip overwriting posts that already match the locked deep-dive template")
@@ -1595,7 +1696,10 @@ def main() -> None:
         print(f"✅ Site reset: {Path(args.site_dir).resolve()}")
 
     post_path = None
-    if args.rewrite_all:
+    if args.refresh_pages:
+        pages = refresh_existing_pages(args.site_dir)
+        print(f"✅ Refreshed rendered pages: {len(pages)} files")
+    elif args.rewrite_all:
         posts = rewrite_all_posts(
             docs_dir=args.docs_dir,
             site_dir=args.site_dir,

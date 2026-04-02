@@ -21,24 +21,18 @@
       background: #fff;
     }
     .page-stage {
-      position: relative;
       width: 100%;
-      min-height: 100vh;
       padding: 24px 0 32px;
       box-sizing: border-box;
-      overflow: hidden;
+      overflow: visible;
     }
     .page-shell {
-      position: absolute;
-      left: 50%;
-      top: 24px;
       width: 980px;
       max-width: 980px;
+      min-width: 0;
       box-sizing: border-box;
       padding: 0 16px;
-      transform-origin: top center;
-      transform: translateX(-50%) scale(1);
-      will-change: transform;
+      margin: 0 auto;
     }
     a { color: #1769c2; text-decoration: none; }
     a:hover { text-decoration: underline; }
@@ -75,16 +69,23 @@
     .layout.sidebar-collapsed .article { width: min(100%, 760px); max-width: min(100%, 760px); justify-self: center; margin-inline: auto; }
     blockquote { margin: 16px 0; padding: 8px 16px; border-left: 4px solid #d8e7ff; background: #f8fbff; color: #333; }
     .tip { background: #f7f9fc; border: 1px solid #e8eef6; border-radius: 10px; padding: 12px; }
+    .dashboard-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-top:18px; }
+    .dashboard-card { aspect-ratio: 1 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
+    .dashboard-card > * { min-width: 0; }
+    .dashboard-card .dashboard-content { display:flex; flex-direction:column; height:100%; min-height:0; }
+    .dashboard-card .dashboard-scroll { overflow:auto; min-height:0; }
+    .post-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:14px; margin-top:14px; }
+    .post-card { padding:12px; display:flex; flex-direction:column; gap:10px; }
+    .post-thumb { width:100%; aspect-ratio: 16 / 9; object-fit:cover; border-radius:10px; border:1px solid #e5e5e5; }
+    @media (max-width: 980px) {
+      .page-shell { width: 100%; max-width: 100%; padding: 0 12px; }
+      .layout { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+      .sidebar { position: relative; top: 0; border-right: none; padding-right: 0; border-bottom: 1px solid #eee; padding-bottom: 12px; }
+      .dashboard-grid { grid-template-columns:1fr; }
+      .dashboard-card { aspect-ratio: auto; min-height: 220px; }
+    }
   </style>
   <script>
-    window.MathJax = {
-      tex: {
-        inlineMath: [['$', '$'], ['\(', '\)']],
-        displayMath: [['$$', '$$'], ['\[', '\]']]
-      },
-      svg: { fontCache: 'global' }
-    };
-
     function toggleSidebar(button) {
       var sidebar = button.closest('.sidebar');
       if (!sidebar) return;
@@ -103,25 +104,36 @@
       var stage = document.querySelector('.page-stage');
       var shell = document.getElementById('page-shell');
       if (!stage || !shell) return;
-
-      var designWidth = 980;
-      var viewportWidth = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
-      var availableWidth = Math.max(320, viewportWidth - 12);
-      var scale = Math.min(1, availableWidth / designWidth);
-      shell.style.transform = 'translateX(-50%) scale(' + scale + ')';
-      stage.style.height = Math.ceil(shell.offsetHeight * scale + 32) + 'px';
+      shell.style.transform = 'none';
+      stage.style.height = 'auto';
     }
 
     window.addEventListener('resize', applyPageScale);
     window.addEventListener('orientationchange', applyPageScale);
+    window.addEventListener('load', applyPageScale);
     document.addEventListener('DOMContentLoaded', applyPageScale);
+    document.addEventListener('DOMContentLoaded', function() {
+      var shell = document.getElementById('page-shell');
+      if (!shell) return;
+      shell.querySelectorAll('img').forEach(function(img) {
+        if (!img.complete) {
+          img.addEventListener('load', applyPageScale, { once: true });
+          img.addEventListener('error', applyPageScale, { once: true });
+        }
+      });
+      if ('ResizeObserver' in window) {
+        var resizeObserver = new ResizeObserver(function() {
+          requestAnimationFrame(applyPageScale);
+        });
+        resizeObserver.observe(shell);
+      }
+    });
   </script>
-  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
 </head>
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
-
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
 
@@ -142,7 +154,7 @@
     <p>
       如果把它放进更大的技术背景中理解，可以把这篇论文视作一条“问题定义 → 表示设计 → 训练优化 → 实验验证”的完整研究闭环。也就是说，作者并不是只给出一个孤立模块，而是希望通过一整套方法让系统在真实场景或关键指标上取得更稳定提升。
     </p>
-    <figure><img class='paper-fig' src='../assets/2603_28887v1/fig_1.png' alt='Figure 1:' /><figcaption style='font-size:12px;'>图 1：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 1 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_28887v1/fig_2.png' alt='Figure 2:' /><figcaption style='font-size:12px;'>图 2：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 2 from the source paper.</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2603_28887v1/fig_1.png' alt='Figure 1:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 1：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 1 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_28887v1/fig_2.png' alt='Figure 2:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 2：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 2 from the source paper.</figcaption></figure>
     <div class='card'><strong>原文要点摘录：</strong><ul><li>To break this bottleneck, we present OccSim, the first occupancy world model-driven 3D simulator.</li></ul></div>
 
     <h2 id='innovation'>核心创新</h2>
@@ -196,7 +208,7 @@
       从实验段落的关键词和结果描述看，论文最想传达的结论包括：
     </p>
     <div class='card'><strong>原文要点摘录：</strong><ul><li>data collected directly from OccSim can pre-train 4D semantic occupancy forecasting models to achieve up to 67% zero-shot performance on unseen data, outperforming previous asset-based simulator by 11%.</li><li>When scaling the OccSim dataset to 5× the size, the zero-shot performance increases to about 74%, while the improvement over asset-based simulators expands to 22.1%.</li><li>The simulator should not only approximate the distribution of real-world sensor data (high-fidelity sensor realism) but also inherently generate dense semantic labels, eliminating the reliance on manual annotation.</li><li>We overcome all of the mentioned drawback of previous method, with only 1 single frame and future actions, the W-DiT we proposed is able to build a multi-kilometer consi</li></ul></div>
-    <figure><img class='paper-fig' src='../assets/2603_28887v1/fig_3.png' alt='Figure 3:' /><figcaption style='font-size:12px;'>图 3：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 3 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_28887v1/fig_4.png' alt='Figure 4:' /><figcaption style='font-size:12px;'>图 4：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 4 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_28887v1/fig_5.png' alt='Figure 5:' /><figcaption style='font-size:12px;'>图 5：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 5 from the source paper.</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2603_28887v1/fig_3.png' alt='Figure 3:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 3：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 3 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_28887v1/fig_4.png' alt='Figure 4:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 4：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 4 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_28887v1/fig_5.png' alt='Figure 5:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 5：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 5 from the source paper.</figcaption></figure>
     <ul>
       <li>方法在主任务指标上不是偶然提升，而是与其结构设计和训练目标直接相关；</li>
       <li>作者通过消融实验说明，若拿掉关键模块，性能与结果质量会明显回落；</li>
@@ -228,7 +240,6 @@
     </div>
   </article>
 </div>
-
   </div>
 </div>
 </body>
