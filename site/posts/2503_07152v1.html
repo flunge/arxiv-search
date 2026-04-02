@@ -203,29 +203,38 @@
     <p>$$ \mathbf{h}_i^{\text{CANE}} = \text{MLP}([\mathbf{h}_i;\mathbf{h}_G 
  ]), \mathbf{h}_G= \text{Pooling}(\{\mathbf{h}_i \mid v_i \in \mathcal{V}\}), $$</p>
     <p>
-      邻接矩阵 \( A R^|V| |V| \) 编码节点之间的连接性，节点嵌入由图中节点 \( v_i \) 的两层 GAT 计算。为了将全局上下文合并到节点嵌入中，我们将每个节点的嵌入与池化全局嵌入 \( h_G \) 连接起来作为最终嵌入......
+      公式：\mathbf{h}_i^{\text{CANE}} = \text{MLP}([\mathbf{h}_i;\mathbf{h}_G 
+ ]), \mathbf{h}_G= \text{池化}(\{\mathbf{h}_i \mid v_i \in \mathcal{V}\}),
+上下：第 i 个邻接矩阵 \( A R^|V| |V| \) 编码节点之间的连接性，节点嵌入由图中节点 \( v_i \) 的两层 GAT 计算。为了将全局上下文合并到节点嵌入中，我们将每个节点的嵌入与池化全局嵌入 \( h_G \) 连接起来作为最终嵌入......
     </p>
     <p>$$ \label{eq:a_loss}
  \mathcal{L}_a = \text{BCE}(\hat{\mathbf{A}}, \mathbf{A})+ \frac{1}{|\mathcal{V}|} \sum_{i=1}^{|\mathcal{V}|} \text{CE} (y_i, \hat{y}_i), $$</p>
     <p>
-      e 输出嵌入为上下文感知节点嵌入（CANE）。我们训练 GNN 有两个目标：辅助任务（图红色（d））和下游任务（图红色（e））。对于辅助任务，我们应用图自动编码器（GAE）中的边缘重建损失和节点分类损失，由二元交叉给出
+      公式：\label{eq:a_loss}
+ \mathcal{L}_a = \text{BCE}(\hat{\mathbf{A}}, \mathbf{A})+ \frac{1}{|\mathcal{V}|} \sum_{i=1}^{|\mathcal{V}|} \text{CE} (y_i, \hat{y}_i),
+上下文：输出嵌入为上下文感知节点嵌入（CANE）。我们训练 GNN 有两个目标：辅助任务（图红色（d））和下游任务（图红色（e））。对于辅助任务，我们应用图自动编码器（GAE）中的边缘重建损失和节点分类损失，由二元交叉给出
     </p>
     <p>$$ \hat{\mathbf{A}} = \sigma(\mathbf{h}_G \mathbf{h}_G^\top), \hat{y}_i = \text{Softmax}(\text{MLP} (\mathbf{h}_i^\text{CANE})), $$</p>
     <p>
-      图自动编码器（GAE）中的 dge 重建损失和节点分类损失由下式给出，其中 是二元交叉熵，是节点交叉熵损失，并且是 sigmoid 函数。 eq:a_loss第一项是重建场景的全局边缘结构，具体是邻接矩阵\(A\)....
+      公式：\hat{\mathbf{A}} = \sigma(\mathbf{h}_G \mathbf{h}_G^\top), \hat{y}_i = \text{Softmax}(\text{MLP} (\mathbf{h}_i^\text{CANE})),
+上下：图自动编码器（GAE）中的 dge 重建损失和节点分类损失，由下式给出，其中 是二元交叉熵， 是节点交叉熵损失，并且 是 sigmoid 函数。 eq:a_loss第一项是重建场景的全局边缘结构，具体是邻接矩阵\(A\)....
     </p>
     <p>$$ \label{eq:allocation}
  \mathbf{L} = \sum_{i=1}^{|\mathcal{V}|} \mathcal{M}(\hat{p}_i) \odot \mathbf{h}_i^\text{CANE}, $$</p>
     <p>
-      ures，有效地捕获 CANE 中的本地和全局信息。对于下游任务，嵌入 \( h_i^CANE \) 用作计算 BEV 嵌入图（BEM，图红色（c））的输入，作为下一阶段扩散中顺序扩散模型的条件。这些嵌入被传递给所有…
+      公式：\label{eq:分配}
+ \mathbf{L} = \sum_{i=1}^{|\mathcal{V}|} \mathcal{M}(\hat{p}_i) \odot \mathbf{h}_i^\text{CANE},
+上下文：ures，有效地捕获CANE中的本地和全局信息。对于下游任务，嵌入 \( h_i^CANE \) 用作计算 BEV 嵌入图（BEM，图红色（c））的输入，作为下一阶段扩散中顺序扩散模型的条件。这些嵌入被传递给所有…
     </p>
     <p>$$ \hat{p}_i \sim \text{GumbelSoftmax}_{\tau}(\text{Head}(\mathbf{h}_i^\text{CANE})), $$</p>
     <p>
-      C M(p_i) \0,1\^H_b W_b 沿通道维度扩展到 \( R^H_b W_b C \) 以实现与节点嵌入 \( h_i^CANE R^C \) 的逐元素乘法。在实现中，我们通过从基于 MLP 的定位头采样位置来执行推理，即 Gumbel 软体的温度在哪里……
+      公式：\hat{p}_i \sim \text{GumbelSoftmax}_{\tau}(\text{Head}(\mathbf{h}_i^\text{CANE})),
+上下：C M(p_i) \0,1\^H_b W_b 沿着通道维度扩展到 \( R^H_b W_b C \) 以实现与节点嵌入 \( h_i^CANE R^C \) 的逐元素乘法。在实现中，我们通过从基于 MLP 的定位头采样位置来执行推理，即 Gumbel 软体的温度在哪里……
     </p>
     <p>$$ q(\mathbf{X}_t \mid \mathbf{X}_0) = \operatorname{Cat}(\mathbf{X}_t; \mathbf{P} = \mathbf{X}_0 \bar{\mathbf{Q}}_t), $$</p>
     <p>
-      一代。在前向过程中，2D 映射 \( X_0 \) 使用过渡矩阵 \( Q_t \) 在 \( T \) 个时间步中逐渐损坏，这会增加噪声为 。这个过程也可以使用累积矩阵\(Q_t\)来表示，允许我们直接从原始映射\(X_0\)中采样\(X_t\)，其中\(Ca…
+      公式：q(\mathbf{X}_t \mid \mathbf{X}_0) = \operatorname{Cat}(\mathbf{X}_t; \mathbf{P} = \mathbf{X}_0 \bar{\mathbf{Q}}_t),
+上下文：世代。在前向过程中，2D 映射 \( X_0 \) 使用过渡矩阵 \( Q_t \) 在 \( T \) 个时间步中逐渐损坏，这会增加噪声为 。这个过程也可以使用累积矩阵\(Q_t\)来表示，允许我们直接从原始映射\(X_0\)中采样\(X_t\)，其中\(Ca…
     </p>
     <figure><img class='paper-fig' src='../assets/2503_07152v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：使用场景图控制 3D 室外场景生成。我们比较基线方法。结果表明，我们的方法生成的场景与所提供的场景图一致，而 SG2Im 和 LLM 方法在对象数量和道路类型方面表现出不一致。</figcaption></figure>
     <figure><img class='paper-fig' src='../assets/2503_07152v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：场景生成的多样性。在同一场景图下比较我们的方法生成的三个场景。这证明了我们的方法能够根据相同的输入生成不同但一致的场景。</figcaption></figure>
