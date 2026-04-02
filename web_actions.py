@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Dict, List
 
 from arxiv_tool import ArxivTool, Paper, SortBy, SortOrder
-from build_blog import build_site
+from build_blog import build_home
 from generate_index import write_papers_index
 from pdf_reader import PdfReaderTool
 from topic_interpreter import TopicInterpreter
@@ -70,7 +70,7 @@ def run_topic_workflow(
 
     site_path = None
     if build_blog_flag:
-        site_path = build_site(docs_dir=docs, out_dir=Path("./site"))
+        site_path = build_home(site_dir=Path("./site"))
         steps.append({"name": "build_blog", "status": "done", "progress": 95})
 
     indexed_docs = 0
@@ -111,6 +111,6 @@ def run_pdf_search(query: str, docs_dir: str = "./docs", limit: int = 10) -> Lis
 
 
 def run_rebuild_blog(docs_dir: str = "./docs", site_dir: str = "./site") -> Dict:
-    site = build_site(docs_dir=Path(docs_dir), out_dir=Path(site_dir))
+    site = build_home(site_dir=Path(site_dir))
     return {"site": str(site.resolve())}
 

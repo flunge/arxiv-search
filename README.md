@@ -117,11 +117,11 @@ python main.py search-pdf "gaussian splatting" --dir ./docs --limit 20
 ```powershell
 python build_blog.py
 
-# 为指定论文生成一篇深度解读（技术细节 + 相关工作 + 抽取图）
-python build_blog.py --selector StreetForward --docs-dir ./docs --out-dir ./site
+# 重置博客并为指定论文生成一篇深度解读（技术细节 + 相关工作 + 抽取图）
+python build_blog.py --reset --selector StreetForward --docs-dir ./docs --site-dir ./site
 ```
 
-生成目录：`site/`
+生成目录：`site/`。该博客系统不依赖 `docs/papers_index.json`，而是按已生成文章清单 `site/blog_manifest.json` 维护。
 
 ### 发布到 GitHub Pages
 

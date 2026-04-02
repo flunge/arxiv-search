@@ -2,8 +2,7 @@ from pathlib import Path
 
 import fitz
 
-from build_blog import build_site
-from generate_index import write_papers_index
+from build_blog import build_home, build_post_from_pdf
 from topic_interpreter import TopicInterpreter
 
 
@@ -34,11 +33,17 @@ def test_build_blog_outputs_files(tmp_path: Path) -> None:
         "world model paper content",
     )
 
-    write_papers_index(docs_dir)
-    out = build_site(docs_dir=docs_dir, out_dir=site_dir, max_chars=1000)
+    post = build_post_from_pdf(
+        selector="2603.19979v2",
+        docs_dir=docs_dir,
+        site_dir=site_dir,
+        max_chars=1000,
+    )
+    out = build_home(site_dir)
 
+    assert post.exists()
     assert out.exists()
     assert (site_dir / "index.html").exists()
-    paper_pages = list((site_dir / "papers").glob("*.html"))
-    assert len(paper_pages) == 1
+    blog_pages = list((site_dir / "posts").glob("*.html"))
+    assert len(blog_pages) == 1
 
