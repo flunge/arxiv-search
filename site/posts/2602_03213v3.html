@@ -208,25 +208,32 @@
     <p>(c)，防止跨实例的信息泄漏并确保实例级的解开。我们引入了一种可学习的实例屏蔽注意力机制，该机制注入每个实例的身份条件并将它们与复制块的相应输出融合。通过调节这些功能，该模块可以实现实例感知注意力，从而保留实例身份并确保跨空间和时间维度的实例一致性。现在我们详细描述 Instance-Masked Attention 模块的关键操作。实例身份条件对于视频中出现的每个实例，我们构建一个全局......</p>
     <p>$$ g_i = \text{MLP}\!\left([\tau_\theta(c_i), \gamma(s_i), \gamma( ID_i)]\right). $$</p>
     <p>
-      映射以对跟踪 ID 和边界框大小进行编码。同时，我们采用 CLIP-Large 文本编码器从类别标签中提取语义特征。这些组件连接并通过多层感知器 (MLP)，以生成实例全局身份条件嵌入：T…
+      公式：g_i = \text{MLP}\!\left([\tau_\theta(c_i), \gamma(s_i), \gamma( ID_i)]\right)。
+上下：映射以编码跟踪ID和边界框大小。同时，我们采用 CLIP-Large 文本编码器从类别标签中提取语义特征。这些组件连接并通过多层感知器 (MLP)，以生成实例全局身份条件嵌入：T…
     </p>
     <p>$$ \tilde{V} = \text{SA}_\text{mask}([V, G]). $$</p>
     <p>
-      ectionInstance-Masked Attention 和 Fuse 机制 我们将从副本 MMDiT 块中提取的视觉标记表示为 ，将实例条件标记表示为 。然后，我们在 Instance-Masked Attention 模块中的主干特征和连接的实例条件标记上应用 3D 自注意力（SA），这可以...
+      公式：\tilde{V} = \text{SA}_\text{mask}([V, G]).
+上下文：ectionInstance-Masked Attention and Fuse Mechanism 我们将从副本 MMDiT 块中提取的视觉标记表示为 ，将实例条件标记表示为 。然后，我们在 Instance-Masked Attention 模块中的主干特征和连接的实例条件标记上应用 3D 自注意力（SA），这可以...
     </p>
     <p>$$ \tilde{\mathbf{x}}_{i,c}^t = \mathbf{K}^t \left( \mathbf{R}^t \mathbf{X}_{i,c} + \mathbf{T}^t \right), 
 \quad
 \mathbf{x}_{i,c}^t = \Big(\tfrac{\tilde{x}}{\tilde{z}}, \tfrac{\tilde{y}}{\tilde{z}}\Big), $$</p>
     <p>
-      表示投影边界框覆盖 token 的空间区域的实例 ID 集合，如图 (c) 所示。形式上，每个实例都由带有角 的 3D 边界框表示，其中 。给定帧 处的相机参数，角点将被投影为形成多边形的凸包......
+      公式：\tilde{\mathbf{x}}_{i,c}^t = \mathbf{K}^t \left( \mathbf{R}^t \mathbf{X}_{i,c} + \mathbf{T}^t \right), 
+\四边形
+\mathbf{x}_{i,c}^t = \Big(\tfrac{\tilde{x}}{\tilde{z}}, \tfrac{\tilde{y}}{\tilde{z}}\Big),
+上下：表示投影边界框覆盖 token 的空间区域的实例 ID 的集合，如图（c）所示。形式上，每个实例都由带有角 的 3D 边界框表示，其中 。给定帧 处的相机参数，角点将被投影为形成多边形的凸包......
     </p>
     <p>$$ I(v_k) \equiv I(t,p) = \{\, i \mid \exists (x,y),\, \tilde{BM}_i(t,x,y)=1 \,\}, $$</p>
     <p>
-      i,c^t = (xz, yz), 形成多边形的凸包方程。光栅化产生二进制掩模。我们进一步应用三线性插值将这些掩模映射到潜在空间，表示为 。对于从 VAE 压缩获得的补丁标记，我们定义对应于 的扁平视觉标记在哪里。即时…
+      公式：I(v_k) \equiv I(t,p) = \{\, i \mid \exists (x,y),\, \tilde{BM}_i(t,x,y)=1 \,\},
+上：i,c^t = (xz, yz)，与形成多边形的凸包方程。光栅化产生二进制掩模。我们进一步应用三线性插值将这些掩模映射到潜在空间，表示为 。对于从 VAE 压缩获得的补丁标记，我们定义对应于 的扁平视觉标记在哪里。即时…
     </p>
     <p>$$ V = V + \tanh(\omega)\,\tilde{V}[:m], $$</p>
     <p>
-      确保跨框架的同一实例的令牌可以相互关注，同时严格禁止跨不同实例的交互。这种设计通过显式地启用特定于实例的特征在其轨迹上的传播来保持时间一致性。最后，输出...
+      公式：V = V + \tanh(\omega)\,\tilde{V}[:m],
+上下文：确保跨框架的同一实例的令牌可以相互关注，而严格禁止跨不同实例的交互。这种设计通过显式地启用特定于实例的特征在其轨迹上的传播来保持时间一致性。最后，输出...
     </p>
     <p>$$ \label{eq: dynamic_mask_loss}
 \mathcal{\tilde{L}}_{\text{mask}} = 
@@ -235,7 +242,13 @@
 \mathcal{L}, &amp; \text{if } p \geq \alpha
 \end{cases} $$</p>
     <p>
-      逐元素乘法。然而，直接将这种屏蔽损失应用于所有训练样本可能会导致模型对前景物体过度拟合，进而损害背景区域（例如道路和高清地图）的生成质量。为了缓解这个问题，我们采用概率动态模型……
+      公式：\label{eq:dynamic_mask_loss}
+\mathcal{\tilde{L}}_{\text{掩码}} = 
+\开始{案例}
+\mathcal{L}_{\text{mask}}, &amp; \text{if } p &lt; \alpha \\
+\mathcal{L}, &amp; \text{if } p \geq \alpha
+\结束{案例}
+上下文：逐元素乘法。然而，直接将这种屏蔽损失应用于所有训练样本可能会导致模型对前景物体过度拟合，进而损害背景区域（例如道路和高清地图）的生成质量。为了缓解这个问题，我们采用概率动态模型……
     </p>
     <figure><img class='paper-fig' src='../assets/2602_03213v3/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：三个关键模块的消融研究。 
 (a) 删除身份掩码会导致实例类别渲染不正确，例如，交通锥变成蹲伏的行人。 
