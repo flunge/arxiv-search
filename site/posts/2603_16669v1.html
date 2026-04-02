@@ -205,15 +205,17 @@
     <p>为了将铰接式机器人放置在初始主视图世界图像中，我们利用了所选主视图的外在相机变换，该变换是在之前的 3D 机器人重建阶段导出的。通过相机变换和先前计算的重建空间内的链接姿势，全身轨迹被投影到图像平面上以生成 4D 机器人点图。对于链接 表面上的任何点，其投影像素坐标和深度由下式确定： 其中 是相机内禀矩阵。生成的点图与 RGB 网格像素对齐，而其像素值存储相机空间坐标。这种变换将 4D 机器人轨迹从规范重建空间精确映射到目标相机坐标系，e…</p>
     <p>$$ \begin{bmatrix} u \cdot z \\ v \cdot z \\ z \end{bmatrix} = \mathbf{K} \cdot \mathbf{T}_{recon}^{cam} \cdot \mathbf{T}_{k,t}^{recon} \cdot \mathbf{x}, $$</p>
     <p>
-      athbfT_recon^cam \T_k,t^recon\ M_1:T R^H W 3 x k (u, v) z 由下式确定： 其中 是相机固有矩阵。生成的点图与 RGB 网格像素对齐，而其像素值存储相机空间坐标。这种转换精确地映射了来自规范重建的 4D 机器人轨迹……
+      公式：\begin{bmatrix} u \cdot z \\ v \cdot z \\ z \end{bmatrix} = \mathbf{K} \cdot \mathbf{T}_{recon}^{cam} \cdot \mathbf{T}_{k,t}^{recon} \cdot \mathbf{x},
+上面：athbfT_recon^cam \T_k,t^recon\ M_1:T R^H W 3 x k (u, v) z 由下式确定： 其中 是相机固有矩阵。生成的点图与 RGB 网格像素对齐，而其像素值存储相机空间坐标。这种转换精确地映射了来自规范重建的 4D 机器人轨迹……
     </p>
     <p>$$ \mathcal{L}_{vid} = \mathbb{E}_{\mathbf{z}_0, \epsilon, \tau, \mathbf{c}} \left[ \| \epsilon - \epsilon_\theta(\mathbf{z}_\tau, \tau, \mathbf{c}) \|^2 \right], $$</p>
     <p>
-      将它们映射到 4D 时空域。该模型不是在像素空间去噪，而是在预先训练的 VAE 提供的压缩潜在空间上运行。视频序列被编码为潜在张量。扩散过程通过优化条件去噪目标来学习生成该潜在序列：其中......
+      公式：\mathcal{L}_{vid} = \mathbb{E}_{\mathbf{z}_0, \epsilon, \tau, \mathbf{c}} \left[ \| \epsilon - \epsilon_\theta(\mathbf{z}_\tau, \tau, \mathbf{c}) \|^2 \right],
+上下：他们到4D时空域。该模型不是在像素空间去噪，而是在预先训练的 VAE 提供的压缩潜在空间上运行。视频序列被编码为潜在张量。扩散过程通过优化条件去噪目标来学习生成该潜在序列：其中......
     </p>
     <figure><img class='paper-fig' src='../assets/2603_16669v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：来自 Robo4D-200k 数据集的样本。
 我们的数据集通过聚合不同的现实世界演示（包括 DROID 、 Bridge 和 RT-1 ）来提供全面的数据基础。我们进一步结合 LIBERO 来综合大量成功/失败的案例。每集都捕捉完整的机器人世界交互（拾取和放置），提供稳健推理所需的连续信息。这里显示了从不同相机视锥体观察到的 4D 点云，展示了我们的伪注释的空间精度。</figcaption></figure>
-    <figure><img class='paper-fig' src='../assets/2603_16669v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：我们的 Kinema4D 和 Ctrl-World 之间 2D 视频合成的定性比较。我们的方法实现了卓越的保真度。相比之下，Ctrl-World 表现出扭曲的行为和不切实际的环境转换。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2603_16669v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：我们的 Kinema4D 和 Ctrl-World 之间 2D 视频合成的定性比较。我们的方法实现了卓越的保真度。相比之下，Ctrl-World 表现出扭曲的行为和不切实际的环境转变。</figcaption></figure>
     <figure><img class='paper-fig' src='../assets/2603_16669v1/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：我们的 Kinema4D 和 TesserAct 之间的 4D 定性比较。与产生幻觉结果的 TesserAct 不同，我们的 Kinema4D 精确地反映了 Ground-Truth 执行情况，包括“险些发生”的失败案例。例如，在左下角的示例中，我们的模型可以正确解释夹具和植物之间的空间间隙，即使它们的 RGB 纹理在 2D 视图中重叠。</figcaption></figure>
     <p>
       把全文方法串起来看，这篇论文的逻辑基本都遵循同一条主线：先把输入组织成更容易处理的表示，再通过模型结构和损失函数把这个表示推向目标输出，最后用可视化与数值实验共同证明该设计有效。
