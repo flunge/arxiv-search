@@ -60,6 +60,16 @@ def _render_page(title: str, body_html: str) -> str:
       .sidebar {{ position: static; border-right: none; padding-right: 0; border-bottom: 1px solid #eee; padding-bottom: 12px; }}
     }}
   </style>
+  <script>
+    window.MathJax = {{
+      tex: {{
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']]
+      }},
+      svg: {{ fontCache: 'global' }}
+    }};
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 <body>
 {body_html}
@@ -108,7 +118,6 @@ def _extract_figures(pdf_path: Path, out_dir: Path, max_images: int = 6) -> List
             xref = image[0]
             try:
                 pix = fitz.Pixmap(doc, xref)
-                # Filter tiny icons.
                 if pix.width * pix.height < 120000:
                     continue
                 if pix.n - pix.alpha > 3:
@@ -157,7 +166,10 @@ def _keyword_snippets(text: str, max_items: int = 8) -> List[str]:
 def _related_work(title: str, max_results: int = 6) -> List[Dict]:
     query = " ".join(title.split()[:7])
     tool = ArxivTool(timeout=60)
-    papers = tool.search_by_keywords(query, max_results=max_results)
+    try:
+        papers = tool.search_by_keywords(query, max_results=max_results)
+    except Exception:
+        return []
     return [
         {
             "arxiv_id": p.arxiv_id,
@@ -243,9 +255,7 @@ def _extract_figure_region_by_caption(
                 continue
 
         near_rects = [
-            r
-            for r in image_rects
-            if r.y1 <= cap_rect.y0 - 2 and r.y0 >= max(top_margin, cap_rect.y0 - 380)
+            r for r in image_rects if r.y1 <= cap_rect.y0 - 2 and r.y0 >= max(top_margin, cap_rect.y0 - 380)
         ]
         if near_rects:
             x0 = min(r.x0 for r in near_rects) - 6
@@ -256,20 +266,8 @@ def _extract_figure_region_by_caption(
             if clip.width < page.rect.width * 0.55 or clip.height < 120:
                 near_rects = []
         else:
-            all_caps = []
-            for i in range(1, 10):
-                label = f"Figure {i}:"
-                found = page.search_for(label)
-                if found:
-                    all_caps.append((label, found[0]))
-            all_caps = sorted(all_caps, key=lambda x: x[1].y0)
-            start_y = top_margin
-            for idx, (label, rect) in enumerate(all_caps):
-                if label == caption_label:
-                    if idx > 0:
-                        start_y = all_caps[idx - 1][1].y1 + 8
-                    break
-            clip = fitz.Rect(page.rect.x0 + 12, start_y, page.rect.x1 - 12, cap_rect.y0 - 4)
+            clip = fitz.Rect(page.rect.x0 + 12, top_margin, page.rect.x1 - 12, cap_rect.y0 - 4)
+
         if near_rects == []:
             all_caps = []
             for i in range(1, 10):
@@ -285,6 +283,7 @@ def _extract_figure_region_by_caption(
                         start_y = all_caps[idx - 1][1].y1 + 8
                     break
             clip = fitz.Rect(page.rect.x0 + 12, start_y, page.rect.x1 - 12, cap_rect.y0 - 4)
+
         pix = page.get_pixmap(matrix=fitz.Matrix(2, 2), clip=clip, alpha=False)
         save_path = out_dir / output_name
         pix.save(save_path)
@@ -314,8 +313,7 @@ def _infer_tagline(title: str, text: str) -> str:
 
 def _post_sidebar_html(items: List[tuple]) -> str:
     links = "".join(
-        f"<li><a href='#{html.escape(anchor)}'>{html.escape(label)}</a></li>"
-        for anchor, label in items
+        f"<li><a href='#{html.escape(anchor)}'>{html.escape(label)}</a></li>" for anchor, label in items
     )
     return (
         "<aside class='sidebar'>"
@@ -328,7 +326,7 @@ def _post_sidebar_html(items: List[tuple]) -> str:
     )
 
 
-def _streetforward_post_body(doc, date_str: str, figures: List[str], related: List[Dict], slug: str, text: str) -> str:
+def _streetforward_post_body(doc, date_str: str, figures: List[Dict], related: List[Dict], slug: str, text: str) -> str:
     figure_map = {item.get('label'): item for item in figures}
 
     def render_figure(label: str) -> str:
@@ -337,9 +335,7 @@ def _streetforward_post_body(doc, date_str: str, figures: List[str], related: Li
             return ""
         return (
             f"<figure><img class='paper-fig' src='../assets/{slug}/{html.escape(item['path'])}' alt='{html.escape(label)}' />"
-            f"<figcaption style='font-size:12px;'>"
-            f"{html.escape(item.get('caption_cn', ''))}"
-            f"</figcaption></figure>"
+            f"<figcaption style='font-size:12px;'>{html.escape(item.get('caption_cn', ''))}</figcaption></figure>"
         )
 
     fig1_html = render_figure("Figure 1:")
@@ -366,7 +362,7 @@ def _streetforward_post_body(doc, date_str: str, figures: List[str], related: Li
         ]
     )
 
-    return f"""
+    return fr"""
 <div class='layout'>
   {sidebar}
 
@@ -381,18 +377,12 @@ def _streetforward_post_body(doc, date_str: str, figures: List[str], related: Li
 
     <h2 id='summary'>简单摘要</h2>
     <p>
-      自动驾驶里的“闭环仿真”有一个非常现实的需求：我们希望把真实道路数据快速变成可重放、可插值、可从新视角观察的动态三维场景。
-      传统 NeRF、3DGS、SfM 一类方法虽然质量高，但大多数都需要<strong>针对每个场景单独优化</strong>，也就是你来一段新视频，就得重新跑一次重建优化。
-      这在自动驾驶里代价太高，因为数据量太大、场景更新太频繁。
+      自动驾驶里的闭环仿真希望把真实道路数据快速转成可重放、可插值、可从新视角观察的动态三维场景。
+      传统 NeRF、3DGS、SfM 一类方法通常都需要针对每个场景单独优化，这在自动驾驶里代价太高，因为数据量巨大、场景更新频繁。
     </p>
     <p>
-      所以 StreetForward 的目标非常明确：<strong>用 feedforward 的方式，一次前向推理就把动态街景重建出来</strong>。而且它还希望解决此前动态重建常见的几个依赖：
+      StreetForward 的目标是：<strong>用前馈推理直接完成动态街景 4D 重建</strong>。它同时尽量拿掉动态重建中常见的额外依赖：不依赖 tracker，不依赖 segmentation，也不依赖 LiDAR 或强监督的 4D 标注。
     </p>
-    <ul>
-      <li>不要依赖外部 tracker，否则跟踪错误会直接带坏运动建模；</li>
-      <li>不要依赖分割模型，否则系统链路太长，鲁棒性差；</li>
-      <li>不要依赖 LiDAR 或强监督的 4D 标注，因为现实数据里这类标注很少。</li>
-    </ul>
     {fig1_html}
     <p>
       从整体上看，StreetForward 可以分成四步：
@@ -404,7 +394,7 @@ def _streetforward_post_body(doc, date_str: str, figures: List[str], related: Li
       <li>最后解码出每像素速度、动态概率，并通过时空一致性损失把动态 3DGS 训练稳定。</li>
     </ol>
     <blockquote>
-      你可以把它理解成：先让模型学会“这条街长什么样”，再让模型学会“这条街上的东西怎么动”，最后把这两件事放在同一个 3DGS 表示里统一渲染。
+      可以把它理解成：先让模型学会“这条街长什么样”，再让模型学会“这条街上的东西怎么动”，最后把这两件事放进同一个 3DGS 表示里统一渲染。
     </blockquote>
     {fig2_html}
 
@@ -417,85 +407,143 @@ def _streetforward_post_body(doc, date_str: str, figures: List[str], related: Li
     </p>
     <h3>2）用因果注意力显式建模时间方向</h3>
     <p>
-      这篇论文最值得看的地方，就是它为什么要在 VGGT 的 Alternating Attention 之上，再加一个 <strong>causal masked attention</strong>。
-      原因很简单：VGGT 原本更擅长静态多视图几何，它把不同帧的 token 放在一起做注意力，天然偏向“整体聚合”，但不擅长表达“从帧 A 到帧 B 的方向性运动”。
-    </p>
-    <p>
-      而动态建模最怕的就是没有方向。比如一辆车从左往右开，如果模型只知道这些帧彼此相关，却不知道“谁是前一帧、谁是后一帧”，那它学到的运动就会很模糊，容易把运动信息平均掉。
-    </p>
-    <p>
-      StreetForward 的做法是：
-    </p>
-    <ul>
-      <li>先给每帧 token 拼接一个时间 embedding；</li>
-      <li>再在跨帧 attention 时加上一个<strong>有方向的 mask</strong>；</li>
-      <li>这样 query 只能看指定的 source→target 帧，例如当前帧只能看下一帧，或者只能看上一帧。</li>
-    </ul>
-    <p>
-      用更通俗的话说，它不是让模型“大家一起讨论一下这个场景”，而是让模型“你只关注从现在到下一刻会发生什么变化”。
-      这个改动虽然不算复杂，但非常对症，因为动态建模最需要的不是全局混合，而是<strong>时间因果方向</strong>。
+      VGGT 原本更擅长静态多视图几何，它把不同帧的 token 放在一起做注意力，偏向“整体聚合”，但不擅长表达“从帧 A 到帧 B 的方向性运动”。
+      StreetForward 在其之上加入 causal masked attention，把时间方向显式编码进去，这是整篇方法最关键的一步。
     </p>
     <h3>3）把静态和动态统一到同一个 3DGS 框架里</h3>
     <p>
-      它没有把“静态背景建模”和“动态目标建模”拆成两套系统，而是都放到 3D Gaussian Splatting 里，只是静态高斯长期存在，动态高斯随着速度场跨时间传播。
-      这种统一表示使得渲染、训练和推理链路都更顺。
+      它没有把静态背景建模和动态目标建模拆成两套系统，而是都放到 3D Gaussian Splatting 里：静态高斯长期存在，动态高斯随着速度场跨时间传播。
+      这种统一表示让训练、推理和渲染链路都更简洁。
     </p>
 
     <h2 id='technical'>技术细节</h2>
-    <h3>1）速度场、动态掩码和 4D 重建</h3>
     <p>
-      有了 motion-aware features 之后，论文没有直接去预测复杂的物体轨迹，而是选择了一个更实用的表示：
-      <strong>给每个像素预测前向速度和后向速度</strong>，同时预测一个 dynamic probability（动态概率）。
+      原论文的 Methodology 分为 3.1–3.4 四个部分。下面我按原始结构完整展开，并尽量用更直白的语言解释这些公式到底在描述什么。
     </p>
+
+    <h3>3.1 输入 Token 化（Input Tokenization）</h3>
     <p>
-      这背后的直觉很强：
+      首先，输入视频的每一帧会被 DINO 编码器切成 patch，并得到高层视觉 token；这些 token 再进入 VGGT 风格的 alternating attention，在跨帧和帧内两个尺度上反复聚合信息。
+    </p>
+    <p>$$z^{{(L)}}_{{I,f,p}} \in \mathbb{{R}}^D$$</p>
+    <p>$$X \in \mathbb{{R}}^{{BFPD}},\quad X[b,f,p,:] = z^{{(L)}}_{{I,f,p}}$$</p>
+    <p>
+      其中 $B$ 是 batch size，$F$ 是帧数，$P$ 是每帧 patch 数，$D$ 是 token 维度。为了做跨帧 attention，作者把 frame 和 patch 两个维度展平：
+    </p>
+    <p>$$Z = \mathrm{{flatten}}_{{f,p}}(X) \in \mathbb{{R}}^{{B(FP)D}}$$</p>
+    <p>
+      这一步相当于先建立一个跨时间、跨视角共享的特征空间，让后面所有几何和运动建模都在这个统一底座上进行。
+    </p>
+
+    <h3>3.2 位姿估计与静态场景重建（Pose Estimation and Static Scene Reconstruction）</h3>
+    <p>
+      从聚合后的 latent token 中，StreetForward 用多个 head 去预测相机参数和静态几何：
     </p>
     <ul>
-      <li>速度场让每个像素对应的高斯点知道“下一时刻该往哪走”；</li>
-      <li>动态概率告诉系统“这里更像是动的还是静的”；</li>
-      <li>静态区域直接汇总成全局 static Gaussians；</li>
-      <li>动态区域则按预测速度跨时间传播，形成 dynamic Gaussians。</li>
+      <li>相机内外参：$K_f, (R_f, t_f)$</li>
+      <li>像素深度：$D_f$</li>
+      <li>每像素对应的 Gaussian 属性：位置、协方差、透明度、颜色</li>
     </ul>
     <p>
-      这样做的一个很大好处是：系统不需要先做实例分割，也不需要显式跟踪每辆车的 ID。它只关心“这个像素对应的 3D 高斯点应该怎么移动”。
-      这比先检测、再跟踪、再建模对象运动的链路要更短，也更符合 feedforward 系统追求的简洁性。
+      每个像素 $u$ 对应一个 Gaussian：
     </p>
-    <blockquote>
-      论文里一个非常重要的设计是：静态高斯不使用 lifespan 这种“活多久”的属性，而是让静态点在整个序列中持续存在。作者认为，训练不应该靠“让点消失”来躲避错误，而应该通过优化把几何本身学准。
-    </blockquote>
+    <p>$$g_f(u) = \lbrace \mu_f(u), \Sigma_f(u), \alpha_f(u), c_f(u) \rbrace$$</p>
+    <p>
+      它的中心位置通过深度和相机参数反投影得到：
+    </p>
+    <p>$$\mu_f(u) = R_f^\top \big(K_f^{{-1}} \tilde u\, D_f(u) - t_f\big), \qquad \tilde u=(u_x,u_y,1)^\top$$</p>
+    <p>
+      可以把这理解成：先预测“像素离相机有多远”，再把它放回三维空间。
+    </p>
+    <p>
+      作者并不会把所有 Gaussian 都直接当静态点，而是先用 motion head 给出的动态概率 $s_{{f,u}}$ 做筛选：
+    </p>
+    <p>$$\chi_{{f,u}} = \mathbb{{I}}[s_{{f,u}} \le \tau_{{dyn}}]$$</p>
+    <p>
+      只有动态概率比较低的点才进入静态高斯集合：
+    </p>
+    <p>$$G_f^{{static}} = \lbrace g_f(u): \chi_{{f,u}} = 1 \rbrace, \qquad G^{{static}} = \bigcup_{{f=1}}^F G_f^{{static}}$$</p>
+    <p>
+      这样做的好处是，系统会先搭一个相对稳定的“静态骨架”，避免运动目标把背景几何污染掉。
+    </p>
 
-    <h3>2）时空一致性与训练约束</h3>
+    <h3>3.3 因果动态建模（Causal Dynamics Modeling）</h3>
     <p>
-      只靠渲染误差去学运动，通常是不稳定的，因为很多不同的速度场都可能产生相似的投影结果。StreetForward 为了让训练更稳，引入了两类关键约束：
+      这是整篇文章最核心的部分。作者先给每一帧 token 拼接时间编码：
     </p>
-    <h4>局部刚性（Local Rigidity）</h4>
+    <p>$$\tilde X[b,f,p,:] = X[b,f,p,:] \oplus \tau_f, \qquad D' = D + d_t$$</p>
     <p>
-      作者假设在局部邻域内，物体的运动通常不会突然撕裂。于是它在 2D 邻域和 3D 近邻上都加了“速度要相近”的正则项。
-      这个约束很像在对速度场做“局部平滑”，但不是盲目平滑，而是带动态置信度权重的平滑。
+      其中 $\tau_f$ 是第 $f$ 帧的时间 embedding，$\oplus$ 表示特征拼接。之后再把它们展平为：
     </p>
+    <p>$$\tilde Z \in \mathbb{{R}}^{{B(FP)D'}}$$</p>
+    <p>
+      真正关键的是，它不允许所有帧自由互看，而是引入一个 source→target 的因果 mask：
+    </p>
+    <p>$$M[b,h,i,j] = \begin{{cases}} 1, & \text{{if }} \mathrm{{frame}}(i)=f_s,\ \mathrm{{frame}}(j)=f_t \\ 0, & \text{{otherwise}} \end{{cases}}$$</p>
+    <p>
+      其中 $f_t=f_s+1$ 表示前向预测，$f_t=f_s-1$ 表示后向预测。这样 attention 变成：
+    </p>
+    <p>$$Q^{{(h)}} = \tilde ZW_Q^{{(h)}},\quad K^{{(h)}} = \tilde ZW_K^{{(h)}},\quad V^{{(h)}} = \tilde ZW_V^{{(h)}}$$</p>
+    <p>$$A^{{(h)}} = \mathrm{{softmax}}\left( \frac{{Q^{{(h)}}K^{{(h)\\top}}}}{{\sqrt{{d_h}}}} + \log M \right)V^{{(h)}}$$</p>
+    <p>
+      多头结果拼起来，再经过输出投影，就得到 motion-aware features：
+    </p>
+    <p>$$\hat Z = \mathrm{{Concat}}_h(A^{{(h)}})W_O, \qquad Y \in \mathbb{{R}}^{{BFPD'}}$$</p>
+    <p>
+      简单理解：原本 VGGT 只会“综合大家意见”，而这里作者强制它“只看前一帧/后一帧”，从而让运动方向真正变成可学习的结构，而不是被平均掉的信息。
+    </p>
+    <p>
+      在此基础上，作者再用 DPT 风格的 decoder 去回归每像素速度和动态概率：
+    </p>
+    <p>$$v_{{f,u}} \equiv [v^+_{{f,u}}, v^-_{{f,u}}] \in \mathbb{{R}}^6, \qquad \sigma_{{f,u}} > 0$$</p>
+    <p>
+      其中 $\sigma_{{f,u}}$ 可以理解为动态置信度，既用于静动分离，也用于给训练损失加权。
+    </p>
+
+    <h3>3.4 运动一致性（Motion Consistency）</h3>
+    <p>
+      只靠渲染误差去学速度场通常不稳定，因为很多不同的速度场都可能产生相似的图像结果。所以作者在 3.4 中加入了两类关键约束。
+    </p>
+    <h4>3.4.1 局部刚性（Local Rigidity Motion）</h4>
+    <p>
+      设每个像素对应的 3D Gaussian 中心为 $\mu_{{f,u}} \in \mathbb{{R}}^3$，对应速度为 $v_{{f,u}} \in \mathbb{{R}}^3$，则时间推进可写成：
+    </p>
+    <p>$$\mu_{{f+1,u}} = \mu_{{f,u}} + \Delta t\, v_{{f,u}}$$</p>
+    <p>
+      在 2D 邻域上，作者要求邻近像素具有相似速度：
+    </p>
+    <p>$$L_{{rigid-2D}} = \sum_f \sum_u \sum_{{u'\in N(u)}} \omega(\sigma_{{f,u}}, \sigma_{{f,u'}}) \lVert v_{{f,u}} - v_{{f,u'}} \rVert_2^2$$</p>
+    <p>
+      在 3D 近邻上，也要求最近邻点速度一致：
+    </p>
+    <p>$$L_{{rigid-3D}} = \sum_f \sum_u \sum_{{u'\in N_K(u)}} \omega(\sigma_{{f,u}}, \sigma_{{f,u'}}) \lVert v_{{f,u}} - v_{{f,u'}} \rVert_2^2$$</p>
+    <p>$$L_{{rigid}} = L_{{rigid-2D}} + L_{{rigid-3D}}$$</p>
     {fig4_html}
     <p>
-      通俗点讲，这相当于告诉模型：
-      “如果两个点离得很近，而且都很像动态区域，那它们的运动方向和速度最好别差太多。”
-      对车辆、行人等局部刚体或近刚体目标来说，这非常有帮助。
+      这组约束的直觉是：如果两个点离得很近，而且都像动态区域，那它们的运动最好不要突然分叉。对车辆、行人这类局部近刚体目标来说，这非常有效。
     </p>
-    <h4>时序一致性（Temporal Consistency）</h4>
+    <h4>3.4.2 时间一致性（Temporal Consistency）</h4>
     <p>
-      论文会把动态高斯按照预测速度向前/向后传播到相邻帧，再通过跨帧渲染去约束它们的一致性。
-      这个设计的意义在于：同一个动态区域，不应该只在单帧里解释得通，而应该在相邻时间上都解释得通。
-      这等于是把“会不会动”升级成了“动过去之后，渲染出来还能不能对得上”。
+      对于动态高斯，作者根据前向和后向速度把它传播到相邻帧：
     </p>
-    <h3>3）为什么这个设计适合自动驾驶</h3>
+    <p>$$\mu^f_{{f-1,u}} = \mu^f_u + \Delta t\, v^-_u, \qquad \mu^f_{{f+1,u}} = \mu^f_u + \Delta t\, v^+_u$$</p>
     <p>
-      自动驾驶场景里，车辆、行人、道路边界、遮挡关系都在不断变化。StreetForward 这套设计的价值在于：
-      它不依赖长链路组件，而是尽量把位姿、深度、静态结构和动态运动统一放在一个前馈模型里学习，这样更容易扩展到大规模数据集与闭环仿真系统中。
+      渲染当前帧时，不是只用当前帧的动态实例，而是把邻近时刻传播过来的动态高斯也拿来解释当前帧：
+    </p>
+    <p>$$G_f = G^{{static}} \cup \bigcup_{{t\in T}} G^{{dynamic}}_{{f\leftarrow t}}$$</p>
+    <p>
+      这里 $T$ 是不包含当前时刻 $f$ 的时间窗口。为了让前后向运动彼此一致，还加入了一个对称性损失：
+    </p>
+    <p>$$L_{{fb}} = \sum_u \left\lVert v^{{f\to f+1}}_u + v^{{f\to f-1}}_u \right\rVert_1$$</p>
+    {fig3_html}
+    {fig5_html}
+    <p>
+      这条约束的意义在于：如果一个点往前和往后预测出来的速度互相矛盾，那说明这套运动场并不自洽。作者用这个约束把时间插值能力真正落到几何一致性上，而不是只做表面上的图像拟合。
     </p>
 
     <h2 id='experiment'>实验结论</h2>
     <p>
-      从论文摘要和图示可以看出，StreetForward 在两个维度上是有说服力的：
-      一是 novel view synthesis 与 depth estimation 的表现优于已有方法；
-      二是在 CARLA 和其他数据集上的 zero-shot 推理说明其具备一定的泛化能力。
+      从论文摘要和图示可以看出，StreetForward 在两个维度上是有说服力的：一是 novel view synthesis 与 depth estimation 的表现优于已有方法；二是在 CARLA 和其他数据集上的 zero-shot 推理说明其具备一定的泛化能力。
     </p>
     <p>
       更具体地说，这篇论文想强调的实验结论包括：
@@ -505,23 +553,19 @@ def _streetforward_post_body(doc, date_str: str, figures: List[str], related: Li
       <li>在静止或慢速物体附近，它能更好地区分“看起来像动态”和“真正有运动”的区域；</li>
       <li>在时间插值场景中，前后向速度联合建模比只预测单向速度的版本效果更完整。</li>
     </ul>
-    {fig3_html}
-    {fig5_html}
     <p>
       如果用一句话概括实验部分，那就是：StreetForward 的改进不是只体现在数值上，而是体现在<strong>动态场景下渲染结果更稳、更清晰、更少伪影</strong>。
     </p>
 
     <h2 id='takeaway'>理解评价</h2>
     <p>
-      我觉得这篇论文最有价值的不是“又做了一个动态 3DGS”，而是它把自动驾驶场景里的几个工程痛点真正串起来了：
-      <strong>速度要快、链路要短、依赖要少、还要支持新视角和新时刻渲染</strong>。
+      我觉得这篇论文最有价值的不是“又做了一个动态 3DGS”，而是它把自动驾驶场景里的几个工程痛点真正串起来了：<strong>速度要快、链路要短、依赖要少、还要支持新视角和新时刻渲染</strong>。
     </p>
     <p>
-      从方法设计上看，causal attention 是最漂亮的一笔。它没有把系统搞得很复杂，却准确击中了动态建模里“时间方向缺失”的问题。
-      另外，局部刚性 + 时序一致性的组合，也体现出作者并不把运动学习完全交给网络“自己悟”，而是加入了明确的物理/几何归纳偏置。
+      从方法设计上看，causal attention 是最漂亮的一笔。它没有把系统搞得很复杂，却准确击中了动态建模里“时间方向缺失”的问题。另外，局部刚性 + 时序一致性的组合，也体现出作者并不把运动学习完全交给网络“自己悟”，而是加入了明确的几何归纳偏置。
     </p>
     <p>
-      如果后面你想继续深挖，我建议重点看三件事：
+      如果后面继续深挖，我建议重点看三件事：
     </p>
     <ul>
       <li>和 DGGT / STORM 这类方法相比，它在长时序融合上的实际稳定性如何；</li>
@@ -529,13 +573,13 @@ def _streetforward_post_body(doc, date_str: str, figures: List[str], related: Li
       <li>它能否进一步作为 world model 的 3D 场景底座，服务于闭环规划与仿真。</li>
     </ul>
     <p>
-      从技术脉络上看，StreetForward 可以理解为站在 VGGT 这一类大视觉几何模型之上，向动态街景 4D feedforward 重建迈出的一步。下面这些自动检索到的相关论文，可以作为延伸阅读：
+      从技术脉络上看，StreetForward 可以理解为站在 VGGT 这类大视觉几何模型之上，向动态街景 4D feedforward 重建迈出的一步。下面这些自动检索到的相关论文可以作为延伸阅读：
     </p>
     <ul>{related_html}</ul>
 
     <div class='tip'>
       <strong>一句结论：</strong>
-      如果你关注的是“自动驾驶里的可扩展动态场景重建”，那 StreetForward 是非常值得精读的一篇，因为它提供了一条从大视觉几何模型走向动态 4D feedforward 场景建模的清晰路径。
+      如果你关注的是“自动驾驶里的可扩展动态场景重建”，那 StreetForward 是非常值得精读的一篇，因为它提供了一条从大视觉几何模型走向动态 4D 前馈场景建模的清晰路径。
     </div>
   </article>
 </div>
@@ -575,9 +619,15 @@ def build_post_from_pdf(
     if alias.lower() != "streetforward":
         figure_files = _extract_figures(pdf_path, fig_folder, max_images=6)
 
-    figure_entries = []
+    figure_entries: List[Dict] = []
     if alias.lower() == "streetforward":
-        for label, name in [("Figure 1:", "figure1_full.png"), ("Figure 2:", "figure2_full.png")]:
+        for label, name in [
+            ("Figure 1:", "figure1_full.png"),
+            ("Figure 2:", "figure2_full.png"),
+            ("Figure 3:", "figure3_full.png"),
+            ("Figure 4:", "figure4_full.png"),
+            ("Figure 5:", "figure5_full.png"),
+        ]:
             saved = _extract_figure_region_by_caption(pdf_path, label, fig_folder, name)
             if saved:
                 raw_caption = _extract_caption_text(pdf_path, label)
@@ -698,10 +748,9 @@ def build_post_from_pdf(
 def build_home(site_dir: Union[str, Path] = "./site") -> Path:
     site = Path(site_dir)
     site.mkdir(parents=True, exist_ok=True)
-    manifest = _load_manifest(site)
 
+    manifest = _load_manifest(site)
     latest = manifest[0] if manifest else None
-    featured = next((item for item in manifest if item.get("featured")), latest)
 
     all_tags: List[str] = []
     for item in manifest:
@@ -718,7 +767,7 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
         )
 
     latest_html = ""
-    if featured:
+    if featured := next((item for item in manifest if item.get("featured")), latest):
         cover = (
             f"<img src='{html.escape(featured['thumbnail_path'])}' alt='cover' style='width:100%;border-radius:12px;border:1px solid #e5e5e5;' />"
             if featured.get("thumbnail_path")
@@ -760,7 +809,6 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
             f"<a href='{html.escape(item['path'])}' style='font-size:18px;font-weight:700;color:#1f1f1f;'>{html.escape(display_title)}</a>"
             f"<div style='font-size:12px;color:#666;line-height:1.6;'>{html.escape(tagline)}</div>"
             f"<div>{render_tag_chips(item.get('tags', []))}</div>"
-            f"<div style='color:#333;'>{html.escape(item.get('summary', ''))}</div>"
             f"</article>"
         )
 
@@ -774,12 +822,11 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
 
     body = f"""
 <section class='card' style='padding:26px 24px;background:linear-gradient(135deg,#f8fbff 0%,#ffffff 100%);'>
-  <div class='meta'>Research Notes / arXiv Search Blog</div>
-  <h1 style='margin-top:6px;'>Paper Blog</h1>
+  <h1 style='margin-top:6px;'>Raymond's Blogs</h1>
   <p style='font-size:16px;'>
-    这里不是论文列表页，而是一个<strong>论文解读博客</strong>：每篇文章围绕一篇已下载论文展开，重点讲清楚问题背景、方法设计、技术细节、图示和我的理解。
+    聚焦自动驾驶、世界模型与动态重建等前沿方向，持续输出主流论文的结构化解析、技术拆解与研究观察。
   </p>
-  <p class='meta'>当前地址即博客首页，后续新增文章会继续出现在这里。</p>
+  <p class='meta'>这里是博客首页，后续新增文章会继续发布在这里。</p>
 </section>
 
 {stats}
@@ -812,7 +859,7 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
 
     index_path = site / "index.html"
     with open(index_path, "w", encoding="utf-8") as f:
-        f.write(_render_page("Paper Blog", body))
+        f.write(_render_page("Raymond's Blogs", body))
     return index_path
 
 
@@ -821,8 +868,6 @@ def build_site(
     out_dir: Union[str, Path] = "./site",
     max_chars: int = 3500,
 ) -> Path:
-    # Compatibility wrapper for existing callers.
-    # The new blog system is post-centric and does not depend on papers_index.
     _ = docs_dir
     _ = max_chars
     return build_home(out_dir)
