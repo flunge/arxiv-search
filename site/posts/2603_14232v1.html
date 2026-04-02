@@ -211,17 +211,27 @@ S2GS 以严格因果方式处理未校准且未设置的 RGB 图像流。
 \end{cases}
 \label{eq:causal_mask} $$</p>
     <p>
-      身份维护。用于 3D 高斯回归的因果变压器 具有在线状态的因果变压器。按照先前的设计，每一帧都被编码成视觉标记，并由因果 Transformer 编码器进行处理。因果关系是通过时间注意力掩码强制执行的，该掩码限制令牌在时间上仅参与......
+      公式：M_{t,\tau}=
+\开始{案例}
+0, &amp; \tau\let,\\
+-\infty，&amp;\tau&gt;t。
+\结束{案例}
+\label{eq:causal_mask}
+上下文：身份维护。用于 3D 高斯回归的因果变压器 具有在线状态的因果变压器。按照先前的设计，每一帧都被编码成视觉标记，并由因果 Transformer 编码器进行处理。因果关系是通过时间注意力掩码强制执行的，该掩码限制令牌在时间上仅参与......
     </p>
     <p>$$ \mathcal{G}_t=\mathrm{BackProj}\!\left(\hat{D}_t,\hat{P}_t\right)\ \oplus\ \hat{A}_t.
 \label{eq:gaussian_construct} $$</p>
     <p>
-      梅拉/姿势。我们通过（i）有效像素的深度损失和（ii）相机参数的 Huber 损失来监督学生，鼓励预测的几何形状（深度和相机）与老师保持一致。通过蒸馏 和 ，我们对像素进行反投影以获得像素对齐的 3D 高斯中心，并…
+      公式：\mathcal{G}_t=\mathrm{BackProj}\!\left(\hat{D}_t,\hat{P}_t\right)\ \oplus\ \hat{A}_t.
+\label{eq:gaussian_construct}
+上下文：mera/pose .我们通过（i）有效像素的深度损失和（ii）相机参数的 Huber 损失来监督学生，鼓励预测的几何形状（深度和相机）与老师保持一致。通过蒸馏 和 ，我们对像素进行反投影以获得像素对齐的 3D 高斯中心，并…
     </p>
     <p>$$ \mathbf{Q}_t = \mathrm{Dec}\!\left(\mathbf{Q}_0,\ \{\mathbf{F}_t^{(m)}\}\right).
 \label{eq:query_decode_overview} $$</p>
     <p>
-      由冻结的 2D 视觉基础模型来提取鲁棒的语义特征。轻量级适配器将这些特征转换为多尺度表示，由基于查询的掩码分类解码器使用。在每个时间步，一组固定的可学习查询会处理当前帧以生成 p…
+      公式：\mathbf{Q}_t = \mathrm{Dec}\!\left(\mathbf{Q}_0,\ \{\mathbf{F}_t^{(m)}\}\right)。
+\label{eq:query_decode_overview}
+上下文：通过冻结的2D视觉基础模型来提取鲁棒的语义特征。轻量级适配器将这些特征转换为多尺度表示，由基于查询的掩码分类解码器使用。在每个时间步，一组固定的可学习查询会处理当前帧以生成 p…
     </p>
     <p>$$ \mathcal{L}_{\mathrm{cl}}
 =
@@ -233,19 +243,34 @@ S2GS 以严格因果方式处理未校准且未设置的 RGB 图像流。
 {\sum_{a\neq i}\exp(\mathbf{z}_i^\top \mathbf{z}_a / \tau)},
 \label{eq:supcon} $$</p>
     <p>
-      对对齐的查询嵌入进行主动学习。这鼓励跨帧对应于相同物理实例的嵌入以形成紧凑的集群，同时分离不同的实例。具体来说，让 表示带有实例标签 的规范化查询嵌入，并让 为锚点的正集。我们优化...
+      公式：\mathcal{L}_{\mathrm{cl}}
+=
+\sum_{i=1}^{|\mathcal{Z}|}
+\frac{-1}{|\mathcal{P}(i)|}
+\sum_{p\in\mathcal{P}(i)}
+\日志
+\frac{\exp(\mathbf{z}_i^\top \mathbf{z}_p / \tau)}
+{\sum_{a\neq i}\exp(\mathbf{z}_i^\top \mathbf{z}_a / \tau)},
+\label{eq:supcon}
+上下文：对对齐查询嵌入的主动学习。这鼓励跨帧对应于相同物理实例的嵌入以形成紧凑的集群，同时分离不同的实例。具体来说，让 表示带有实例标签 的规范化查询嵌入，并让 为锚点的正集。我们优化...
     </p>
     <p>$$ A_{i,k}^t = \cos(\mathbf{z}_i^t,\ \bar{\mathbf{z}}_k^{t-1}),
 \label{eq:affinity} $$</p>
     <p>
-      （一）| _pP(i) (z_i^ z_p / ) _a i(z_i^ z_a / )，方程，其中 是温度超参数，锚点 被忽略。在推理时，每帧预测与使用余弦相似性和二分匹配的轻量级实例内存库相关联：其中表示标准化查询嵌入，是…
+      公式：A_{i,k}^t = \cos(\mathbf{z}_i^t,\ \bar{\mathbf{z}}_k^{t-1}),
+\label{eq:亲和力}
+上下文：(i)| _pP(i) (z_i^ z_p / ) _a i(z_i^ z_a / )，方程，其中 是温度超参数，锚点 被忽略。在推理时，每帧预测与使用余弦相似性和二分匹配的轻量级实例内存库相关联：其中表示标准化查询嵌入，是…
     </p>
     <p>$$ \bar{\mathbf{z}}_k^{t}
 =
 \mathrm{Norm}\!\left((1-\alpha)\bar{\mathbf{z}}_k^{t-1} + \alpha\,\mathbf{z}_i^t\right),
 \label{eq:ema_update} $$</p>
     <p>
-      e 使用余弦相似性和二分匹配与轻量级实例内存库相关联：其中表示规范化查询嵌入，并且是现有实例的原型嵌入。匹配的原型通过指数移动平均值进行更新：在……下产生时间一致的实例标识。
+      公式：\bar{\mathbf{z}}_k^{t}
+=
+\mathrm{范数}\!\left((1-\alpha)\bar{\mathbf{z}}_k^{t-1} + \alpha\,\mathbf{z}_i^t\right),
+\label{eq:ema_update}
+上下：e 使用余弦相似性和二分匹配与轻量级实例存储库关联：其中表示规范化查询嵌入，是现有实例的原型嵌入。匹配的原型通过指数移动平均值进行更新：在……下产生时间一致的实例标识。
     </p>
     <figure><img class='paper-fig' src='../assets/2603_14232v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：ScanNet 数据集的定性结果。</figcaption></figure>
     <figure><img class='paper-fig' src='../assets/2603_14232v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：后期新颖的视图合成在较长的输入流下产生。</figcaption></figure>
