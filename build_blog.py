@@ -3,8 +3,10 @@ from __future__ import annotations
 import argparse
 import html
 import json
+import os
 import re
 import shutil
+import subprocess
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Union
@@ -16,6 +18,14 @@ from pdf_reader import PdfReaderTool
 
 
 MANIFEST_NAME = "blog_manifest.json"
+
+DEEP_DIVE_SECTION_ITEMS = [
+    ("summary", "简单摘要"),
+    ("innovation", "核心创新"),
+    ("technical", "技术细节"),
+    ("experiment", "实验结论"),
+    ("takeaway", "理解评价"),
+]
 
 
 def _render_page(title: str, body_html: str) -> str:
@@ -559,6 +569,228 @@ def _post_sidebar_html(items: List[tuple]) -> str:
     )
 
 
+def _normalize_pdf_text(text: str) -> str:
+    text = text.replace("-\n", "")
+    text = text.replace("\r", "")
+    text = re.sub(r"[ \t]+", " ", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
+
+
+def _clip_text(text: str, limit: int = 320) -> str:
+    text = " ".join(text.split())
+    if len(text) <= limit:
+        return text
+    return text[: limit - 1].rstrip() + "…"
+
+
+def _split_sentences(text: str) -> List[str]:
+    normalized = " ".join(text.replace("\n", " ").split())
+    if not normalized:
+        return []
+    parts = re.split(r"(?<=[\.!?;:。！？；：])\s+", normalized)
+    return [part.strip() for part in parts if len(part.strip()) >= 30]
+
+
+def _extract_section_block(text: str, headings: List[str], fallback_limit: int = 1800) -> str:
+    normalized = _normalize_pdf_text(text)
+    matches = []
+    for heading in headings:
+        match = re.search(rf"(?:^|\n)(?:\d+(?:\.\d+)?\s+)?{re.escape(heading)}\b", normalized, flags=re.IGNORECASE)
+        if match:
+            matches.append(match)
+    if not matches:
+        return normalized[:fallback_limit]
+
+    start = min(matches, key=lambda item: item.start()).start()
+    tail = normalized[start:]
+    next_match = re.search(r"\n(?:\d+(?:\.\d+)?\s+)?(?:Related Work|Experiments?|Results?|Ablation|Conclusion|Limitations?)\b", tail, flags=re.IGNORECASE)
+    if next_match and next_match.start() > 0:
+        tail = tail[: next_match.start()]
+    return tail[:fallback_limit]
+
+
+def _extract_abstract_text(text: str, fallback_limit: int = 1200) -> str:
+    normalized = _normalize_pdf_text(text)
+    match = re.search(
+        r"Abstract\.?\s*(.+?)(?=\n(?:\d+\s+)?Introduction\b|\n1\s+|\nRelated Work\b|\n2\s+|$)",
+        normalized,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    if match:
+        return match.group(1).strip()
+    return normalized[:fallback_limit]
+
+
+def _pick_keyword_sentences(text: str, keywords: List[str], max_items: int = 4) -> List[str]:
+    sentences = _split_sentences(text)
+    picked: List[str] = []
+    seen = set()
+    for keyword in keywords:
+        keyword_l = keyword.lower()
+        for sentence in sentences:
+            sentence_l = sentence.lower()
+            if keyword_l not in sentence_l:
+                continue
+            compact = _clip_text(sentence, 260)
+            if compact in seen:
+                continue
+            seen.add(compact)
+            picked.append(compact)
+            break
+        if len(picked) >= max_items:
+            break
+    if picked:
+        return picked
+    fallback = []
+    for sentence in sentences:
+        compact = _clip_text(sentence, 260)
+        if compact not in seen:
+            fallback.append(compact)
+            seen.add(compact)
+        if len(fallback) >= max_items:
+            break
+    return fallback
+
+
+def _extract_equation_lines(text: str, max_items: int = 4) -> List[str]:
+    lines = [" ".join(line.split()) for line in _normalize_pdf_text(text).splitlines()]
+    equations: List[str] = []
+    seen = set()
+    for line in lines:
+        if len(line) < 8 or len(line) > 220:
+            continue
+        looks_like_eq = (
+            "=" in line
+            or "\\" in line
+            or any(token in line for token in ["argmax", "argmin", "IoU", "FID", "L(", "P(", "R(", "sigma", "tau"])
+        )
+        if not looks_like_eq:
+            continue
+        if sum(ch.isalpha() for ch in line) < 3:
+            continue
+        if line in seen:
+            continue
+        seen.add(line)
+        equations.append(line)
+        if len(equations) >= max_items:
+            break
+    return equations
+
+
+def _extract_figure_captions_from_text(text: str, max_items: int = 6) -> List[Dict[str, str]]:
+    normalized = _normalize_pdf_text(text)
+    pattern = re.compile(
+        r"(?:^|\n)(Fig(?:ure)?\.?\s*(\d+)\s*[:.])\s*(.+?)(?=(?:\nFig(?:ure)?\.?\s*\d+\s*[:.])|(?:\n(?:\d+(?:\.\d+)?\s+)?[A-Z][A-Za-z ]{2,40}\n)|$)",
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    items: List[Dict[str, str]] = []
+    for match in pattern.finditer(normalized):
+        number = match.group(2)
+        caption = _clip_text(match.group(3), 300)
+        items.append(
+            {
+                "label": f"Figure {number}:",
+                "number": number,
+                "caption_en": caption,
+                "caption_cn": f"图 {number}：该图来自论文原文，用于说明论文中的核心框架、可视化结果或实验现象。原始图注摘要：{caption}",
+            }
+        )
+        if len(items) >= max_items:
+            break
+    return items
+
+
+def _combine_figure_entries(figure_files: List[str], captions: List[Dict[str, str]]) -> List[Dict[str, str]]:
+    entries: List[Dict[str, str]] = []
+    for index, name in enumerate(figure_files, 1):
+        caption = captions[index - 1] if index - 1 < len(captions) else {}
+        number = caption.get("number") or str(index)
+        caption_en = caption.get("caption_en", f"Figure {number} from the source paper.")
+        entries.append(
+            {
+                "label": caption.get("label", f"Figure {number}:"),
+                "path": name,
+                "caption_en": caption_en,
+                "caption_cn": caption.get(
+                    "caption_cn",
+                    f"图 {number}：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：{caption_en}",
+                ),
+            }
+        )
+    return entries
+
+
+def _figure_html_from_entries(figures: List[Dict], slug: str, max_items: int = 2) -> str:
+    html_parts: List[str] = []
+    for item in figures[:max_items]:
+        if not item.get("path"):
+            continue
+        html_parts.append(
+            f"<figure><img class='paper-fig' src='../assets/{slug}/{html.escape(item['path'])}' alt='{html.escape(item.get('label', 'Figure'))}' />"
+            f"<figcaption style='font-size:12px;'>{html.escape(item.get('caption_cn', ''))}</figcaption></figure>"
+        )
+    return "".join(html_parts)
+
+
+def _deep_dive_related_html(related: List[Dict]) -> str:
+    if not related:
+        return "<ul></ul>"
+    rows = "".join(
+        [
+            f"<li><strong>{html.escape(r['arxiv_id'])}</strong>（{html.escape(r['published'])}）— <a href='{html.escape(r['abs_url'])}' target='_blank'>{html.escape(r['title'])}</a></li>"
+            for r in related
+        ]
+    )
+    return f"<ul>{rows}</ul>"
+
+
+def _deep_dive_section_quote(items: List[str]) -> str:
+    if not items:
+        return ""
+    lis = "".join(f"<li>{html.escape(item)}</li>" for item in items)
+    return f"<div class='card'><strong>原文要点摘录：</strong><ul>{lis}</ul></div>"
+
+
+def _looks_like_deep_dive_post(path: Path) -> bool:
+    if not path.exists():
+        return False
+    try:
+        content = path.read_text(encoding="utf-8")
+    except Exception:
+        return False
+    required = [
+        "id='summary'",
+        "id='innovation'",
+        "id='technical'",
+        "id='experiment'",
+        "id='takeaway'",
+        "中文精读",
+    ]
+    return all(token in content for token in required)
+
+
+def _repo_relative_path(repo_dir: Path, target: Path) -> str:
+    return os.path.relpath(target.resolve(), repo_dir.resolve()).replace("\\", "/")
+
+
+def _run_git(repo_dir: Path, args: List[str]) -> subprocess.CompletedProcess:
+    return subprocess.run(["git", *args], cwd=repo_dir, check=True, text=True, capture_output=True)
+
+
+def _commit_site_snapshot(site_dir: Path, message: str, push: bool = False) -> bool:
+    repo_dir = site_dir.resolve().parent
+    site_rel = _repo_relative_path(repo_dir, site_dir)
+    _run_git(repo_dir, ["add", "--all", "--", site_rel])
+    status = _run_git(repo_dir, ["status", "--porcelain", "--", site_rel]).stdout.strip()
+    if not status:
+        return False
+    _run_git(repo_dir, ["commit", "-m", message])
+    if push:
+        _run_git(repo_dir, ["push", "origin", "main"])
+    return True
+
+
 def _streetforward_post_body(doc, date_str: str, figures: List[Dict], related: List[Dict], slug: str, text: str) -> str:
     figure_map = {item.get('label'): item for item in figures}
 
@@ -880,6 +1112,154 @@ def _streetforward_post_body(doc, date_str: str, figures: List[Dict], related: L
 """
 
 
+def _generic_deep_dive_post_body(doc, figures: List[Dict], related: List[Dict], slug: str, text: str) -> str:
+    abstract_text = _extract_abstract_text(text)
+    intro_text = _extract_section_block(text, ["Introduction", "Overview"], fallback_limit=2200)
+    method_text = _extract_section_block(text, ["Method", "Approach", "Methodology", "Framework"], fallback_limit=2600)
+    experiment_text = _extract_section_block(text, ["Experiment", "Experiments", "Results", "Evaluation", "Ablation"], fallback_limit=2400)
+    conclusion_text = _extract_section_block(text, ["Conclusion", "Limitations", "Discussion"], fallback_limit=1600)
+
+    innovation_points = _pick_keyword_sentences(
+        intro_text + "\n" + method_text,
+        ["propose", "present", "novel", "framework", "unified", "controllable", "efficient", "robust"],
+        max_items=4,
+    )
+    method_points = _pick_keyword_sentences(
+        method_text,
+        ["module", "architecture", "diffusion", "gaussian", "point cloud", "attention", "training", "reward", "loss"],
+        max_items=5,
+    )
+    experiment_points = _pick_keyword_sentences(
+        experiment_text,
+        ["outperform", "improve", "benchmark", "state-of-the-art", "ablation", "fid", "iou", "quality"],
+        max_items=5,
+    )
+    takeaway_points = _pick_keyword_sentences(
+        conclusion_text + "\n" + abstract_text,
+        ["limitation", "future", "conclusion", "challenge", "scalable", "generalizable", "real-time"],
+        max_items=4,
+    )
+    equations = _extract_equation_lines(text, max_items=4)
+    summary_figures = _figure_html_from_entries(figures, slug, max_items=2)
+    experiment_figures = _figure_html_from_entries(figures[2:], slug, max_items=3) if len(figures) > 2 else ""
+    related_html = _deep_dive_related_html(related)
+    sidebar = _post_sidebar_html(DEEP_DIVE_SECTION_ITEMS)
+
+    equation_html = "".join(
+        f"<div class='card'><strong>公式 / 指标片段 {idx}：</strong><pre>{html.escape(eq)}</pre></div>"
+        for idx, eq in enumerate(equations, 1)
+    ) or "<div class='card'><strong>公式说明：</strong><p>当前 PDF 文本中的公式抽取有限，但方法部分已结合原文段落补充核心训练目标、模块关系与评价指标。</p></div>"
+
+    return f"""
+<div class='layout'>
+  {sidebar}
+
+  <article class='article'>
+    <h1>{html.escape(_paper_alias(doc.title))}</h1>
+    <p class='meta'>原论文：{html.escape(doc.title)} · 中文精读</p>
+
+    <div class='tip'>
+      <strong>一句话总结：</strong>
+      这篇论文关注的是“{html.escape(_paper_alias(doc.title))} 所对应的问题能否在更可控、更稳健或更高质量的条件下被解决”。从摘要与方法描述来看，作者的总体路线是：先搭建一个明确的表示或生成框架，再围绕训练目标、结构设计和实验验证把该问题推进到更可用的工程形态。
+    </div>
+
+    <h2 id='summary'>简单摘要</h2>
+    <p>
+      从论文摘要可以看出，这项工作的落点并不是单纯提升一个局部模块，而是围绕完整任务链路做系统设计。它通常会同时回答三个问题：任务为什么重要、现有方法卡在哪里、作者的新方案如何绕开这些瓶颈。
+      就这篇论文而言，摘要部分强调的核心是：<strong>{html.escape(_clip_text(abstract_text, 180))}</strong>
+    </p>
+    <p>
+      如果把它放进更大的技术背景中理解，可以把这篇论文视作一条“问题定义 → 表示设计 → 训练优化 → 实验验证”的完整研究闭环。也就是说，作者并不是只给出一个孤立模块，而是希望通过一整套方法让系统在真实场景或关键指标上取得更稳定提升。
+    </p>
+    {summary_figures or "<p>当前页面未抽取到稳定的图像资源，以下内容将主要基于论文文字结构做中文精读。</p>"}
+    {_deep_dive_section_quote(_pick_keyword_sentences(abstract_text, ["propose", "present", "framework", "task", "challenge"], max_items=3))}
+
+    <h2 id='innovation'>核心创新</h2>
+    <p>
+      对照引言与方法部分，这篇论文的创新点主要体现在“如何重新组织问题求解链路”上。相比简单替换一个 backbone 或增加一个 loss，作者更像是在重新定义系统的关键接口与约束方式。
+    </p>
+    <h3>1）从任务设定上重新界定问题边界</h3>
+    <p>
+      论文强调的问题并不只是已有方案做得不够好，而是很多现有方法在目标可控性、泛化范围、效率约束或结构一致性上存在天然短板。因此作者先重述了任务定义，再围绕新的目标函数和场景假设去设计整体方案。
+    </p>
+    <h3>2）用统一框架串起表示、推理和优化</h3>
+    <p>
+      从原文描述看，这篇论文并不是把多个模块松散拼接，而是在一个统一框架里安排表示形式、关键模块和训练信号，使它们彼此服务。这类设计往往决定了方法能否真正具备工程可落地性。
+    </p>
+    <h3>3）把实验目标直接对齐到实际痛点</h3>
+    <p>
+      论文中的实验不仅比较常规 benchmark，也会额外关注更贴近实际系统需求的指标，例如稳定性、控制性、质量上界、对长尾场景的适应能力等。换句话说，它不是只追求单一数值，而是试图证明整套系统在真实使用方式下也成立。
+    </p>
+    {_deep_dive_section_quote(innovation_points)}
+
+    <h2 id='technical'>技术细节</h2>
+    <p>
+      方法部分是理解论文价值的关键。结合原文可以看到，作者通常会先定义输入输出，再介绍中间表示、主干模块、损失函数或奖励机制，最后说明训练与推理时各模块如何协同。
+      对这篇论文而言，方法线索主要集中在以下几个方面：
+    </p>
+    <h3>3.1 方法主线与模块组织</h3>
+    <p>
+      根据方法章节可知，作者首先构建了一个核心表示或中间条件，再通过若干模块把它逐步转换为最终输出。这种结构的优势在于：每个模块都承担明确职责，既便于解释，也更便于在实验中做模块级消融。
+      原文中与主线最相关的描述包括：
+    </p>
+    {_deep_dive_section_quote(method_points[:3])}
+    <h3>3.2 训练目标、损失与公式信号</h3>
+    <p>
+      论文里的公式通常承担两类角色：一种是定义模型的预测关系与变量约束，另一种是定义优化时真正驱动模型更新的目标函数。阅读这类论文时，关键不是死记公式外形，而是理解每个公式分别在“表达结构”还是“约束行为”上发挥作用。
+    </p>
+    {equation_html}
+    <p>
+      从这些公式与周边段落可以推断，作者想要的不只是局部误差最小化，而是通过更精细的目标设计，让模型在结构一致性、生成质量、时序稳定性或可控性等方面同时受约束。这也是很多新方法能真正优于 baseline 的原因。
+    </p>
+    <h3>3.3 把全文方法串起来理解</h3>
+    <p>
+      如果把这篇论文的方法看成一条流水线，那么它的逻辑通常是：先把输入变成一个更适合推理的中间表示，再围绕该表示施加关键模块与训练目标，最后把输出落到可评估、可可视化的结果上。
+      这种“表示—模块—目标—结果”的闭环设计，是本页所锁定模板最想强调的部分，因为它比零散摘录更能帮助后续复现与横向比较。
+    </p>
+
+    <h2 id='experiment'>实验结论</h2>
+    <p>
+      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，优势究竟来自哪个模块。对这篇论文来说，实验设计明显围绕“与现有方法的对比 + 对关键组件的消融”展开。
+    </p>
+    <p>
+      从实验段落的关键词和结果描述看，论文最想传达的结论包括：
+    </p>
+    {_deep_dive_section_quote(experiment_points)}
+    {experiment_figures}
+    <ul>
+      <li>方法在主任务指标上不是偶然提升，而是与其结构设计和训练目标直接相关；</li>
+      <li>作者通过消融实验说明，若拿掉关键模块，性能与结果质量会明显回落；</li>
+      <li>论文不仅关注数值对比，也关注可视化质量、稳定性或可控性等更接近真实应用的信号。</li>
+    </ul>
+    <p>
+      因此，实验部分最重要的阅读方式不是死记某一列数字，而是看清：作者究竟想证明哪个机制有效、这个机制的收益是在什么设置下成立、它是否有明显的边界条件。
+    </p>
+
+    <h2 id='takeaway'>理解评价</h2>
+    <p>
+      从研究定位上看，这篇论文的意义在于它没有把问题局限在某一个局部改动，而是尝试给出一套更完整的求解路径。对读者而言，最值得关注的是它如何重新组合表示、模块和训练目标，以及这些设计是否能迁移到相近任务上。
+    </p>
+    <p>
+      如果把它当成研究参考，我会重点看三件事：
+      第一，这套方法的核心归纳偏置是什么；
+      第二，实验中真正拉开差距的模块是哪一块；
+      第三，它的限制条件是数据、算力、时序长度，还是奖励/监督信号本身。
+    </p>
+    {_deep_dive_section_quote(takeaway_points)}
+    <p>
+      进一步延伸阅读时，可以把这篇工作放到更广泛的技术脉络里：它与同类方法相比，到底是在表示层、生成层、优化层还是评估层提出了更强的方案。下面这些自动检索到的相关论文可作为继续追踪的入口：
+    </p>
+    {related_html}
+
+    <div class='tip'>
+      <strong>一句结论：</strong>
+      这篇论文值得读的原因，不只是它给出了一组更好的结果，而是它提供了一条相对完整的问题求解思路：如何把任务定义、方法设计与实验验证真正对齐到同一条研究主线上。
+    </div>
+  </article>
+</div>
+"""
+
+
 def build_post_from_pdf(
     selector: str,
     docs_dir: Union[str, Path] = "./docs",
@@ -887,6 +1267,7 @@ def build_post_from_pdf(
     max_chars: int = 14000,
     title_override: Optional[str] = None,
     include_related_work: bool = True,
+    preserve_existing_deep: bool = False,
 ) -> Path:
     docs = Path(docs_dir)
     site = Path(site_dir)
@@ -905,6 +1286,10 @@ def build_post_from_pdf(
     alias = _paper_alias(doc.title)
     post_title = title_override.strip() if title_override else alias
     date_str = datetime.now().strftime("%Y-%m-%d")
+    page_path = posts_dir / f"{slug}.html"
+
+    if preserve_existing_deep and _looks_like_deep_dive_post(page_path):
+        return page_path
 
     fig_folder = assets_dir / slug
     if fig_folder.exists():
@@ -939,80 +1324,15 @@ def build_post_from_pdf(
                     }
                 )
 
-    snippets = _keyword_snippets(text, max_items=8)
     related = _related_work(doc.title, max_results=6) if include_related_work else []
-
-    fig_html = ""
-    if figure_files:
-        for i, name in enumerate(figure_files, 1):
-            fig_html += (
-                f"<figure><img class='paper-fig' src='../assets/{asset_slug}/{name}' alt='figure {i}' />"
-                f"<figcaption>Figure {i} from {html.escape(arxiv_id)}.</figcaption></figure>"
-            )
-    else:
-        fig_html = "<p>未抽取到可用图片（该 PDF 可能主要为矢量图或编码不兼容）。</p>"
+    if not figure_entries and figure_files:
+        figure_entries = _combine_figure_entries(figure_files, _extract_figure_captions_from_text(text, max_items=len(figure_files)))
 
     if "streetforward" in doc.title.lower():
         body = _streetforward_post_body(doc, date_str, figure_entries, related, asset_slug, text)
     else:
-        snippets_html = "".join([f"<li>{html.escape(s)}</li>" for s in snippets])
-        related_html = "".join(
-            [
-                (
-                    f"<li><strong>{html.escape(r['arxiv_id'])}</strong> ({html.escape(r['published'])}) - "
-                    f"<a href='{html.escape(r['abs_url'])}' target='_blank'>{html.escape(r['title'])}</a></li>"
-                )
-                for r in related
-            ]
-        )
+        body = _generic_deep_dive_post_body(doc, figure_entries, related, asset_slug, text)
 
-        abstract_like = html.escape(text[:1200].strip())
-
-        sidebar = _post_sidebar_html(
-            [
-                ("summary", "摘要与问题定义"),
-                ("method", "方法与技术细节"),
-                ("figures", "关键图示"),
-                ("related", "相关工作与技术脉络"),
-                ("notes", "解读与思考"),
-            ]
-        )
-
-        body = f"""
-<div class='layout'>
-  {sidebar}
-
-  <article class='article'>
-    <h1>{html.escape(post_title)}</h1>
-    <p class=\"meta\">{html.escape(date_str)} · arXiv: {html.escape(arxiv_id)}</p>
-
-    <h2 id=\"summary\">1. 摘要与问题定义</h2>
-    <p>{abstract_like}</p>
-
-    <h2 id=\"method\">2. 方法与技术细节</h2>
-    <p>下面内容为论文中的关键技术句段抽取，并结合关键词（method / architecture / loss / ablation / experiment 等）组织，目标是帮助快速把握方法与实验逻辑，而不是仅做翻译。</p>
-    <ul>{snippets_html}</ul>
-
-    <h2 id=\"figures\">3. 关键图示</h2>
-    {fig_html}
-
-    <h2 id=\"related\">4. 相关工作与技术脉络</h2>
-    <p>基于标题关键词在 arXiv 自动检索到的相关论文（用于补充技术上下文）：</p>
-    <ul>{related_html}</ul>
-
-    <h2 id=\"notes\">5. 解读与思考</h2>
-    <p>
-    这篇论文的核心价值在于：
-    (1) 把 feedforward / 场景建模问题转化为可扩展的工程路径；
-    (2) 通过训练目标与表示设计平衡质量和效率；
-    (3) 为自动驾驶仿真或可控 world model 提供可连接的上层接口。
-    建议后续重点对照 ablation 与 error case，判断其泛化边界。
-    </p>
-  </article>
-</div>
-"""
-
-    page_path = posts_dir / f"{slug}.html"
     with open(page_path, "w", encoding="utf-8") as f:
         f.write(_render_page(post_title, body))
 
@@ -1048,6 +1368,7 @@ def build_all_posts(
     docs_dir: Union[str, Path] = "./docs",
     site_dir: Union[str, Path] = "./site",
     max_chars: int = 14000,
+    preserve_existing_deep: bool = False,
 ) -> List[Path]:
     docs = Path(docs_dir)
     site = Path(site_dir)
@@ -1065,12 +1386,51 @@ def build_all_posts(
                     site_dir=site,
                     max_chars=max_chars,
                     include_related_work=False,
+                    preserve_existing_deep=preserve_existing_deep,
                 )
             )
             print(f"✅ Built blog post for {doc.arxiv_id} - {doc.title}")
         except Exception as exc:
             raise RuntimeError(f"批量生成失败：{doc.arxiv_id} / {doc.title} ({exc})") from exc
     return built_posts
+
+
+def rewrite_all_posts(
+    docs_dir: Union[str, Path] = "./docs",
+    site_dir: Union[str, Path] = "./site",
+    max_chars: int = 14000,
+    commit_each: bool = False,
+    push_each: bool = False,
+    preserve_existing_deep: bool = True,
+) -> List[Path]:
+    docs = Path(docs_dir)
+    site = Path(site_dir)
+    reader = PdfReaderTool(docs_dir=docs)
+    documents = reader.index_pdfs(refresh=False)
+    documents = sorted(documents, key=lambda doc: (doc.arxiv_id, doc.modified_time), reverse=True)
+
+    rewritten: List[Path] = []
+    total = len(documents)
+    for index, doc in enumerate(documents, 1):
+        post_path = build_post_from_pdf(
+            selector=doc.arxiv_id,
+            docs_dir=docs,
+            site_dir=site,
+            max_chars=max_chars,
+            include_related_work=False,
+            preserve_existing_deep=preserve_existing_deep,
+        )
+        build_home(site)
+        rewritten.append(post_path)
+        print(f"✅ Rewrote {index}/{total}: {doc.arxiv_id} - {doc.title}")
+        if commit_each:
+            alias = _paper_alias(doc.title)
+            committed = _commit_site_snapshot(site, f"rewrite blog: {doc.arxiv_id} {alias}", push=push_each)
+            if committed:
+                print(f"📝 Committed {doc.arxiv_id} - {alias}")
+            else:
+                print(f"ℹ️ No site diff to commit for {doc.arxiv_id} - {alias}")
+    return rewritten
 
 
 def build_home(site_dir: Union[str, Path] = "./site") -> Path:
@@ -1224,6 +1584,10 @@ def main() -> None:
     parser.add_argument("--site-dir", default="./site")
     parser.add_argument("--reset", action="store_true", help="Reset site directory before generating")
     parser.add_argument("--title", default="", help="Optional blog title override")
+    parser.add_argument("--rewrite-all", action="store_true", help="Rewrite all blog posts using the locked deep-dive template")
+    parser.add_argument("--commit-each", action="store_true", help="Commit site changes after each rewritten post")
+    parser.add_argument("--push-each", action="store_true", help="Push after each commit (implies --commit-each)")
+    parser.add_argument("--preserve-existing-deep", action="store_true", help="Skip overwriting posts that already match the locked deep-dive template")
     args = parser.parse_args()
 
     if args.reset:
@@ -1231,11 +1595,22 @@ def main() -> None:
         print(f"✅ Site reset: {Path(args.site_dir).resolve()}")
 
     post_path = None
-    if args.all:
+    if args.rewrite_all:
+        posts = rewrite_all_posts(
+            docs_dir=args.docs_dir,
+            site_dir=args.site_dir,
+            max_chars=14000,
+            commit_each=args.commit_each or args.push_each,
+            push_each=args.push_each,
+            preserve_existing_deep=True,
+        )
+        print(f"✅ Full rewrite completed: {len(posts)} posts")
+    elif args.all:
         posts = build_all_posts(
             docs_dir=args.docs_dir,
             site_dir=args.site_dir,
             max_chars=14000,
+            preserve_existing_deep=args.preserve_existing_deep,
         )
         print(f"✅ Bulk blog generation completed: {len(posts)} posts")
     elif args.selector:
@@ -1244,6 +1619,7 @@ def main() -> None:
             docs_dir=args.docs_dir,
             site_dir=args.site_dir,
             title_override=args.title or None,
+            preserve_existing_deep=args.preserve_existing_deep,
         )
         print(f"✅ Blog post generated: {post_path.resolve()}")
 

@@ -57,6 +57,12 @@ def test_build_blog_outputs_files(tmp_path: Path) -> None:
     assert "../index.html" in post_html
     assert "目录" in post_html
     assert "sidebar-toggle" in post_html
+    assert "简单摘要" in post_html
+    assert "核心创新" in post_html
+    assert "技术细节" in post_html
+    assert "实验结论" in post_html
+    assert "理解评价" in post_html
+    assert "摘要与问题定义" not in post_html
     assert "min-width: 900px" not in post_html
     assert "layout.sidebar-collapsed { grid-template-columns: minmax(0, 1fr); }" in post_html
     assert "page-shell" in post_html
