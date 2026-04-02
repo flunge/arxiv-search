@@ -215,12 +215,21 @@ x_t
 \end{aligned}
 \label{eq:xt_x0} $$</p>
     <p>
-      021diffusion、song2021denoising 是基于似然的生成模型，通过顺序去噪将简单的高斯分布先于复杂的数据分布进行映射。给定 ，前向扩散在每一步添加带有方差的高斯噪声以获得中间状态序列。边际分布分析...
+      公式：\begin{对齐}
+q(x_t \中x_0)
+&amp;= \mathcal{N}\!\big(\sqrt{\bar{\alpha}_t}\,x_0,\; (1-\bar{\alpha}_t)I\big), \\
+x_t
+&amp;= \sqrt{\bar{\alpha}_t}\,x_0 + \sqrt{1-\bar{\alpha}_t}\,\epsilon,
+\结束{对齐}
+\label{eq:xt_x0}
+上下文：021diffusion、song2021denoising 是基于似然的生成模型，通过顺序去噪将简单的高斯先于复杂的数据分布映射。给定 ，前向扩散在每一步添加带有方差的高斯噪声以获得中间状态序列。边际分布分析...
     </p>
     <p>$$ p_\theta(x_{t-1}\mid x_t)
 = \mathcal{N}\!\big(\mu_\theta(x_t, t),\, \Sigma_\theta(x_t, t)\big), $$</p>
     <p>
-      ar_t)I), \\ x_t &amp;= _t\,x_0 + 1-_t\,, 对齐方程，其中 \(_t = 1 - _t\)、\(_t = _s=1^t _s\) 和 \( N(0, I)\)。从纯噪声 开始，反向过程从噪声中重建数据，并建模为高斯转换：在 DDPM 中，方差固定为 ，并且网络学习预测噪声 t…
+      公式：p_\theta(x_{t-1}\mid x_t)
+= \mathcal{N}\!\big(\mu_\theta(x_t, t),\, \Sigma_\theta(x_t, t)\big),
+上面：ar_t)I), \\ x_t &amp;= _t\,x_0 + 1-_t\,, 对齐方程其中 \(_t = 1 - _t\), \(_t = _s=1^t _s\), 和 \( N(0, I)\)。从纯噪声 开始，反向过程从噪声中重建数据，并建模为高斯转换：在 DDPM 中，方差固定为 ，并且网络学习预测噪声 t…
     </p>
     <p>$$ x_{t-1}
 = \frac{1}{\sqrt{\alpha_t}}
@@ -229,25 +238,40 @@ x_t
 + \sigma_t z,
 \label{eq:ddpm_sample} $$</p>
     <p>
-      不等式 p_(x_t-1 x_t) = N\!(_(x_t, t),\, _(x_t, t))，方程，其中在 DDPM 中方差固定为 ，并且网络学习预测扰动以获得 的噪声项。训练后，通过迭代应用此反向转换来生成样本：其中 和 。这里，表示噪声表，是......
+      公式：x_{t-1}
+= \frac{1}{\sqrt{\alpha_t}}
+\!\left(x_t - \frac{1 - \alpha_t}{\sqrt{1 - \bar{\alpha}_t}}\,
+\epsilon_\theta(x_t, t)\!\right)
++ \sigma_t z,
+\label{eq:ddpm_sample}
+上面：不等式 p_(x_t-1 x_t) = N\!(_(x_t, t),\, _(x_t, t))，方程，其中在 DDPM 中方差固定为 ，网络学习预测扰动的噪声项以获得 。训练后，通过迭代应用此反向转换来生成样本：其中 和 。这里，表示噪声表，是......
     </p>
     <p>$$ \tilde{x}_0 = \frac{x_t - \sqrt{1-\bar{\alpha}_t}\,\epsilon_\theta(x_t, t)}{\sqrt{\bar{\alpha}_t}}.
 \label{eq:x0_estimate} $$</p>
     <p>
-      朝着连贯的多代理配置的方向发展。优化引导约束扩散 2pt 锚定反向过渡 在标准扩散采样过程中，模型预测每一步注入的噪声，从中可以通过以下方式获得与噪声状态 \(x_t\) 相对应的近似干净估计......
+      公式：\tilde{x}_0 = \frac{x_t - \sqrt{1-\bar{\alpha}_t}\,\epsilon_\theta(x_t, t)}{\sqrt{\bar{\alpha}_t}}。
+\label{eq:x0_estimate}
+上下文：朝着连贯的多代理配置的方向发展。优化引导约束扩散 2pt 锚定反向过渡 在标准扩散采样过程中，模型预测每一步注入的噪声，从中可以通过以下方式获得与噪声状态 \(x_t\) 相对应的近似干净估计......
     </p>
     <p>$$ p_\theta(x_{t-1} \mid x_t)
 = \mathcal{N}\!\big(x_{t-1};\, A_t \tilde{x}_0 + C_t x_t,\, \sigma_t^2 I\big),
 \label{eq:reverse_kernel} $$</p>
     <p>
-      , t) x_0 x_t-1 x_t 可以表示为： 其中 和 是由方差表确定的确定性系数。由于 、 、 和 在每个步骤中都是固定的，因此 的条件分布完全由模型估计的干净样本 表征。为了方便
+      公式：p_\theta(x_{t-1} \mid x_t)
+= \mathcal{N}\!\big(x_{t-1};\, A_t \tilde{x}_0 + C_t x_t,\, \sigma_t^2 I\big),
+\label{eq:reverse_kernel}
+上面：, t) x_0 x_t-1 x_t 可以表示为： 其中 和 是由方差表确定的确定性系数。由于 、 、 和 在每个步骤中都是固定的，因此 的条件分布完全由模型估计的干净样本 表征。为了方便
     </p>
     <p>$$ x_{t-1}
 = \underbrace{A_t \tilde{x}_0}_{\text{regression term}}
 + \underbrace{C_t x_t}_{\text{inertia term}}
 + \underbrace{\sigma_t z}_{\text{noise term}}. $$</p>
     <p>
-      d 在每一步都是固定的， 的条件分布完全由模型估计的干净样本 表征。为了方便起见，我们将这个高斯转变表示为 \( Q_t(x_0) \)，表明反向核锚定于 ，而其方差和线性系数由 固定。因此，eq:ddpm_…
+      公式：x_{t-1}
+= \underbrace{A_t \tilde{x}_0}_{\text{回归项}}
++ \underbrace{C_t x_t}_{\text{惯性项}}
++ \underbrace{\sigma_t z}_{\text{噪声项}}。
+上下：d 在每一步都是固定的， 的条件分布完全由模型估计的干净样本 来表征。为了方便起见，我们将这个高斯转变表示为 \( Q_t(x_0) \)，表明反向核锚定于 ，而其方差和线性系数由 固定。因此，eq:ddpm_…
     </p>
     <figure><img class='paper-fig' src='../assets/2512_07661v2/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：两阶段噪声调度的图示。深蓝色表示噪声较高，浅蓝色表示噪声较低。</figcaption></figure>
     <figure><img class='paper-fig' src='../assets/2512_07661v2/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：对抗性场景生成结果。 （左）oracle（GT）、Nexus 变体之间的比较，包括：针对对抗场景进行微调的 Nexus（Nexus-FT）；具有进攻条件的 Nexus（Nexus-GC）；具有进攻成本的 Nexus-CTG (Nexus-CTG_Adv)。请参阅补充。了解更多详情。
