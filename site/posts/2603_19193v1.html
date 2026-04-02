@@ -209,24 +209,36 @@
  T_i = \prod_{j &lt; i} (1 - \sigma_j).
  \label{eq:alpha_blending} $$</p>
     <p>
-      hbfSH_ip C(p) -blending：这里，表示从 解码的视图相关颜色，表示深度排序后高斯的不透明度。利用这种能力，我们可以利用 3DGS 从自上而下的角度直接合成重建场景以获得 BEV 表示。高斯发生器 P…
+      公式：\mathbf{C}(p) = \sum_{i=1}^{N} T_i \, \sigma_i \, \mathbf{c}_i, 
+ \ \文本{哪里} \ 
+ T_i = \prod_{j &lt; i} (1 - \sigma_j)。
+ \label{eq:alpha_blending}
+上下：hbfSH_i p C(p) -blending: 这里， 表示从 解码的视图相关颜色，表示深度排序后高斯的不透明度。利用这种能力，我们可以利用 3DGS 从自上而下的角度直接合成重建场景以获得 BEV 表示。高斯发生器 P…
     </p>
     <p>$$ \mathcal{L}_{\text{render}} =
  \frac{1}{k} \sum_{i=1}^{k} 
  \| \widehat{\mathbf{C}}_i - \mathbf{C}_i^{\text{gt}} \|_2^2, $$</p>
     <p>
-      计算相应的相机参数以获得高斯的平均位置。随后，采用单独的预测头来估计附加的高斯属性（不透明度、协方差和颜色）。高斯生成器的详细结构如图：GS_generator。这些输出被组织起来……
+      公式：\mathcal{L}_{\text{render}} =
+ \frac{1}{k} \sum_{i=1}^{k} 
+ \| \widehat{\mathbf{C}}_i - \mathbf{C}_i^{\text{gt}} \|_2^2,
+上下文：计算相应的相机参数以获得高斯的平均位置。随后，采用单独的预测头来估计附加的高斯属性（不透明度、协方差和颜色）。高斯生成器的详细结构如图：GS_generator。这些输出被组织起来……
     </p>
     <p>$$ \widehat{\mathbf{C}}_i = 
  \mathcal{R}\big(\mathbf{G}; \mathbf{P}_i\big). $$</p>
     <p>
-      高斯属性（不透明度、协方差和颜色）。高斯生成器的详细结构如图：GS_generator。这些输出被组织成 3D 高斯并渲染回输入视图以使用 MSE 损失进行监督：这里，表示合成…的可微渲染函数。
+      公式：\widehat{\mathbf{C}}_i = 
+ \mathcal{R}\big(\mathbf{G}; \mathbf{P}_i\big)。
+上下文：高斯属性（不透明度、协方差和颜色）。高斯生成器的详细结构如图：GS_generator。这些输出被组织成 3D 高斯并渲染回输入视图以使用 MSE 损失进行监督：这里，表示合成…的可微渲染函数。
     </p>
     <p>$$ \mathcal{L}_{\text{depth}}^{L1} = 
  \frac{1}{k} \sum_{i=1}^{k} 
  \| \widehat{\mathbf{D}}_i - \mathbf{D}_i^{\text{ref}} \|_1, $$</p>
     <p>
-      在重建过程中，我们采用深度基础模型 Metric3Dv2 来生成参考度量深度以进行额外的监督。预测深度是通过累积沿视线的所有投影高斯的相机空间深度 ( ) 值来计算的。对于深度监督，我们首先应用 L1……
+      公式：\mathcal{L}_{\text{深度}}^{L1} = 
+ \frac{1}{k} \sum_{i=1}^{k} 
+ \| \widehat{\mathbf{D}}_i - \mathbf{D}_i^{\text{ref}} \|_1,
+上下文：在重建过程中，我们采用深度基础模型Metric3Dv2来生成参考度量深度以进行额外的监督。预测深度是通过累积沿视线的所有投影高斯的相机空间深度 ( ) 值来计算的。对于深度监督，我们首先应用 L1...
     </p>
     <p>$$ \mathcal{L}_{\text{depth}}^{\text{SILog}} = 
  \frac{1}{k} \sum_{i=1}^{k} 
@@ -236,12 +248,21 @@
  \Big( \sum_{p} \delta_i(p) \Big)^2
  \Bigg], $$</p>
     <p>
-      L_深度^L1 = 1k _i=1^k \| D_i - D_i^ref \|_1，方程其中 和 分别表示第 - 个视图的预测深度图和参考深度图。此外，为了确保尺度不变的几何一致性，我们进一步采用 SILog 损失 ，定义为： 其中 表示每像素对数深度差，是 v 的数量...
+      公式：\mathcal{L}_{\text{深度}}^{\text{SILog}} = 
+ \frac{1}{k} \sum_{i=1}^{k} 
+ \比格[
+ \frac{1}{n} \sum_{p} \delta_i(p)^2
+ - \frac{1}{n^2} 
+ \Big( \sum_{p} \delta_i(p) \Big)^2
+ \大格]，
+上：L_深度^L1 = 1k _i=1^k \| D_i - D_i^ref \|_1，方程其中 和 分别表示第 - 个视图的预测深度图和参考深度图。此外，为了确保尺度不变的几何一致性，我们进一步采用 SILog 损失 ，定义为： 其中 表示每像素对数深度差，是 v 的数量...
     </p>
     <p>$$ \delta_i(p) = 
  \log \widehat{\mathbf{D}}_i(p) - \log \mathbf{D}_i^{\text{ref}}(p), $$</p>
     <p>
-      分别为第-个视图的深度图。此外，为了确保尺度不变的几何一致性，我们进一步采用 SILog 损失 ，定义为： 其中 表示每像素对数深度差， 是有效像素的数量。图我们的高斯生成器由两个分支组成：一个基于 Un 的多视图分支......
+      公式：\delta_i(p) = 
+ \log \widehat{\mathbf{D}}_i(p) - \log \mathbf{D}_i^{\text{ref}}(p),
+上面：分别是第-个视图的深度图。此外，为了确保尺度不变的几何一致性，我们进一步采用 SILog 损失 ，定义为： 其中 表示每像素对数深度差， 是有效像素的数量。图我们的高斯生成器由两个分支组成：一个基于 Un 的多视图分支......
     </p>
     <figure><img class='paper-fig' src='../assets/2603_19193v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：我们的高斯生成器由两个分支组成：一个基于 UniMatch 的多视图分支，以及一个基于 ViT-S 构建的每个视图分支，以增强多视图表示。
  多视图分支输出多视图特征和成本量，它们与每个视图分支的单目特征连接起来，作为 U-Net 的输入来预测深度​​图和每高斯参数。
