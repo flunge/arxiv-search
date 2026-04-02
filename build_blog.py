@@ -232,7 +232,20 @@ def _extract_figure_region_by_caption(
         if not rects:
             continue
         cap_rect = rects[0]
-        clip = fitz.Rect(page.rect.x0 + 12, top_margin, page.rect.x1 - 12, cap_rect.y1 + 10)
+        all_caps = []
+        for i in range(1, 10):
+            label = f"Figure {i}:"
+            found = page.search_for(label)
+            if found:
+                all_caps.append((label, found[0]))
+        all_caps = sorted(all_caps, key=lambda x: x[1].y0)
+        start_y = top_margin
+        for idx, (label, rect) in enumerate(all_caps):
+            if label == caption_label:
+                if idx > 0:
+                    start_y = all_caps[idx - 1][1].y1 + 8
+                break
+        clip = fitz.Rect(page.rect.x0 + 12, start_y, page.rect.x1 - 12, cap_rect.y1 + 10)
         pix = page.get_pixmap(matrix=fitz.Matrix(2, 2), clip=clip, alpha=False)
         save_path = out_dir / output_name
         pix.save(save_path)
@@ -250,17 +263,18 @@ def _streetforward_caption_translation(label: str, raw_caption: str) -> str:
     return translations.get(label, raw_caption)
 
 
-def _post_sidebar_html(date_str: str, arxiv_id: str, items: List[tuple]) -> str:
+def _post_sidebar_html(items: List[tuple]) -> str:
     links = "".join(
         f"<li><a href='#{html.escape(anchor)}'>{html.escape(label)}</a></li>"
         for anchor, label in items
     )
     return (
         "<aside class='sidebar'>"
-        "<h3>目录</h3>"
+        "<div style='display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;'>"
+        "<h3 style='margin:0;'>目录</h3>"
+        "<a href='../index.html' style='display:inline-block;padding:4px 10px;border:1px solid #d9e5f2;border-radius:999px;background:#f7fbff;font-size:12px;'>首页</a>"
+        "</div>"
         f"<ul>{links}</ul>"
-        f"<p class='meta' style='margin-top:14px;'>发布时间：{html.escape(date_str)}<br/>arXiv：{html.escape(arxiv_id)}</p>"
-        "<p><a href='../index.html'>← 返回博客首页</a></p>"
         "</aside>"
     )
 
@@ -292,17 +306,13 @@ def _streetforward_post_body(doc, date_str: str, figures: List[str], related: Li
     )
 
     sidebar = _post_sidebar_html(
-        date_str,
-        doc.arxiv_id,
         [
-            ("intro", "1. 这篇论文在解决什么问题？"),
-            ("overview", "2. 整体方法一图看懂"),
-            ("causal", "3. 核心创新：Feedforward Causal Attention"),
-            ("velocity", "4. 速度场、动态掩码和 4D 重建"),
-            ("consistency", "5. 时空一致性与训练约束"),
-            ("related", "6. 相关工作与技术脉络"),
-            ("takeaway", "7. 我的理解与评价"),
-        ],
+            ("summary", "简单摘要"),
+            ("innovation", "核心创新"),
+            ("technical", "技术细节"),
+            ("experiment", "实验结论"),
+            ("takeaway", "理解评价"),
+        ]
     )
 
     return f"""
@@ -311,14 +321,14 @@ def _streetforward_post_body(doc, date_str: str, figures: List[str], related: Li
 
   <article class='article'>
     <h1>StreetForward</h1>
-    <p class='meta'>原论文：{html.escape(doc.title)} · 中文精读 · 论文页数：{doc.page_count}</p>
+    <p class='meta'>原论文：{html.escape(doc.title)} · 中文精读</p>
 
     <div class='tip'>
       <strong>一句话总结：</strong>
       StreetForward 想解决的是“动态街景 4D 重建为什么还这么慢、这么依赖跟踪器和每场景优化”这个问题。它把静态街景和动态目标统一放进 3D Gaussian Splatting 表示里，再通过带时间方向的 causal attention 去学习物体运动，从而做到：<strong>不需要 per-scene optimization、不需要 tracker、不需要 segmentation，也能在新视角和新时刻渲染场景</strong>。
     </div>
 
-    <h2 id='intro'>1. 这篇论文在解决什么问题？</h2>
+    <h2 id='summary'>简单摘要</h2>
     <p>
       自动驾驶里的“闭环仿真”有一个非常现实的需求：我们希望把真实道路数据快速变成可重放、可插值、可从新视角观察的动态三维场景。
       传统 NeRF、3DGS、SfM 一类方法虽然质量高，但大多数都需要<strong>针对每个场景单独优化</strong>，也就是你来一段新视频，就得重新跑一次重建优化。
@@ -333,10 +343,8 @@ def _streetforward_post_body(doc, date_str: str, figures: List[str], related: Li
       <li>不要依赖 LiDAR 或强监督的 4D 标注，因为现实数据里这类标注很少。</li>
     </ul>
     {fig1_html}
-
-    <h2 id='overview'>2. 整体方法一图看懂</h2>
     <p>
-      论文整体思路可以概括成四步：
+      从整体上看，StreetForward 可以分成四步：
     </p>
     <ol>
       <li>先用类似 VGGT 的多帧视觉 backbone，从一段视频中提取跨帧聚合特征；</li>
@@ -349,7 +357,14 @@ def _streetforward_post_body(doc, date_str: str, figures: List[str], related: Li
     </blockquote>
     {fig2_html}
 
-    <h2 id='causal'>3. 核心创新：Feedforward Causal Attention</h2>
+    <h2 id='innovation'>核心创新</h2>
+    <p>这篇论文的创新点可以概括为 3 条：</p>
+    <h3>1）把动态街景 4D 重建做成 feedforward</h3>
+    <p>
+      以前很多方法的瓶颈是“每个场景都要重新优化”，StreetForward 试图把这件事改成“一次前向推理直接出结果”。
+      这对自动驾驶非常关键，因为自动驾驶数据不是几百个场景，而是海量、持续增长、不断更新的数据流。
+    </p>
+    <h3>2）用因果注意力显式建模时间方向</h3>
     <p>
       这篇论文最值得看的地方，就是它为什么要在 VGGT 的 Alternating Attention 之上，再加一个 <strong>causal masked attention</strong>。
       原因很简单：VGGT 原本更擅长静态多视图几何，它把不同帧的 token 放在一起做注意力，天然偏向“整体聚合”，但不擅长表达“从帧 A 到帧 B 的方向性运动”。
@@ -369,8 +384,14 @@ def _streetforward_post_body(doc, date_str: str, figures: List[str], related: Li
       用更通俗的话说，它不是让模型“大家一起讨论一下这个场景”，而是让模型“你只关注从现在到下一刻会发生什么变化”。
       这个改动虽然不算复杂，但非常对症，因为动态建模最需要的不是全局混合，而是<strong>时间因果方向</strong>。
     </p>
+    <h3>3）把静态和动态统一到同一个 3DGS 框架里</h3>
+    <p>
+      它没有把“静态背景建模”和“动态目标建模”拆成两套系统，而是都放到 3D Gaussian Splatting 里，只是静态高斯长期存在，动态高斯随着速度场跨时间传播。
+      这种统一表示使得渲染、训练和推理链路都更顺。
+    </p>
 
-    <h2 id='velocity'>4. 速度场、动态掩码和 4D 重建</h2>
+    <h2 id='technical'>技术细节</h2>
+    <h3>1）速度场、动态掩码和 4D 重建</h3>
     <p>
       有了 motion-aware features 之后，论文没有直接去预测复杂的物体轨迹，而是选择了一个更实用的表示：
       <strong>给每个像素预测前向速度和后向速度</strong>，同时预测一个 dynamic probability（动态概率）。
@@ -392,11 +413,11 @@ def _streetforward_post_body(doc, date_str: str, figures: List[str], related: Li
       论文里一个非常重要的设计是：静态高斯不使用 lifespan 这种“活多久”的属性，而是让静态点在整个序列中持续存在。作者认为，训练不应该靠“让点消失”来躲避错误，而应该通过优化把几何本身学准。
     </blockquote>
 
-    <h2 id='consistency'>5. 时空一致性与训练约束</h2>
+    <h3>2）时空一致性与训练约束</h3>
     <p>
       只靠渲染误差去学运动，通常是不稳定的，因为很多不同的速度场都可能产生相似的投影结果。StreetForward 为了让训练更稳，引入了两类关键约束：
     </p>
-    <h3>5.1 局部刚性（Local Rigidity）</h3>
+    <h4>局部刚性（Local Rigidity）</h4>
     <p>
       作者假设在局部邻域内，物体的运动通常不会突然撕裂。于是它在 2D 邻域和 3D 近邻上都加了“速度要相近”的正则项。
       这个约束很像在对速度场做“局部平滑”，但不是盲目平滑，而是带动态置信度权重的平滑。
@@ -406,24 +427,37 @@ def _streetforward_post_body(doc, date_str: str, figures: List[str], related: Li
       “如果两个点离得很近，而且都很像动态区域，那它们的运动方向和速度最好别差太多。”
       对车辆、行人等局部刚体或近刚体目标来说，这非常有帮助。
     </p>
-    <h3>5.2 时序一致性（Temporal Consistency）</h3>
+    <h4>时序一致性（Temporal Consistency）</h4>
     <p>
       论文会把动态高斯按照预测速度向前/向后传播到相邻帧，再通过跨帧渲染去约束它们的一致性。
       这个设计的意义在于：同一个动态区域，不应该只在单帧里解释得通，而应该在相邻时间上都解释得通。
       这等于是把“会不会动”升级成了“动过去之后，渲染出来还能不能对得上”。
     </p>
-
-    <h2 id='related'>6. 相关工作与技术脉络</h2>
+    <h3>3）为什么这个设计适合自动驾驶</h3>
     <p>
-      StreetForward 所处的位置很明确：它站在 VGGT 这一类大视觉几何模型之上，但不满足于静态场景，而是希望进一步走到<strong>动态街景的 4D feedforward 重建</strong>。
-      它与传统 per-scene optimization 方法最大的差异，是把大量场景优化成本前置到了大规模数据训练阶段。
+      自动驾驶场景里，车辆、行人、道路边界、遮挡关系都在不断变化。StreetForward 这套设计的价值在于：
+      它不依赖长链路组件，而是尽量把位姿、深度、静态结构和动态运动统一放在一个前馈模型里学习，这样更容易扩展到大规模数据集与闭环仿真系统中。
+    </p>
+
+    <h2 id='experiment'>实验结论</h2>
+    <p>
+      从论文摘要和图示可以看出，StreetForward 在两个维度上是有说服力的：
+      一是 novel view synthesis 与 depth estimation 的表现优于已有方法；
+      二是在 CARLA 和其他数据集上的 zero-shot 推理说明其具备一定的泛化能力。
     </p>
     <p>
-      下面是自动检索到的一些相关工作，可作为延伸阅读：
+      更具体地说，这篇论文想强调的实验结论包括：
     </p>
-    <ul>{related_html}</ul>
+    <ul>
+      <li>在动态街景上，它比依赖 tracker 的方法更稳定，因为不会把跟踪错误直接传递给重建模块；</li>
+      <li>在静止或慢速物体附近，它能更好地区分“看起来像动态”和“真正有运动”的区域；</li>
+      <li>在时间插值场景中，前后向速度联合建模比只预测单向速度的版本效果更完整。</li>
+    </ul>
+    <p>
+      如果用一句话概括实验部分，那就是：StreetForward 的改进不是只体现在数值上，而是体现在<strong>动态场景下渲染结果更稳、更清晰、更少伪影</strong>。
+    </p>
 
-    <h2 id='takeaway'>7. 我的理解与评价</h2>
+    <h2 id='takeaway'>理解评价</h2>
     <p>
       我觉得这篇论文最有价值的不是“又做了一个动态 3DGS”，而是它把自动驾驶场景里的几个工程痛点真正串起来了：
       <strong>速度要快、链路要短、依赖要少、还要支持新视角和新时刻渲染</strong>。
@@ -440,6 +474,10 @@ def _streetforward_post_body(doc, date_str: str, figures: List[str], related: Li
       <li>速度场表达是否足以覆盖复杂非刚体运动；</li>
       <li>它能否进一步作为 world model 的 3D 场景底座，服务于闭环规划与仿真。</li>
     </ul>
+    <p>
+      从技术脉络上看，StreetForward 可以理解为站在 VGGT 这一类大视觉几何模型之上，向动态街景 4D feedforward 重建迈出的一步。下面这些自动检索到的相关论文，可以作为延伸阅读：
+    </p>
+    <ul>{related_html}</ul>
 
     <div class='tip'>
       <strong>一句结论：</strong>
@@ -528,15 +566,13 @@ def build_post_from_pdf(
         abstract_like = html.escape(text[:1200].strip())
 
         sidebar = _post_sidebar_html(
-            date_str,
-            arxiv_id,
             [
-                ("summary", "1. 摘要与问题定义"),
-                ("method", "2. 方法与技术细节"),
-                ("figures", "3. 关键图示"),
-                ("related", "4. 相关工作与技术脉络"),
-                ("notes", "5. 解读与思考"),
-            ],
+                ("summary", "摘要与问题定义"),
+                ("method", "方法与技术细节"),
+                ("figures", "关键图示"),
+                ("related", "相关工作与技术脉络"),
+                ("notes", "解读与思考"),
+            ]
         )
 
         body = f"""
@@ -545,7 +581,7 @@ def build_post_from_pdf(
 
   <article class='article'>
     <h1>{html.escape(post_title)}</h1>
-    <p class=\"meta\">{html.escape(date_str)} · arXiv: {html.escape(arxiv_id)} · pages: {doc.page_count}</p>
+    <p class=\"meta\">{html.escape(date_str)} · arXiv: {html.escape(arxiv_id)}</p>
 
     <h2 id=\"summary\">1. 摘要与问题定义</h2>
     <p>{abstract_like}</p>
