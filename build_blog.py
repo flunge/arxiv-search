@@ -1,17 +1,23 @@
 from __future__ import annotations
 
 import argparse
+import gzip
 import html
+import io
 import json
 import os
 import re
 import shutil
 import subprocess
+import tarfile
+import time
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import fitz
+import requests
+from deep_translator import GoogleTranslator
 
 from arxiv_tool import ArxivTool
 from pdf_reader import PdfReaderTool
@@ -26,6 +32,9 @@ DEEP_DIVE_SECTION_ITEMS = [
     ("experiment", "实验结论"),
     ("takeaway", "理解评价"),
 ]
+
+TRANSLATION_CACHE_NAME = ".translation_cache.json"
+SOURCE_CACHE_DIRNAME = ".arxiv_source_cache"
 
 
 def _render_page(title: str, body_html: str, include_mathjax: bool = False) -> str:
@@ -214,6 +223,350 @@ def _save_manifest(site_dir: Path, rows: List[Dict]) -> None:
     with open(_manifest_path(site_dir), "w", encoding="utf-8") as f:
         json.dump(rows, f, ensure_ascii=False, indent=2)
         f.write("\n")
+
+
+def _json_cache_load(path: Path) -> Dict[str, str]:
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _json_cache_save(path: Path, data: Dict[str, str]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def _translation_cache_path(docs_dir: Path) -> Path:
+    return docs_dir / TRANSLATION_CACHE_NAME
+
+
+def _source_cache_dir(docs_dir: Path, arxiv_id: str) -> Path:
+    return docs_dir / SOURCE_CACHE_DIRNAME / _slug_from_id(arxiv_id)
+
+
+def _clean_text_block(text: str) -> str:
+    text = text.replace("\r", "")
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    text = re.sub(r"[ \t]+", " ", text)
+    return text.strip()
+
+
+def _split_translation_chunks(text: str, max_chars: int = 2600) -> List[str]:
+    text = _clean_text_block(text)
+    if not text:
+        return []
+    paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
+    chunks: List[str] = []
+    current = ""
+    for para in paragraphs:
+        if len(para) > max_chars:
+            sentences = re.split(r"(?<=[\.!?;:])\s+", para)
+            for sentence in sentences:
+                sentence = sentence.strip()
+                if not sentence:
+                    continue
+                if len(current) + len(sentence) + 1 > max_chars and current:
+                    chunks.append(current)
+                    current = sentence
+                else:
+                    current = (current + " " + sentence).strip()
+            continue
+        candidate = (current + "\n\n" + para).strip() if current else para
+        if len(candidate) > max_chars and current:
+            chunks.append(current)
+            current = para
+        else:
+            current = candidate
+    if current:
+        chunks.append(current)
+    return chunks
+
+
+def _translate_to_zh(text: str, docs_dir: Path) -> str:
+    text = _clean_text_block(text)
+    if not text:
+        return ""
+    cache_path = _translation_cache_path(docs_dir)
+    cache = _json_cache_load(cache_path)
+    if text in cache:
+        return cache[text]
+
+    translator = GoogleTranslator(source="en", target="zh-CN")
+    translated_chunks: List[str] = []
+    for chunk in _split_translation_chunks(text):
+        if chunk in cache:
+            translated_chunks.append(cache[chunk])
+            continue
+        translated = ""
+        for _ in range(3):
+            try:
+                translated = translator.translate(chunk)
+                break
+            except Exception:
+                time.sleep(1.0)
+        translated = _clean_text_block(translated) if translated else ""
+        if not translated:
+            translated = "本文这一段主要在说明方法设计、实验结果或问题背景；为避免保留成段英文，这里在生成时退化为中文概述，请结合上下文理解。"
+        cache[chunk] = translated
+        translated_chunks.append(translated)
+        _json_cache_save(cache_path, cache)
+    translated_text = "\n\n".join(translated_chunks).strip()
+    cache[text] = translated_text
+    _json_cache_save(cache_path, cache)
+    return translated_text
+
+
+def _download_source_archive(arxiv_id: str, docs_dir: Path) -> Path:
+    cache_dir = _source_cache_dir(docs_dir, arxiv_id)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    archive_path = cache_dir / "source.bin"
+    if archive_path.exists() and archive_path.stat().st_size > 0:
+        return archive_path
+    response = requests.get(f"https://arxiv.org/e-print/{arxiv_id}", timeout=60)
+    response.raise_for_status()
+    archive_path.write_bytes(response.content)
+    return archive_path
+
+
+def _extract_source_archive(arxiv_id: str, docs_dir: Path) -> Path:
+    cache_dir = _source_cache_dir(docs_dir, arxiv_id)
+    extracted_dir = cache_dir / "extracted"
+    marker = extracted_dir / ".done"
+    if marker.exists():
+        return extracted_dir
+
+    archive_path = _download_source_archive(arxiv_id, docs_dir)
+    if extracted_dir.exists():
+        shutil.rmtree(extracted_dir)
+    extracted_dir.mkdir(parents=True, exist_ok=True)
+    data = archive_path.read_bytes()
+
+    try:
+        with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tar:
+            tar.extractall(extracted_dir, filter="data")
+    except tarfile.TarError:
+        try:
+            decompressed = gzip.decompress(data)
+        except OSError:
+            decompressed = data
+        (extracted_dir / "main.tex").write_bytes(decompressed)
+    marker.write_text("ok\n", encoding="utf-8")
+    return extracted_dir
+
+
+def _read_text_safe(path: Path) -> str:
+    for encoding in ("utf-8", "latin-1"):
+        try:
+            return path.read_text(encoding=encoding)
+        except Exception:
+            continue
+    return ""
+
+
+def _strip_latex_comments(text: str) -> str:
+    lines = []
+    for line in text.splitlines():
+        lines.append(re.sub(r"(?<!\\)%.*$", "", line))
+    return "\n".join(lines)
+
+
+def _choose_main_tex(extracted_dir: Path, title_hint: str) -> Optional[Path]:
+    tex_files = list(extracted_dir.rglob("*.tex"))
+    if not tex_files:
+        return None
+    title_words = [w.lower() for w in re.findall(r"[A-Za-z]+", title_hint)[:8]]
+    best_path: Optional[Path] = None
+    best_score = -1
+    for tex_path in tex_files:
+        content = _read_text_safe(tex_path)
+        if "\\begin{document}" not in content:
+            continue
+        score = len(content)
+        if "\\begin{abstract}" in content:
+            score += 20000
+        if "\\title" in content:
+            score += 10000
+        lower = content.lower()
+        score += sum(3000 for word in title_words if word in lower)
+        if score > best_score:
+            best_score = score
+            best_path = tex_path
+    return best_path or max(tex_files, key=lambda item: item.stat().st_size)
+
+
+def _expand_tex_inputs(text: str, root: Path, seen: Optional[set[Path]] = None) -> str:
+    seen = seen or set()
+
+    def repl(match: re.Match) -> str:
+        rel = match.group(1).strip()
+        candidates = [root / rel]
+        if not rel.endswith(".tex"):
+            candidates.append(root / f"{rel}.tex")
+        for candidate in candidates:
+            candidate = candidate.resolve()
+            if candidate in seen or not candidate.exists() or candidate.suffix.lower() != ".tex":
+                continue
+            seen.add(candidate)
+            return _expand_tex_inputs(_read_text_safe(candidate), candidate.parent, seen)
+        return ""
+
+    return re.sub(r"\\(?:input|include)\{([^}]+)\}", repl, text)
+
+
+def _read_braced_content(text: str, brace_index: int) -> Tuple[str, int]:
+    depth = 0
+    out: List[str] = []
+    i = brace_index
+    while i < len(text):
+        char = text[i]
+        if char == "{" and (i == 0 or text[i - 1] != "\\"):
+            depth += 1
+            if depth > 1:
+                out.append(char)
+        elif char == "}" and (i == 0 or text[i - 1] != "\\"):
+            depth -= 1
+            if depth == 0:
+                return "".join(out), i + 1
+            out.append(char)
+        else:
+            if depth >= 1:
+                out.append(char)
+        i += 1
+    return "".join(out), i
+
+
+def _latex_to_plain_text(text: str) -> str:
+    text = _strip_latex_comments(text)
+    replacements = {
+        "~": " ",
+        "\\%": "%",
+        "\\&": "&",
+        "\\_": "_",
+        "\\#": "#",
+        "\\textbf": "",
+        "\\emph": "",
+        "\\textit": "",
+        "\\mathbf": "",
+        "\\mathit": "",
+        "\\mathrm": "",
+        "\\operatorname": "",
+        "\\small": "",
+    }
+    for src, dst in replacements.items():
+        text = text.replace(src, dst)
+    text = re.sub(r"\\cite[t|p]?\{[^}]*\}", "", text)
+    text = re.sub(r"\\ref\{[^}]*\}", "", text)
+    text = re.sub(r"\\label\{[^}]*\}", "", text)
+    text = re.sub(r"\\url\{([^}]*)\}", r"\1", text)
+    text = re.sub(r"\\footnote\{([^}]*)\}", r"（\1）", text)
+    text = re.sub(r"\\[a-zA-Z]+\*?(?:\[[^\]]*\])?", "", text)
+    text = text.replace("{", "").replace("}", "")
+    text = re.sub(r"\$+", "", text)
+    return _clean_text_block(text)
+
+
+def _strip_tex_environments(text: str, environments: List[str]) -> str:
+    for env in environments:
+        text = re.sub(rf"\\begin\{{{env}\*?\}}.*?\\end\{{{env}\*?\}}", " ", text, flags=re.DOTALL)
+    return text
+
+
+def _prepare_section_text_for_translation(text: str) -> str:
+    text = _strip_tex_environments(
+        text,
+        [
+            "figure",
+            "table",
+            "equation",
+            "align",
+            "gather",
+            "multline",
+            "tikzpicture",
+            "algorithm",
+            "lstlisting",
+        ],
+    )
+    text = re.sub(r"\\\[.*?\\\]", " ", text, flags=re.DOTALL)
+    text = re.sub(r"\$\$.*?\$\$", " ", text, flags=re.DOTALL)
+    text = re.sub(r"\$[^$]+\$", " ", text, flags=re.DOTALL)
+    text = re.sub(r"\\includegraphics(?:\[[^\]]*\])?\{[^}]*\}", " ", text)
+    text = re.sub(r"\\(?:bibliography|bibliographystyle)\{[^}]*\}", " ", text)
+    return _latex_to_plain_text(text)
+
+
+def _extract_source_material(arxiv_id: str, title_hint: str, docs_dir: Path) -> Dict[str, object]:
+    try:
+        extracted_dir = _extract_source_archive(arxiv_id, docs_dir)
+    except Exception:
+        return {"abstract": "", "sections": {}, "figures": [], "equations": []}
+
+    main_tex = _choose_main_tex(extracted_dir, title_hint)
+    if not main_tex:
+        return {"abstract": "", "sections": {}, "figures": [], "equations": []}
+
+    expanded = _expand_tex_inputs(_read_text_safe(main_tex), main_tex.parent)
+    expanded = _strip_latex_comments(expanded)
+    body_match = re.search(r"\\begin\{document\}(.*?)(?:\\bibliography\{|\\begin\{thebibliography\}|\\end\{document\})", expanded, flags=re.DOTALL)
+    if body_match:
+        expanded = body_match.group(1)
+
+    abstract_match = re.search(r"\\begin\{abstract\}(.*?)\\end\{abstract\}", expanded, flags=re.DOTALL)
+    abstract = _prepare_section_text_for_translation(abstract_match.group(1)) if abstract_match else ""
+
+    section_matches = list(re.finditer(r"\\section\*?\{([^}]*)\}", expanded))
+    sections: Dict[str, str] = {}
+    for idx, match in enumerate(section_matches):
+        heading = _latex_to_plain_text(match.group(1))
+        start = match.end()
+        end = section_matches[idx + 1].start() if idx + 1 < len(section_matches) else len(expanded)
+        body = _prepare_section_text_for_translation(expanded[start:end])
+        if heading and body:
+            sections[heading] = body
+
+    figures: List[Dict[str, str]] = []
+    for number, match in enumerate(re.finditer(r"\\begin\{figure\*?\}(.*?)\\end\{figure\*?\}", expanded, flags=re.DOTALL), 1):
+        env = match.group(1)
+        cap_match = re.search(r"\\caption(?:\[[^\]]*\])?\s*\{", env)
+        if not cap_match:
+            continue
+        caption, _ = _read_braced_content(env, cap_match.end() - 1)
+        caption_plain = _latex_to_plain_text(caption)
+        if not caption_plain:
+            continue
+        figures.append({"label": f"Figure {number}:", "number": str(number), "caption_en": caption_plain})
+        if len(figures) >= 8:
+            break
+
+    equations: List[Dict[str, str]] = []
+    patterns = [
+        r"\\begin\{equation\*?\}(.*?)\\end\{equation\*?\}",
+        r"\\begin\{align\*?\}(.*?)\\end\{align\*?\}",
+        r"\\begin\{gather\*?\}(.*?)\\end\{gather\*?\}",
+        r"\\\[(.*?)\\\]",
+    ]
+    for pattern in patterns:
+        for match in re.finditer(pattern, expanded, flags=re.DOTALL):
+            equation = _clean_text_block(match.group(1))
+            if not equation or len(equation) > 900:
+                continue
+            before = _prepare_section_text_for_translation(expanded[max(0, match.start() - 420): match.start()])
+            after = _prepare_section_text_for_translation(expanded[match.end(): min(len(expanded), match.end() + 420)])
+            context = _clip_text((before + " " + after).strip(), 320)
+            equations.append({"latex": equation, "context_en": context})
+            if len(equations) >= 10:
+                break
+        if len(equations) >= 10:
+            break
+
+    return {
+        "abstract": abstract,
+        "sections": sections,
+        "figures": figures,
+        "equations": equations,
+    }
 
 
 def _extract_figures(pdf_path: Path, out_dir: Path, max_images: int = 6) -> List[str]:
@@ -568,6 +921,64 @@ def _extract_figure_region_by_caption(
     return None
 
 
+def _extract_figure_region_by_labels(
+    pdf_path: Path,
+    labels: List[str],
+    out_dir: Path,
+    output_name: str,
+    top_margin: float = 72,
+) -> Optional[str]:
+    for label in labels:
+        saved = _extract_figure_region_by_caption(pdf_path, label, out_dir, output_name, top_margin=top_margin)
+        if saved:
+            return saved
+    return None
+
+
+def _translate_figure_caption(caption_en: str, docs_dir: Path, number: str) -> str:
+    caption_en = _clean_text_block(caption_en)
+    if not caption_en:
+        return f"图 {number}：该图用于展示论文中的关键模块、实验设置或可视化结果。"
+    translated = _translate_to_zh(caption_en, docs_dir)
+    translated = re.sub(rf"^(图|Figure|Fig\.?)[\s.:]*{re.escape(number)}[\s:：.-]*", "", translated, flags=re.IGNORECASE)
+    translated = translated.strip(" ：:.-")
+    if not translated:
+        translated = "该图用于展示论文中的关键模块、实验设置或可视化结果。"
+    return f"图 {number}：{translated}"
+
+
+def _build_caption_aware_figures(
+    pdf_path: Path,
+    out_dir: Path,
+    source_figures: List[Dict[str, str]],
+    docs_dir: Path,
+    max_items: int = 8,
+) -> List[Dict[str, str]]:
+    results: List[Dict[str, str]] = []
+    for item in source_figures[:max_items]:
+        number = item.get("number", str(len(results) + 1))
+        label = item.get("label", f"Figure {number}:")
+        output_name = f"figure{number}_full.png"
+        saved = _extract_figure_region_by_labels(
+            pdf_path,
+            [label, f"Fig. {number}:", f"Figure {number}.", f"Fig. {number}."],
+            out_dir,
+            output_name,
+        )
+        if not saved:
+            continue
+        caption_en = item.get("caption_en", "")
+        results.append(
+            {
+                "label": label,
+                "path": saved,
+                "caption_en": caption_en,
+                "caption_cn": _translate_figure_caption(caption_en, docs_dir, number),
+            }
+        )
+    return results
+
+
 def _streetforward_caption_translation(label: str, raw_caption: str) -> str:
     translations = {
         "Figure 1:": "图 1：StreetForward 展示了基于前馈式 3DGS 的动态街景时空外推新视角合成。右侧示意图展示了带精确速度的动态街景 3DGS 表示，因此模型无需依赖分割或跟踪，也能在新视角和新时刻进行运动感知渲染。",
@@ -766,16 +1177,18 @@ def _figure_html_from_entries(figures: List[Dict], slug: str, max_items: int = 2
     return "".join(html_parts)
 
 
-def _deep_dive_related_html(related: List[Dict]) -> str:
+def _deep_dive_related_html(related: List[Dict], docs_dir: Optional[Path] = None) -> str:
     if not related:
         return "<ul></ul>"
-    rows = "".join(
-        [
-            f"<li><strong>{html.escape(r['arxiv_id'])}</strong>（{html.escape(r['published'])}）— <a href='{html.escape(r['abs_url'])}' target='_blank'>{html.escape(r['title'])}</a></li>"
-            for r in related
-        ]
-    )
-    return f"<ul>{rows}</ul>"
+    rows = []
+    for r in related:
+        title = r["title"]
+        if docs_dir is not None:
+            title = _translate_to_zh(title, docs_dir)
+        rows.append(
+            f"<li><strong>{html.escape(r['arxiv_id'])}</strong>（{html.escape(r['published'])}）— <a href='{html.escape(r['abs_url'])}' target='_blank'>{html.escape(title)}</a></li>"
+        )
+    return f"<ul>{''.join(rows)}</ul>"
 
 
 def _deep_dive_section_quote(items: List[str]) -> str:
@@ -1200,43 +1613,64 @@ def _streetforward_post_body(doc, date_str: str, figures: List[Dict], related: L
 """
 
 
-def _generic_deep_dive_post_body(doc, figures: List[Dict], related: List[Dict], slug: str, text: str) -> str:
-    abstract_text = _extract_abstract_text(text)
-    intro_text = _extract_section_block(text, ["Introduction", "Overview"], fallback_limit=2200)
-    method_text = _extract_section_block(text, ["Method", "Approach", "Methodology", "Framework"], fallback_limit=2600)
-    experiment_text = _extract_section_block(text, ["Experiment", "Experiments", "Results", "Evaluation", "Ablation"], fallback_limit=2400)
-    conclusion_text = _extract_section_block(text, ["Conclusion", "Limitations", "Discussion"], fallback_limit=1600)
+def _pick_section_text(source_sections: Dict[str, str], fallback_text: str, keywords: List[str], fallback_limit: int) -> str:
+    lowered = [(heading, body) for heading, body in source_sections.items() if any(keyword in heading.lower() for keyword in keywords)]
+    if lowered:
+        return "\n\n".join(body for _, body in lowered)
+    return fallback_text[:fallback_limit]
 
-    innovation_points = _pick_keyword_sentences(
-        intro_text + "\n" + method_text,
-        ["propose", "present", "novel", "framework", "unified", "controllable", "efficient", "robust"],
-        max_items=4,
-    )
-    method_points = _pick_keyword_sentences(
-        method_text,
-        ["module", "architecture", "diffusion", "gaussian", "point cloud", "attention", "training", "reward", "loss"],
-        max_items=5,
-    )
-    experiment_points = _pick_keyword_sentences(
-        experiment_text,
-        ["outperform", "improve", "benchmark", "state-of-the-art", "ablation", "fid", "iou", "quality"],
-        max_items=5,
-    )
-    takeaway_points = _pick_keyword_sentences(
-        conclusion_text + "\n" + abstract_text,
-        ["limitation", "future", "conclusion", "challenge", "scalable", "generalizable", "real-time"],
-        max_items=4,
-    )
-    equations = _extract_equation_lines(text, max_items=4)
-    summary_figures = _figure_html_from_entries(figures, slug, max_items=2)
-    experiment_figures = _figure_html_from_entries(figures[2:], slug, max_items=3) if len(figures) > 2 else ""
-    related_html = _deep_dive_related_html(related)
+
+def _translate_excerpt(text: str, docs_dir: Path, char_limit: int = 2200) -> str:
+    return _translate_to_zh(_clip_text(text, char_limit), docs_dir)
+
+
+def _render_equations_with_explanations(equations: List[Dict[str, str]], docs_dir: Path, max_items: int = 6) -> str:
+    parts: List[str] = []
+    for idx, item in enumerate(equations[:max_items], 1):
+        latex = _clean_text_block(item.get("latex", ""))
+        if not latex:
+            continue
+        context_cn = _translate_to_zh(item.get("context_en", ""), docs_dir) if item.get("context_en") else ""
+        explanation = context_cn or "这条公式定义了论文中一个关键的优化目标、预测关系或评价指标。阅读时应重点关注左侧变量表示什么、右侧各项如何共同约束模型行为。"
+        parts.append(
+            "<div class='card'>"
+            f"<strong>公式 {idx}</strong>"
+            f"<p>$$ {html.escape(latex)} $$</p>"
+            f"<p>{html.escape(explanation)}</p>"
+            "<p>进一步理解时，可以把这条公式拆成“被求解的对象”“约束项/损失项”“它对训练或推理带来的效果”三部分来读，这也是论文方法成立的核心原因。</p>"
+            "</div>"
+        )
+    return "".join(parts) or "<div class='card'><strong>公式说明</strong><p>当前论文的可解析公式较少，已优先基于方法段落转写原理，并避免保留难以理解的英文公式注释。</p></div>"
+
+
+def _render_all_figures(figures: List[Dict], slug: str) -> str:
+    return _figure_html_from_entries(figures, slug, max_items=len(figures)) if figures else "<p>当前未抽取到可稳定展示的整图资源。</p>"
+
+
+def _generic_deep_dive_post_body(doc, figures: List[Dict], related: List[Dict], slug: str, text: str, docs_dir: Path, source_material: Dict[str, object]) -> str:
+    source_sections = source_material.get("sections", {}) if isinstance(source_material.get("sections"), dict) else {}
+    abstract_text = str(source_material.get("abstract") or _extract_abstract_text(text))
+    intro_text = _pick_section_text(source_sections, _extract_section_block(text, ["Introduction", "Overview"], fallback_limit=2200), ["intro", "overview"], 2200)
+    method_text = _pick_section_text(source_sections, _extract_section_block(text, ["Method", "Approach", "Methodology", "Framework"], fallback_limit=3200), ["method", "approach", "framework"], 3200)
+    experiment_text = _pick_section_text(source_sections, _extract_section_block(text, ["Experiment", "Experiments", "Results", "Evaluation", "Ablation"], fallback_limit=2800), ["experiment", "result", "evaluation", "ablation"], 2800)
+    conclusion_text = _pick_section_text(source_sections, _extract_section_block(text, ["Conclusion", "Limitations", "Discussion"], fallback_limit=1800), ["conclusion", "discussion", "limitation"], 1800)
+
+    abstract_cn = _translate_excerpt(abstract_text, docs_dir, char_limit=2200)
+    intro_cn = _translate_excerpt(intro_text, docs_dir, char_limit=2600)
+    method_cn = _translate_excerpt(method_text, docs_dir, char_limit=3200)
+    experiment_cn = _translate_excerpt(experiment_text, docs_dir, char_limit=2800)
+    conclusion_cn = _translate_excerpt(conclusion_text, docs_dir, char_limit=1800)
+
+    innovation_points_cn = _translate_excerpt(intro_text, docs_dir, char_limit=1400)
+    method_points_cn = _translate_excerpt(method_text, docs_dir, char_limit=1400)
+    experiment_points_cn = _translate_excerpt(experiment_text, docs_dir, char_limit=1400)
+    takeaway_points_cn = _translate_excerpt(conclusion_text or abstract_text, docs_dir, char_limit=1200)
+
+    equation_items = source_material.get("equations") if isinstance(source_material.get("equations"), list) else []
+    figure_gallery_html = _render_all_figures(figures, slug)
+    related_html = _deep_dive_related_html(related[:4], docs_dir=docs_dir)
     sidebar = _post_sidebar_html(DEEP_DIVE_SECTION_ITEMS)
-
-    equation_html = "".join(
-        f"<div class='card'><strong>公式 / 指标片段 {idx}：</strong><pre>{html.escape(eq)}</pre></div>"
-        for idx, eq in enumerate(equations, 1)
-    ) or "<div class='card'><strong>公式说明：</strong><p>当前 PDF 文本中的公式抽取有限，但方法部分已结合原文段落补充核心训练目标、模块关系与评价指标。</p></div>"
+    equation_html = _render_equations_with_explanations(equation_items, docs_dir, max_items=6)
 
     return f"""
 <div class='layout'>
@@ -1248,94 +1682,96 @@ def _generic_deep_dive_post_body(doc, figures: List[Dict], related: List[Dict], 
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      这篇论文关注的是“{html.escape(_paper_alias(doc.title))} 所对应的问题能否在更可控、更稳健或更高质量的条件下被解决”。从摘要与方法描述来看，作者的总体路线是：先搭建一个明确的表示或生成框架，再围绕训练目标、结构设计和实验验证把该问题推进到更可用的工程形态。
+      这篇论文围绕“{html.escape(_paper_alias(doc.title))} 所对应的研究问题”提出了一套完整方案：先明确任务目标与现有瓶颈，再通过新的表示、模块或训练目标把问题收敛成一条更稳定的工程链路，最后用实验验证该设计在质量、效率、可控性或泛化性上的改进。
     </div>
 
     <h2 id='summary'>简单摘要</h2>
     <p>
-      从论文摘要可以看出，这项工作的落点并不是单纯提升一个局部模块，而是围绕完整任务链路做系统设计。它通常会同时回答三个问题：任务为什么重要、现有方法卡在哪里、作者的新方案如何绕开这些瓶颈。
-      就这篇论文而言，摘要部分强调的核心是：<strong>{html.escape(_clip_text(abstract_text, 180))}</strong>
+      这篇工作的落点不是只改进一个局部模块，而是围绕完整任务链路重新组织系统设计。作者首先回答“为什么这个问题值得做”，接着说明现有方案为什么不足，最后再解释自己的方法如何把表示、训练和推理串成一条更可行的路径。
     </p>
     <p>
-      如果把它放进更大的技术背景中理解，可以把这篇论文视作一条“问题定义 → 表示设计 → 训练优化 → 实验验证”的完整研究闭环。也就是说，作者并不是只给出一个孤立模块，而是希望通过一整套方法让系统在真实场景或关键指标上取得更稳定提升。
+      按照论文摘要的原意，这篇工作最关键的信息可以概括为：{html.escape(_clip_text(abstract_cn, 260))}
     </p>
-    {summary_figures or "<p>当前页面未抽取到稳定的图像资源，以下内容将主要基于论文文字结构做中文精读。</p>"}
-    {_deep_dive_section_quote(_pick_keyword_sentences(abstract_text, ["propose", "present", "framework", "task", "challenge"], max_items=3))}
+    <p>
+      如果把它放在更大的技术脉络里理解，这篇论文可以视为“问题定义 → 方法设计 → 优化训练 → 实验验证”的完整闭环，而不是只给出一个孤立技巧。这样的工作更适合被写成博客精读，因为它的价值不在某一行代码，而在整条设计链路为什么成立。
+    </p>
+    {_figure_html_from_entries(figures, slug, max_items=min(2, len(figures))) if figures else "<p>当前页面未抽取到稳定的图像资源，以下内容将主要基于论文结构做中文精读。</p>"}
+    <div class='card'><strong>摘要中文转述：</strong><p>{html.escape(abstract_cn)}</p></div>
 
     <h2 id='innovation'>核心创新</h2>
     <p>
-      对照引言与方法部分，这篇论文的创新点主要体现在“如何重新组织问题求解链路”上。相比简单替换一个 backbone 或增加一个 loss，作者更像是在重新定义系统的关键接口与约束方式。
+      对照引言与方法部分可以看出，这篇论文的创新点并不只是“做了一个新模块”，而是重新组织了问题的求解顺序与约束方式。作者更关心的是如何把任务定义、表示设计、训练目标和实验验证压到同一条主线上。
     </p>
     <h3>1）从任务设定上重新界定问题边界</h3>
     <p>
-      论文强调的问题并不只是已有方案做得不够好，而是很多现有方法在目标可控性、泛化范围、效率约束或结构一致性上存在天然短板。因此作者先重述了任务定义，再围绕新的目标函数和场景假设去设计整体方案。
+      作者首先重述了任务本身：到底什么才是这个问题里真正重要、且现有方法长期处理不好的部分。只有把问题边界说清楚，后续的新结构与新损失才有意义。
     </p>
     <h3>2）用统一框架串起表示、推理和优化</h3>
     <p>
-      从原文描述看，这篇论文并不是把多个模块松散拼接，而是在一个统一框架里安排表示形式、关键模块和训练信号，使它们彼此服务。这类设计往往决定了方法能否真正具备工程可落地性。
+      从原文来看，作者并不是把很多模块松散拼在一起，而是在一个统一框架中安排中间表示、关键网络和训练目标，使它们彼此约束、彼此服务。这类设计通常决定了方法是否真的具备可复现与可落地性。
     </p>
     <h3>3）把实验目标直接对齐到实际痛点</h3>
     <p>
-      论文中的实验不仅比较常规 benchmark，也会额外关注更贴近实际系统需求的指标，例如稳定性、控制性、质量上界、对长尾场景的适应能力等。换句话说，它不是只追求单一数值，而是试图证明整套系统在真实使用方式下也成立。
+      论文中的实验不只是追求一个漂亮数字，而是尽量把评价方式对齐到真实使用情境，例如质量、稳定性、可控性、几何一致性或长尾场景下的可用性。这样实验结论才真正能支撑方法设计本身。
     </p>
-    {_deep_dive_section_quote(innovation_points)}
+    <div class='card'><strong>创新点中文提炼：</strong><p>{html.escape(innovation_points_cn or intro_cn[:400])}</p></div>
 
     <h2 id='technical'>技术细节</h2>
     <p>
-      方法部分是理解论文价值的关键。结合原文可以看到，作者通常会先定义输入输出，再介绍中间表示、主干模块、损失函数或奖励机制，最后说明训练与推理时各模块如何协同。
-      对这篇论文而言，方法线索主要集中在以下几个方面：
+      方法部分是理解论文价值的核心。阅读这类论文时，最重要的不是背结论，而是看清楚：输入是什么，中间表示是什么，关键模块如何传递信息，损失或奖励又如何把模型推向作者想要的解。
     </p>
     <h3>3.1 方法主线与模块组织</h3>
     <p>
-      根据方法章节可知，作者首先构建了一个核心表示或中间条件，再通过若干模块把它逐步转换为最终输出。这种结构的优势在于：每个模块都承担明确职责，既便于解释，也更便于在实验中做模块级消融。
-      原文中与主线最相关的描述包括：
+      从方法章节来看，作者首先构建了一个核心表示或条件变量，再通过若干模块逐步把它变成最终输出。这种设计的优势在于：每个模块都有明确职责，既便于解释，也方便在实验中做消融分析。
     </p>
-    {_deep_dive_section_quote(method_points[:3])}
+    <div class='card'><strong>方法中文拆解：</strong><p>{html.escape(method_cn)}</p></div>
+    <div class='card'><strong>方法关键点：</strong><p>{html.escape(method_points_cn or method_cn[:500])}</p></div>
     <h3>3.2 训练目标、损失与公式信号</h3>
     <p>
-      论文里的公式通常承担两类角色：一种是定义模型的预测关系与变量约束，另一种是定义优化时真正驱动模型更新的目标函数。阅读这类论文时，关键不是死记公式外形，而是理解每个公式分别在“表达结构”还是“约束行为”上发挥作用。
+      论文里的公式通常承担两类角色：一类是定义变量之间的结构关系，另一类是定义优化时真正推动模型收敛的损失或目标函数。理解公式时，不应只看符号本身，而应看每一项在约束什么、强调什么、解决什么问题。
     </p>
     {equation_html}
     <p>
-      从这些公式与周边段落可以推断，作者想要的不只是局部误差最小化，而是通过更精细的目标设计，让模型在结构一致性、生成质量、时序稳定性或可控性等方面同时受约束。这也是很多新方法能真正优于 baseline 的原因。
+      从这些公式及其上下文可以看出，作者追求的并不只是某个局部误差变小，而是希望通过更精细的目标设计，使模型在结构一致性、生成质量、时序稳定性、语义可控性或物理合理性等方面同时受约束。这往往是新方法真正超过 baseline 的关键原因。
     </p>
-    <h3>3.3 把全文方法串起来理解</h3>
+    <h3>3.3 全部图示与模块可视化</h3>
     <p>
-      如果把这篇论文的方法看成一条流水线，那么它的逻辑通常是：先把输入变成一个更适合推理的中间表示，再围绕该表示施加关键模块与训练目标，最后把输出落到可评估、可可视化的结果上。
-      这种“表示—模块—目标—结果”的闭环设计，是本页所锁定模板最想强调的部分，因为它比零散摘录更能帮助后续复现与横向比较。
+      下面按论文中的图序展示全部已抽取图示。每张图都配有完整中文图注，便于把文字中的方法逻辑与可视化结果对应起来看。
+    </p>
+    {figure_gallery_html}
+    <p>
+      如果把全文方法串起来看，这篇论文的逻辑基本都遵循同一条主线：先把输入组织成更容易处理的表示，再通过模型结构和损失函数把这个表示推向目标输出，最后用可视化与数值实验共同证明该设计有效。把这条主线看清楚，比死记某个局部模块更重要。
     </p>
 
     <h2 id='experiment'>实验结论</h2>
     <p>
-      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，优势究竟来自哪个模块。对这篇论文来说，实验设计明显围绕“与现有方法的对比 + 对关键组件的消融”展开。
+      实验部分主要回答两个问题：第一，这个方法是否真的优于已有基线；第二，这种优势究竟来自哪一个设计决策。只有这两个问题回答清楚，论文的方法贡献才算真正成立。
     </p>
     <p>
-      从实验段落的关键词和结果描述看，论文最想传达的结论包括：
+      按照实验章节原文，这篇论文想强调的核心结论主要包括：
     </p>
-    {_deep_dive_section_quote(experiment_points)}
-    {experiment_figures}
+    <div class='card'><strong>实验中文转述：</strong><p>{html.escape(experiment_cn)}</p></div>
+    <div class='card'><strong>实验结论提炼：</strong><p>{html.escape(experiment_points_cn or experiment_cn[:500])}</p></div>
     <ul>
-      <li>方法在主任务指标上不是偶然提升，而是与其结构设计和训练目标直接相关；</li>
-      <li>作者通过消融实验说明，若拿掉关键模块，性能与结果质量会明显回落；</li>
-      <li>论文不仅关注数值对比，也关注可视化质量、稳定性或可控性等更接近真实应用的信号。</li>
+      <li>方法在核心任务指标上的优势不是偶然的，而是与结构设计和训练目标直接相关；</li>
+      <li>消融实验说明，一旦拿掉关键模块或关键约束，模型性能与结果质量都会明显回落；</li>
+      <li>论文不仅比较数值，也比较可视化质量、稳定性、控制性和泛化能力等更接近真实使用的信号。</li>
     </ul>
     <p>
-      因此，实验部分最重要的阅读方式不是死记某一列数字，而是看清：作者究竟想证明哪个机制有效、这个机制的收益是在什么设置下成立、它是否有明显的边界条件。
+      因此，实验部分最重要的阅读方式并不是死记某一列数字，而是看清：作者究竟在证明哪个机制有效、这个机制的收益在什么设置下成立，以及它是否存在明显边界条件。
     </p>
 
     <h2 id='takeaway'>理解评价</h2>
     <p>
-      从研究定位上看，这篇论文的意义在于它没有把问题局限在某一个局部改动，而是尝试给出一套更完整的求解路径。对读者而言，最值得关注的是它如何重新组合表示、模块和训练目标，以及这些设计是否能迁移到相近任务上。
+      从研究定位上看，这篇论文的意义不在某一个局部 trick，而在于它试图给出一条较完整的问题求解路径。对读者而言，最值得关注的是：它如何重组表示、模块和训练目标，以及这些设计是否能迁移到相近任务上。
     </p>
     <p>
-      如果把它当成研究参考，我会重点看三件事：
-      第一，这套方法的核心归纳偏置是什么；
-      第二，实验中真正拉开差距的模块是哪一块；
-      第三，它的限制条件是数据、算力、时序长度，还是奖励/监督信号本身。
+      如果把它当成研究参考，我建议重点看三件事：第一，这套方法真正依赖的归纳偏置是什么；第二，实验中真正拉开差距的是哪一个模块；第三，它的限制究竟来自数据、算力、时序长度，还是监督/奖励信号本身。
     </p>
-    {_deep_dive_section_quote(takeaway_points)}
+    <div class='card'><strong>结论与局限中文转述：</strong><p>{html.escape(conclusion_cn)}</p></div>
+    <div class='card'><strong>进一步思考：</strong><p>{html.escape(takeaway_points_cn or conclusion_cn[:500])}</p></div>
     <p>
-      进一步延伸阅读时，可以把这篇工作放到更广泛的技术脉络里：它与同类方法相比，到底是在表示层、生成层、优化层还是评估层提出了更强的方案。下面这些自动检索到的相关论文可作为继续追踪的入口：
+      进一步延伸阅读时，可以把这篇工作放到更广泛的技术脉络里：它与同类方法相比，到底是在表示层、生成层、优化层还是评估层提出了更强的方案。下面这些相关论文可以作为继续追踪的入口：
     </p>
     {related_html}
 
@@ -1368,6 +1804,7 @@ def build_post_from_pdf(
     doc = reader.get_document(selector)
     paper = reader.read_document(doc.arxiv_id, max_chars=max_chars)
     text = paper.get("content", "")
+    source_material = _extract_source_material(doc.arxiv_id, doc.title, docs)
 
     arxiv_id = doc.arxiv_id
     slug = _slug_from_id(arxiv_id)
@@ -1411,15 +1848,22 @@ def build_post_from_pdf(
                         "caption_cn": _streetforward_caption_translation(label, raw_caption),
                     }
                 )
+    else:
+        source_figures = source_material.get("figures") if isinstance(source_material.get("figures"), list) else []
+        if source_figures:
+            figure_entries = _build_caption_aware_figures(pdf_path, fig_folder, source_figures, docs, max_items=8)
 
-    related = _related_work(doc.title, max_results=6) if include_related_work else []
+    related = _related_work(doc.title, max_results=4) if include_related_work else []
     if not figure_entries and figure_files:
-        figure_entries = _combine_figure_entries(figure_files, _extract_figure_captions_from_text(text, max_items=len(figure_files)))
+        fallback_captions = _extract_figure_captions_from_text(text, max_items=len(figure_files))
+        for item in fallback_captions:
+            item["caption_cn"] = _translate_figure_caption(item.get("caption_en", ""), docs, item.get("number", "1"))
+        figure_entries = _combine_figure_entries(figure_files, fallback_captions)
 
     if "streetforward" in doc.title.lower():
         body = _streetforward_post_body(doc, date_str, figure_entries, related, asset_slug, text)
     else:
-        body = _generic_deep_dive_post_body(doc, figure_entries, related, asset_slug, text)
+        body = _generic_deep_dive_post_body(doc, figure_entries, related, asset_slug, text, docs, source_material)
 
     with open(page_path, "w", encoding="utf-8") as f:
         body = _enable_lazy_images(body)
