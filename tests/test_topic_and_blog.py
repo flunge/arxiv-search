@@ -5,6 +5,7 @@ import fitz
 from build_blog import (
     _figure_band_bounds,
     _pick_best_figure_rect,
+    build_all_posts,
     build_home,
     build_post_from_pdf,
 )
@@ -69,6 +70,28 @@ def test_build_blog_outputs_files(tmp_path: Path) -> None:
     assert "tags/world-model.html" in home_html
     assert "最新发布日期" not in home_html
     assert (site_dir / "tags" / "world-model.html").exists()
+
+
+def test_build_all_posts_outputs_multiple_pages(tmp_path: Path) -> None:
+    docs_dir = tmp_path / "docs"
+    site_dir = tmp_path / "site"
+    docs_dir.mkdir()
+
+    _make_pdf(
+        docs_dir / "2603_19979v2_X-World Controllable Ego-Centric Multi-Camera World Models.pdf",
+        "world model paper content",
+    )
+    _make_pdf(
+        docs_dir / "2603_19552v1_StreetForward Perceiving Dynamic Street with Feedforward Causal Attention.pdf",
+        "streetforward paper content",
+    )
+
+    posts = build_all_posts(docs_dir=docs_dir, site_dir=site_dir, max_chars=1000)
+    home = build_home(site_dir)
+
+    assert len(posts) == 2
+    assert home.exists()
+    assert len(list((site_dir / "posts").glob("*.html"))) == 2
 
 
 def test_figure_band_bounds_uses_previous_caption() -> None:

@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>UFO-4D</title>
+  <style>
+    html {
+      overflow-x: hidden;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      width: 100%;
+      min-width: 0;
+      max-width: none;
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      line-height: 1.9;
+      color: #1f1f1f;
+      background: #fff;
+    }
+    .page-stage {
+      position: relative;
+      width: 100%;
+      min-height: 100vh;
+      padding: 24px 0 32px;
+      box-sizing: border-box;
+      overflow: hidden;
+    }
+    .page-shell {
+      position: absolute;
+      left: 50%;
+      top: 24px;
+      width: 980px;
+      max-width: 980px;
+      box-sizing: border-box;
+      padding: 0 16px;
+      transform-origin: top center;
+      transform: translateX(-50%) scale(1);
+      will-change: transform;
+    }
+    a { color: #1769c2; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .meta { color: #666; font-size: 14px; margin-top: -6px; }
+    h1 { font-size: 34px; margin-bottom: 10px; }
+    h2 { margin-top: 30px; border-left: 4px solid #1769c2; padding-left: 10px; }
+    h3 { margin-top: 20px; }
+    .toc { background: #f7f9fc; border: 1px solid #e8eef6; border-radius: 10px; padding: 12px; }
+    .card { border:1px solid #e5e5e5; border-radius:10px; padding:14px; margin:10px 0; }
+    pre { white-space: pre-wrap; background:#f7f7f7; border-radius:8px; padding:12px; overflow-x:auto; }
+    figure { margin: 24px 0; }
+    figcaption { color: #666; font-size: 13px; }
+    img.paper-fig { width: 100%; border: 1px solid #ddd; border-radius: 8px; }
+    .post-item { border:1px solid #e5e5e5; border-radius:8px; padding:10px 12px; margin:10px 0; }
+    .layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 28px; align-items: start; justify-content: center; position: relative; }
+    .sidebar { position: sticky; top: 18px; align-self: start; border-right: 1px solid #eee; padding-right: 16px; transition: width .2s ease, min-width .2s ease, padding .2s ease, border-color .2s ease; }
+    .sidebar h3 { margin-top: 0; font-size: 16px; }
+    .sidebar ul { list-style: none; padding-left: 0; margin: 0; }
+    .sidebar li { margin: 8px 0; }
+    .sidebar-controls { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; }
+    .sidebar-title { margin:0; }
+    .sidebar-home-link { display:inline-block; padding:4px 10px; border:1px solid #d9e5f2; border-radius:999px; background:#f7fbff; font-size:12px; white-space:nowrap; }
+    .sidebar-toggle { width:30px; height:30px; border:1px solid #d9e5f2; border-radius:999px; background:#fff; color:#1769c2; font-size:18px; line-height:1; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto; }
+    .sidebar-toggle:hover { background:#f7fbff; }
+    .sidebar.collapsed { width: 36px; min-width: 36px; padding-right: 0; border-right-color: transparent; overflow: hidden; }
+    .sidebar.collapsed .sidebar-title,
+    .sidebar.collapsed .sidebar-home-link,
+    .sidebar.collapsed ul { display:none; }
+    .sidebar.collapsed .sidebar-controls { justify-content:center; }
+    .sidebar.collapsed .sidebar-toggle { margin:0; }
+    .layout.sidebar-collapsed { grid-template-columns: minmax(0, 1fr); }
+    .layout.sidebar-collapsed .sidebar { position: absolute; left: 0; top: 0; z-index: 2; background: #fff; border-right: none; }
+    .article { min-width: 0; width: 100%; max-width: 100%; }
+    .layout.sidebar-collapsed .article { width: min(100%, 760px); max-width: min(100%, 760px); justify-self: center; margin-inline: auto; }
+    blockquote { margin: 16px 0; padding: 8px 16px; border-left: 4px solid #d8e7ff; background: #f8fbff; color: #333; }
+    .tip { background: #f7f9fc; border: 1px solid #e8eef6; border-radius: 10px; padding: 12px; }
+  </style>
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\(', '\)']],
+        displayMath: [['$$', '$$'], ['\[', '\]']]
+      },
+      svg: { fontCache: 'global' }
+    };
+
+    function toggleSidebar(button) {
+      var sidebar = button.closest('.sidebar');
+      if (!sidebar) return;
+      var layout = sidebar.closest('.layout');
+      var collapsed = sidebar.classList.toggle('collapsed');
+      if (layout) {
+        layout.classList.toggle('sidebar-collapsed', collapsed);
+      }
+      button.setAttribute('aria-expanded', String(!collapsed));
+      button.setAttribute('title', collapsed ? '展开目录' : '隐藏目录');
+      button.innerHTML = collapsed ? '&#8250;' : '&#8249;';
+      requestAnimationFrame(applyPageScale);
+    }
+
+    function applyPageScale() {
+      var stage = document.querySelector('.page-stage');
+      var shell = document.getElementById('page-shell');
+      if (!stage || !shell) return;
+
+      var designWidth = 980;
+      var viewportWidth = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
+      var availableWidth = Math.max(320, viewportWidth - 12);
+      var scale = Math.min(1, availableWidth / designWidth);
+      shell.style.transform = 'translateX(-50%) scale(' + scale + ')';
+      stage.style.height = Math.ceil(shell.offsetHeight * scale + 32) + 'px';
+    }
+
+    window.addEventListener('resize', applyPageScale);
+    window.addEventListener('orientationchange', applyPageScale);
+    document.addEventListener('DOMContentLoaded', applyPageScale);
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+<div class='page-stage'>
+  <div id='page-shell' class='page-shell'>
+
+<div class='layout'>
+  <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>摘要与问题定义</a></li><li><a href='#method'>方法与技术细节</a></li><li><a href='#figures'>关键图示</a></li><li><a href='#related'>相关工作与技术脉络</a></li><li><a href='#notes'>解读与思考</a></li></ul></aside>
+
+  <article class='article'>
+    <h1>UFO-4D</h1>
+    <p class="meta">2026-04-02 · arXiv: 2602.24290v2</p>
+
+    <h2 id="summary">1. 摘要与问题定义</h2>
+    <p>To appear at ICLR 2026
+UFO-4D: UNPOSED FEEDFORWARD 4D RECON-
+STRUCTION FROM TWO IMAGES
+Junhwa Hur1
+Charles Herrmann1
+Songyou Peng1
+Philipp Henzler1
+Zeyu Ma2
+Todd Zickler3
+Deqing Sun1
+1Google
+2Princeton University
+3Harvard University
+Input image pair
+Dynamic 3D Gaussians in the canonical space
+4D representation
+Camera pose
+3D motion
+3D geometry
+4D interpolation
+Rendered outputs
+Render at 
+target time 
+and views
+UFO-4D
+Figure 1: Given a pair of unposed images, the proposed UFO-4D outputs dynamic 3D Gaussians in
+the canonical space and relative camera pose in a feedforward manner. This explicit 4D represen-
+tation can solve various downstream tasks such as 3D geometry (point, depth) and motion (scene
+flow, optical flow). Besides, it can interpolate image, geometry, and motion at novel view and time.
+ABSTRACT
+Dense 4D reconstruction from unposed images remains a critical challenge, with
+current methods relying on slow test-time optimization or fragmented, task-
+specific feedforward models. We introduce UFO-4D, a unified feedforward frame-
+work to reconstruct a dense, explicit 4D representation from just a pair of unposed
+images. UFO-4D directly estimates dynamic 3D Gaussian Splats, ena</p>
+
+    <h2 id="method">2. 方法与技术细节</h2>
+    <p>下面内容为论文中的关键技术句段抽取，并结合关键词（method / architecture / loss / ablation / experiment 等）组织，目标是帮助快速把握方法与实验逻辑，而不是仅做翻译。</p>
+    <ul><li>current methods relying on slow test-time optimization or fragmented, task-</li><li>tasks; however, a single, unified feedforward architecture capable of holistically addressing the full</li><li>loss while tightly coupling appearance, depth, and motion. Since all modalities</li><li>can be a solution, a challenge continues with a scarcity of dense, large-scale 4D training data. Syn-</li><li>representation, Dynamic 3D Gaussian Splatting (D-3DGS), in a single forward pass. This unified</li><li>the canonical space and relative camera pose in a feedforward manner. This explicit 4D represen-</li></ul>
+
+    <h2 id="figures">3. 关键图示</h2>
+    <figure><img class='paper-fig' src='../assets/2602_24290v2/fig_1.png' alt='figure 1' /><figcaption>Figure 1 from 2602.24290v2.</figcaption></figure><figure><img class='paper-fig' src='../assets/2602_24290v2/fig_2.png' alt='figure 2' /><figcaption>Figure 2 from 2602.24290v2.</figcaption></figure><figure><img class='paper-fig' src='../assets/2602_24290v2/fig_3.png' alt='figure 3' /><figcaption>Figure 3 from 2602.24290v2.</figcaption></figure><figure><img class='paper-fig' src='../assets/2602_24290v2/fig_4.png' alt='figure 4' /><figcaption>Figure 4 from 2602.24290v2.</figcaption></figure><figure><img class='paper-fig' src='../assets/2602_24290v2/fig_5.png' alt='figure 5' /><figcaption>Figure 5 from 2602.24290v2.</figcaption></figure><figure><img class='paper-fig' src='../assets/2602_24290v2/fig_6.png' alt='figure 6' /><figcaption>Figure 6 from 2602.24290v2.</figcaption></figure>
+
+    <h2 id="related">4. 相关工作与技术脉络</h2>
+    <p>基于标题关键词在 arXiv 自动检索到的相关论文（用于补充技术上下文）：</p>
+    <ul></ul>
+
+    <h2 id="notes">5. 解读与思考</h2>
+    <p>
+    这篇论文的核心价值在于：
+    (1) 把 feedforward / 场景建模问题转化为可扩展的工程路径；
+    (2) 通过训练目标与表示设计平衡质量和效率；
+    (3) 为自动驾驶仿真或可控 world model 提供可连接的上层接口。
+    建议后续重点对照 ablation 与 error case，判断其泛化边界。
+    </p>
+  </article>
+</div>
+
+  </div>
+</div>
+</body>
+</html>

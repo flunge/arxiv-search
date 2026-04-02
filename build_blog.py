@@ -886,6 +886,7 @@ def build_post_from_pdf(
     site_dir: Union[str, Path] = "./site",
     max_chars: int = 14000,
     title_override: Optional[str] = None,
+    include_related_work: bool = True,
 ) -> Path:
     docs = Path(docs_dir)
     site = Path(site_dir)
@@ -907,8 +908,12 @@ def build_post_from_pdf(
 
     fig_folder = assets_dir / slug
     if fig_folder.exists():
-        shutil.rmtree(fig_folder)
+        try:
+            shutil.rmtree(fig_folder)
+        except PermissionError:
+            fig_folder = assets_dir / f"{slug}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
     pdf_path = Path(doc.path)
+    asset_slug = fig_folder.name
     figure_files: List[str] = []
     if alias.lower() != "streetforward":
         figure_files = _extract_figures(pdf_path, fig_folder, max_images=6)
@@ -935,20 +940,20 @@ def build_post_from_pdf(
                 )
 
     snippets = _keyword_snippets(text, max_items=8)
-    related = _related_work(doc.title, max_results=6)
+    related = _related_work(doc.title, max_results=6) if include_related_work else []
 
     fig_html = ""
     if figure_files:
         for i, name in enumerate(figure_files, 1):
             fig_html += (
-                f"<figure><img class='paper-fig' src='../assets/{slug}/{name}' alt='figure {i}' />"
+                f"<figure><img class='paper-fig' src='../assets/{asset_slug}/{name}' alt='figure {i}' />"
                 f"<figcaption>Figure {i} from {html.escape(arxiv_id)}.</figcaption></figure>"
             )
     else:
         fig_html = "<p>未抽取到可用图片（该 PDF 可能主要为矢量图或编码不兼容）。</p>"
 
     if "streetforward" in doc.title.lower():
-        body = _streetforward_post_body(doc, date_str, figure_entries, related, slug, text)
+        body = _streetforward_post_body(doc, date_str, figure_entries, related, asset_slug, text)
     else:
         snippets_html = "".join([f"<li>{html.escape(s)}</li>" for s in snippets])
         related_html = "".join(
@@ -1014,9 +1019,9 @@ def build_post_from_pdf(
     tags = _infer_tags(doc.title, text)
     thumbnail_rel = ""
     if figure_entries:
-        thumbnail_rel = f"assets/{slug}/{figure_entries[0]['path']}"
+        thumbnail_rel = f"assets/{asset_slug}/{figure_entries[0]['path']}"
     elif figure_files:
-        thumbnail_rel = f"assets/{slug}/{figure_files[0]}"
+        thumbnail_rel = f"assets/{asset_slug}/{figure_files[0]}"
     manifest = _load_manifest(site)
     manifest = [m for m in manifest if m.get("slug") != slug]
     manifest.append(
@@ -1037,6 +1042,35 @@ def build_post_from_pdf(
     _save_manifest(site, manifest)
 
     return page_path
+
+
+def build_all_posts(
+    docs_dir: Union[str, Path] = "./docs",
+    site_dir: Union[str, Path] = "./site",
+    max_chars: int = 14000,
+) -> List[Path]:
+    docs = Path(docs_dir)
+    site = Path(site_dir)
+    reader = PdfReaderTool(docs_dir=docs)
+    documents = reader.index_pdfs(refresh=False)
+    documents = sorted(documents, key=lambda doc: (doc.arxiv_id, doc.modified_time), reverse=True)
+
+    built_posts: List[Path] = []
+    for doc in documents:
+        try:
+            built_posts.append(
+                build_post_from_pdf(
+                    selector=doc.arxiv_id,
+                    docs_dir=docs,
+                    site_dir=site,
+                    max_chars=max_chars,
+                    include_related_work=False,
+                )
+            )
+            print(f"✅ Built blog post for {doc.arxiv_id} - {doc.title}")
+        except Exception as exc:
+            raise RuntimeError(f"批量生成失败：{doc.arxiv_id} / {doc.title} ({exc})") from exc
+    return built_posts
 
 
 def build_home(site_dir: Union[str, Path] = "./site") -> Path:
@@ -1170,10 +1204,9 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
 def build_site(
     docs_dir: Union[str, Path] = "./docs",
     out_dir: Union[str, Path] = "./site",
-    max_chars: int = 3500,
+    max_chars: int = 14000,
 ) -> Path:
-    _ = docs_dir
-    _ = max_chars
+    build_all_posts(docs_dir=docs_dir, site_dir=out_dir, max_chars=max_chars)
     return build_home(out_dir)
 
 
@@ -1186,6 +1219,7 @@ def reset_site(site_dir: Union[str, Path] = "./site") -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build/reset static blog site and generate deep post from a downloaded paper")
     parser.add_argument("--selector", default="", help="Paper selector (arXiv id/title/file fragment) to generate one blog post")
+    parser.add_argument("--all", action="store_true", help="Generate blog posts for all PDFs under docs-dir")
     parser.add_argument("--docs-dir", default="./docs")
     parser.add_argument("--site-dir", default="./site")
     parser.add_argument("--reset", action="store_true", help="Reset site directory before generating")
@@ -1197,7 +1231,14 @@ def main() -> None:
         print(f"✅ Site reset: {Path(args.site_dir).resolve()}")
 
     post_path = None
-    if args.selector:
+    if args.all:
+        posts = build_all_posts(
+            docs_dir=args.docs_dir,
+            site_dir=args.site_dir,
+            max_chars=14000,
+        )
+        print(f"✅ Bulk blog generation completed: {len(posts)} posts")
+    elif args.selector:
         post_path = build_post_from_pdf(
             selector=args.selector,
             docs_dir=args.docs_dir,
