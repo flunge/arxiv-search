@@ -214,21 +214,35 @@
 \beta \mathcal{L}_{\text{pDWT}}.
 \label{eq:ltotal} $$</p>
     <p>
-      表示。每个高斯基元都由均值向量、协方差矩阵、颜色和不透明度参数化。在训练期间，可微分光栅器将这些高斯投影到图像平面中，并使用复合损失函数针对真实视图优化渲染输出，如 Equa 所示...
+      公式：\mathcal{L}_{\text{总计}} =
+\mathcal{L}_{\text{L1}} +
+\mathcal{L}_{\text{SSIM}} +
+\alpha \mathcal{L}_{\text{gDWT}} +
+\beta \mathcal{L}_{\text{pDWT}}。
+\label{eq:ltotal}
+上下文：表示。每个高斯基元都由均值向量、协方差矩阵、颜色和不透明度参数化。在训练期间，可微分光栅器将这些高斯投影到图像平面中，并使用复合损失函数针对真实视图优化渲染输出，如 Equa 所示...
     </p>
     <p>$$ \mathcal{L}_{\text{Global-DWT}} =
 \sum_{s \in \{LL, LH, HL, HH\}}
 w_s \, \|\widehat{\mathbf{I}}_{S} - \mathbf{I}_{S}\|_1,
 \label{eq:global_dwt} $$</p>
     <p>
-      水平边缘。 HH 子带包含对角 HF 信息，可突出显示精细的角状细节。捕获粗略的结构信息和全局照明，表示水平和垂直边缘响应，并对精细纹理和噪声进行编码。如图。 。全局 DWT 损失方程项定义为 f…
+      公式：\mathcal{L}_{\text{Global-DWT}} =
+\sum_{s \in \{LL, LH, HL, HH\}}
+w_s \, \|\widehat{\mathbf{I}}_{S} - \mathbf{I}_{S}\|_1,
+\label{eq:global_dwt}
+上下：水平边缘。 HH 子带包含对角 HF 信息，可突出显示精细的角状细节。捕获粗略的结构信息和全局照明，表示水平和垂直边缘响应，并对精细纹理和噪声进行编码。如图。 。全局 DWT 损失方程项定义为 f…
     </p>
     <p>$$ E_{LF}(x,y) =
 \frac{\|\mathbf{I}_{LL}(x,y)\|_1}{
 \|\mathbf{I}_{LL}(x,y)\|_1 + \|\mathbf{I}_{HF}(x,y)\|_1},
 \label{eq:energy} $$</p>
     <p>
-      e，以低频能量 ( ) 指标为指导，该指标量化了 LF 相对于 HF 含量等式的主导地位。每个图像首先通过单级 Haar 小波变换进行分解： 其中 表示低频（结构）子带，表示聚合的高频分量 。对于每个空间位置...
+      公式：E_{LF}(x,y) =
+\frac{\|\mathbf{I}_{LL}(x,y)\|_1}{
+\|\mathbf{I}_{LL}(x,y)\|_1 + \|\mathbf{I}_{HF}(x,y)\|_1},
+\label{eq:能量}
+上下文：e，以低频能量 ( ) 指标为指导，量化 LF 相对于 HF 含量的主导地位 方程 。每个图像首先通过单级 Haar 小波变换进行分解： 其中 表示低频（结构）子带，表示聚合的高频分量 。对于每个空间位置...
     </p>
     <p>$$ \mathcal{L}_{\text{Patch-DWT}} =
 \frac{1}{N_p}\sum_{p=1}^{N_p}
@@ -236,18 +250,28 @@ w_s \, \|\widehat{\mathbf{I}}_{S} - \mathbf{I}_{S}\|_1,
 \|\widehat{\mathbf{I}}^{\,p}_{B} - \mathbf{I}^{\,p}_{B}\|_1,
 \label{eq:patch_dwt} $$</p>
     <p>
-      低频区域中的自然信息较弱或高频细节缺失，如图所示。因此，这些区域被优先考虑以进行局部频率细化。对于每个选定的补丁，应用一级 Haar 小波变换，并在 HF 子带上计算加权损失，以增强局部细节……
+      公式：\mathcal{L}_{\text{Patch-DWT}} =
+\frac{1}{N_p}\sum_{p=1}^{N_p}
+\sum_{B \in \{LH, HL\}}
+\|\widehat{\mathbf{I}}^{\,p}_{B} - \mathbf{I}^{\,p}_{B}\|_1,
+\label{eq:patch_dwt}
+上下文：图像信息较弱或者低频区域高频细节缺失，如图所示。因此，这些区域被优先考虑以进行局部频率细化。对于每个选定的补丁，应用一级 Haar 小波变换，并在 HF 子带上计算加权损失，以增强局部细节……
     </p>
     <p>$$ \mathcal{L}_{\text{Multi}} =
 \mathcal{L}_{\text{RGB}} + \lambda_{\text{NIR}}\, \mathcal{L}_{\text{NIR}},
 \label{eq:multi} $$</p>
     <p>
-      维护共享的几何参数，同时编码特定于模态的颜色属性。然后应用两遍可微光栅化来生成相应的渲染。允许两个分支在统一的几何结构下联合优化，同时保留光谱差异。监管结合再…
+      公式：\mathcal{L}_{\text{Multi}} =
+\mathcal{L}_{\text{RGB}} + \lambda_{\text{NIR}}\, \mathcal{L}_{\text{NIR}},
+\label{eq:multi}
+上下文：在编码特定于模态的颜色属性的同时保持共享的几何参数。然后应用两遍可微光栅化来生成相应的渲染。允许两个分支在统一的几何结构下联合优化，同时保留光谱差异。监管结合再…
     </p>
     <p>$$ \text{mask} = \max(\text{RGB}_{\text{res}}, \text{NIR}_{\text{res}}),
 \label{eq:mask} $$</p>
     <p>
-      IR 通道方程：它控制 NIR 分支的相对贡献。在致密化过程中，在任一光谱通道中表现出高残差的区域中会产生新的高斯方程：确保两个光谱域选择性地引导几何细化。这种共享几何形状、双重外观……
+      公式：\text{mask} = \max(\text{RGB}_{\text{res}}, \text{NIR}_{\text{res}}),
+\标签{eq:掩码}
+上：IR通道方程：它控制NIR分支的相对贡献。在致密化过程中，在任一光谱通道中表现出高残差的区域中会产生新的高斯方程：确保两个光谱域选择性地引导几何细化。这种共享几何形状、双重外观……
     </p>
     <figure><img class='paper-fig' src='../assets/2601_17185v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：用于补丁选择的E_LF图： 
  (a) 基本事实， 
