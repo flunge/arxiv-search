@@ -56,7 +56,12 @@ def test_build_blog_outputs_files(tmp_path: Path) -> None:
     assert "../index.html" in post_html
     assert "目录" in post_html
     assert "sidebar-toggle" in post_html
-    assert "最新发布" in home_html
+    assert "min-width: 900px" not in post_html
+    assert "layout.sidebar-collapsed { grid-template-columns: minmax(0, 1fr); }" in post_html
+    assert "站点概览" in home_html
+    assert "当前涵盖领域" in home_html
+    assert "分类目录" in home_html
+    assert "posts/2603_19979v2.html" in home_html
     assert "最新发布日期" not in home_html
 
 
