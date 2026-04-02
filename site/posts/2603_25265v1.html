@@ -203,27 +203,36 @@
     <p>由于我们的框架在没有地面实况姿势的规范空间中学习 3D 高斯中心，因此仅依赖渲染损失可能会导致训练不稳定以及对规范坐标系的过度拟合。为了减轻这种情况并确保在没有地面实况姿势的情况下的几何一致性，我们利用 ，它为 3D 高斯位置和估计的相机参数提供了明确的监督。该损失衡量了规范 3D 表示与其相应的 2D 观测值之间的对齐情况。具体来说，对于上下文视图中的每个像素，我们从规范空间投影 3D 高斯中心以使用 t…</p>
     <p>$$ 0 = R^{t \to 1}C^{t \to 1} + t^{t \to 1} \implies C^{t \to 1} = -(R^{t \to 1})^Tt^{t \to 1}. $$</p>
     <p>
-      系统，其在相机坐标系中的位置定义为 ，其中 是正交旋转矩阵， 是平移向量。由于相机中心 C 对应于相机坐标系中的原点，因此我们按如下方式推导其世界坐标位置： 4D 目标姿态特征的构建...
+      公式：0 = R^{t \to 1}C^{t \to 1} + t^{t \to 1} \意味着 C^{t \to 1} = -(R^{t \to 1})^Tt^{t \to 1}。
+上：系统，其在相机坐标系中的位置定义为 ，其中 为正交旋转矩阵， 为平移向量。由于相机中心 C 对应于相机坐标系中的原点，因此我们按如下方式推导其世界坐标位置： 4D 目标姿态特征的构建...
     </p>
     <p>$$ \mathbf{u}^v_j = \frac{\mathbf{d}^v_j}{\|\mathbf{d}^v_j\|_2}, \quad l^v_j = \log(\|\mathbf{d}^v_j\|_2 + \epsilon),
  \label{eq:4d_targetpose} $$</p>
     <p>
-      对于上下文视图 v，我们计算从高斯中心到目标相机中心的相对像素位移向量为 。然后，视图 MLP 接收 4D 输入 ，它由单位观看方向和对数尺度距离 组成，由位移向量导出，如下所示：其中 是一个小常数 (,…
+      公式：\mathbf{u}^v_j = \frac{\mathbf{d}^v_j}{\|\mathbf{d}^v_j\|_2}, \quad l^v_j = \log(\|\mathbf{d}^v_j\|_2 + \epsilon),
+ \label{eq:4d_targetpose}
+上下文：对于上下文视图 v，我们计算从高斯中心到目标相机中心的相对像素位移向量为 。然后，视图 MLP 接收 4D 输入 ，它由单位观看方向和对数尺度距离 组成，由位移向量导出，如下所示：其中 是一个小常数 (,…
     </p>
     <p>$$ \mathcal{L}_{render} = \mathcal{L}_{MSE}(I^t, \hat{I}^t) + \lambda_{LPIPS} \mathcal{L}_{LPIPS}(I^t, \hat{I}^t),
  \label{eq:renderingloss} $$</p>
     <p>
-      损失函数图像渲染损失的详细公式。渲染损失通过将真实目标图像与渲染输出进行比较来监督新颖视图合成的质量。正如主论文中所述，该目标被定义为 MSE 光度损失和 L 的加权组合……
+      公式：\mathcal{L}_{render} = \mathcal{L}_{MSE}(I^t, \hat{I}^t) + \lambda_{LPIPS} \mathcal{L}_{LPIPS}(I^t, \hat{I}^t),
+ \label{eq:渲染损失}
+上下文：损失函数图像渲染损失的详细公式。渲染损失通过将真实目标图像与渲染输出进行比较来监督新颖视图合成的质量。正如主论文中所述，该目标被定义为 MSE 光度损失和 L 的加权组合……
     </p>
     <p>$$ \mathcal{L}_{reproj} = \sum_{v=1}^N \sum_{j=1}^{H \times W} \|p_j^v - \pi(K^v, P^{v \to 1}, \mu_j^{v \to 1})\|,
  \label{eq:reprojectionloss} $$</p>
     <p>
-      以及估计的相机参数。该损失衡量了规范 3D 表示与其相应的 2D 观测值之间的对齐情况。具体来说，对于上下文视图中的每个像素，我们使用估计的相对姿势和相机输入从规范空间投影 3D 高斯中心以进行视图…
+      公式：\mathcal{L}_{reproj} = \sum_{v=1}^N \sum_{j=1}^{H \times W} \|p_j^v - \pi(K^v, P^{v \to 1}, \mu_j^{v \to 1})\|,
+ \label{eq:重投影损失}
+上下：以及估计的相机参数。该损失衡量了规范 3D 表示与其相应的 2D 观测值之间的对齐情况。具体来说，对于上下文视图中的每个像素，我们使用估计的相对姿势和相机输入从规范空间投影 3D 高斯中心以进行视图…
     </p>
     <p>$$ \mathcal{L}_{total} = \mathcal{L}_{render} + \lambda_{reproj}\mathcal{L}_{reproj},
  \label{eq:supp_totalloss} $$</p>
     <p>
-      \()表示相机投影功能。为了保持一致性，我们将这种重投影损失应用于从仅上下文分支和上下文与目标分支估计的姿势。这种损失可以稳定姿态估计并防止规范几何崩溃的退化解决方案。全损。 …
+      公式：\mathcal{L}_{total} = \mathcal{L}_{render} + \lambda_{reproj}\mathcal{L}_{reproj},
+ \label{eq:supp_totalloss}
+上：\()表示相机投影功能。为了保持一致性，我们将这种重投影损失应用于从仅上下文分支和上下文与目标分支估计的姿势。这种损失可以稳定姿态估计并防止规范几何崩溃的退化解决方案。全损。 …
     </p>
     <figure><img class='paper-fig' src='../assets/2603_25265v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：在具有中等图像重叠的 RE10K 上获得更多定性结果。</figcaption></figure>
     <figure><img class='paper-fig' src='../assets/2603_25265v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：RE10K 上的图像重叠较小，结果更定性。</figcaption></figure>
