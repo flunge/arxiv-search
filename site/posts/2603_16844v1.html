@@ -202,13 +202,17 @@
     <p>匹配头由密集预测变换器块 ( ) 和与非线性 GELU 激活函数 交错的 2 层组成。为了确保匹配稳定性，每个局部特征都被归一化为单位范数。匹配头的输出公式为： 其中表示从 Pi3X 解码器提取的中间特征表示。更多架构细节可以在补充中找到。损失函数和训练。为了保留基础模型的几何先验和度量尺度，我们冻结编码器、解码器和现有的头，并仅微调匹配的头。该模块使用预先训练的参数进行初始化...</p>
     <p>$$ (\mathbf{D}, \mathbf{Q}) = \mathrm{MLP_{desc}}(\mathrm{DPT_{desc}}(\mathbf{H})), $$</p>
     <p>
-      imes 1 d DPT_desc MLP_desc 与非线性 GELU 激活函数交错。为了确保匹配稳定性，每个局部特征都被归一化为单位范数。匹配头的输出公式为： 其中表示从 Pi3X 解码器提取的中间特征表示。更多建筑...
+      公式：(\mathbf{D}, \mathbf{Q}) = \mathrm{MLP_{desc}}(\mathrm{DPT_{desc}}(\mathbf{H})),
+上下：imes 1 d DPT_desc MLP_desc 与非线性 GELU 激活函数 交错。为了确保匹配稳定性，每个局部特征都被归一化为单位范数。匹配头的输出公式为： 其中表示从 Pi3X 解码器提取的中间特征表示。更多建筑...
     </p>
     <p>$$ \mathcal{L}
 \;=\;
 -\frac{1}{N-1}\sum_{k=2}^{N}\Big( \mathbf{Q}_k\,\mathcal{L}^{k}_{\text{match}}-\alpha \log \mathbf{Q}_k \Big), $$</p>
     <p>
-      I_1 I_k k=2,,N M_k \;=\; \ (u,v)\ |\ X_1,u^1 =X_k,v^1\, u v I_1 I_k 分别。总体训练目标是匹配损失和置信正则化项的加权组合：其中 是平衡超参数。对于每个图像对，采用具有双向项的对称 InfoNCE 目标……
+      公式：\mathcal{L}
+\;=\;
+-\frac{1}{N-1}\sum_{k=2}^{N}\Big( \mathbf{Q}_k\,\mathcal{L}^{k}_{\text{match}}-\alpha \log \mathbf{Q}_k \Big),
+上：I_1 I_k k=2,,N M_k \;=\; \ (u,v)\ |\ X_1,u^1 =X_k,v^1\, u v I_1 I_k 分别。总体训练目标是匹配损失和置信正则化项的加权组合：其中 是平衡超参数。对于每个图像对，采用具有双向项的对称 InfoNCE 目标……
     </p>
     <p>$$ \mathcal{L}^{k}_{\text{match}}
 \;=\;
@@ -220,18 +224,32 @@
 \log \frac{s_{\tau}(u,v)}{\sum_{w \in \mathcal{P}_{k}} s_{\tau}(u,w)}
 \right), $$</p>
     <p>
-      匹配损失和置信度正则化项：其中 是平衡超参数。对于每个图像对，采用具有双向项的对称 InfoNCE 目标，以鼓励相互描述符的一致性：其中相似度分数计算如下，表示温度超参数，并且 和 是...
+      公式：\mathcal{L}^{k}_{\text{match}}
+\;=\;
+-\sum_{(u,v)\in \hat{\mathcal{M}}_k}
+\左（
+\log \frac{s_{\tau}(u,v)}{\sum_{w \in \mathcal{P}_{1}} s_{\tau}(w,v)}
+\;+\;
+
+\log \frac{s_{\tau}(u,v)}{\sum_{w \in \mathcal{P}_{k}} s_{\tau}(u,w)}
+\右），
+上下文：匹配损失和置信度正则化项：其中 是平衡超参数。对于每个图像对，采用具有双向项的对称 InfoNCE 目标，以鼓励相互描述符的一致性：其中相似度分数计算如下，表示温度超参数，并且 和 是...
     </p>
     <p>$$ \mathbf{p}^* = 
 \argmax_{\|\mathbf{p} - \phi(\mathbf{X}_i^j(\mathbf{q}))\| \le r}
 \langle \mathbf{D}_i(\mathbf{q}), \mathbf{D}_j(\mathbf{p}) \rangle,
 \label{eq:fine_match} $$</p>
     <p>
-      的纵坐标框架。姿势引导变换提供了几何感知初始化，将对应搜索限制在较小的空间区域，从而消除了详尽的全局匹配的需要。然后，我们通过在项目周围半径的局部邻域内进行搜索来完善对应关系……
+      公式：\mathbf{p}^* = 
+\argmax_{\|\mathbf{p} - \phi(\mathbf{X}_i^j(\mathbf{q}))\| \le r}
+\langle \mathbf{D}_i(\mathbf{q}), \mathbf{D}_j(\mathbf{p}) \rangle,
+\label{eq:fine_match}
+上面： 的纵坐标框架。姿势引导变换提供了几何感知初始化，将对应搜索限制在较小的空间区域，从而消除了详尽的全局匹配的需要。然后，我们通过在项目周围半径的局部邻域内进行搜索来完善对应关系……
     </p>
     <p>$$ \mathbf{M}_i = \langle \mathbf{D}_k^i, \mathbf{D}^i_i \rangle \odot \mathbf{M}_k^i, $$</p>
     <p>
-      _k^i D_k^i D_i I_i 计算如下： 其中 表示逐像素点积，是最后一个关键帧变形为 帧 的运动图。一致性低的像素在优化过程中会被降低权重，从而减少轨迹漂移和重建伪影。 M 框架 传统的 SLAM 框架通常是
+      公式：\mathbf{M}_i = \langle \mathbf{D}_k^i, \mathbf{D}^i_i \rangle \odot \mathbf{M}_k^i,
+上下：_k^i D_k^i D_i I_i 计算如下： 其中表示逐像素点积，是最后一个关键帧扭曲为帧 的运动图。一致性低的像素在优化过程中会被降低权重，从而减少轨迹漂移和重建伪影。 M 框架 传统的 SLAM 框架通常是
     </p>
     <p>$$ E_{t} = \sum_{(m,n) \in \mathcal{M}(I_f, I_k)} \mathbf{M}_k
 \left\| 
@@ -239,7 +257,12 @@
 {w(q_{m,n})}
 \right\|_\rho , $$</p>
     <p>
-      ow T () T. T_kf = T_k^-1 T_f 通过最小化重投影误差来估计： 其中 表示 、 中像素的坐标，表示第 2 节中建立的密集对应关系。 。表示 Huber 内核，是跟随 的每场比赛加权函数。跟踪每个图像姿势后，我们执行全局
+      公式：E_{t} = \sum_{(m,n) \in \mathcal{M}(I_f, I_k)} \mathbf{M}_k
+\左\| 
+\frac{\mathbf{p}_{k,n} - \phi \left( \mathbf{T}_{kf}\mathbf{X}^f_{f,m} \right)}
+{w(q_{m,n})}
+\right\|_\rho ,
+上下：ow T () T. T_kf = T_k^-1 T_f 通过最小化重投影误差来估计： 其中 表示 、 中像素的坐标，表示第 2 节中建立的密集对应关系。 。表示 Huber 内核，是跟随 的每场比赛加权函数。跟踪每个图像姿势后，我们执行全局
     </p>
     <figure><img class='paper-fig' src='../assets/2603_16844v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：将渲染与不同数据集的动态重建基线进行定性比较。 M^3 在具有挑战性的环境中保留高保真渲染细节，特别是在由白色矩形突出显示的区域中。</figcaption></figure>
     <figure><img class='paper-fig' src='../assets/2603_16844v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：渲染与前馈高斯泼溅方法的定性比较。 M^3 始终保留细粒度的视觉细节。</figcaption></figure>
