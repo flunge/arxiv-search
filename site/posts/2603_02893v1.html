@@ -223,39 +223,59 @@
  \label{eq:inverse_warp} 
  p&#x27;_{j} = KT_{0 \rightarrow j}(D_{0}(p) \cdot K^{-1} p), $$</p>
     <p>
-      通过多视图光度一致性确定 ssian 深度。以一个参考视图及其对应的源视图为例，我们首先通过 alpha 混合渲染来渲染深度图。然后，对于参考图像中的每个像素，可以通过以下方式计算其在源图像中对应的像素： 其中表示关联...
+      公式：\vspace{-0.2cm}
+ \label{eq:inverse_warp} 
+ p&#x27;_{j} = KT_{0 \rightarrow j}(D_{0}(p) \cdot K^{-1} p),
+上图：通过多视图光度一致性测量 ssian 深度。以一个参考视图及其对应的源视图为例，我们首先通过 alpha 混合渲染来渲染深度图。然后，对于参考图像中的每个像素，可以通过以下方式计算其在源图像中对应的像素： 其中表示关联...
     </p>
     <p>$$ \vspace{-0.2cm}
 \label{eq:mpc_rgb}
 
 L = \frac{1}{n-1} \sum_{j=1}^{n-1} \frac {\left\| (I_{j \rightarrow 0} - I_{\text{0}}) \odot M_j \right\|_1} {\left\| M_j \right\|_1}. $$</p>
     <p>
-      p 从源视图到参考视图，以获取具有指示扭曲期间有效投影像素的二元有效性掩模的重建参考图像。对于理想的未遮挡朗伯表面，像素应该在光度上一致。多视图光度损失强化了这一点：照明-ro…
+      公式：\vspace{-0.2cm}
+\label{eq:mpc_rgb}
+
+L = \frac{1}{n-1} \sum_{j=1}^{n-1} \frac {\left\| (I_{j \rightarrow 0} - I_{\text{0}}) \odot M_j \right\|_1} {\left\| M_j \右\|_1}。
+上下：从源视图到参考视图，以获取重建的参考图像，该图像具有指示扭曲期间有效投影像素的二元有效性掩模。对于理想的未遮挡朗伯表面，像素应该在光度上一致。多视图光度损失强化了这一点：照明-ro…
     </p>
     <p>$$ \label{eq:mpc_feat}
 \vspace{-0.2cm}
 
 L = \frac{1}{n-1} \sum_{j=1}^{n-1} \frac {\left\| \frac{1}{2}\left(1 - \cos(\mathcal{F}_{\text{0}}, \mathcal{F}_{j \rightarrow 0 } ) \right) \odot M_j \right\|_1} {\left\| M_j \right\|_1}, $$</p>
     <p>
-      右\|_1 \| M_j \|_1。方程光照鲁棒特征匹配。方程依赖于 RGB 一致性，这对于真实场景中常见的光照变化、阴影和镜面反射很脆弱。为了实现强大的几何监督，我们将其替换为使用冻结的预训练特征的基于特征的匹配......
+      公式：\label{eq:mpc_feat}
+\v空间{-0.2cm}
+
+L = \frac{1}{n-1} \sum_{j=1}^{n-1} \frac {\left\| \frac{1}{2}\left(1 - \cos(\mathcal{F}_{\text{0}}, \mathcal{F}_{j \rightarrow 0 } ) \right) \odot M_j \right\|_1} {\left\| M_j \右\|_1}，
+上下：ght\|_1 \| M_j \|_1。方程光照鲁棒特征匹配。方程依赖于 RGB 一致性，这对于真实场景中常见的光照变化、阴影和镜面反射很脆弱。为了实现强大的几何监督，我们将其替换为使用冻结的预训练特征的基于特征的匹配......
     </p>
     <p>$$ \begin{aligned}
  \mathcal{T}_k(p) = \underset{\substack{S \subset \{1,\ldots,n-1\} \\ |S|=k}}{\arg\min} 
  \sum_{j \in S} \left\| \frac{1}{2}\left(1 - \cos(\mathcal{F}_{\text{0}}(p), \mathcal{F}_{j \rightarrow 0}(p)) \right) \right\|_1.
  \end{aligned} $$</p>
     <p>
-      一致性。即使深度准确，遮挡也会导致光度一致性失败。我们通过逐像素 top-k 选择来解决这个问题，它自适应地从可见源视图中选择最可靠的对应关系。对于每个参考像素，我们识别所有扭曲中最一致的对应关系......
+      公式：\begin{对齐}
+ \mathcal{T}_k(p) = \underset{\substack{S \subset \{1,\ldots,n-1\} \\ |S|=k}}{\arg\min} 
+ \sum_{j \in S} \left\| \frac{1}{2}\left(1 - \cos(\mathcal{F}_{\text{0}}(p), \mathcal{F}_{j \rightarrow 0}(p)) \right) \right\|_1。
+ \结束{对齐}
+上下文：c 一致性。即使深度准确，遮挡也会导致光度一致性失败。我们通过逐像素 top-k 选择来解决这个问题，它自适应地从可见源视图中选择最可靠的对应关系。对于每个参考像素，我们识别所有扭曲中最一致的对应关系......
     </p>
     <p>$$ \label{eq:mpc_final}
 \mathcal{L}_{\text{mpc}}^{\text{Fea}}(p) = \frac{1}{k} \sum_{j \in \mathcal{T}_k(p)} \left\| \frac{1}{2} \left(1 - \cos(\mathcal{F}_{\text{0}}(p), \mathcal{F}_{j \rightarrow 0}(p)) \right) \right\|_1. $$</p>
     <p>
-      ightarrow 0 \_j=1^n-1 T_k(p)：这种逐像素选择自然地处理空间变化的遮挡：对于一半视图中被遮挡的像素，剩余的可见视图仍然提供有效的监督。设置平衡覆盖范围和异常值拒绝。边缘感知深度平滑度。在仅从一个视图可见的区域中......
+      公式：\label{eq:mpc_final}
+\mathcal{L}_{\text{mpc}}^{\text{Fea}}(p) = \frac{1}{k} \sum_{j \in \mathcal{T}_k(p)} \left\| \frac{1}{2} \left(1 - \cos(\mathcal{F}_{\text{0}}(p), \mathcal{F}_{j \rightarrow 0}(p)) \right) \right\|_1。
+上下：ightarrow 0 \_j=1^n-1 T_k(p)：这种逐像素选择自然地处理空间变化的遮挡：对于一半视图中被遮挡的像素，剩余的可见视图仍然提供有效的监督。设置平衡覆盖范围和异常值拒绝。边缘感知深度平滑度。在仅从一个视图可见的区域中......
     </p>
     <p>$$ \vspace{-0.2cm}
 \label{eq:smooth}
 \mathcal{L}_{\text{smooth}} = \sum_{p} \left\| \nabla D_{\text{0}}(p) \right\|_1 \cdot \exp\left( -\alpha \left\| \nabla I_{\text{0}}(p) \right\|_1 \right), $$</p>
     <p>
-      可见视图仍然提供有效的监督。设置平衡覆盖范围和异常值拒绝。边缘感知深度平滑度。在仅从一个视图可见的区域中，多视图光度一致性无法提供足够的几何约束。因此，我们用边缘规范这些约束不足的区域……
+      公式：\vspace{-0.2cm}
+\label{eq:平滑}
+\mathcal{L}_{\text{smooth}} = \sum_{p} \left\| \nabla D_{\text{0}}(p) \right\|_1 \cdot \exp\left( -\alpha \left\| \nabla I_{\text{0}}(p) \right\|_1 \right),
+上下文：可见的观点仍然提供有效的监督。设置平衡覆盖范围和异常值拒绝。边缘感知深度平滑度。在仅从一个视图可见的区域中，多视图光度一致性无法提供足够的几何约束。因此，我们用边缘规范这些约束不足的区域……
     </p>
     <figure><img class='paper-fig' src='../assets/2603_02893v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：LLFF 数据集的视觉比较。</figcaption></figure>
     <figure><img class='paper-fig' src='../assets/2603_02893v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：DTU 数据集上的视觉比较。</figcaption></figure>
