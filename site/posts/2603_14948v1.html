@@ -169,7 +169,7 @@
     <p>我们首先引入轨迹感知驾驶世界模型，该模型以轨迹词汇为条件，以加强视觉动态和运动意图之间的一致性，从而能够生成以特定轨迹为条件的多样化且合理的未来场景。我们将视觉和运动编码器传输到下游的多模态规划器，确保驾驶策略在通过场景生成预先优化的成熟表示上运行。运动表征、视觉表征和自我状态之间的简单交互可以生成高质量的多模态轨迹。此外，为了利用世界模型的远见，我们提出了一个未来感知奖励器，它从冻结的世界模型中提取未来的潜在表示，以实时评估和选择最佳轨迹。</p>
     <p>对 NAVSIM、NAVSIM-v2 和 nuScenes 基准的大量实验表明，WorldDrive 在仅视觉方法中实现了领先的规划性能，同时保持了高保真动作控制视频生成功能，为统一视觉和运动表示以实现稳健的自动驾驶的有效性提供了有力的证据。代码可在 https://github.com/TabGuigui/WorldDrivemypink https://github.com/TabGuigui/WorldDrive 获取。</p>
     <figure><img class='paper-fig' src='../assets/2603_14948v1/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：端到端自动驾驶的世界模型。 (a) 利用驾驶世界模型生成的未来场景进行规划。 (b) 使用从潜在世界模型中提取的语义表示进行规划。 (c) WorldDrive 通过统一视觉和运动表示来连接规划和驾驶世界模型。</figcaption></figure>
-    <figure><img class='paper-fig' src='../assets/2603_14948v1/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：WorldDrive的整体架构。 WorldDrive 是一个统一视觉和运动表示以桥接场景生成和规划的整体框架。训练过程包括阶段 1：用于场景生成的 WorldDrive 和阶段 2：用于运动规划的 WorldDrive。通过场景生成任务优化视觉和运动表示。在规划阶段，规划器利用冻结视觉和轨迹编码器并输出top-K多模态轨迹。进一步设计了一个具有未来意识的奖励器，以从候选者中选择最佳轨迹。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2603_14948v1/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：WorldDrive的总体架构。 WorldDrive 是一个统一视觉和运动表示以桥接场景生成和规划的整体框架。训练过程包括阶段 1：用于场景生成的 WorldDrive 和阶段 2：用于运动规划的 WorldDrive。通过场景生成任务优化视觉和运动表示。在规划阶段，规划器利用冻结视觉和轨迹编码器并输出top-K多模态轨迹。进一步设计了一个具有未来意识的奖励器，以从候选者中选择最佳轨迹。</figcaption></figure>
     <blockquote>
       简而言之，这篇论文关注的核心是：端到端自动驾驶旨在根据原始传感器输入生成安全且合理的规划策略，而构建有效的场景表示是一项关键挑战。驾驶世界模型在通过预测驾驶场景的未来演变来学习丰富的表示方面显示出巨大的潜力。然而，现有的驾驶世界模型主要关注视觉场景表示，而运动表示没有明确设计为规划器共享和可继承，从而在视觉场景生成的优化和精确运…
     </blockquote>
@@ -204,27 +204,34 @@
     <p>$$ c = \mathcal{E}_{a}(\mathcal{V}_K) + \mathcal{E}_{o}(Y - \mathcal{V}_K),
  \label{equ:traj_embed} $$</p>
     <p>
-      thcalV R^N F 3 Y K V_K c 是通过将锚嵌入与相应的残差嵌入融合而导出的：其中 和 分别表示锚编码器和偏移编码器。由此产生的嵌入作为扩散模型的条件。 TA-DiT 旨在生成未来的潜在变量，条件是……
+      公式：c = \mathcal{E}_{a}(\mathcal{V}_K) + \mathcal{E}_{o}(Y - \mathcal{V}_K),
+ \label{equ:traj_embed}
+上下：thcalV R^N F 3 Y K V_K c 是通过将锚嵌入与相应的残差嵌入融合而导出的：其中 和 分别表示锚编码器和偏移编码器。由此产生的嵌入作为扩散模型的条件。 TA-DiT 旨在生成未来的潜在变量，条件是……
     </p>
     <p>$$ Q_{p} = \mathcal{D}_{\text{plan}}(Q_{a}, [f, e], [f, e]), $$</p>
     <p>
-      es C Q_a = E_a(V) f e。通过注意力机制，规划器聚合每个潜在运动原语的相关环境上下文：其中 表示沿序列维度的串联，是规划变换器解码器并表示丰富的轨迹特征。坚持得分规律……
+      公式：Q_{p} = \mathcal{D}_{\text{plan}}(Q_{a}, [f, e], [f, e]),
+上：es C Q_a = E_a(V) f e.通过注意力机制，规划器聚合每个潜在运动原语的相关环境上下文：其中 表示沿序列维度的串联，是规划变换器解码器并表示丰富的轨迹特征。坚持得分规律……
     </p>
     <p>$$ \hat{z}^k = \mathcal{D}_{\text{scene}}(Q_{s}, [f, c^k], [f, c^k]). $$</p>
     <p>
-      蚂蚁未来潜在的 TA-DiT，从而绕过推理时的扩散采样。 FAR 引入了一组可学习的未来场景查询作为提取与规划相关的未来特征的信息瓶颈。我们采用了一个未来场景解码器，它与共享上下文历史视觉潜在和 t…
+      公式：\hat{z}^k = \mathcal{D}_{\text{scene}}(Q_{s}, [f, c^k], [f, c^k])。
+上下文：来自 TA-DiT 的未来潜伏，从而在推理时绕过扩散采样。 FAR 引入了一组可学习的未来场景查询作为提取与规划相关的未来特征的信息瓶颈。我们采用了一个未来场景解码器，它与共享上下文历史视觉潜在和 t…
     </p>
     <p>$$ h_{f}^k = \mathcal{D}_{\text{future}}(c^k, \hat{z}^k, \hat{z}^k), $$</p>
     <p>
-      oss-attention as：在训练过程中，我们与目标未来潜伏保持一致，这种设计允许轻量级解码器有效地提取从世界模型生成的与规划相关的动态。然后，未来感知解码器使用轨迹嵌入查询提取的特征：未来在哪里……
+      公式：h_{f}^k = \mathcal{D}_{\text{future}}(c^k, \hat{z}^k, \hat{z}^k),
+上下文：oss-attention as：在训练过程中，我们与目标未来潜在变量保持一致，这种设计允许轻量级解码器有效地提取从世界模型生成的与规划相关的动态。然后，未来感知解码器使用轨迹嵌入查询提取的特征：未来在哪里……
     </p>
     <p>$$ \mathcal{L}_{\text{world}} = \mathbb{E}_{z_0, t, \epsilon} \left[ \| {\epsilon} - \epsilon_\theta(z_t; f, t, c) \|^2_2 \right], $$</p>
     <p>
-      受未来的限制。训练损失我们采用解耦的两阶段训练课程来确保视频扩散变压器和规划模块的稳定收敛。第一阶段专门专注于优化 TA-DWM，以了解历史背景和前...的潜在动态。
+      公式：\mathcal{L}_{\text{world}} = \mathbb{E}_{z_0, t, \epsilon} \left[ \| {\epsilon} - \epsilon_\theta(z_t; f, t, c) \|^2_2 \right],
+上下文：受到未来的限制。训练损失我们采用解耦的两阶段训练课程来确保视频扩散变压器和规划模块的稳定收敛。第一阶段专门专注于优化 TA-DWM，以了解历史背景和前...的潜在动态。
     </p>
     <p>$$ \mathcal{L}_{\text{align}} = \mathbb{E}_{k} \left[ \| \hat{z}^k - \text{SG}(z^k) \|^2_2 \right], $$</p>
     <p>
-      离子目标在附录中提供。 FAR 的训练由两个互补的目标控制：潜在对齐的特征蒸馏损失和轨迹选择的偏好排序损失。首先，为了使轻量级解码器与世界模型的前瞻保持一致，我们最小化了…之间的 L2 距离。
+      公式：\mathcal{L}_{\text{align}} = \mathbb{E}_{k} \left[ \| \hat{z}^k - \text{SG}(z^k) \|^2_2 \right],
+上下文：离子目标在附录中提供。 FAR 的训练由两个互补的目标控制：潜在对齐的特征蒸馏损失和轨迹选择的偏好排序损失。首先，为了使轻量级解码器与世界模型的前瞻保持一致，我们最小化了…之间的 L2 距离。
     </p>
     <figure><img class='paper-fig' src='../assets/2603_14948v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：未来感知奖励器的详细说明。在训练过程中，冻结的世界模型会生成未来的潜在变量。蒸馏机制将未来场景查询与生成的未来潜在变量对齐。在推理阶段，运动表示直接查询提取的场景特征，以计算未来感知的奖励。</figcaption></figure>
     <figure><img class='paper-fig' src='../assets/2603_14948v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：运动敏感性的定量分析。场景表示之间的相似性与几何距离成反比。通过进一步的训练，对大偏差（a）和小偏差（b）的敏感性都会增强。</figcaption></figure>
