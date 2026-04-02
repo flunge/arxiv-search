@@ -173,6 +173,23 @@ def _slug_from_id(arxiv_id: str) -> str:
     return arxiv_id.replace(".", "_").replace("/", "_")
 
 
+def _infer_tags(title: str, text: str) -> List[str]:
+    hay = (title + "\n" + text).lower()
+    rules = [
+        ("feedforward", ["feedforward"]),
+        ("3DGS", ["gaussian splatting", "3dgs"]),
+        ("world model", ["world model"]),
+        ("自动驾驶", ["autonomous driving", "driving", "street"]),
+        ("动态重建", ["dynamic", "4d reconstruction", "motion"]),
+        ("场景仿真", ["simulation"]),
+    ]
+    tags: List[str] = []
+    for tag, kws in rules:
+        if any(kw in hay for kw in kws):
+            tags.append(tag)
+    return tags or ["论文解读"]
+
+
 def _streetforward_post_body(doc, date_str: str, figures: List[str], related: List[Dict], slug: str, text: str) -> str:
     fig_blocks = []
     for idx, name in enumerate(figures[:4], 1):
@@ -454,6 +471,8 @@ def build_post_from_pdf(
     with open(page_path, "w", encoding="utf-8") as f:
         f.write(_render_page(post_title, body))
 
+    tags = _infer_tags(doc.title, text)
+    thumbnail_path = f"assets/{slug}/{figure_files[0]}" if figure_files else ""
     manifest = _load_manifest(site)
     manifest = [m for m in manifest if m.get("slug") != slug]
     manifest.append(
@@ -464,6 +483,9 @@ def build_post_from_pdf(
             "arxiv_id": arxiv_id,
             "path": f"posts/{slug}.html",
             "summary": text[:220].replace("\n", " "),
+            "thumbnail_path": thumbnail_path,
+            "tags": tags,
+            "featured": len(manifest) == 0,
         }
     )
     _save_manifest(site, manifest)
@@ -477,27 +499,66 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
     manifest = _load_manifest(site)
 
     latest = manifest[0] if manifest else None
+    featured = next((item for item in manifest if item.get("featured")), latest)
+
+    all_tags: List[str] = []
+    for item in manifest:
+        all_tags.extend(item.get("tags", []))
+    unique_tags: List[str] = []
+    for tag in all_tags:
+        if tag not in unique_tags:
+            unique_tags.append(tag)
+
+    def render_tag_chips(tags: List[str]) -> str:
+        return "".join(
+            f"<span style='display:inline-block;padding:3px 9px;margin:3px;border-radius:999px;border:1px solid #d9e5f2;background:#f7fbff;font-size:12px;'>{html.escape(tag)}</span>"
+            for tag in tags
+        )
+
     latest_html = ""
-    if latest:
+    if featured:
+        cover = (
+            f"<img src='{html.escape(featured['thumbnail_path'])}' alt='cover' style='width:100%;border-radius:12px;border:1px solid #e5e5e5;' />"
+            if featured.get("thumbnail_path")
+            else ""
+        )
         latest_html = (
             "<section class='card' style='padding:18px 20px;'>"
-            "<div class='meta'>推荐阅读 / Latest</div>"
-            f"<h2 style='border-left:none;padding-left:0;margin-top:8px;'><a href='{html.escape(latest['path'])}'>{html.escape(latest['title'])}</a></h2>"
-            f"<p class='meta'>{html.escape(latest['date'])} · arXiv: {html.escape(latest['arxiv_id'])}</p>"
-            f"<p>{html.escape(latest.get('summary', ''))}</p>"
-            f"<p><a href='{html.escape(latest['path'])}'>开始阅读 →</a></p>"
+            "<div class='meta'>推荐阅读 / Featured</div>"
+            f"<div style='display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:18px;align-items:start;'>"
+            f"<div>"
+            f"<h2 style='border-left:none;padding-left:0;margin-top:8px;'><a href='{html.escape(featured['path'])}'>{html.escape(featured['title'])}</a></h2>"
+            f"<p class='meta'>{html.escape(featured['date'])} · arXiv: {html.escape(featured['arxiv_id'])}</p>"
+            f"<div style='margin:10px 0'>{render_tag_chips(featured.get('tags', []))}</div>"
+            f"<p>{html.escape(featured.get('summary', ''))}</p>"
+            f"<p><a href='{html.escape(featured['path'])}'>开始阅读 →</a></p>"
+            f"</div><div>{cover}</div></div>"
             "</section>"
         )
 
-    timeline_cards = ""
-    for idx, item in enumerate(manifest, 1):
-        timeline_cards += (
-            f"<div class='post-item'>"
-            f"<div class='meta'>#{idx} · {html.escape(item['date'])}</div>"
-            f"<a href='{html.escape(item['path'])}'><strong>{html.escape(item['title'])}</strong></a>"
-            f"<div class='meta'>arXiv: {html.escape(item['arxiv_id'])}</div>"
-            f"<div style='margin-top:6px'>{html.escape(item.get('summary', ''))}</div>"
-            "</div>"
+    recent_list = "".join(
+        f"<li style='margin:8px 0;'><a href='{html.escape(item['path'])}'>{html.escape(item['title'])}</a><div class='meta'>{html.escape(item['date'])}</div></li>"
+        for item in manifest[:5]
+    ) or "<li>暂无文章</li>"
+
+    tags_html = render_tag_chips(unique_tags) or "<span class='meta'>暂无标签</span>"
+
+    card_grid = ""
+    for item in manifest:
+        thumb = (
+            f"<img src='{html.escape(item['thumbnail_path'])}' alt='thumb' style='width:100%;height:160px;object-fit:cover;border-radius:10px;border:1px solid #e5e5e5;' />"
+            if item.get("thumbnail_path")
+            else "<div style='height:160px;border-radius:10px;background:linear-gradient(135deg,#f3f7fc,#fff);border:1px solid #e5e5e5;display:flex;align-items:center;justify-content:center;color:#678;'>No Figure</div>"
+        )
+        card_grid += (
+            f"<article class='card' style='padding:12px;display:flex;flex-direction:column;gap:10px;'>"
+            f"{thumb}"
+            f"<div class='meta'>{html.escape(item['date'])} · arXiv: {html.escape(item['arxiv_id'])}</div>"
+            f"<a href='{html.escape(item['path'])}' style='font-size:18px;font-weight:700;color:#1f1f1f;'>{html.escape(item['title'])}</a>"
+            f"<div>{render_tag_chips(item.get('tags', []))}</div>"
+            f"<div style='color:#333;'>{html.escape(item.get('summary', ''))}</div>"
+            f"<div><a href='{html.escape(item['path'])}'>阅读全文 →</a></div>"
+            f"</article>"
         )
 
     stats = (
@@ -522,10 +583,28 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
 
 {latest_html}
 
+<section style='display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:14px;margin-top:18px;'>
+  <div class='card'>
+    <div class='meta'>最近更新</div>
+    <ul style='padding-left:18px;margin-top:10px;'>{recent_list}</ul>
+  </div>
+  <div class='card'>
+    <div class='meta'>推荐阅读</div>
+    <p style='margin-top:10px;'>如果你是第一次来，建议先看最新或最具代表性的一篇文章，快速了解这个博客的写作风格与技术深度。</p>
+    <p><a href='{html.escape(featured['path']) if featured else '#'}'>打开推荐文章 →</a></p>
+  </div>
+  <div class='card'>
+    <div class='meta'>分类标签</div>
+    <div style='margin-top:10px;'>{tags_html}</div>
+  </div>
+</section>
+
 <section>
   <h2 style='margin-top:26px;'>全部文章</h2>
-  <div class='meta'>按时间倒序展示</div>
-  {timeline_cards or '<p>暂无文章，请先生成一篇。</p>'}
+  <div class='meta'>按时间倒序展示，支持缩略图与摘要预览</div>
+  <div style='display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-top:14px;'>
+    {card_grid or '<p>暂无文章，请先生成一篇。</p>'}
+  </div>
 </section>
 """
 
