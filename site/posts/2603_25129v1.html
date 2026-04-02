@@ -70,7 +70,7 @@
     blockquote { margin: 16px 0; padding: 8px 16px; border-left: 4px solid #d8e7ff; background: #f8fbff; color: #333; }
     .tip { background: #f7f9fc; border: 1px solid #e8eef6; border-radius: 10px; padding: 12px; }
     .dashboard-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-top:18px; }
-    .dashboard-card { aspect-ratio: 1 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
+    .dashboard-card { aspect-ratio: 1.618 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
     .dashboard-card > * { min-width: 0; }
     .dashboard-card .dashboard-content { display:flex; flex-direction:column; height:100%; min-height:0; }
     .dashboard-card .dashboard-scroll { overflow:auto; min-height:0; }
@@ -130,10 +130,28 @@
     });
   </script>
 
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\(', '\)']],
+        displayMath: [['$$', '$$'], ['\[', '\]']]
+      },
+      svg: { fontCache: 'global' },
+      startup: {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady().then(() => {
+            requestAnimationFrame(applyPageScale);
+          });
+        }
+      }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
+
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
 
@@ -143,94 +161,109 @@
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      这篇论文关注的是“AirSplat 所对应的问题能否在更可控、更稳健或更高质量的条件下被解决”。从摘要与方法描述来看，作者的总体路线是：先搭建一个明确的表示或生成框架，再围绕训练目标、结构设计和实验验证把该问题推进到更可用的工程形态。
+      这篇论文围绕“AirSplat 所对应的研究问题”提出了一套完整方案：先明确任务目标与现有瓶颈，再通过新的表示、模块或训练目标把问题收敛成一条更稳定的工程链路，最后用实验验证该设计在质量、效率、可控性或泛化性上的改进。
     </div>
 
     <h2 id='summary'>简单摘要</h2>
     <p>
-      从论文摘要可以看出，这项工作的落点并不是单纯提升一个局部模块，而是围绕完整任务链路做系统设计。它通常会同时回答三个问题：任务为什么重要、现有方法卡在哪里、作者的新方案如何绕开这些瓶颈。
-      就这篇论文而言，摘要部分强调的核心是：<strong>While 3D Vision Foundation Models (3DVFMs) have demonstrated remarkable zero-shot capabilities in visual geometry estimation, their direct application to generalizable novel view…</strong>
+      这篇工作的落点不是只改进一个局部模块，而是围绕完整任务链路重新组织系统设计。作者首先回答“为什么这个问题值得做”，接着说明现有方案为什么不足，最后再解释自己的方法如何把表示、训练和推理串成一条更可行的路径。
     </p>
     <p>
-      如果把它放进更大的技术背景中理解，可以把这篇论文视作一条“问题定义 → 表示设计 → 训练优化 → 实验验证”的完整研究闭环。也就是说，作者并不是只给出一个孤立模块，而是希望通过一整套方法让系统在真实场景或关键指标上取得更稳定提升。
+      按照论文摘要的原意，这篇工作最关键的信息可以概括为：摘要应简明扼要地概括论文的内容。虽然摘要没有固定长度限制，但建议将摘要限制在 150 字左右。请包含关键字，如下例所示。这是 LNCS 会议论文所必需的。第一个关键字 第二个关键字 第三个关键字
     </p>
-    <figure><img class='paper-fig' src='../assets/2603_25129v1/fig_1.png' alt='Figure 1:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 1：该图来自论文原文，用于说明论文中的核心框架、可视化结果或实验现象。原始图注摘要：Our proposed AirSplat adapts 3D-VS-VFMs using Self-Consistent Pose Alignment (SCPA) and Rating-based Opacity Matching (ROM) to resolve inherent posegeometry discrepancies and multi-view inconsistencies. Our AirSplat effectively eliminates ‘floaters’ (red boxes) and blurry artifacts (dashed yellow b…</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_25129v1/fig_2.png' alt='Figure 2:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 2：该图来自论文原文，用于说明论文中的核心框架、可视化结果或实验现象。原始图注摘要：Overview of our AirSplat training pipeline. During training of a Gaussian head of a 3DVFM, the encoder and its pose head are frozen. Our SCPA module corrects the predicted target pose to align the rendered target views to the GT target views. Our ROM module gathers the geometric feedback from the t…</figcaption></figure>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>In this paper, we propose AirSplat, a novel training framework that effectively adapts the robust geometric priors of 3DVFMs into high-fidelity, pose-free NVS.</li></ul></div>
+    <p>
+      如果把它放在更大的技术脉络里理解，这篇论文可以视为“问题定义 → 方法设计 → 优化训练 → 实验验证”的完整闭环，而不是只给出一个孤立技巧。这样的工作更适合被写成博客精读，因为它的价值不在某一行代码，而在整条设计链路为什么成立。
+    </p>
+    <figure><img class='paper-fig' src='../assets/2603_25129v1/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：x_s 处的一个核（点核）或 x_i 和 x_j（左和右）处的两个核会导致 x_s 处的相同估计总和。
+ 这显示了由不同类型的线条组成的图形。
+ 标题中描述的图形元素应设置为斜体并放在括号中，如本示例标题所示。 
+ 图形标题的最后一句通常应以句号结尾，除非标题不是完整的句子。</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_25129v1/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：子图的示例</figcaption></figure>
+    <div class='card'><strong>摘要中文转述：</strong><p>摘要应简明扼要地概括论文的内容。虽然摘要没有固定长度限制，但建议将摘要限制在 150 字左右。请包含关键字，如下例所示。这是 LNCS 会议论文所必需的。第一个关键字 第二个关键字 第三个关键字</p></div>
 
     <h2 id='innovation'>核心创新</h2>
     <p>
-      对照引言与方法部分，这篇论文的创新点主要体现在“如何重新组织问题求解链路”上。相比简单替换一个 backbone 或增加一个 loss，作者更像是在重新定义系统的关键接口与约束方式。
+      对照引言与方法部分可以看出，这篇论文的创新点并不只是“做了一个新模块”，而是重新组织了问题的求解顺序与约束方式。作者更关心的是如何把任务定义、表示设计、训练目标和实验验证压到同一条主线上。
     </p>
     <h3>1）从任务设定上重新界定问题边界</h3>
     <p>
-      论文强调的问题并不只是已有方案做得不够好，而是很多现有方法在目标可控性、泛化范围、效率约束或结构一致性上存在天然短板。因此作者先重述了任务定义，再围绕新的目标函数和场景假设去设计整体方案。
+      作者首先重述了任务本身：到底什么才是这个问题里真正重要、且现有方法长期处理不好的部分。只有把问题边界说清楚，后续的新结构与新损失才有意义。
     </p>
     <h3>2）用统一框架串起表示、推理和优化</h3>
     <p>
-      从原文描述看，这篇论文并不是把多个模块松散拼接，而是在一个统一框架里安排表示形式、关键模块和训练信号，使它们彼此服务。这类设计往往决定了方法能否真正具备工程可落地性。
+      从原文来看，作者并不是把很多模块松散拼在一起，而是在一个统一框架中安排中间表示、关键网络和训练目标，使它们彼此约束、彼此服务。这类设计通常决定了方法是否真的具备可复现与可落地性。
     </p>
     <h3>3）把实验目标直接对齐到实际痛点</h3>
     <p>
-      论文中的实验不仅比较常规 benchmark，也会额外关注更贴近实际系统需求的指标，例如稳定性、控制性、质量上界、对长尾场景的适应能力等。换句话说，它不是只追求单一数值，而是试图证明整套系统在真实使用方式下也成立。
+      论文中的实验不只是追求一个漂亮数字，而是尽量把评价方式对齐到真实使用情境，例如质量、稳定性、可控性、几何一致性或长尾场景下的可用性。这样实验结论才真正能支撑方法设计本身。
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>Our proposed AirSplat adapts 3D-VS-VFMs using Self-Consistent Pose Alignment (SCPA) and Rating-based Opacity Matching (ROM) to resolve inherent posegeometry discrepancies and multi-view inconsistencies.</li><li>1 Introduction The field of Novel View Synthesis (NVS) has undergone a paradigm shift with the advent of 3D Gaussian Splatting (3DGS) [17] and its subsequent advancements [4,10,19,30,45,51].</li><li>More recent unified frameworks, which we refer to as 3DVFMs with view synthesis (3D-VS-VFMs), such as WorldMirror [24] and DepthAnything3 [20], incorporate 3DGS heads to perform both geometry estimation and NVS.</li><li>To address this, recent works [13,15,31,47,48] leverage the robust, zero-shot depth and pose estimation capabilities of 3D Vision Foundation Models (3DVFMs) such as Mast3r [18], VGGT [39], and π3 [43].</li></ul></div>
+    <div class='card'><strong>创新点中文提炼：</strong><p>本文档作为向 ECCV 提交的示例。它说明了作者在提交论文时必须遵循的格式。同时，它还详细介绍了论文提交的各个方面，包括保留匿名性以及如何处理双重提交。我们建议作者仔细阅读本文档。该文件基于 Springer LNCS 指令以及多年来制定的 ECCV 政策。</p></div>
 
     <h2 id='technical'>技术细节</h2>
     <p>
-      方法部分是理解论文价值的关键。结合原文可以看到，作者通常会先定义输入输出，再介绍中间表示、主干模块、损失函数或奖励机制，最后说明训练与推理时各模块如何协同。
-      对这篇论文而言，方法线索主要集中在以下几个方面：
+      方法部分是理解论文价值的核心。阅读这类论文时，最重要的不是背结论，而是看清楚：输入是什么，中间表示是什么，关键模块如何传递信息，损失或奖励又如何把模型推向作者想要的解。
     </p>
     <h3>3.1 方法主线与模块组织</h3>
     <p>
-      根据方法章节可知，作者首先构建了一个核心表示或中间条件，再通过若干模块把它逐步转换为最终输出。这种结构的优势在于：每个模块都承担明确职责，既便于解释，也更便于在实验中做模块级消融。
-      原文中与主线最相关的描述包括：
+      从方法章节来看，作者首先构建了一个核心表示或条件变量，再通过若干模块逐步把它变成最终输出。这种设计的优势在于：每个模块都有明确职责，既便于解释，也方便在实验中做消融分析。
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>To overcome the bottleneck of time-intensive per-scene optimization, recent feed-forward architectures [5, 8, 46, 55] directly predict 3D scene parameters from sparse context views.</li><li>Alignment and Rating for Robust Feed-Forward 3D Gaussian Splatting Minh-Quan Viet Bui⋆, Jaeho Moon⋆, and Munchurl Kim KAIST {bvmquan, jaeho.moon, mkimee}@kaist.ac.kr https://kaist-viclab.github.io/airsplat-site Fig.</li><li>In this paper, we propose AirSplat, a novel training framework that effectively adapts the robust geometric priors of 3DVFMs into high-fidelity, pose-free NVS.</li></ul></div>
+    <div class='card'><strong>方法中文拆解：</strong><p>AirSplat：鲁棒前馈 3D 高斯泼溅的对齐和评级 Minh-Quan Viet Bui⋆、Jaeho Moon⋆和 Munchurl Kim KAIST {bvmquan, jaeho.moon, mkimee}@kaist.ac.kr https://kaist-viclab.github.io/airsplat-site 图 1：我们提出的 AirSplat 采用 3D-VS-VFM使用自洽姿势对齐 (SCPA) 和基于评级的不透明度匹配 (ROM) 来解决固有的姿势几何差异和多视图不一致。我们的 AirSplat 有效消除了基线 DA3 [20] 产生的“漂浮物”（红色框）和模糊伪像（黄色虚线框），呈现清晰、结构一致的新颖视图。抽象的。虽然 3D 视觉基础模型 (3DVFM) 在视觉几何估计方面表现出了卓越的零样本能力，但将其直接应用于可推广的新颖视图合成 (NVS) 仍然具有挑战性。在本文中，我们提出了 AirSplat，这是一种新颖的训练框架，可以有效地将 3DVFM 的稳健几何先验适应高保真、无姿势 NVS。我们的方法引入了两个关键的技术贡献：（1）自洽姿势对齐（SCPA），一种训练时反馈循环，可确保像素对齐监督以解决姿势几何差异； (2) 基于评级的不透明度匹配 (ROM)，它利用稀疏视图 NVS 教师模型中的局部 3D 几何一致性知识来过滤掉退化的图元。大规模基准测试的实验结果表明，我们的方法在重建质量方面显着优于最先进的无姿势 NVS 方法。我们的 AirSplat 强调了采用 3DVFM 实现同步视觉几何估计和高质量视图合成的潜力。关键词：3D重建·3D视觉·高斯溅射⋆共同第一作者（同等贡献）。 arXiv:2603.25129v1 [cs.CV] 2026 年 3 月 26 日 2 Bui 等人。 1 引言 随着 3D 高斯分布 (3DGS) [17] 的出现及其后续进展 [4,10,19,30,45,51]，新颖视图合成 (NVS) 领域经历了范式转变。为了克服耗时的每个场景优化的瓶颈，最近的前馈架构 [5,8,46,55] 直接从稀疏上下文视图中预测 3D 场景参数。然而，对校准姿势的依赖限制了“野外”适用性，而几种无姿势前馈方法 [11,16,34,53] 仍然从根本上限制于稀疏视图输入。
+
+为了解决这个问题，最近的工作 [13,15,31,47,48] 利用 3D 视觉基础模型 (3DVFM)（例如 Mast3r [18]、VGGT [39] 和 π3 [43]）强大的零镜头深度和姿态估计功能。这些方法微调或提取 3DVFM，直接从原始输入图像联合推断场景 3D 高斯基元和相机参数。然而，这使网络偏向视图合成目标，导致基础几何估计任务的性能下降。最近的统一框架，我们称为具有视图合成的 3DVFM (3D-VS-VFM)，例如 WorldMirror [24] 和 DepthAnything3 [20]，结合了 3DGS 头来执行几何估计和 NVS。尽管进行了这种整合，仍会产生高保真新颖的视图</p></div>
+    <div class='card'><strong>方法关键点：</strong><p>AirSplat：鲁棒前馈 3D 高斯泼溅的对齐和评级 Minh-Quan Viet Bui⋆、Jaeho Moon⋆和 Munchurl Kim KAIST {bvmquan, jaeho.moon, mkimee}@kaist.ac.kr https://kaist-viclab.github.io/airsplat-site 图 1：我们提出的 AirSplat 采用 3D-VS-VFM使用自洽姿势对齐 (SCPA) 和基于评级的不透明度匹配 (ROM) 来解决固有的姿势几何差异和多视图不一致。我们的 AirSplat 有效消除了基线 DA3 [20] 产生的“漂浮物”（红色框）和模糊伪像（黄色虚线框），呈现清晰、结构一致的新颖视图。抽象的。虽然 3D 视觉基础模型 (3DVFM) 在视觉几何估计方面表现出了卓越的零样本能力，但将其直接应用于可推广的新颖视图合成 (NVS) 仍然具有挑战性。在本文中，我们提出了 AirSplat，这是一种新颖的训练框架，可以有效地将 3DVFM 的稳健几何先验适应高保真、无姿势 NVS。我们的方法引入了两个关键的技术贡献：（1）自洽姿势对齐（SCPA），一种训练时反馈循环，可确保像素对齐监督以解决姿势几何差异； (2) 基于评级的不透明度匹配 (ROM)，它利用稀疏视图 NVS 教师模型中的局部 3D 几何一致性知识来过滤掉退化的图元。经验…</p></div>
     <h3>3.2 训练目标、损失与公式信号</h3>
     <p>
-      论文里的公式通常承担两类角色：一种是定义模型的预测关系与变量约束，另一种是定义优化时真正驱动模型更新的目标函数。阅读这类论文时，关键不是死记公式外形，而是理解每个公式分别在“表达结构”还是“约束行为”上发挥作用。
+      论文里的公式通常承担两类角色：一类是定义变量之间的结构关系，另一类是定义优化时真正推动模型收敛的损失或目标函数。理解公式时，不应只看符号本身，而应看每一项在约束什么、强调什么、解决什么问题。
     </p>
-    <div class='card'><strong>公式 / 指标片段 1：</strong><pre>Given a set of V uncalibrated input context views Ictx = {Ictx,v}V</pre></div><div class='card'><strong>公式 / 指标片段 2：</strong><pre>v=1, our model</pre></div><div class='card'><strong>公式 / 指标片段 3：</strong><pre>fϕ predicts a set of N pixel-aligned 3D Gaussian primitives G = {gi}N</pre></div><div class='card'><strong>公式 / 指标片段 4：</strong><pre>i=1 alongside the estimated context camera intrinsics ˆKctx = { ˆ</pre></div>
+    <div class='card'><strong>公式 1</strong><p>$$ E = m\cdot c^2.
+ \label{eq:important} $$</p><p>t 单独一行（上方和下方有额外的行或半行空间）。方程式应编号以供参考。贡献内容中的数字应该是连续的，数字括在括号内并设置在右边距中。例如，请不要在编号中包含部分计数器......</p><p>进一步理解时，可以把这条公式拆成“被求解的对象”“约束项/损失项”“它对训练或推理带来的效果”三部分来读，这也是论文方法成立的核心原因。</p></div><div class='card'><strong>公式 2</strong><p>$$ \psi (u) &amp; = \int_{0}^{T} \left[\frac{1}{2}
+ \left(\Lambda_{0}^{-1} u,u\right) + N^{\ast} (-u)\right] \text{d}t \; \\
+&amp; = 0 $$</p><p>ebreak前一张图，请确保前一页完全填满。公式 显示的方程或公式居中并设置在单独的行上（上方和下方有额外的行或半行空间）。方程式应编号以供参考。贡献中的数字应该是连续的...</p><p>进一步理解时，可以把这条公式拆成“被求解的对象”“约束项/损失项”“它对训练或推理带来的效果”三部分来读，这也是论文方法成立的核心原因。</p></div>
     <p>
-      从这些公式与周边段落可以推断，作者想要的不只是局部误差最小化，而是通过更精细的目标设计，让模型在结构一致性、生成质量、时序稳定性或可控性等方面同时受约束。这也是很多新方法能真正优于 baseline 的原因。
+      从这些公式及其上下文可以看出，作者追求的并不只是某个局部误差变小，而是希望通过更精细的目标设计，使模型在结构一致性、生成质量、时序稳定性、语义可控性或物理合理性等方面同时受约束。这往往是新方法真正超过 baseline 的关键原因。
     </p>
-    <h3>3.3 把全文方法串起来理解</h3>
+    <h3>3.3 全部图示与模块可视化</h3>
     <p>
-      如果把这篇论文的方法看成一条流水线，那么它的逻辑通常是：先把输入变成一个更适合推理的中间表示，再围绕该表示施加关键模块与训练目标，最后把输出落到可评估、可可视化的结果上。
-      这种“表示—模块—目标—结果”的闭环设计，是本页所锁定模板最想强调的部分，因为它比零散摘录更能帮助后续复现与横向比较。
+      下面按论文中的图序展示全部已抽取图示。每张图都配有完整中文图注，便于把文字中的方法逻辑与可视化结果对应起来看。
+    </p>
+    <figure><img class='paper-fig' src='../assets/2603_25129v1/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：x_s 处的一个核（点核）或 x_i 和 x_j（左和右）处的两个核会导致 x_s 处的相同估计总和。
+ 这显示了由不同类型的线条组成的图形。
+ 标题中描述的图形元素应设置为斜体并放在括号中，如本示例标题所示。 
+ 图形标题的最后一句通常应以句号结尾，除非标题不是完整的句子。</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_25129v1/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：子图的示例</figcaption></figure>
+    <p>
+      如果把全文方法串起来看，这篇论文的逻辑基本都遵循同一条主线：先把输入组织成更容易处理的表示，再通过模型结构和损失函数把这个表示推向目标输出，最后用可视化与数值实验共同证明该设计有效。把这条主线看清楚，比死记某个局部模块更重要。
     </p>
 
     <h2 id='experiment'>实验结论</h2>
     <p>
-      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，优势究竟来自哪个模块。对这篇论文来说，实验设计明显围绕“与现有方法的对比 + 对关键组件的消融”展开。
+      实验部分主要回答两个问题：第一，这个方法是否真的优于已有基线；第二，这种优势究竟来自哪一个设计决策。只有这两个问题回答清楚，论文的方法贡献才算真正成立。
     </p>
     <p>
-      从实验段落的关键词和结果描述看，论文最想传达的结论包括：
+      按照实验章节原文，这篇论文想强调的核心结论主要包括：
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>Experimental results on large-scale benchmarks demonstrate that our method significantly outperforms state-of-the-art pose-free NVS approaches in reconstruction quality.</li><li>In this paper, we propose AirSplat, a novel training framework that effectively adapts the robust geometric priors of 3DVFMs into high-fidelity, pose-free NVS.</li><li>Our AirSplat highlights the potential of adapting 3DVFMs to enable simultaneous visual geometry estimation and high-quality view synthesis.</li></ul></div>
-    <figure><img class='paper-fig' src='../assets/2603_25129v1/fig_3.png' alt='Figure 3:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 3：该图来自论文原文，用于说明论文中的核心框架、可视化结果或实验现象。原始图注摘要：Comparison of training paradigms in pose-free NVS. (a) Training with the context-only strategy, adopted in [15], leads to a lack of direct supervision for novel viewpoints. (b) The context-target strategy, following [13], results in spatial misalignment. (c) Our SCPA corrects the inherent spatial d…</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_25129v1/fig_4.png' alt='Figure 4:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 4：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 4 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_25129v1/fig_5.png' alt='Figure 5:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 5：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 5 from the source paper.</figcaption></figure>
+    <div class='card'><strong>实验中文转述：</strong><p>AirSplat：鲁棒前馈 3D 高斯泼溅的对齐和评级 Minh-Quan Viet Bui⋆、Jaeho Moon⋆和 Munchurl Kim KAIST {bvmquan, jaeho.moon, mkimee}@kaist.ac.kr https://kaist-viclab.github.io/airsplat-site 图 1：我们提出的 AirSplat 采用 3D-VS-VFM使用自洽姿势对齐 (SCPA) 和基于评级的不透明度匹配 (ROM) 来解决固有的姿势几何差异和多视图不一致。我们的 AirSplat 有效消除了基线 DA3 [20] 产生的“漂浮物”（红色框）和模糊伪像（黄色虚线框），呈现清晰、结构一致的新颖视图。抽象的。虽然 3D 视觉基础模型 (3DVFM) 在视觉几何估计方面表现出了卓越的零样本能力，但将其直接应用于可推广的新颖视图合成 (NVS) 仍然具有挑战性。在本文中，我们提出了 AirSplat，这是一种新颖的训练框架，可以有效地将 3DVFM 的稳健几何先验适应高保真、无姿势 NVS。我们的方法引入了两个关键的技术贡献：（1）自洽姿势对齐（SCPA），一种训练时反馈循环，可确保像素对齐监督以解决姿势几何差异； (2) 基于评级的不透明度匹配 (ROM)，它利用稀疏视图 NVS 教师模型中的局部 3D 几何一致性知识来过滤掉退化的图元。大规模基准测试的实验结果表明，我们的方法在重建质量方面显着优于最先进的无姿势 NVS 方法。我们的 AirSplat 强调了采用 3DVFM 实现同步视觉几何估计和高质量视图合成的潜力。关键词：3D重建·3D视觉·高斯溅射⋆共同第一作者（同等贡献）。 arXiv:2603.25129v1 [cs.CV] 2026 年 3 月 26 日 2 Bui 等人。 1 引言 随着 3D 高斯分布 (3DGS) [17] 的出现及其后续进展 [4,10,19,30,45,51]，新颖视图合成 (NVS) 领域经历了范式转变。为了克服耗时的每个场景优化的瓶颈，最近的前馈架构 [5,8,46,55] 直接从稀疏上下文视图中预测 3D 场景参数。然而，对校准姿势的依赖限制了“野外”适用性，而几种无姿势前馈方法 [11,16,34,53] 仍然从根本上限制于稀疏视图输入。
+
+为了解决这个问题，最近的工作 [13,15,31,47,48] 利用 3D 视觉基础模型 (3DVFM)（例如 Mast3r [18]、VGGT [39] 和 π3 [43]）强大的零镜头深度和姿态估计功能。这些方法微调或提取 3DVFM，直接从原始输入图像联合推断场景 3D 高斯基元和相机参数。尽管如此，这还是有偏见的</p></div>
+    <div class='card'><strong>实验结论提炼：</strong><p>AirSplat：鲁棒前馈 3D 高斯泼溅的对齐和评级 Minh-Quan Viet Bui⋆、Jaeho Moon⋆和 Munchurl Kim KAIST {bvmquan, jaeho.moon, mkimee}@kaist.ac.kr https://kaist-viclab.github.io/airsplat-site 图 1：我们提出的 AirSplat 采用 3D-VS-VFM使用自洽姿势对齐 (SCPA) 和基于评级的不透明度匹配 (ROM) 来解决固有的姿势几何差异和多视图不一致。我们的 AirSplat 有效消除了基线 DA3 [20] 产生的“漂浮物”（红色框）和模糊伪像（黄色虚线框），呈现清晰、结构一致的新颖视图。抽象的。虽然 3D 视觉基础模型 (3DVFM) 在视觉几何估计方面表现出了卓越的零样本能力，但将其直接应用于可推广的新颖视图合成 (NVS) 仍然具有挑战性。在本文中，我们提出了 AirSplat，这是一种新颖的训练框架，可以有效地将 3DVFM 的稳健几何先验适应高保真、无姿势 NVS。我们的方法引入了两个关键的技术贡献：（1）自洽姿势对齐（SCPA），一种训练时反馈循环，可确保像素对齐监督以解决姿势几何差异； (2) 基于评级的不透明度匹配 (ROM)，它利用稀疏视图 NVS 教师模型中的局部 3D 几何一致性知识来过滤掉退化的图元。经验…</p></div>
     <ul>
-      <li>方法在主任务指标上不是偶然提升，而是与其结构设计和训练目标直接相关；</li>
-      <li>作者通过消融实验说明，若拿掉关键模块，性能与结果质量会明显回落；</li>
-      <li>论文不仅关注数值对比，也关注可视化质量、稳定性或可控性等更接近真实应用的信号。</li>
+      <li>方法在核心任务指标上的优势不是偶然的，而是与结构设计和训练目标直接相关；</li>
+      <li>消融实验说明，一旦拿掉关键模块或关键约束，模型性能与结果质量都会明显回落；</li>
+      <li>论文不仅比较数值，也比较可视化质量、稳定性、控制性和泛化能力等更接近真实使用的信号。</li>
     </ul>
     <p>
-      因此，实验部分最重要的阅读方式不是死记某一列数字，而是看清：作者究竟想证明哪个机制有效、这个机制的收益是在什么设置下成立、它是否有明显的边界条件。
+      因此，实验部分最重要的阅读方式并不是死记某一列数字，而是看清：作者究竟在证明哪个机制有效、这个机制的收益在什么设置下成立，以及它是否存在明显边界条件。
     </p>
 
     <h2 id='takeaway'>理解评价</h2>
     <p>
-      从研究定位上看，这篇论文的意义在于它没有把问题局限在某一个局部改动，而是尝试给出一套更完整的求解路径。对读者而言，最值得关注的是它如何重新组合表示、模块和训练目标，以及这些设计是否能迁移到相近任务上。
+      从研究定位上看，这篇论文的意义不在某一个局部 trick，而在于它试图给出一条较完整的问题求解路径。对读者而言，最值得关注的是：它如何重组表示、模块和训练目标，以及这些设计是否能迁移到相近任务上。
     </p>
     <p>
-      如果把它当成研究参考，我会重点看三件事：
-      第一，这套方法的核心归纳偏置是什么；
-      第二，实验中真正拉开差距的模块是哪一块；
-      第三，它的限制条件是数据、算力、时序长度，还是奖励/监督信号本身。
+      如果把它当成研究参考，我建议重点看三件事：第一，这套方法真正依赖的归纳偏置是什么；第二，实验中真正拉开差距的是哪一个模块；第三，它的限制究竟来自数据、算力、时序长度，还是监督/奖励信号本身。
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>While 3D Vision Foundation Models (3DVFMs) have demonstrated remarkable zero-shot capabilities in visual geometry estimation, their direct application to generalizable novel view synthesis (NVS) remains challenging.</li></ul></div>
+    <div class='card'><strong>结论与局限中文转述：</strong><p>论文最后得出结论。手稿的页码。手稿的页码。手稿的页码。手稿的页码。手稿的页码。这是最后一页。现在我们已经达到了 ECCV 提交的最大长度（不包括参考文献和致谢）。参考文献应在正文之后立即开始，但如果需要，可以继续经过第 14 页。</p></div>
+    <div class='card'><strong>进一步思考：</strong><p>论文最后得出结论。手稿的页码。手稿的页码。手稿的页码。手稿的页码。手稿的页码。这是最后一页。现在我们已经达到了 ECCV 提交的最大长度（不包括参考文献和致谢）。参考文献应在正文之后立即开始，但如果需要，可以继续经过第 14 页。</p></div>
     <p>
-      进一步延伸阅读时，可以把这篇工作放到更广泛的技术脉络里：它与同类方法相比，到底是在表示层、生成层、优化层还是评估层提出了更强的方案。下面这些自动检索到的相关论文可作为继续追踪的入口：
+      进一步延伸阅读时，可以把这篇工作放到更广泛的技术脉络里：它与同类方法相比，到底是在表示层、生成层、优化层还是评估层提出了更强的方案。下面这些相关论文可以作为继续追踪的入口：
     </p>
     <ul></ul>
 
@@ -240,6 +273,7 @@
     </div>
   </article>
 </div>
+
   </div>
 </div>
 </body>
