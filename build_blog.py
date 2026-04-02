@@ -476,21 +476,58 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
     site.mkdir(parents=True, exist_ok=True)
     manifest = _load_manifest(site)
 
-    cards = ""
-    for item in manifest:
-        cards += (
-            f"<div class='post-item'>"
-            f"<a href='{html.escape(item['path'])}'><strong>{html.escape(item['title'])}</strong></a>"
-            f"<div class='meta'>{html.escape(item['date'])} · arXiv: {html.escape(item['arxiv_id'])}</div>"
-            f"<div>{html.escape(item.get('summary', ''))}</div>"
-            f"</div>"
+    latest = manifest[0] if manifest else None
+    latest_html = ""
+    if latest:
+        latest_html = (
+            "<section class='card' style='padding:18px 20px;'>"
+            "<div class='meta'>推荐阅读 / Latest</div>"
+            f"<h2 style='border-left:none;padding-left:0;margin-top:8px;'><a href='{html.escape(latest['path'])}'>{html.escape(latest['title'])}</a></h2>"
+            f"<p class='meta'>{html.escape(latest['date'])} · arXiv: {html.escape(latest['arxiv_id'])}</p>"
+            f"<p>{html.escape(latest.get('summary', ''))}</p>"
+            f"<p><a href='{html.escape(latest['path'])}'>开始阅读 →</a></p>"
+            "</section>"
         )
 
-    body = (
-        "<h1>Paper Blog</h1>"
-        "<p class='meta'>这里是已发布的所有论文解读文章。</p>"
-        f"<div>{cards or '<p>暂无文章，请先生成一篇。</p>'}</div>"
+    timeline_cards = ""
+    for idx, item in enumerate(manifest, 1):
+        timeline_cards += (
+            f"<div class='post-item'>"
+            f"<div class='meta'>#{idx} · {html.escape(item['date'])}</div>"
+            f"<a href='{html.escape(item['path'])}'><strong>{html.escape(item['title'])}</strong></a>"
+            f"<div class='meta'>arXiv: {html.escape(item['arxiv_id'])}</div>"
+            f"<div style='margin-top:6px'>{html.escape(item.get('summary', ''))}</div>"
+            "</div>"
+        )
+
+    stats = (
+        f"<div class='card' style='display:grid;grid-template-columns:repeat(3,1fr);gap:12px;'>"
+        f"<div><div class='meta'>文章数</div><div style='font-size:28px;font-weight:700'>{len(manifest)}</div></div>"
+        f"<div><div class='meta'>最新发布日期</div><div style='font-size:20px;font-weight:700'>{html.escape(latest['date']) if latest else '-'}</div></div>"
+        f"<div><div class='meta'>主题</div><div style='font-size:20px;font-weight:700'>动态重建 / World Model</div></div>"
+        f"</div>"
     )
+
+    body = f"""
+<section class='card' style='padding:26px 24px;background:linear-gradient(135deg,#f8fbff 0%,#ffffff 100%);'>
+  <div class='meta'>Research Notes / arXiv Search Blog</div>
+  <h1 style='margin-top:6px;'>Paper Blog</h1>
+  <p style='font-size:16px;'>
+    这里不是论文列表页，而是一个<strong>论文解读博客</strong>：每篇文章围绕一篇已下载论文展开，重点讲清楚问题背景、方法设计、技术细节、图示和我的理解。
+  </p>
+  <p class='meta'>当前地址即博客首页，后续新增文章会继续出现在这里。</p>
+</section>
+
+{stats}
+
+{latest_html}
+
+<section>
+  <h2 style='margin-top:26px;'>全部文章</h2>
+  <div class='meta'>按时间倒序展示</div>
+  {timeline_cards or '<p>暂无文章，请先生成一篇。</p>'}
+</section>
+"""
 
     index_path = site / "index.html"
     with open(index_path, "w", encoding="utf-8") as f:
