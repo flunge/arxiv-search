@@ -69,7 +69,7 @@
       <li>不要依赖分割模型，否则系统链路太长，鲁棒性差；</li>
       <li>不要依赖 LiDAR 或强监督的 4D 标注，因为现实数据里这类标注很少。</li>
     </ul>
-    <figure><img class='paper-fig' src='../assets/2603_19552v1/figure1_full.png' alt='Figure 1:' /><figcaption style='font-size:12px;'>图 1：StreetForward 展示了基于前馈式 3DGS 的动态街景时空外推新视角合成。右侧示意图展示了带精确速度的动态街景 3DGS 表示，因此模型无需依赖分割或跟踪，也能在新视角和新时刻进行运动感知渲染。<br/><span style='color:#888;'>原图注：Figure 1: StreetForward: High-fidelity spatio-temporal extrapolated view synthesis via feedforward 3DGS dynamic street reconstruction. The right pane illustrates our 3DGS representation of a dynamic street with precise velocities, enabling motion- aware rendering at novel poses and times independent of segmentation or tracking. Abstract Feedforward reconstruction is crucial for autonomous driving appli- cations, where rapid scene reconstruction enables efficient utiliza- tion of large-scale driv</span></figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2603_19552v1/figure1_full.png' alt='Figure 1:' /><figcaption style='font-size:12px;'>图 1：StreetForward 展示了基于前馈式 3DGS 的动态街景时空外推新视角合成。右侧示意图展示了带精确速度的动态街景 3DGS 表示，因此模型无需依赖分割或跟踪，也能在新视角和新时刻进行运动感知渲染。</figcaption></figure>
     <p>
       从整体上看，StreetForward 可以分成四步：
     </p>
@@ -82,7 +82,7 @@
     <blockquote>
       你可以把它理解成：先让模型学会“这条街长什么样”，再让模型学会“这条街上的东西怎么动”，最后把这两件事放在同一个 3DGS 表示里统一渲染。
     </blockquote>
-    <figure><img class='paper-fig' src='../assets/2603_19552v1/figure2_full.png' alt='Figure 2:' /><figcaption style='font-size:12px;'>图 2：StreetForward 的整体流程。输入视频先经过交替式注意力聚合得到跨帧特征，再分别解码相机位姿、深度和高斯属性；随后通过带因果掩码的注意力构造运动感知特征，进一步预测前向/后向运动以及动态掩码，最终把静态高斯与跨时间传播的动态高斯合成为完整 4D 场景。<br/><span style='color:#888;'>原图注：Figure 2: The proposed StreetForward pipeline. We illustrate two common types of dynamic scenes with rigid objects(vehicles) and deformable objects(pedestrians) in and . The input video is first encoded into per-frame patchified features and then processed by 𝐿times alternating global- and frame-attention to aggregate information across frames. These aggregated features are directly decoded by a camera head, a depth head and a Gaussian Head to obtain poses, depth and Gaussian attributes. Then ca</span></figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2603_19552v1/figure2_full.png' alt='Figure 2:' /><figcaption style='font-size:12px;'>图 2：StreetForward 的整体流程。输入视频先经过交替式注意力聚合得到跨帧特征，再分别解码相机位姿、深度和高斯属性；随后通过带因果掩码的注意力构造运动感知特征，进一步预测前向/后向运动以及动态掩码，最终把静态高斯与跨时间传播的动态高斯合成为完整 4D 场景。</figcaption></figure>
 
     <h2 id='innovation'>核心创新</h2>
     <p>这篇论文的创新点可以概括为 3 条：</p>
@@ -149,6 +149,7 @@
       作者假设在局部邻域内，物体的运动通常不会突然撕裂。于是它在 2D 邻域和 3D 近邻上都加了“速度要相近”的正则项。
       这个约束很像在对速度场做“局部平滑”，但不是盲目平滑，而是带动态置信度权重的平滑。
     </p>
+    
     <p>
       通俗点讲，这相当于告诉模型：
       “如果两个点离得很近，而且都很像动态区域，那它们的运动方向和速度最好别差太多。”
@@ -180,6 +181,8 @@
       <li>在静止或慢速物体附近，它能更好地区分“看起来像动态”和“真正有运动”的区域；</li>
       <li>在时间插值场景中，前后向速度联合建模比只预测单向速度的版本效果更完整。</li>
     </ul>
+    
+    
     <p>
       如果用一句话概括实验部分，那就是：StreetForward 的改进不是只体现在数值上，而是体现在<strong>动态场景下渲染结果更稳、更清晰、更少伪影</strong>。
     </p>

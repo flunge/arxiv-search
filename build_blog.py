@@ -232,20 +232,59 @@ def _extract_figure_region_by_caption(
         if not rects:
             continue
         cap_rect = rects[0]
-        all_caps = []
-        for i in range(1, 10):
-            label = f"Figure {i}:"
-            found = page.search_for(label)
-            if found:
-                all_caps.append((label, found[0]))
-        all_caps = sorted(all_caps, key=lambda x: x[1].y0)
-        start_y = top_margin
-        for idx, (label, rect) in enumerate(all_caps):
-            if label == caption_label:
-                if idx > 0:
-                    start_y = all_caps[idx - 1][1].y1 + 8
-                break
-        clip = fitz.Rect(page.rect.x0 + 12, start_y, page.rect.x1 - 12, cap_rect.y1 + 10)
+        image_rects = []
+        for image in page.get_images(full=True):
+            try:
+                for rect in page.get_image_rects(image[0]):
+                    if rect.is_empty or rect.width * rect.height < 5000:
+                        continue
+                    image_rects.append(rect)
+            except Exception:
+                continue
+
+        near_rects = [
+            r
+            for r in image_rects
+            if r.y1 <= cap_rect.y0 - 2 and r.y0 >= max(top_margin, cap_rect.y0 - 380)
+        ]
+        if near_rects:
+            x0 = min(r.x0 for r in near_rects) - 6
+            y0 = min(r.y0 for r in near_rects) - 6
+            x1 = max(r.x1 for r in near_rects) + 6
+            y1 = max(r.y1 for r in near_rects) + 6
+            clip = fitz.Rect(x0, y0, x1, y1) & page.rect
+            if clip.width < page.rect.width * 0.55 or clip.height < 120:
+                near_rects = []
+        else:
+            all_caps = []
+            for i in range(1, 10):
+                label = f"Figure {i}:"
+                found = page.search_for(label)
+                if found:
+                    all_caps.append((label, found[0]))
+            all_caps = sorted(all_caps, key=lambda x: x[1].y0)
+            start_y = top_margin
+            for idx, (label, rect) in enumerate(all_caps):
+                if label == caption_label:
+                    if idx > 0:
+                        start_y = all_caps[idx - 1][1].y1 + 8
+                    break
+            clip = fitz.Rect(page.rect.x0 + 12, start_y, page.rect.x1 - 12, cap_rect.y0 - 4)
+        if near_rects == []:
+            all_caps = []
+            for i in range(1, 10):
+                label = f"Figure {i}:"
+                found = page.search_for(label)
+                if found:
+                    all_caps.append((label, found[0]))
+            all_caps = sorted(all_caps, key=lambda x: x[1].y0)
+            start_y = top_margin
+            for idx, (label, rect) in enumerate(all_caps):
+                if label == caption_label:
+                    if idx > 0:
+                        start_y = all_caps[idx - 1][1].y1 + 8
+                    break
+            clip = fitz.Rect(page.rect.x0 + 12, start_y, page.rect.x1 - 12, cap_rect.y0 - 4)
         pix = page.get_pixmap(matrix=fitz.Matrix(2, 2), clip=clip, alpha=False)
         save_path = out_dir / output_name
         pix.save(save_path)
@@ -259,8 +298,18 @@ def _streetforward_caption_translation(label: str, raw_caption: str) -> str:
     translations = {
         "Figure 1:": "图 1：StreetForward 展示了基于前馈式 3DGS 的动态街景时空外推新视角合成。右侧示意图展示了带精确速度的动态街景 3DGS 表示，因此模型无需依赖分割或跟踪，也能在新视角和新时刻进行运动感知渲染。",
         "Figure 2:": "图 2：StreetForward 的整体流程。输入视频先经过交替式注意力聚合得到跨帧特征，再分别解码相机位姿、深度和高斯属性；随后通过带因果掩码的注意力构造运动感知特征，进一步预测前向/后向运动以及动态掩码，最终把静态高斯与跨时间传播的动态高斯合成为完整 4D 场景。",
+        "Figure 3:": "图 3：面对错误的动态掩码提示时，StreetForward 仍能把停着的车或慢速目标判成近似静态，从而减少虚假运动，渲染结果也更稳定。",
+        "Figure 4:": "图 4：加入刚性正则后，刚体目标周围的漂浮伪影明显减少，说明局部刚性约束确实能让速度场和几何结构更稳定。",
+        "Figure 5:": "图 5：时间插值实验。已知前一帧和后一帧时，StreetForward 能更自然地合成中间时刻的行人和车辆结构，优于只做单向速度预测的简化版本。",
     }
     return translations.get(label, raw_caption)
+
+
+def _infer_tagline(title: str, text: str) -> str:
+    if "streetforward" in title.lower():
+        return "一篇把动态街景 4D 重建做成前馈推理、并用因果注意力显式建模时间方向的工作。"
+    summary = " ".join(text.replace("\n", " ").split())
+    return (summary[:95] + "…") if len(summary) > 96 else summary
 
 
 def _post_sidebar_html(items: List[tuple]) -> str:
@@ -289,13 +338,15 @@ def _streetforward_post_body(doc, date_str: str, figures: List[str], related: Li
         return (
             f"<figure><img class='paper-fig' src='../assets/{slug}/{html.escape(item['path'])}' alt='{html.escape(label)}' />"
             f"<figcaption style='font-size:12px;'>"
-            f"{html.escape(item.get('caption_cn', ''))}<br/>"
-            f"<span style='color:#888;'>原图注：{html.escape(item.get('caption_en', ''))}</span>"
+            f"{html.escape(item.get('caption_cn', ''))}"
             f"</figcaption></figure>"
         )
 
     fig1_html = render_figure("Figure 1:")
     fig2_html = render_figure("Figure 2:")
+    fig3_html = render_figure("Figure 3:")
+    fig4_html = render_figure("Figure 4:")
+    fig5_html = render_figure("Figure 5:")
 
     related_html = "".join(
         [
@@ -422,6 +473,7 @@ def _streetforward_post_body(doc, date_str: str, figures: List[str], related: Li
       作者假设在局部邻域内，物体的运动通常不会突然撕裂。于是它在 2D 邻域和 3D 近邻上都加了“速度要相近”的正则项。
       这个约束很像在对速度场做“局部平滑”，但不是盲目平滑，而是带动态置信度权重的平滑。
     </p>
+    {fig4_html}
     <p>
       通俗点讲，这相当于告诉模型：
       “如果两个点离得很近，而且都很像动态区域，那它们的运动方向和速度最好别差太多。”
@@ -453,6 +505,8 @@ def _streetforward_post_body(doc, date_str: str, figures: List[str], related: Li
       <li>在静止或慢速物体附近，它能更好地区分“看起来像动态”和“真正有运动”的区域；</li>
       <li>在时间插值场景中，前后向速度联合建模比只预测单向速度的版本效果更完整。</li>
     </ul>
+    {fig3_html}
+    {fig5_html}
     <p>
       如果用一句话概括实验部分，那就是：StreetForward 的改进不是只体现在数值上，而是体现在<strong>动态场景下渲染结果更稳、更清晰、更少伪影</strong>。
     </p>
@@ -629,6 +683,7 @@ def build_post_from_pdf(
             "arxiv_id": arxiv_id,
             "path": f"posts/{slug}.html",
             "summary": text[:220].replace("\n", " "),
+            "tagline": _infer_tagline(doc.title, text),
             "thumbnail_path": thumbnail_rel,
             "tags": tags,
             "featured": len(manifest) == 0,
@@ -670,24 +725,21 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
             else ""
         )
         featured_display_title = featured.get("title", "")
-        featured_full_title = featured.get("full_title", featured_display_title)
+        featured_tagline = featured.get("tagline", "")
         latest_html = (
             "<section class='card' style='padding:18px 20px;'>"
             "<div class='meta'>推荐阅读 / Featured</div>"
             f"<div style='display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:18px;align-items:start;'>"
             f"<div>"
             f"<h2 style='border-left:none;padding-left:0;margin-top:8px;'><a href='{html.escape(featured['path'])}'>{html.escape(featured_display_title)}</a></h2>"
-            f"<p class='meta'>{html.escape(featured['date'])} · arXiv: {html.escape(featured['arxiv_id'])}</p>"
-            f"<p class='meta' style='margin-top:4px;'>{html.escape(featured_full_title)}</p>"
             f"<div style='margin:10px 0'>{render_tag_chips(featured.get('tags', []))}</div>"
-            f"<p>{html.escape(featured.get('summary', ''))}</p>"
-            f"<p><a href='{html.escape(featured['path'])}'>开始阅读 →</a></p>"
+            f"<p style='font-size:13px;color:#555;'>{html.escape(featured_tagline)}</p>"
             f"</div><div>{cover}</div></div>"
             "</section>"
         )
 
     recent_list = "".join(
-        f"<li style='margin:8px 0;'><a href='{html.escape(item['path'])}'>{html.escape(item['title'])}</a><div class='meta'>{html.escape(item['date'])}</div></li>"
+        f"<li style='margin:8px 0;'><a href='{html.escape(item['path'])}'>{html.escape(item['title'])}</a><div style='font-size:12px;color:#666;margin-top:2px;'>{html.escape(item.get('tagline', ''))}</div></li>"
         for item in manifest[:5]
     ) or "<li>暂无文章</li>"
 
@@ -696,7 +748,7 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
     card_grid = ""
     for item in manifest:
         display_title = item.get("title", "")
-        full_title = item.get("full_title", display_title)
+        tagline = item.get("tagline", "")
         thumb = (
             f"<img src='{html.escape(item['thumbnail_path'])}' alt='thumb' style='width:100%;height:160px;object-fit:cover;border-radius:10px;border:1px solid #e5e5e5;' />"
             if item.get("thumbnail_path")
@@ -705,12 +757,10 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
         card_grid += (
             f"<article class='card' style='padding:12px;display:flex;flex-direction:column;gap:10px;'>"
             f"{thumb}"
-            f"<div class='meta'>{html.escape(item['date'])} · arXiv: {html.escape(item['arxiv_id'])}</div>"
             f"<a href='{html.escape(item['path'])}' style='font-size:18px;font-weight:700;color:#1f1f1f;'>{html.escape(display_title)}</a>"
-            f"<div class='meta' style='margin-top:2px;'>{html.escape(full_title)}</div>"
+            f"<div style='font-size:12px;color:#666;line-height:1.6;'>{html.escape(tagline)}</div>"
             f"<div>{render_tag_chips(item.get('tags', []))}</div>"
             f"<div style='color:#333;'>{html.escape(item.get('summary', ''))}</div>"
-            f"<div><a href='{html.escape(item['path'])}'>阅读全文 →</a></div>"
             f"</article>"
         )
 
@@ -730,10 +780,6 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
     这里不是论文列表页，而是一个<strong>论文解读博客</strong>：每篇文章围绕一篇已下载论文展开，重点讲清楚问题背景、方法设计、技术细节、图示和我的理解。
   </p>
   <p class='meta'>当前地址即博客首页，后续新增文章会继续出现在这里。</p>
-  <div style='margin-top:14px;'>
-    <a href='{html.escape(featured['path']) if featured else '#'}' style='display:inline-block;padding:9px 14px;border-radius:10px;background:#1769c2;color:#fff;margin-right:10px;'>开始阅读</a>
-    <a href='#all-posts' style='display:inline-block;padding:9px 14px;border-radius:10px;border:1px solid #d7e3f0;color:#1769c2;'>浏览全部文章</a>
-  </div>
 </section>
 
 {stats}
@@ -747,8 +793,7 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
   </div>
   <div class='card'>
     <div class='meta'>推荐阅读</div>
-    <p style='margin-top:10px;'>如果你是第一次来，建议先看最新或最具代表性的一篇文章，快速了解这个博客的写作风格与技术深度。</p>
-    <p><a href='{html.escape(featured['path']) if featured else '#'}'>打开推荐文章 →</a></p>
+    <p style='margin-top:10px;'>如果你是第一次来，建议直接点击上方推荐文章标题，快速了解这个博客的写作风格与技术深度。</p>
   </div>
   <div class='card'>
     <div class='meta'>分类标签</div>
