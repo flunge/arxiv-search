@@ -61,8 +61,9 @@ def test_build_blog_outputs_files(tmp_path: Path) -> None:
     assert "站点概览" in home_html
     assert "当前涵盖领域" in home_html
     assert "分类目录" in home_html
-    assert "posts/2603_19979v2.html" in home_html
+    assert "tags/world-model.html" in home_html
     assert "最新发布日期" not in home_html
+    assert (site_dir / "tags" / "world-model.html").exists()
 
 
 def test_figure_band_bounds_uses_previous_caption() -> None:

@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>动态重建 - 标签目录</title>
+  <style>
+    html {
+      overflow-x: hidden;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      width: 100%;
+      min-width: 0;
+      max-width: 980px;
+      box-sizing: border-box;
+      margin: 24px auto;
+      padding: 0 16px;
+      line-height: 1.9;
+      color: #1f1f1f;
+      background: #fff;
+    }
+    a { color: #1769c2; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .meta { color: #666; font-size: 14px; margin-top: -6px; }
+    h1 { font-size: 34px; margin-bottom: 10px; }
+    h2 { margin-top: 30px; border-left: 4px solid #1769c2; padding-left: 10px; }
+    h3 { margin-top: 20px; }
+    .toc { background: #f7f9fc; border: 1px solid #e8eef6; border-radius: 10px; padding: 12px; }
+    .card { border:1px solid #e5e5e5; border-radius:10px; padding:14px; margin:10px 0; }
+    pre { white-space: pre-wrap; background:#f7f7f7; border-radius:8px; padding:12px; overflow-x:auto; }
+    figure { margin: 24px 0; }
+    figcaption { color: #666; font-size: 13px; }
+    img.paper-fig { width: 100%; border: 1px solid #ddd; border-radius: 8px; }
+    .post-item { border:1px solid #e5e5e5; border-radius:8px; padding:10px 12px; margin:10px 0; }
+    .layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 28px; align-items: start; justify-content: center; position: relative; }
+    .sidebar { position: sticky; top: 18px; align-self: start; border-right: 1px solid #eee; padding-right: 16px; transition: width .2s ease, min-width .2s ease, padding .2s ease, border-color .2s ease; }
+    .sidebar h3 { margin-top: 0; font-size: 16px; }
+    .sidebar ul { list-style: none; padding-left: 0; margin: 0; }
+    .sidebar li { margin: 8px 0; }
+    .sidebar-controls { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; }
+    .sidebar-title { margin:0; }
+    .sidebar-home-link { display:inline-block; padding:4px 10px; border:1px solid #d9e5f2; border-radius:999px; background:#f7fbff; font-size:12px; white-space:nowrap; }
+    .sidebar-toggle { width:30px; height:30px; border:1px solid #d9e5f2; border-radius:999px; background:#fff; color:#1769c2; font-size:18px; line-height:1; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto; }
+    .sidebar-toggle:hover { background:#f7fbff; }
+    .sidebar.collapsed { width: 36px; min-width: 36px; padding-right: 0; border-right-color: transparent; overflow: hidden; }
+    .sidebar.collapsed .sidebar-title,
+    .sidebar.collapsed .sidebar-home-link,
+    .sidebar.collapsed ul { display:none; }
+    .sidebar.collapsed .sidebar-controls { justify-content:center; }
+    .sidebar.collapsed .sidebar-toggle { margin:0; }
+    .layout.sidebar-collapsed { grid-template-columns: minmax(0, 1fr); }
+    .layout.sidebar-collapsed .sidebar { position: absolute; left: 0; top: 0; z-index: 2; background: #fff; border-right: none; }
+    .article { min-width: 0; width: 100%; max-width: 100%; }
+    .layout.sidebar-collapsed .article { width: min(100%, 760px); max-width: min(100%, 760px); justify-self: center; margin-inline: auto; }
+    blockquote { margin: 16px 0; padding: 8px 16px; border-left: 4px solid #d8e7ff; background: #f8fbff; color: #333; }
+    .tip { background: #f7f9fc; border: 1px solid #e8eef6; border-radius: 10px; padding: 12px; }
+    @media (max-width: 768px) {
+      body {
+        max-width: 100%;
+        margin: 0 auto;
+        padding: 0 10px 24px;
+      }
+      h1 { font-size: 28px; }
+      .layout {
+        grid-template-columns: 88px minmax(0, 1fr);
+        gap: 14px;
+      }
+      .sidebar { top: 10px; padding-right: 10px; }
+      .sidebar-home-link { padding: 3px 8px; font-size: 11px; }
+      .sidebar-toggle { width: 28px; height: 28px; }
+      .layout.sidebar-collapsed .sidebar { left: 0; }
+      .layout.sidebar-collapsed .article { width: 100%; max-width: 100%; }
+      .card { padding: 12px; }
+      figure { margin: 18px 0; }
+    }
+  </style>
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\(', '\)']],
+        displayMath: [['$$', '$$'], ['\[', '\]']]
+      },
+      svg: { fontCache: 'global' }
+    };
+
+    function toggleSidebar(button) {
+      var sidebar = button.closest('.sidebar');
+      if (!sidebar) return;
+      var layout = sidebar.closest('.layout');
+      var collapsed = sidebar.classList.toggle('collapsed');
+      if (layout) {
+        layout.classList.toggle('sidebar-collapsed', collapsed);
+      }
+      button.setAttribute('aria-expanded', String(!collapsed));
+      button.setAttribute('title', collapsed ? '展开目录' : '隐藏目录');
+      button.innerHTML = collapsed ? '&#8250;' : '&#8249;';
+    }
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+
+<section class='card' style='padding:22px 20px;background:linear-gradient(135deg,#f8fbff 0%,#ffffff 100%);'>
+  <div style='display:flex;align-items:center;justify-content:space-between;gap:12px;'>
+    <div>
+      <div class='meta'>标签目录</div>
+      <h1 style='margin:6px 0 0;'>动态重建</h1>
+    </div>
+    <a href='../index.html' class='sidebar-home-link'>返回首页</a>
+  </div>
+  <p style='margin-top:10px;'>共收录 1 篇与“动态重建”相关的文章。</p>
+</section>
+
+<section>
+  <article class='card' style='padding:12px;'><div style='display:flex;align-items:flex-start;justify-content:space-between;gap:12px;'><a href='../posts/2603_19552v1.html' style='font-size:18px;font-weight:700;color:#1f1f1f;flex:1 1 auto;'>StreetForward</a><span class='meta' style='margin-top:0;white-space:nowrap;'>2026-04-02</span></div><div style='font-size:12px;color:#666;line-height:1.6;margin-top:8px;'>一篇把动态街景 4D 重建做成前馈推理、并用因果注意力显式建模时间方向的工作。</div></article>
+</section>
+
+</body>
+</html>

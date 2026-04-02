@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import html
 import json
+import re
 import shutil
 from datetime import datetime
 from pathlib import Path
@@ -231,6 +232,62 @@ def _related_work(title: str, max_results: int = 6) -> List[Dict]:
 
 def _slug_from_id(arxiv_id: str) -> str:
     return arxiv_id.replace(".", "_").replace("/", "_")
+
+
+def _slugify_tag(tag: str) -> str:
+    ascii_slug = re.sub(r"[^a-z0-9]+", "-", tag.lower()).strip("-")
+    if ascii_slug:
+        return ascii_slug
+    return "tag-" + "-".join(f"u{ord(ch):x}" for ch in tag)
+
+
+def _build_tag_pages(site_dir: Path, manifest: List[Dict]) -> Dict[str, str]:
+    tags_dir = site_dir / "tags"
+    tags_dir.mkdir(parents=True, exist_ok=True)
+
+    tag_map: Dict[str, List[Dict]] = {}
+    for item in manifest:
+        for tag in item.get("tags", []):
+            tag_map.setdefault(tag, []).append(item)
+
+    tag_paths: Dict[str, str] = {}
+    for tag, items in tag_map.items():
+        slug = _slugify_tag(tag)
+        rel_path = f"tags/{slug}.html"
+        tag_paths[tag] = rel_path
+        items = sorted(items, key=lambda item: str(item.get("date", "")), reverse=True)
+        entries_html = "".join(
+            (
+                "<article class='card' style='padding:12px;'>"
+                f"<div style='display:flex;align-items:flex-start;justify-content:space-between;gap:12px;'>"
+                f"<a href='../{html.escape(item['path'])}' style='font-size:18px;font-weight:700;color:#1f1f1f;flex:1 1 auto;'>{html.escape(item['title'])}</a>"
+                f"<span class='meta' style='margin-top:0;white-space:nowrap;'>{html.escape(item.get('date', ''))}</span>"
+                "</div>"
+                f"<div style='font-size:12px;color:#666;line-height:1.6;margin-top:8px;'>{html.escape(item.get('tagline', ''))}</div>"
+                "</article>"
+            )
+            for item in items
+        ) or "<p>该标签下暂无文章。</p>"
+        body = f"""
+<section class='card' style='padding:22px 20px;background:linear-gradient(135deg,#f8fbff 0%,#ffffff 100%);'>
+  <div style='display:flex;align-items:center;justify-content:space-between;gap:12px;'>
+    <div>
+      <div class='meta'>标签目录</div>
+      <h1 style='margin:6px 0 0;'>{html.escape(tag)}</h1>
+    </div>
+    <a href='../index.html' class='sidebar-home-link'>返回首页</a>
+  </div>
+  <p style='margin-top:10px;'>共收录 {len(items)} 篇与“{html.escape(tag)}”相关的文章。</p>
+</section>
+
+<section>
+  {entries_html}
+</section>
+"""
+        with open(tags_dir / f"{slug}.html", "w", encoding="utf-8") as f:
+            f.write(_render_page(f"{tag} - 标签目录", body))
+
+    return tag_paths
 
 
 def _paper_alias(title: str) -> str:
@@ -980,6 +1037,8 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
             for tag in tags
         )
 
+    tag_paths = _build_tag_pages(site, manifest)
+
     latest_html = ""
     if featured := next((item for item in manifest if item.get("featured")), latest):
         cover = (
@@ -1015,21 +1074,14 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
     ) or "<li>暂无文章</li>"
 
     domain_overview = " / ".join(unique_tags) if unique_tags else "暂无领域"
-    tag_directory_html = ""
-    for tag in unique_tags:
-        tagged_items = [item for item in manifest if tag in item.get("tags", [])]
-        links_html = "".join(
-            f"<li style='margin:4px 0;'><a href='{html.escape(item['path'])}'>{html.escape(item['title'])}</a></li>"
-            for item in tagged_items
+    tag_directory_html = "".join(
+        (
+            f"<a href='{html.escape(tag_paths.get(tag, '#'))}' "
+            "style='display:inline-block;padding:5px 10px;margin:4px;border-radius:999px;border:1px solid #d9e5f2;background:#f7fbff;font-size:12px;color:#1769c2;'>"
+            f"{html.escape(tag)}</a>"
         )
-        tag_directory_html += (
-            "<div style='padding:10px 0;border-bottom:1px solid #eef3f8;'>"
-            f"<div style='font-size:13px;font-weight:700;color:#1f1f1f;margin-bottom:6px;'>{html.escape(tag)}</div>"
-            f"<ul style='margin:0;padding-left:18px;'>{links_html}</ul>"
-            "</div>"
-        )
-    if not tag_directory_html:
-        tag_directory_html = "<span class='meta'>暂无标签</span>"
+        for tag in unique_tags
+    ) or "<span class='meta'>暂无标签</span>"
 
     card_grid = ""
     for item in manifest:
@@ -1064,7 +1116,7 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
     <div class='meta'>最近更新</div>
     <ul style='padding-left:18px;margin-top:10px;'>{recent_list}</ul>
   </div>
-  <div class='card'>
+  <div class='card' style='aspect-ratio:1.618 / 1;display:flex;flex-direction:column;justify-content:center;'>
     <div class='meta'>站点概览</div>
     <p style='margin-top:10px;'>这里汇总当前站点规模与已覆盖的研究主题，便于快速了解内容范围。</p>
     <div style='display:grid;grid-template-columns:1fr;gap:10px;margin-top:12px;'>
@@ -1074,6 +1126,7 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
   </div>
   <div class='card'>
     <div class='meta'>分类目录</div>
+    <p style='margin-top:10px;'>点击标签进入独立目录页，查看该领域下的全部相关文章。</p>
     <div style='margin-top:10px;'>{tag_directory_html}</div>
   </div>
 </section>
