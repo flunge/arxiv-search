@@ -70,7 +70,7 @@
     blockquote { margin: 16px 0; padding: 8px 16px; border-left: 4px solid #d8e7ff; background: #f8fbff; color: #333; }
     .tip { background: #f7f9fc; border: 1px solid #e8eef6; border-radius: 10px; padding: 12px; }
     .dashboard-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-top:18px; }
-    .dashboard-card { aspect-ratio: 1 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
+    .dashboard-card { aspect-ratio: 1.618 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
     .dashboard-card > * { min-width: 0; }
     .dashboard-card .dashboard-content { display:flex; flex-direction:column; height:100%; min-height:0; }
     .dashboard-card .dashboard-scroll { overflow:auto; min-height:0; }
@@ -130,10 +130,28 @@
     });
   </script>
 
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\(', '\)']],
+        displayMath: [['$$', '$$'], ['\[', '\]']]
+      },
+      svg: { fontCache: 'global' },
+      startup: {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady().then(() => {
+            requestAnimationFrame(applyPageScale);
+          });
+        }
+      }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
+
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
 
@@ -143,103 +161,125 @@
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      这篇论文关注的是“UFO-4D 所对应的问题能否在更可控、更稳健或更高质量的条件下被解决”。从摘要与方法描述来看，作者的总体路线是：先搭建一个明确的表示或生成框架，再围绕训练目标、结构设计和实验验证把该问题推进到更可用的工程形态。
+      从未摆出的图像进行密集 4D 重建仍然是一个严峻的挑战，当前的方法依赖于缓慢的测试时间优化或碎片化的、特定于任务的前馈模型。我们引入了一个统一的前馈框架，可以从一对未摆出的图像中重建密集、明确的 4D 表示。直接估计动态 3D 高斯 Splats，从而能够以前馈方式联合一致地估计 3D 几何、3D 运动和相机姿态。我们的核心见解是，从单个动态 3D 高斯表示中差异化地渲染多个信号可提供重大的训练优势。这种方法可以实现自我监督的图像合成损失，同时紧密耦合外观、深度和运动。由于所有模态共享相同的几何基元，因此监督一种模态本质上会规范和改进其他模态。这种协同作用克服了数据稀缺性，使 UFO-4D…
     </div>
 
     <h2 id='summary'>简单摘要</h2>
-    <p>
-      从论文摘要可以看出，这项工作的落点并不是单纯提升一个局部模块，而是围绕完整任务链路做系统设计。它通常会同时回答三个问题：任务为什么重要、现有方法卡在哪里、作者的新方案如何绕开这些瓶颈。
-      就这篇论文而言，摘要部分强调的核心是：<strong>Dense 4D reconstruction from unposed images remains a critical challenge, with current methods relying on slow test-time optimization or fragmented, taskspecific feedforward model…</strong>
-    </p>
-    <p>
-      如果把它放进更大的技术背景中理解，可以把这篇论文视作一条“问题定义 → 表示设计 → 训练优化 → 实验验证”的完整研究闭环。也就是说，作者并不是只给出一个孤立模块，而是希望通过一整套方法让系统在真实场景或关键指标上取得更稳定提升。
-    </p>
-    <figure><img class='paper-fig' src='../assets/2602_24290v2/fig_1.png' alt='Figure 1:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 1：该图来自论文原文，用于说明论文中的核心框架、可视化结果或实验现象。原始图注摘要：Given a pair of unposed images, the proposed UFO-4D outputs dynamic 3D Gaussians in the canonical space and relative camera pose in a feedforward manner. This explicit 4D representation can solve various downstream tasks such as 3D geometry (point, depth) and motion (scene flow, optical flow). Besi…</figcaption></figure><figure><img class='paper-fig' src='../assets/2602_24290v2/fig_2.png' alt='Figure 2:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 2：该图来自论文原文，用于说明论文中的核心框架、可视化结果或实验现象。原始图注摘要：Network architecture. Given a pair of input images It and It+1 and camera intrinsics K, UFO-4D outputs parameters for dynamic 3D Gaussians and relative camera pose in a feed-forward manner. Given the estimates, UFO-4D can render image, point, and motion at any interpolated time and view. While the…</figcaption></figure>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>We introduce UFO-4D, a unified feedforward framework to reconstruct a dense, explicit 4D representation from just a pair of unposed images.</li><li>Dense 4D reconstruction from unposed images remains a critical challenge, with current methods relying on slow test-time optimization or fragmented, taskspecific feedforward models.</li></ul></div>
+    <p>从未摆出的图像进行密集 4D 重建仍然是一个严峻的挑战，当前的方法依赖于缓慢的测试时间优化或碎片化的、特定于任务的前馈模型。我们引入了一个统一的前馈框架，可以从一对未摆出的图像中重建密集、明确的 4D 表示。直接估计动态 3D 高斯 Splats，从而能够以前馈方式联合一致地估计 3D 几何、3D 运动和相机姿态。我们的核心见解是，从单个动态 3D 高斯表示中差异化地渲染多个信号可提供重大的训练优势。</p>
+    <p>这种方法可以实现自我监督的图像合成损失，同时紧密耦合外观、深度和运动。由于所有模态共享相同的几何基元，因此监督一种模态本质上会规范和改进其他模态。这种协同作用克服了数据稀缺性，使 UFO-4D 在关节几何、运动和相机姿态估计方面的性能比之前的工作高出 3 倍。我们的表示还可以在新颖的视图和时间上进行高保真 4D 插值。请访问我们的项目页面查看视觉结果：https://ufo-4d.github.io/。</p>
+    <figure><img class='paper-fig' src='../assets/2602_24290v2/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：给定一对未摆姿势的图像，所提出的方法以前馈方式输出规范空间中的动态 3D 高斯和相对相机姿势。这种显式 4D 表示可以解决各种下游任务，例如 3D 几何（点、深度）和运动（场景流、光流）。此外，它还可以在新颖的视图和时间插值图像、几何和运动。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2602_24290v2/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：网络架构。给定一对输入图像 I_t 和 I_t+1 以及相机内在函数 K，以前馈方式输出动态 3D 高斯和相对相机位姿的参数。给定估计值，可以在任何插值时间和视图处渲染图像、点和运动。 
+虽然内在标记需要真实的相机内在函数，但姿势标记是可学习的参数，不需要推理时间姿势输入。</figcaption></figure>
+    <blockquote>
+      简而言之，这篇论文关注的核心是：从未摆出的图像进行密集 4D 重建仍然是一个严峻的挑战，当前的方法依赖于缓慢的测试时间优化或碎片化的、特定于任务的前馈模型。我们引入了一个统一的前馈框架，可以从一对未摆出的图像中重建密集、明确的 4D 表示。直接估计动态 3D 高斯 Splats，从而能够以前馈方式联合一致地估计 3D 几何、3D…
+    </blockquote>
+    <p>从随意捕捉的图像中联合估计相机姿态、3D 几何和 3D 运动（称为 4D 场景重建的任务）是计算机视觉在机器人、自动驾驶和 3D/4D 生成 AI 中应用的基本挑战。然而，从有限的 2D 输入中恢复密集的 4D 信息本质上是一个不适定问题。虽然数据驱动的方法可以成为一种解决方案，但由于缺乏密集的大规模 4D 训练数据，挑战仍然存在。合成数据集提供密集、像素完美的监督，但它们经常遭受显着的领域差距和缺乏多样性的困扰。</p>
+    <p>现实世界的数据通常仅限于稀疏且嘈杂的注释，限制了其训练鲁棒模型的有效性。因此，动态场景重建传统上以缓慢的测试时间优化管道为中心。这种方法依赖于深度和光流等中间 2D 信号，这会带来很高的计算成本，并限制这些输入质量的性能。最近向前馈模型的转变，包括 DUST3R 、 MonST3R 和 DynaDUSt3R ，在个人感知任务上取得了令人印象深刻的结果；然而，目前尚不存在能够整体解决全系列 2D 和 3D 感知任务的单一、统一的前馈架构。</p>
+    <p>由于缺乏统一的表示，模型无法利用几何和运动的紧密耦合性质。为了解决这些限制，我们引入了一个统一的前馈模型，用于仅从两个未摆出的图像进行密集 4D 重建。在单次前向传递中预测显式且密集的时空表示，即动态 3D 高斯分布 (D-3DGS)。这种统一的表示能够对多个 2D 和 3D 重建任务（包括深度、场景流和光流）进行一致、集成的估计，所有这些任务都来自同一底层模型。此外，我们的统一表示在训练过程中释放了两个关键优势。</p>
+    <p>首先，可微渲染提供了密集的、自监督的光度损失，独立于稀疏或嘈杂的真实标签。其次，由于 3D 几何和运动源自同一组高斯基元，因此它们各自的损失在 3D 中紧密耦合。这种耦合产生了一种调节效应，其中每个监控信号都有助于补偿另一个监控信号的缺陷。因此，在几何和运动基准上实现了最先进的性能，在 Stereo4D 和 KITTI 上实现了比竞争方法更低的 EPE。此外，我们的电子…</p>
 
     <h2 id='innovation'>核心创新</h2>
     <p>
-      对照引言与方法部分，这篇论文的创新点主要体现在“如何重新组织问题求解链路”上。相比简单替换一个 backbone 或增加一个 loss，作者更像是在重新定义系统的关键接口与约束方式。
+      综合引言与方法部分，这篇论文的核心创新可以概括为以下几方面：
     </p>
-    <h3>1）从任务设定上重新界定问题边界</h3>
+    <h3>1）问题定义与研究动机</h3>
     <p>
-      论文强调的问题并不只是已有方案做得不够好，而是很多现有方法在目标可控性、泛化范围、效率约束或结构一致性上存在天然短板。因此作者先重述了任务定义，再围绕新的目标函数和场景假设去设计整体方案。
+      从随意捕捉的图像中联合估计相机姿态、3D 几何和 3D 运动（称为 4D 场景重建的任务）是计算机视觉在机器人、自动驾驶和 3D/4D 生成 AI 中应用的基本挑战。然而，从有限的 2D 输入中恢复密集的 4D 信息本质上是一个不适定问题。虽然数据驱动的方法可以成为一种解决方案，但由于缺乏密集的大规模 4D 训练数据，挑战仍然存在。合成数据集提供密集、像素完美的监督，但它们经常遭受显着的领域差距和缺乏多样性的困扰。现实世界的数据通常仅限于稀疏且嘈杂的注释，限制了其训练鲁棒模型的有效性。因此，动态场景重建传统上以缓慢的测试时间优化管道为中心。这种方法依赖于深度和光流等中间 2D 信号，这会带来很高的计算成本，并限制这些输入质量的性能。最近向前馈模型的转变，包括 DUST3R 、 MonST3R 和 DynaDUSt3R ，在个人感知任务上取得了令人印象深刻的结果；然而，目前尚不存在能够整体解决全系列 2D 和 3D 感知任务的单一、统一的前馈架构。由于缺乏统一的表示，模型无法利用几何和运动的紧密耦合性质。为了解决这些限制，我们引入了一个统一的前馈模型，用于仅从两个未摆出的图像进行密集…
     </p>
-    <h3>2）用统一框架串起表示、推理和优化</h3>
+    <h3>2）方法框架与核心模块</h3>
     <p>
-      从原文描述看，这篇论文并不是把多个模块松散拼接，而是在一个统一框架里安排表示形式、关键模块和训练信号，使它们彼此服务。这类设计往往决定了方法能否真正具备工程可落地性。
+      出现在 ICLR 2026 UFO-4D：从两幅图像中进行前馈 4D 重建 Junhwa Hur1 Charles Herrmann1 Songyou Peng1 Philipp Henzler1 Zeyu Ma2 Todd Zickler3 Deqing Sun1 1Google 2Princeton University 3Harvard University 输入图像对 规范空间中的动态 3D 高斯 4D 表示 相机姿态3D 运动 3D 几何 4D 插值 渲染输出 在目标时间渲染并查看 UFO-4D 图 1：给定一对未摆姿势的图像，所提出的 UFO-4D 以前馈方式输出规范空间中的动态 3D 高斯和相对相机姿势。这种显式 4D 表示可以解决各种下游任务，例如 3D 几何（点、深度）和运动（场景流、光流）。此外，它还可以在新颖的视图和时间插值图像、几何和运动。摘要 从未摆出的图像中进行密集 4D 重建仍然是一个严峻的挑战，当前的方法依赖于缓慢的测试时间优化或碎片化的、特定于任务的前馈模型。我们引入了 UFO-4D，这是一个统一的前馈框架，可以仅从一对未摆出的图像中重建密集、明确的…
     </p>
-    <h3>3）把实验目标直接对齐到实际痛点</h3>
+    <h3>3）实验设计与工程价值</h3>
     <p>
-      论文中的实验不仅比较常规 benchmark，也会额外关注更贴近实际系统需求的指标，例如稳定性、控制性、质量上界、对长尾场景的适应能力等。换句话说，它不是只追求单一数值，而是试图证明整套系统在真实使用方式下也成立。
+      实施细节。对于训练，我们使用 Stereo4D 、 PointOdyssey 和 Virtual KITTI 2 的混合，通过分别以 60%、20% 和 20% 的概率对小批量中的每个数据集进行采样。所有数据集都包含 3D 点、3D 场景流和相机姿势的（稀疏）注释。为了高效存储，我们通过对数据集的帧进行二次采样来使用完整 Stereo4D 数据集的 10%。我们使用 NoPoSplat（高斯头）和 MASt3R（其余）的预训练权重来初始化我们的网络（图：架构），但摄像头除外，它是从头开始训练的。我们训练具有不同纵横比的模型，图像宽度为 。我们应用光度增强和几何增强，例如随机尺度裁剪、水平翻转和时间翻转。我们训练模型进行 120k 迭代步骤，全局小批量大小为 16。训练在四个 NVIDIA A100 40GB GPU 上大约需要三天时间。 2D 和 3D 任务评估我们评估各种 2D 和 3…
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>Given a pair of unposed images, the proposed UFO-4D outputs dynamic 3D Gaussians in the canonical space and relative camera pose in a feedforward manner.</li><li>This lack of a unified representation prevents models from exploiting the tightly coupled nature of geometry and motion.</li><li>Besides, it can interpolate image, geometry, and motion at novel view and time.</li><li>We introduce UFO-4D, a unified feedforward framework to reconstruct a dense, explicit 4D representation from just a pair of unposed images.</li></ul></div>
 
     <h2 id='technical'>技术细节</h2>
     <p>
-      方法部分是理解论文价值的关键。结合原文可以看到，作者通常会先定义输入输出，再介绍中间表示、主干模块、损失函数或奖励机制，最后说明训练与推理时各模块如何协同。
-      对这篇论文而言，方法线索主要集中在以下几个方面：
+      下面按照论文的方法章节结构展开，重点说明模型的关键模块、公式设计和训练策略。
     </p>
-    <h3>3.1 方法主线与模块组织</h3>
+    <p>出现在 ICLR 2026 UFO-4D：从两幅图像中进行前馈 4D 重建 Junhwa Hur1 Charles Herrmann1 Songyou Peng1 Philipp Henzler1 Zeyu Ma2 Todd Zickler3 Deqing Sun1 1Google 2Princeton University 3Harvard University 输入图像对 规范空间中的动态 3D 高斯 4D 表示 相机姿态3D 运动 3D 几何 4D 插值 渲染输出 在目标时间渲染并查看 UFO-4D 图 1：给定一对未摆姿势的图像，所提出的 UFO-4D 以前馈方式输出规范空间中的动态 3D 高斯和相对相机姿势。这种显式 4D 表示可以解决各种下游任务，例如 3D 几何（点、深度）和运动（场景流、光流）。此外，它还可以在新颖的视图和时间插值图像、几何和运动。摘要 从未摆出的图像中进行密集 4D 重建仍然是一个严峻的挑战，当前的方法依赖于缓慢的测试时间优化或碎片化的、特定于任务的前馈模型。我们引入了 UFO-4D，这是一个统一的前馈框架，可以仅从一对未摆出的图像中重建密集、明确的 4D 表示。 UFO-4D 直接估计动态 3D 高斯图，从而能够以前馈方式联合一致地估计 3D 几何、3D 运动和相机姿态。我们的核心见解是，从单个动态 3D 高斯表示中差异化地渲染多个信号可提供重大的训练优势。这种方法可以实现自我监督的图像合成损失，同时紧密耦合外观、深度和运动。由于所有模态共享相同的几何基元，因此监督一种模态本质上会规范和改进其他模态。这种协同作用克服了数据稀缺性，使 UFO-4D 在关节几何、运动和相机姿态估计方面的性能比之前的工作高出 3 倍。我们的表示还可以在新颖的视图和时间上进行高保真 4D 插值。请访问我们的项目页面查看视觉结果：https://ufo-4d.github.io/。 1 简介 从随意捕捉的图像中联合估计相机姿态、3D 几何和 3D 运动（一项称为 4D 场景重建的任务）是计算机视觉领域的一项基本挑战，其应用于机器人技术（Xu 等人，2024 年）、自动驾驶（Geiger 等人，2012 年）和 3D/4D 生成式 AI（Liang 等人，2024 年；Xie 等人， 2025；余等人，2024）。然而，从有限的 2D 输入中恢复密集的 4D 信息本质上是一个不适定问题。虽然数据驱动的方法可以成为一种解决方案，但由于缺乏密集的大规模 4D 训练数据，挑战仍然存在。</p>
+    <p>合成数据集（Zheng et al., 2023）提供了密集的、像素完美的监督，但它们经常遭受显着的领域差距和缺乏多样性的困扰。现实世界的数据（Jin 等人，2025）通常受限于稀疏且嘈杂的注释，限制了其训练鲁棒模型的有效性。 1 arXiv:2602.24290v2 [cs.CV] 2026 年 3 月 5 日 出现在 ICLR 2026 因此，动态场景重建传统上集中在缓慢的测试时间优化管道上。这种方法依赖于中间 2D 信号，例如深度和光流，这会带来很高的计算成本和</p>
+    <p>$$ \hat{\mathbf{I}}_{t&#x27;}(\mathbf{p}) = \sum_{i \in \mathcal{N}^{t&#x27;}_{\mathbf{p}}}{\mathbf{c}_i}{o_i \prod_{j=1}^{i-1}{(1-o_j)}},
+\label{eq:rast_img} $$</p>
     <p>
-      根据方法章节可知，作者首先构建了一个核心表示或中间条件，再通过若干模块把它逐步转换为最终输出。这种结构的优势在于：每个模块都承担明确职责，既便于解释，也更便于在实验中做模块级消融。
-      原文中与主线最相关的描述包括：
+      ( I_t) (I_t+1) I_t&#x27;(p) 沿每条射线的 N 阶深度排序高斯：其中该集合包含对像素 做出贡献的所有高斯，是从球谐函数导出的视图相关颜色，是根据投影 2D 高斯计算的不透明度。请注意，每个高斯的深度阶数可以随着……而改变
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>UNPOSED FEEDFORWARD 4D RECONSTRUCTION FROM TWO IMAGES Junhwa Hur1 Charles Herrmann1 Songyou Peng1 Philipp Henzler1 Zeyu Ma2 Todd Zickler3 Deqing Sun1 1Google 2Princeton University 3Harvard University Input image pair Dynamic 3D Gaussians in the canonical spac…</li><li>Our core insight is that differentiably rendering multiple signals from a single Dynamic 3D Gaussian representation offers major training advantages.</li><li>This approach enables a self-supervised image synthesis loss while tightly coupling appearance, depth, and motion.</li></ul></div>
-    <h3>3.2 训练目标、损失与公式信号</h3>
+    <p>$$ L_\text{total} = L_\text{sup} + L_\text{self}.
+ \label{eq:loss:total} $$</p>
     <p>
-      论文里的公式通常承担两类角色：一种是定义模型的预测关系与变量约束，另一种是定义优化时真正驱动模型更新的目标函数。阅读这类论文时，关键不是死记公式外形，而是理解每个公式分别在“表达结构”还是“约束行为”上发挥作用。
+      其关键优势在于，它允许来自渲染图像、点图​​和流图的监督信号通过光栅化器反向传播，从而能够使用单个框架对所有头进行鲁棒的联合优化。损失。我们的方法采用半监督学习方法。总损失包括超级……
     </p>
-    <div class='card'><strong>公式 / 指标片段 1：</strong><pre>fθ(It, It+1) 7→(G, P), with G = {(µ, v, r, s, h, o)p | p ∈D(It) ∪D(It+1)},</pre></div><div class='card'><strong>公式 / 指标片段 2：</strong><pre>at t′ = t + Δt</pre></div><div class='card'><strong>公式 / 指标片段 3：</strong><pre>at t′ = t</pre></div>
+    <p>$$ f_{\theta}(\mathbf{I}_t, \mathbf{I}_{t+1}) \mapsto (\mathcal{G}, \mathbf{P}), 
+\;\; \text{with} \;\; \mathcal{G} = \{ ( \boldsymbol\mu, \, \mathbf{v}, \, \mathbf{r}, \, \mathbf{s}, \, \mathbf{h}, \, o)_{\mathbf{p}} \, | \, \mathbf{p}\in \gD( \mathbf{I}_{t}) \cup \gD(\mathbf{I}_{t+1}) \},
+\label{eq:d3dgs} $$</p>
     <p>
-      从这些公式与周边段落可以推断，作者想要的不只是局部误差最小化，而是通过更精细的目标设计，让模型在结构一致性、生成质量、时序稳定性或可控性等方面同时受约束。这也是很多新方法能真正优于 baseline 的原因。
+      、3D点和3D场景流。因此，我们可以利用视图合成和下游重建任务进行监督。配方。给定输入未摆姿势的图像 和 ，我们的模型将它们映射到场景表示 ( , )，由一组动态 3D 高斯函数和相对相机姿势 组成：其中该集合...
     </p>
-    <h3>3.3 把全文方法串起来理解</h3>
+    <p>$$ \mathcal{G}(t&#x27;) = \{ ( \boldsymbol\mu+\Delta t {\cdot} \mathbf{v},\, \mathbf{v},\, \mathbf{r},\, \mathbf{s},\, \mathbf{h},\, \mathbf{c},\, o)_{\mathbf{p}} \},
+\label{eq:gaussian_t} $$</p>
     <p>
-      如果把这篇论文的方法看成一条流水线，那么它的逻辑通常是：先把输入变成一个更适合推理的中间表示，再围绕该表示施加关键模块与训练目标，最后把输出落到可评估、可可视化的结果上。
-      这种“表示—模块—目标—结果”的闭环设计，是本页所锁定模板最想强调的部分，因为它比零散摘录更能帮助后续复现与横向比较。
+      扩展标准 3D 高斯光栅器，不仅可以渲染彩色图像，还可以在任何中间时间渲染密集的点图和场景流。为了实现这一点，我们首先通过假设线性运动在连续时间（其中 ）对场景进行建模。高斯集是通过更新每个预测高斯的位置而形成的……
+    </p>
+    <p>$$ L_\text{sup} = L_\text{motion} + w_{\text{point}} L_\text{point} + w_{\text{pose}} L_\text{pose}, \\
+ L_\text{motion} = \textstyle\sum_{u \in \{t, t+1\}} \frac{1}{|\mathbf{V}^{\text{GT}}_u|} \big( || {\mathbf{v}}_u - \mathbf{V}^{\text{GT}}_u || + || {\mathbf{V}}_u - \mathbf{V}^{\text{GT}}_u || \big) \label{eq:loss:supervised:motion}, \\
+ L_\text{point} = \textstyle\sum_{u \in \{t, t+1\}} \frac{1}{|\mathbf{X}^{\text{GT}}_u|} \big( || {\boldsymbol \mu}_u - \mathbf{X}^{\text{GT}}_{u} || + || \mathbf{X}_u - \mathbf{X}^{\text{GT}}_{u} || \big), \label{eq:loss:supervised:point} \\ 
+ L_\text{pose} = || \mathbf{q} - \mathbf{q}_{\text{GT}} || + || \mathbf{\boldsymbol\tau} - \mathbf{\boldsymbol\tau}_{\text{GT}} ||. $$</p>
+    <p>
+      方法采用半监督学习方法。总损失由监督损失和自监督损失组成：监督损失惩罚运动、点和位姿的预测与地面实况之间的差异：子方程子方程我们应用于每个高斯中心的运动以及栅格......
+    </p>
+    <p>$$ L_\text{self} = L_\text{photo} + w_{\text{smooth}} L_\text{smooth}, \\
+ L_\text{photo} = \textstyle\sum_{u \in \{t, t+1\}} \big( {\text{mse}(\hat{\mathbf{I}}_u, \mathbf{I}_u) + w_{\text{lpips}} \text{lpips}(\hat{\mathbf{I}}_u, \mathbf{I}_u)} \big), \\
+ L_\text{smooth} = \textstyle\sum_{u \in \{t, t+1\}} \textstyle\sum_{\mathbf{d} \in \{ \mathbf{X}, \mathbf{V}\}} \big( |\partial_x \mathbf{d}_u|e^{-|\partial_x \mathbf{I}_u|} + |\partial_y \mathbf{d}_u|e^{-|\partial_y \mathbf{I}_u |} \big),
+\label{eq:loss:self} $$</p>
+    <p>
+      通过有效地面事实的数量进行归一化，对于 也同样，我们分别对平移和四元数进行强制。对于具有稀疏注释的基本事实的数据集，我们将损失应用于具有有效基本事实的输出和像素。我们还包括光栅化图像上的两个自监督损失，光栅化图像……
+    </p>
+    <figure><img class='paper-fig' src='../assets/2602_24290v2/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：(a) 每个高斯均以其运动进行平移以表示时间 t+t 的 3D 场景。 (b) 点和运动以及图像一起光栅化。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2602_24290v2/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：Stereo4D、Bonn 和 KITTI 上深度和投影 2D 光流的定性比较。
+对于 KITTI 上的运动，它可视化相对于相机的运动，如 GT 的定义。
+与 DynaDUSt3R 不同，ZeroMSF 和 St4RTrack 存在静态区域中的残余运动和对象边界上的不准确运动的问题，但它们表现出清晰的运动边界以及运动对象与背景之间的分离。 
+更多定性结果位于supp:additional_qualitative中。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2602_24290v2/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：不透明度作为可学习的置信度：
+ 不透明度贴图显示模型在遮挡（解除）场景中的行为。我们的模型学习为未遮挡区域分配高置信度（不透明度），并且对于相互可见的区域，它仅从两个视图中选择一个相应的高斯分布，从而实现高效且紧凑的 4D 表示。</figcaption></figure>
+    <p>
+      把全文方法串起来看，这篇论文的逻辑基本都遵循同一条主线：先把输入组织成更容易处理的表示，再通过模型结构和损失函数把这个表示推向目标输出，最后用可视化与数值实验共同证明该设计有效。
     </p>
 
     <h2 id='experiment'>实验结论</h2>
     <p>
-      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，优势究竟来自哪个模块。对这篇论文来说，实验设计明显围绕“与现有方法的对比 + 对关键组件的消融”展开。
+      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，这种优势来自哪一个设计决策。
     </p>
-    <p>
-      从实验段落的关键词和结果描述看，论文最想传达的结论包括：
-    </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>This synergy overcomes data scarcity, allowing UFO-4D to outperform prior work by up to 3× in joint geometry, motion, and camera pose estimation.</li><li>Since all modalities share the same geometric primitives, supervising one inherently regularizes and improves the others.</li><li>Our representation also enables high-fidelity 4D interpolation across novel views and time.</li><li>This explicit 4D representation can solve various downstream tasks such as 3D geometry (point, depth) and motion (scene flow, optical flow).</li></ul></div>
-    <figure><img class='paper-fig' src='../assets/2602_24290v2/fig_3.png' alt='Figure 3:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 3：该图来自论文原文，用于说明论文中的核心框架、可视化结果或实验现象。原始图注摘要：(a) Each Gaussian is translated with its motion to represent 3D scene at time t + ∆t. (b) Point and motion as well as an image are rasterized together. the relative camera pose P comprising a translation τ and quaternion q. The estimated pose is used for rasterizing image, depth, and motion at time…</figcaption></figure><figure><img class='paper-fig' src='../assets/2602_24290v2/fig_4.png' alt='Figure 4:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 4：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 4 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2602_24290v2/fig_5.png' alt='Figure 5:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 5：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 5 from the source paper.</figcaption></figure>
+    <p>实施细节。对于训练，我们使用 Stereo4D 、 PointOdyssey 和 Virtual KITTI 2 的混合，通过分别以 60%、20% 和 20% 的概率对小批量中的每个数据集进行采样。所有数据集都包含 3D 点、3D 场景流和相机姿势的（稀疏）注释。为了高效存储，我们通过对数据集的帧进行二次采样来使用完整 Stereo4D 数据集的 10%。我们使用 NoPoSplat（高斯头）和 MASt3R（其余）的预训练权重来初始化我们的网络（图：架构），但摄像头除外，它是从头开始训练的。我们训练具有不同纵横比的模型，图像宽度为 。我们应用光度增强和几何增强，例如随机尺度裁剪、水平翻转和时间翻转。我们训练模型进行 120k 迭代步骤，全局小批量大小为 16。训练在四个 NVIDIA A100 40GB GPU 上大约需要三天时间。 2D 和 3D 任务评估我们评估各种 2D 和 3D 几何和运动任务，例如深度、点和场景流，并将其与专门为给定一对输入帧的关节几何和运动估计而设计的最新方法进行比较： DynaDUSt3R 、 ZeroMSF 和并发工作 ST4RTrack 。（St4RTrack 主要针对长期跟踪进行优化，与此处评估的短期动态不同。）所有方法都在相同的协议下进行评估，如下DynaDUSt3R 和 ZeroMSF 对点流和场景流使用每图像中值比例对齐。 DynaDUSt3R 使用完整的 Stereo4D 数据集进行训练，而 ZeroMSF 使用合成数据集的混合，包括 SHIFT、Dynamic Replica、Virtual KITTI 2、MOVi-F、Spring 和 PointOdyssey。请参阅 sec:app:inference_setup 中有关每种方法的推理设置的详细信息。几何估计。 tab:exp:depth 比较了多个基准上的点图和几何估计深度的准确性，包括 Stereo4D test split 、 Bonn 和 KITTI Scene Flow 2015 Training 。对于点图，我们报告预测点图和在规范相机坐标处定义的地面真实点图之间的平均端点误差（EPE）。对于深度，我们报告标准深度指标、绝对相对误差 (Abs. Rel.) 和内点点百分比 ( )。我们的方法在 Stereo4D 上远远优于所有直接竞争对手，并且在其余数据集上仍然非常有竞争力。每种方法的数据集之间的权衡可能源于该方法使用的训练数据集的混合（tab:exp:data_ablation）。</p>
+    <p>例如，使用 Spring 数据集进行训练的方法（MonST3R 和 ZeroMSF）由于域差距较小，通常在 Sintel 上表现出良好的性能。图：qualitative_main 可视化所有方法的定性结果。我们的方法估计良好的深度边界，特别是在监督......</p>
+    <figure><img class='paper-fig' src='../assets/2602_24290v2/figure6_full.png' alt='Figure 6:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 6：损失消融的定性比较。来自点和运动的图像合成损失和渲染损失的梯度反向传播有助于改进运动和点估计，特别是在对象和运动边界上。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2602_24290v2/figure7_full.png' alt='Figure 7:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 7：DAVIS 上的 4D 插值。给定左侧的输入对，右侧显示在两个输入帧之间的插值时间处的规范相机坐标处的光栅化图像、深度和运动图。我们的方法还清楚地分割出移动的物体。</figcaption></figure>
     <ul>
-      <li>方法在主任务指标上不是偶然提升，而是与其结构设计和训练目标直接相关；</li>
-      <li>作者通过消融实验说明，若拿掉关键模块，性能与结果质量会明显回落；</li>
-      <li>论文不仅关注数值对比，也关注可视化质量、稳定性或可控性等更接近真实应用的信号。</li>
+      <li>方法在核心指标上的优势与结构设计和训练目标直接相关；</li>
+      <li>消融实验表明，拿掉关键模块后性能与结果质量都有明显回落；</li>
+      <li>论文不仅比较数值，也关注可视化质量、稳定性和泛化能力等更贴近真实使用的信号。</li>
     </ul>
-    <p>
-      因此，实验部分最重要的阅读方式不是死记某一列数字，而是看清：作者究竟想证明哪个机制有效、这个机制的收益是在什么设置下成立、它是否有明显的边界条件。
-    </p>
 
     <h2 id='takeaway'>理解评价</h2>
+    <p>我们引入了一个统一的前馈模型，用于从一对未摆出的图像进行 4D 重建。通过预测整体动态 3D 高斯泼溅表示，有效利用自我监督来克服数据稀缺和遮挡等挑战。在估计 3D 几何和运动方面显着优于先前的工作，同时独特地实现了高保真 4D 时空插值。我们的工作展示了动态场景理解的统一、显式表示的力量，为将该框架扩展到长序列视频和更复杂的运动模型开辟了有希望的途径。未来的工作。我们确定了未来探索的几个方向。由于高斯 Splats 的线性增长，对长序列的简单扩展将占用大量内存；</p>
+    <p>未来的工作可以探索紧凑的场景表示。此外，我们的模型对线性运动和恒定亮度的假设最适合短时间间隔。这可以通过结合可学习的非线性运动模型和时变高斯属性来处理更复杂的动力学和光度变化来解决。此外，当注释（来自多视图视频数据集）可用时，可以将新视图和时间下的渲染图像、运动和几何图形作为额外的监督目标，以增强时空一致性。致谢 我们衷心感谢 Richard Szeliski、Junyi Zhu、Michael Rubinstein、Richard Tucker 和 Linyi Jin 在整个项目过程中提供的有益讨论和技术援助。</p>
+    <p>我们也感谢匿名审稿人在审稿过程中提供的建设性反馈。</p>
     <p>
-      从研究定位上看，这篇论文的意义在于它没有把问题局限在某一个局部改动，而是尝试给出一套更完整的求解路径。对读者而言，最值得关注的是它如何重新组合表示、模块和训练目标，以及这些设计是否能迁移到相近任务上。
+      如果把它当成研究参考，建议重点关注三件事：第一，这套方法真正依赖的归纳偏置是什么；第二，实验中真正拉开差距的模块是哪一个；第三，它的局限究竟来自数据、算力还是监督信号本身。
     </p>
     <p>
-      如果把它当成研究参考，我会重点看三件事：
-      第一，这套方法的核心归纳偏置是什么；
-      第二，实验中真正拉开差距的模块是哪一块；
-      第三，它的限制条件是数据、算力、时序长度，还是奖励/监督信号本身。
-    </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>ABSTRACT Dense 4D reconstruction from unposed images remains a critical challenge, with current methods relying on slow test-time optimization or fragmented, taskspecific feedforward models.</li></ul></div>
-    <p>
-      进一步延伸阅读时，可以把这篇工作放到更广泛的技术脉络里：它与同类方法相比，到底是在表示层、生成层、优化层还是评估层提出了更强的方案。下面这些自动检索到的相关论文可作为继续追踪的入口：
+      以下相关论文可以作为进一步追踪的入口：
     </p>
     <ul></ul>
 
     <div class='tip'>
       <strong>一句结论：</strong>
-      这篇论文值得读的原因，不只是它给出了一组更好的结果，而是它提供了一条相对完整的问题求解思路：如何把任务定义、方法设计与实验验证真正对齐到同一条研究主线上。
+      这篇论文值得关注的地方在于，它不只给出了更好的实验结果，更提供了一条相对完整的问题求解路径，把任务定义、方法设计与实验验证真正对齐到了同一条研究主线上。
     </div>
   </article>
 </div>
+
   </div>
 </div>
 </body>
