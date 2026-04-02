@@ -36,6 +36,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from typing import Optional
 
 from arxiv_tool import (
     ArxivTool,
@@ -44,6 +45,7 @@ from arxiv_tool import (
     SortBy,
     SortOrder,
 )
+from generate_index import write_papers_index
 from pdf_reader import PdfReaderTool
 
 # ── 排序映射 ──
@@ -112,7 +114,7 @@ def interactive_download(tool: ArxivTool, papers: list[Paper], dest_dir: str) ->
         print("未选择任何论文。")
 
 
-def print_pdf_read_result(result: dict, page: int | None = None) -> None:
+def print_pdf_read_result(result: dict, page: Optional[int] = None) -> None:
     print(f"\n{'=' * 88}")
     print(f"  [{result['arxiv_id']}] {result['title']}")
     print(f"  文件: {result['filename']}")
@@ -194,6 +196,7 @@ def cmd_download(args: argparse.Namespace) -> None:
     if papers:
         print(f"开始下载全部 {len(papers)} 篇到 {args.dir} ...\n")
         tool.download_batch(papers, dest_dir=args.dir, overwrite=args.overwrite)
+        write_papers_index(Path(args.dir))
 
 
 def cmd_download_id(args: argparse.Namespace) -> None:
@@ -235,6 +238,7 @@ def cmd_download_id(args: argparse.Namespace) -> None:
         )
         print(f"\n{paper}\n")
         tool.download(paper, dest_dir=args.dir, overwrite=args.overwrite)
+    write_papers_index(Path(args.dir))
 
 
 def cmd_index_pdf(args: argparse.Namespace) -> None:

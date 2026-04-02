@@ -3,14 +3,14 @@
 batch_download.py  —  批量搜索并下载 feedforward 3DGS / world model 论文
 """
 import sys
-import json
 import time
 from pathlib import Path
 
 # 确保能导入本地模块
 sys.path.insert(0, str(Path(__file__).parent))
 
-from arxiv_tool import ArxivTool, QueryBuilder, SortBy, SortOrder, Paper
+from arxiv_tool import ArxivTool, SortBy, SortOrder, Paper
+from generate_index import write_papers_index
 
 DOCS_DIR = Path(__file__).parent / "docs"
 DOCS_DIR.mkdir(parents=True, exist_ok=True)
@@ -140,23 +140,8 @@ def main():
 
     downloaded = tool.download_batch(sorted_papers, dest_dir=str(DOCS_DIR))
 
-    # 保存论文元数据索引
-    index = []
-    for p in sorted_papers:
-        index.append({
-            "arxiv_id": p.arxiv_id,
-            "title": p.title,
-            "authors": p.authors,
-            "published": p.published,
-            "categories": p.categories,
-            "pdf_url": p.pdf_url,
-            "abs_url": p.abs_url,
-            "summary": p.summary[:300] + "..." if len(p.summary) > 300 else p.summary,
-        })
-
-    index_path = DOCS_DIR / "papers_index.json"
-    with open(index_path, "w", encoding="utf-8") as f:
-        json.dump(index, f, ensure_ascii=False, indent=2)
+    # 统一由 canonical 写入器生成稳定索引，减少 Git diff 噪声
+    index_path = write_papers_index(DOCS_DIR)
 
     print(f"\n\n{'#' * 80}")
     print(f"  ✅ 下载完成！共 {len(downloaded)}/{len(sorted_papers)} 篇")
