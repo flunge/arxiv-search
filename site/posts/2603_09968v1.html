@@ -70,7 +70,7 @@
     blockquote { margin: 16px 0; padding: 8px 16px; border-left: 4px solid #d8e7ff; background: #f8fbff; color: #333; }
     .tip { background: #f7f9fc; border: 1px solid #e8eef6; border-radius: 10px; padding: 12px; }
     .dashboard-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-top:18px; }
-    .dashboard-card { aspect-ratio: 1 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
+    .dashboard-card { aspect-ratio: 1.618 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
     .dashboard-card > * { min-width: 0; }
     .dashboard-card .dashboard-content { display:flex; flex-direction:column; height:100%; min-height:0; }
     .dashboard-card .dashboard-scroll { overflow:auto; min-height:0; }
@@ -151,6 +151,7 @@
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
+
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
 
@@ -160,103 +161,118 @@
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      这篇论文关注的是“ReCoSplat 所对应的问题能否在更可控、更稳健或更高质量的条件下被解决”。从摘要与方法描述来看，作者的总体路线是：先搭建一个明确的表示或生成框架，再围绕训练目标、结构设计和实验验证把该问题推进到更可用的工程形态。
+      在线新颖的视图合成仍然具有挑战性，需要从连续的、通常是未摆姿势的观察中进行稳健的场景重建。我们提出了 ReCoSplat，一种自回归前馈高斯 Splatting 模型，支持有姿势或无姿势输入，无论有或没有相机内部函数。虽然使用相机姿势组装局部高斯模型比规范空间预测更好，但它在训练过程中造成了一个困境：使用地面真值姿势可以确保稳定性，但在推理中使用预测姿势时会导致分布不匹配。为了解决这个问题，我们引入了渲染和比较（ReCo）模块。 ReCo 从预测的视点渲染当前重建，并将其与传入的观测结果进行比较，提供稳定的调节信号来补偿姿态误差。为了支持长序列，我们提出了一种混合 KV 缓存压缩策略，将早期…
     </div>
 
     <h2 id='summary'>简单摘要</h2>
-    <p>
-      从论文摘要可以看出，这项工作的落点并不是单纯提升一个局部模块，而是围绕完整任务链路做系统设计。它通常会同时回答三个问题：任务为什么重要、现有方法卡在哪里、作者的新方案如何绕开这些瓶颈。
-      就这篇论文而言，摘要部分强调的核心是：<strong>Online novel view synthesis remains challenging, requiring robust scene reconstruction from sequential, often unposed, observations. We present ReCoSplat, an autoregressive feed-f…</strong>
-    </p>
-    <p>
-      如果把它放进更大的技术背景中理解，可以把这篇论文视作一条“问题定义 → 表示设计 → 训练优化 → 实验验证”的完整研究闭环。也就是说，作者并不是只给出一个孤立模块，而是希望通过一整套方法让系统在真实场景或关键指标上取得更稳定提升。
-    </p>
-    <figure><img class='paper-fig' src='../assets/2603_09968v1/fig_1.png' alt='Figure 1:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 1：该图来自论文原文，用于说明论文中的核心框架、可视化结果或实验现象。原始图注摘要：Autoregressive Reconstruction. We present ReCoSplat, a method that reconstructs 3D scenes from sequential image streams. video generation [2,30]. This motivates feed-forward methods capable of synthesizing novel views in real time as observations arrive. We present ReCoSplat, an autoregressive feed…</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_09968v1/fig_2.png' alt='Figure 2:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 2：该图来自论文原文，用于说明论文中的核心框架、可视化结果或实验现象。原始图注摘要：ReCoSplat overview. Given a chunk of input images, a DINO-based encoder extracts features, which are then processed by an alternating-attention transformer with an autoregressive KV cache. The pose head predicts camera poses, while the Gaussian head predicts local Gaussian primitives. To bridge the…</figcaption></figure>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>To support long sequences, we propose a hybrid KV cache compression strategy combining early-layer truncation with chunk-level selective retention, reducing the KV cache size by over 90% for 100+ frames.</li><li>We present ReCoSplat, an autoregressive feed-forward Gaussian Splatting model supporting posed or unposed inputs, with or without camera intrinsics.</li></ul></div>
+    <p>在线新颖的视图合成仍然具有挑战性，需要从连续的、通常是未摆姿势的观察中进行稳健的场景重建。我们提出了 ReCoSplat，一种自回归前馈高斯 Splatting 模型，支持有姿势或无姿势输入，无论有或没有相机内部函数。虽然使用相机姿势组装局部高斯模型比规范空间预测更好，但它在训练过程中造成了一个困境：使用地面真值姿势可以确保稳定性，但在推理中使用预测姿势时会导致分布不匹配。为了解决这个问题，我们引入了渲染和比较（ReCo）模块。</p>
+    <p>ReCo 从预测的视点渲染当前重建，并将其与传入的观测结果进行比较，提供稳定的调节信号来补偿姿态误差。为了支持长序列，我们提出了一种混合 KV 缓存压缩策略，将早期层截断与块级选择性保留相结合，对于 100 多个帧，将 KV 缓存大小减少了 90% 以上。 ReCoSplat 在发行内和发行外基准测试中的不同输入设置上均实现了最先进的性能。代码和预训练模型将被发布。我们的项目页面位于 https://freemanheng.com/ReCoSplat。</p>
+    <p>新颖的视图综合高斯泼溅前馈网络</p>
+    <figure><img class='paper-fig' src='../assets/2603_09968v1/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：自回归重建。我们提出了 ReCoSplat，一种从连续图像流重建 3D 场景的方法。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2603_09968v1/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：ReCoSplat 概述。 
+ 给定一大块输入图像，基于 DINO 的编码器会提取特征，然后由具有自回归 KV 缓存的交替注意力变换器进行处理。 
+ 姿势头预测相机姿势，而高斯头预测局部高斯基元。 
+ 为了弥合训练和推理之间的姿势分布不匹配，渲染和比较模块渲染装配姿势的当前重建，并将其与传入的观察结果进行比较，以通过交叉注意提供调节。 
+ 然后将预测的局部高斯变换为世界坐标并合并到累积的场景中。</figcaption></figure>
+    <blockquote>
+      简而言之，这篇论文关注的核心是：在线新颖的视图合成仍然具有挑战性，需要从连续的、通常是未摆姿势的观察中进行稳健的场景重建。我们提出了 ReCoSplat，一种自回归前馈高斯 Splatting 模型，支持有姿势或无姿势输入，无论有或没有相机内部函数。虽然使用相机姿势组装局部高斯模型比规范空间预测更好，但它在训练过程中造成了一个困…
+    </blockquote>
+    <p>新颖的视图合成旨在从看不见的视点渲染场景的真实感图像。在场景表示中，3D 高斯由于其高质量的实时渲染而被广泛采用。然而，基于优化的高斯分布需要冗长的每个场景训练，限制了实时应用。前馈高斯分布直接从输入图像预测 3D 高斯，绕过每个场景的优化。然而，这些方法的目标是离线重建，其中所有图像都可以预先获得。尽管观察结果按顺序到达的自回归设置对于具体人工智能、AR/VR 和视频生成很重要，但它在很大程度上仍未得到探索。</p>
+    <p>这激发了前馈方法能够在观察到达时实时合成新颖的视图。我们提出了 ReCoSplat，一种自回归前馈高斯分布方法，用于在有或没有相机内在参数的情况下，从数百张处于姿势或非姿势设置的图像中进行场景重建。在实践中，相机参数差异很大：外部参数可能来自传感器或丢失，而内部参数可能存在于元数据中或被删除。稳健的方法必须处理这些不同的传感器输入组合。最近的工作表明，在本地相机空间中预测高斯并通过相机姿势（我们称之为装配姿势）将它们映射到世界坐标，比直接在规范空间中进行预测具有更好的可扩展性。</p>
+    <p>然而，一个关键的设计选择是在训练期间使用真实的还是预测的组装姿势，这一决定区分了现有的自回归方法。 StreamGS 和 SaLon3R 使用预测姿势，但这将高斯预测与姿势估计结合在一起并导致不稳定。使用真实姿势可以解耦任务，如 LongSplat 中所示，但假设提供了相机姿势。一种自然的替代方案是使用真实姿势进行训练，并在推理时切换到预测姿势。然而，这引入了姿态分布不匹配，导致高斯错位。虽然 YoNoSplat 等离线模型通过训练课程缓解了这一问题，但我们发现此类策略在姿态估计更具挑战性的自回归环境中无效。</p>
+    <p>为了解决使用地面真实装配姿势进行训练时的姿势分布不匹配问题，ReCoSplat 引入了受综合分析框架启发的渲染和比较模块。这种范式将视觉视为一个逆问题，通过将合成视图与观察结果进行比较来完善预测。因此，在预测新观察的高斯分布时，……</p>
 
     <h2 id='innovation'>核心创新</h2>
     <p>
-      对照引言与方法部分，这篇论文的创新点主要体现在“如何重新组织问题求解链路”上。相比简单替换一个 backbone 或增加一个 loss，作者更像是在重新定义系统的关键接口与约束方式。
+      综合引言与方法部分，这篇论文的核心创新可以概括为以下几方面：
     </p>
-    <h3>1）从任务设定上重新界定问题边界</h3>
+    <h3>1）问题定义与研究动机</h3>
     <p>
-      论文强调的问题并不只是已有方案做得不够好，而是很多现有方法在目标可控性、泛化范围、效率约束或结构一致性上存在天然短板。因此作者先重述了任务定义，再围绕新的目标函数和场景假设去设计整体方案。
+      新颖的视图合成旨在从看不见的视点渲染场景的真实感图像。在场景表示中，3D 高斯由于其高质量的实时渲染而被广泛采用。然而，基于优化的高斯分布需要冗长的每个场景训练，限制了实时应用。前馈高斯分布直接从输入图像预测 3D 高斯，绕过每个场景的优化。然而，这些方法的目标是离线重建，其中所有图像都可以预先获得。尽管观察结果按顺序到达的自回归设置对于具体人工智能、AR/VR 和视频生成很重要，但它在很大程度上仍未得到探索。这激发了前馈方法能够在观察到达时实时合成新颖的视图。我们提出了 ReCoSplat，一种自回归前馈高斯分布方法，用于在有或没有相机内在参数的情况下，从数百张处于姿势或非姿势设置的图像中进行场景重建。在实践中，相机参数差异很大：外部参数可能来自传感器或丢失，而内部参数可能存在于元数据中或被删除。稳健的方法必须处理这些不同的传感器输入组合。最近的工作表明，在本地相机空间中预测高斯并通过相机姿势（我们称之为装配姿势）将它们映射到世界坐标，比直接在规范空间中进行预测具有更好的可扩展性。然而，一个关键的设计选择是在训练期间使用真实的还是预测的组装姿势，这一决定区分了现有的自回归方法。 S…
     </p>
-    <h3>2）用统一框架串起表示、推理和优化</h3>
+    <h3>2）方法框架与核心模块</h3>
     <p>
-      从原文描述看，这篇论文并不是把多个模块松散拼接，而是在一个统一框架里安排表示形式、关键模块和训练信号，使它们彼此服务。这类设计往往决定了方法能否真正具备工程可落地性。
+      ReCoSplat 的概述如图所示。问题表述 ReCoSplat 从以非重叠图像块处理的连续图像流中重建 3D 场景。在时间步 ，自回归网络接收新的图像块 、可选的相机参数（内在）和（外在）、来自先前块的 KV 缓存以及包含所有先前预测的 3D 高斯的累积场景。模型估计：其中 是预测的局部高斯， 是预测的内部和外部相机参数， 是更新的 KV 缓存。每组局部高斯函数都在 image 的相机空间中定义。为了合并到累积的场景中，我们根据输入设置使用地面实况或预测的相机姿势将其转换为世界坐标。我们将这个姿势定义为装配姿势。使用 ，我们通过合并本地高斯函数来更新场景：自回归骨干 ReCoSplat 使用基于 YoNoSplat 的自回归骨干处理图像，并使用 KV 缓存进行增强。 -2mm 编码器和解码器。给定图像块 ，用 DINOv2 初始化的 ViT 编码器将每个图像映射到全局相机标记和补丁标记 ：通过两层 MLP 从相机标记预测相机内在函数： 。补丁标记由 36 层交替注意力变换器解码器、交错帧和全局注意力处理，以产生多视图特征。 -2mm 预测头。预测头包括一个姿势头和三个高斯头，用于解…
     </p>
-    <h3>3）把实验目标直接对齐到实际痛点</h3>
+    <h3>3）实验设计与工程价值</h3>
     <p>
-      论文中的实验不仅比较常规 benchmark，也会额外关注更贴近实际系统需求的指标，例如稳定性、控制性、质量上界、对长尾场景的适应能力等。换句话说，它不是只追求单一数值，而是试图证明整套系统在真实使用方式下也成立。
+      实验设置 -2mm 数据集。我们在 DL3DV（9,894 次训练/140 次测试）和 ScanNet++（968 次训练/50 次测试）上训练和评估 ReCoSplat，在训练期间以 10:1 的比例采样。 DL3DV包含多样化的室内和室外场景，而ScanNet++则专注于具有更多不规则相机轨迹的房间尺度的室内场景。为了评估泛化性，我们还对 RealEstate10K（室内/室外房地产视频）、ACID（空中海岸线视频）和 ScanNet（房间规模的室内捕捉）进行评估。由于场景大小差异较大，我们将 RealEstate10K 和 ACID 限制为至少包含 200 个图像的场景（RealEstate10K 为 1648，ACID 为 755）。对于 ScanNet，我们对以下 8 个场景进行评估，以进行公平比较。上下文视图是通过地面实况相机位置上的最远点采样来选择的。对于每个场景，通过将剩…
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>Among scene representations, 3D Gaussians have been widely adopted due to their high-quality real-time rendering.</li><li>1 Introduction Novel view synthesis aims to render photorealistic images of a scene from unseen viewpoints.</li><li>To address pose distribution mismatch from training with ground-truth assembly poses, ReCoSplat introduces a Render-and-Compare module inspired by the Analysis-by-Synthesis framework [38].</li><li>A robust method must handle these diverse combinations of sensor inputs.</li></ul></div>
 
     <h2 id='technical'>技术细节</h2>
     <p>
-      方法部分是理解论文价值的关键。结合原文可以看到，作者通常会先定义输入输出，再介绍中间表示、主干模块、损失函数或奖励机制，最后说明训练与推理时各模块如何协同。
-      对这篇论文而言，方法线索主要集中在以下几个方面：
+      下面按照论文的方法章节结构展开，重点说明模型的关键模块、公式设计和训练策略。
     </p>
-    <h3>3.1 方法主线与模块组织</h3>
+    <p>ReCoSplat 的概述如图所示。问题表述 ReCoSplat 从以非重叠图像块处理的连续图像流中重建 3D 场景。在时间步 ，自回归网络接收新的图像块 、可选的相机参数（内在）和（外在）、来自先前块的 KV 缓存以及包含所有先前预测的 3D 高斯的累积场景。模型估计：其中 是预测的局部高斯， 是预测的内部和外部相机参数， 是更新的 KV 缓存。每组局部高斯函数都在 image 的相机空间中定义。为了合并到累积的场景中，我们根据输入设置使用地面实况或预测的相机姿势将其转换为世界坐标。我们将这个姿势定义为装配姿势。使用 ，我们通过合并本地高斯函数来更新场景：自回归骨干 ReCoSplat 使用基于 YoNoSplat 的自回归骨干处理图像，并使用 KV 缓存进行增强。 -2mm 编码器和解码器。给定图像块 ，用 DINOv2 初始化的 ViT 编码器将每个图像映射到全局相机标记和补丁标记 ：通过两层 MLP 从相机标记预测相机内在函数： 。补丁标记由 36 层交替注意力变换器解码器、交错帧和全局注意力处理，以产生多视图特征。 -2mm 预测头。预测头包括一个姿势头和三个高斯头，用于解码每个高斯的位置、属性和特征。姿势头根据解码器特征预测相机外在特征：。高斯头根据上采样特征预测基元，每个特征都通过交叉注意力以来自渲染和比较模块（第 节）的标记为条件：姿势头使用五层逐帧变换器，后跟两层 MLP。位置头和属性头各自使用带有线性投影的五层变压器。特征头是一个 DPT，它将位置头的中间激活作为输入，其性能比相同的分支更好。 -2mm KV 缓存。为了实现自回归处理，我们为 Transformer 解码器的最后全局注意力层维护一个 KV 缓存。在 timestep ，解码器处理当前补丁令牌以及来自先前块的缓存键和值。在全局注意力层中，每个补丁标记关注当前块中的标记以及存储在 . KV 缓存在每个时间步后更新：</p>
+    <p>渲染和比较模块现有方法使用预测或地面实况姿势进行局部高斯组装。前者将高斯预测与姿态估计结合起来，限制了重建质量，而后者使预测偏向真实姿态，当预测姿态用于推理时会产生姿态分布不匹配（第 1、2、3 节）。一个直观的替代方案是混合两种姿势来源的课程。然而，这种策略是无效的，因为姿态估计在自回归设置中更加困难，因此预测的装配姿态有噪声并且提供弱监督（第 1 节）。为了解决姿势分布不匹配的问题，我们……</p>
+    <p>$$ (\mathbf{G}_t, \hat{\mathbf{K}}_t, \hat{\mathbf{P}}_t, M_t) 
+ = 
+ f_\theta(
+ \mathbf{I}_t, \mathbf{K}_t, \mathbf{P}_t, M_{t - 1}, S_{t - 1}
+ ), $$</p>
     <p>
-      根据方法章节可知，作者首先构建了一个核心表示或中间条件，再通过若干模块把它逐步转换为最终输出。这种结构的优势在于：每个模块都承担明确职责，既便于解释，也更便于在实验中做模块级消融。
-      原文中与主线最相关的描述包括：
+      [4, 8] t f_ I_t =(I_t^1, ..., I_t^n) K_t = (K_t^1, ..., K_t^n) P_t = (P_t^1, ..., P_t^n) M_t-1 S_t-1 包含所有先前预测的 3D 高斯。模型估计：其中 是预测的局部高斯， 是预测的内部和外部相机参数， 是更新的 KV 缓存。每套…
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>To address pose distribution mismatch from training with ground-truth assembly poses, ReCoSplat introduces a Render-and-Compare module inspired by the Analysis-by-Synthesis framework [38].</li><li>Recent work demonstrates that predicting Gaussians in local camera space and mapping them to world coordinates via camera poses, which we term assembly poses, yields better scalability than predicting directly in a canonical space [35, 36].</li><li>The rendered–observed pair captures pose discrepancies and provides a stable geometric and visual prior that guides Gaussian prediction via cross-attention.</li></ul></div>
-    <h3>3.2 训练目标、损失与公式信号</h3>
+    <p>$$ S_t = S_{t-1} \cup \text{Transform}(\mathbf{G}_t, \mathbf{A}_t). $$</p>
     <p>
-      论文里的公式通常承担两类角色：一种是定义模型的预测关系与变量约束，另一种是定义优化时真正驱动模型更新的目标函数。阅读这类论文时，关键不是死记公式外形，而是理解每个公式分别在“表达结构”还是“约束行为”上发挥作用。
+      。每组局部高斯函数都在 image 的相机空间中定义。为了合并到累积的场景中，我们根据输入设置使用地面实况或预测的相机姿势将其转换为世界坐标。我们将这个姿势定义为装配姿势。使用 ，我们通过合并...来更新场景
     </p>
-    <div class='card'><strong>公式 / 指标片段 1：</strong><pre>network fθ receives a new image chunk It = (I1</pre></div><div class='card'><strong>公式 / 指标片段 2：</strong><pre>t ), optional camera parameters Kt = (K1</pre></div><div class='card'><strong>公式 / 指标片段 3：</strong><pre>t ) (intrinsics) and Pt = (P 1</pre></div><div class='card'><strong>公式 / 指标片段 4：</strong><pre>(\ math bf { G}_ t , \hat {\ mat hbf { K}}_t, \hat {\mathbf {P}}_t, M_t) = f_\theta ( \mathbf {I}_t, \mathbf {K}_t, \mathbf {P}_t, M_{t - 1}, S_{t - 1} ),</pre></div>
+    <p>$$ [c_t^k, E_t^k] = \text{Encoder}(I_t^k) $$</p>
     <p>
-      从这些公式与周边段落可以推断，作者想要的不只是局部误差最小化，而是通过更精细的目标设计，让模型在结构一致性、生成质量、时序稳定性或可控性等方面同时受约束。这也是很多新方法能真正优于 baseline 的原因。
+      kbone ReCoSplat 使用基于 YoNoSplat 的自回归主干来处理图像，并通过 KV 缓存进行增强。 -2mm 编码器和解码器。给定一个图像块，使用 DINOv2 初始化的 ViT 编码器将每个图像映射到全局相机令牌和补丁令牌：通过…从相机令牌预测相机内在函数。
     </p>
-    <h3>3.3 把全文方法串起来理解</h3>
+    <p>$$ G_t^k = \Bigl[\text{Head}_\text{xyz}((F_t^k)^{2\times}, Z_t^k),\ 
+\text{Head}_\text{gs}((F_t^k)^{2\times}, Z_t^k),\ 
+\text{Head}_\text{feat}((F_t^k)^{2\times}, Z_t^k)\Bigr]. $$</p>
     <p>
-      如果把这篇论文的方法看成一条流水线，那么它的逻辑通常是：先把输入变成一个更适合推理的中间表示，再围绕该表示施加关键模块与训练目标，最后把输出落到可评估、可可视化的结果上。
-      这种“表示—模块—目标—结果”的闭环设计，是本页所锁定模板最想强调的部分，因为它比零散摘录更能帮助后续复现与横向比较。
+      ussian 头解码每个高斯的位置、属性和特征。姿势头根据解码器特征预测相机外在特征：。高斯头根据上采样特征预测基元，每个特征都通过交叉注意以来自渲染和比较模块（部分）的标记为条件：姿势头使用……
+    </p>
+    <p>$$ \mathbf{F}_t, M_t = \text{Decoder}(\mathbf{E}_t, M_{t - 1}). $$</p>
+    <p>
+      回归处理中，我们为 Transformer 解码器的最后一个全局注意力层维护一个 KV 缓存。在 timestep ，解码器处理当前补丁令牌以及来自先前块的缓存键和值。在全局注意力层中，每个补丁令牌都会关注当前块中的令牌以及其他......
+    </p>
+    <p>$$ \hat{R}_t^k = \text{Render}(S_{t - 1}, A_t^k) $$</p>
+    <p>
+      回归设置，因此预测的装配姿势有噪音并且提供弱监督（第 1 节）。为了解决姿势分布不匹配的问题，我们引入了渲染和比较模块，该模块可以从使用地面实况进行训练到使用预测的装配姿势进行推理。对于当前块中的每个图像，...
+    </p>
+    <figure><img class='paper-fig' src='../assets/2603_09968v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：新颖的视图合成，在未设定的设置下增加输入视图。 ReCoSplat 改进了几何形状并减少了自回归基线上的伪影。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2603_09968v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：在完全摆好姿势和校准的设置中进行新颖的视图合成，具有 128 和 256 个输入视图。消除姿态误差后，重建质量取决于局部高斯预测精度。我们的方法模块可以纠正局部高斯错误预测，超越自回归基线并在 PSNR 中击败 YoNoSplat。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2603_09968v1/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：A6000 GPU 上的峰值 GPU 内存使用情况。与 YoNoSplat 和未压缩的基准相比，KV 缓存压缩显着抑制了内存使用。标注了常见GPU型号的OOM阈值。</figcaption></figure>
+    <p>
+      把全文方法串起来看，这篇论文的逻辑基本都遵循同一条主线：先把输入组织成更容易处理的表示，再通过模型结构和损失函数把这个表示推向目标输出，最后用可视化与数值实验共同证明该设计有效。
     </p>
 
     <h2 id='experiment'>实验结论</h2>
     <p>
-      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，优势究竟来自哪个模块。对这篇论文来说，实验设计明显围绕“与现有方法的对比 + 对关键组件的消融”展开。
+      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，这种优势来自哪一个设计决策。
     </p>
-    <p>
-      从实验段落的关键词和结果描述看，论文最想传达的结论包括：
-    </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>ReCoSplat achieves state-of-the-art performance across different input settings on both in- and out-of-distribution benchmarks.</li><li>Among scene representations, 3D Gaussians have been widely adopted due to their high-quality real-time rendering.</li></ul></div>
-    
+    <p>实验设置 -2mm 数据集。我们在 DL3DV（9,894 次训练/140 次测试）和 ScanNet++（968 次训练/50 次测试）上训练和评估 ReCoSplat，在训练期间以 10:1 的比例采样。 DL3DV包含多样化的室内和室外场景，而ScanNet++则专注于具有更多不规则相机轨迹的房间尺度的室内场景。为了评估泛化性，我们还对 RealEstate10K（室内/室外房地产视频）、ACID（空中海岸线视频）和 ScanNet（房间规模的室内捕捉）进行评估。由于场景大小差异较大，我们将 RealEstate10K 和 ACID 限制为至少包含 200 个图像的场景（RealEstate10K 为 1648，ACID 为 755）。对于 ScanNet，我们对以下 8 个场景进行评估，以进行公平比较。上下文视图是通过地面实况相机位置上的最远点采样来选择的。对于每个场景，通过将剩余帧划分为 8 个容器并从每个容器中采样一张图像来保留 8 个目标新颖视图。 -2mm 评估方法。我们将 ReCoSplat 与 YoNoSplat 、 FreeSplat 和 S3PO-GS 进行比较，以实现新颖的视图合成。由于代码不可用，最近的自回归前馈方法（StreamGS、SaLon3R、LongSplat）被排除在外。 YoNoSplat 用作离线前馈基线，并在我们的数据集分割和训练设置上进行了微调，以进行公平比较。 FreeSplat 是一种离线方法，可以通过将成本量限制在过去的帧来适应自回归推理；相反，我们将原始模型评估为上限。由于 FreeSplat 仅在 100 个 ScanNet 场景上进行训练，因此我们仅在 ScanNet 上对其进行评估。 S3PO-GS 代表基于优化的自回归方法，但由于每个场景优化成本高昂，因此被排除在 RealEstate10K 之外。为了在不访问其代码库的情况下与 LongSplat 进行近似比较，我们使用 LongSplat 的高斯图像表示（GIR）作为交叉注意条件信号（表示为 GIR）来训练 ReCoSplat 的版本。我们还包括删除渲染和比较模块的消融，表示为 KV 缓存。对于相机姿态估计，我们与 YoNoSplat 和具有不同内存设计的代表性在线方法进行比较：CUT3R 和 TTT3R（循环状态）、StreamVGGT（未压缩的 KV 缓存）和 WinT3R（不断增长的相机令牌池）。 -2mm 指标。我们使用 PSNR、SSIM 和 LPIPS 评估新颖的视图合成。在姿势设置中，目标以地面真实姿势渲染。在无姿势设置中，我们遵循先前的无姿势工作并预测渲染的目标姿势。具体来说，使用渲染损失通过 100 次姿势优化迭代来预测目标姿势。</p>
+    <p>对于相机姿态估计，我们报告在 、 和 阈值处的累积角度姿态误差曲线 (AUC) 下的面积。 -2mm 实施细节。我们使用 A6000 48GB GPU 以分辨率训练 ReCoSplat。消融和巴塞尔……</p>
+
     <ul>
-      <li>方法在主任务指标上不是偶然提升，而是与其结构设计和训练目标直接相关；</li>
-      <li>作者通过消融实验说明，若拿掉关键模块，性能与结果质量会明显回落；</li>
-      <li>论文不仅关注数值对比，也关注可视化质量、稳定性或可控性等更接近真实应用的信号。</li>
+      <li>方法在核心指标上的优势与结构设计和训练目标直接相关；</li>
+      <li>消融实验表明，拿掉关键模块后性能与结果质量都有明显回落；</li>
+      <li>论文不仅比较数值，也关注可视化质量、稳定性和泛化能力等更贴近真实使用的信号。</li>
     </ul>
-    <p>
-      因此，实验部分最重要的阅读方式不是死记某一列数字，而是看清：作者究竟想证明哪个机制有效、这个机制的收益是在什么设置下成立、它是否有明显的边界条件。
-    </p>
 
     <h2 id='takeaway'>理解评价</h2>
+    <p>在这项工作中，我们提出了 ReCoSplat，一种自回归前馈高斯 Splatting 框架，用于根据顺序观察进行在线新视图合成。我们引入了渲染和比较模块来桥接真实姿势和预测组装姿势之间的姿势分布不匹配，从而在姿势和非姿势设置中实现稳健的重建。为了支持长序列，我们进一步提出了一种 KV 缓存压缩策略，可以在保持重建质量的同时大大减少内存使用。跨多个数据集和输入配置的实验表明，ReCoSplat 在自回归方法中实现了最先进的性能，同时保持与离线方法的竞争力。</p>
+    <p>-2mm 限制。虽然 ReCoSplat 通过弥合地面实况和预测装配姿势之间的分布不匹配来提高对姿势错误的鲁棒性，但未姿势设置中的重建质量不能完全独立于姿势估计精度。大的姿态误差仍然会传播到高斯装配并影响渲染保真度。因此，在线姿态估计的进步可能会进一步增强自回归重建性能。 -2毫米致谢。我们感谢刘思飞的广泛讨论和富有洞察力的建议，帮助改进了这项工作。我们还感谢陈硕和黄冠之的有益讨论。</p>
     <p>
-      从研究定位上看，这篇论文的意义在于它没有把问题局限在某一个局部改动，而是尝试给出一套更完整的求解路径。对读者而言，最值得关注的是它如何重新组合表示、模块和训练目标，以及这些设计是否能迁移到相近任务上。
+      如果把它当成研究参考，建议重点关注三件事：第一，这套方法真正依赖的归纳偏置是什么；第二，实验中真正拉开差距的模块是哪一个；第三，它的局限究竟来自数据、算力还是监督信号本身。
     </p>
     <p>
-      如果把它当成研究参考，我会重点看三件事：
-      第一，这套方法的核心归纳偏置是什么；
-      第二，实验中真正拉开差距的模块是哪一块；
-      第三，它的限制条件是数据、算力、时序长度，还是奖励/监督信号本身。
-    </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>Autoregressive Feed-Forward Gaussian Splatting Using Render-and-Compare Freeman Cheng1, Botao Ye2, Xueting Li3, Junqi You4, Fangneng Zhan5, and Ming-Hsuan Yang1 1 University of California Merced 2 ETH Zurich 3 NVIDIA 4 Shanghai Jiao Tong University 5 Hong Kon…</li><li>Online novel view synthesis remains challenging, requiring robust scene reconstruction from sequential, often unposed, observations.</li><li>We present ReCoSplat, an autoregressive feed-forward Gaussian Splatting model supporting posed or unposed inputs, with or without camera intrinsics.</li><li>While assembling local Gaussians using camera poses scales better than canonical-space prediction, it creates a dilemma during training:</li></ul></div>
-    <p>
-      进一步延伸阅读时，可以把这篇工作放到更广泛的技术脉络里：它与同类方法相比，到底是在表示层、生成层、优化层还是评估层提出了更强的方案。下面这些自动检索到的相关论文可作为继续追踪的入口：
+      以下相关论文可以作为进一步追踪的入口：
     </p>
     <ul></ul>
 
     <div class='tip'>
       <strong>一句结论：</strong>
-      这篇论文值得读的原因，不只是它给出了一组更好的结果，而是它提供了一条相对完整的问题求解思路：如何把任务定义、方法设计与实验验证真正对齐到同一条研究主线上。
+      这篇论文值得关注的地方在于，它不只给出了更好的实验结果，更提供了一条相对完整的问题求解路径，把任务定义、方法设计与实验验证真正对齐到了同一条研究主线上。
     </div>
   </article>
 </div>
+
   </div>
 </div>
 </body>
