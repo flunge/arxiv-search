@@ -70,7 +70,7 @@
     blockquote { margin: 16px 0; padding: 8px 16px; border-left: 4px solid #d8e7ff; background: #f8fbff; color: #333; }
     .tip { background: #f7f9fc; border: 1px solid #e8eef6; border-radius: 10px; padding: 12px; }
     .dashboard-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-top:18px; }
-    .dashboard-card { aspect-ratio: 1 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
+    .dashboard-card { aspect-ratio: 1.618 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
     .dashboard-card > * { min-width: 0; }
     .dashboard-card .dashboard-content { display:flex; flex-direction:column; height:100%; min-height:0; }
     .dashboard-card .dashboard-scroll { overflow:auto; min-height:0; }
@@ -130,10 +130,28 @@
     });
   </script>
 
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\(', '\)']],
+        displayMath: [['$$', '$$'], ['\[', '\]']]
+      },
+      svg: { fontCache: 'global' },
+      startup: {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady().then(() => {
+            requestAnimationFrame(applyPageScale);
+          });
+        }
+      }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
+
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
 
@@ -143,103 +161,139 @@
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      这篇论文关注的是“Intrinsic 所对应的问题能否在更可控、更稳健或更高质量的条件下被解决”。从摘要与方法描述来看，作者的总体路线是：先搭建一个明确的表示或生成框架，再围绕训练目标、结构设计和实验验证把该问题推进到更可用的工程形态。
+      3D 高斯泼溅 (3DGS) 通过具有耦合内在属性的图元来表示场景：几何属性（位置、协方差、不透明度）和外观属性（与视图相关的颜色）。忠实的重建需要内在的几何外观一致性，其中几何形状准确地捕捉 3D 结构，而外观反映光度测量。然而，稀疏的观察结果会导致外观过度拟合和几何约束不足，从而导致严重的新颖视图伪影。我们提出了 ICO-GS（3DGS 的内在几何外观一致性优化），这是一个原则框架，通过紧密耦合的几何正则化和外观学习来增强这种一致性。我们的方法首先通过基于特征的多视图光度约束来规范几何形状，通过采用像素级顶部选择来处理遮挡和边缘感知平滑度以保留清晰的结构。然后，通过循环一致性深度过滤将外…
     </div>
 
     <h2 id='summary'>简单摘要</h2>
-    <p>
-      从论文摘要可以看出，这项工作的落点并不是单纯提升一个局部模块，而是围绕完整任务链路做系统设计。它通常会同时回答三个问题：任务为什么重要、现有方法卡在哪里、作者的新方案如何绕开这些瓶颈。
-      就这篇论文而言，摘要部分强调的核心是：<strong>3D Gaussian Splatting (3DGS) represents scenes through primitives with coupled intrinsic properties: geometric attributes (position, covariance, opacity) and appearance attributes…</strong>
-    </p>
-    <p>
-      如果把它放进更大的技术背景中理解，可以把这篇论文视作一条“问题定义 → 表示设计 → 训练优化 → 实验验证”的完整研究闭环。也就是说，作者并不是只给出一个孤立模块，而是希望通过一整套方法让系统在真实场景或关键指标上取得更稳定提升。
-    </p>
-    <figure><img class='paper-fig' src='../assets/2603_02893v1/fig_1.png' alt='Figure 1:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 1：该图来自论文原文，用于说明论文中的核心框架、可视化结果或实验现象。原始图注摘要：Novel view synthesis quality under sparse inputs. Our method produces superior photometric quality with faithful texture recovery in challenging regions (e.g., leaf gaps in zoomed insets and weakly-textured surfaces), enabled by more accurate geometry with sharper structural boundaries, outperformi…</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_02893v1/fig_2.png' alt='Figure 2:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 2：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 2 from the source paper.</figcaption></figure>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>To this end, we propose ICO-GS (Intrinsic GeometryAppearance Consistency Optimization for Sparse-view Gaussian Splatting), a principled framework that restores intrinsic consistency in sparse-view 3DGS through synergistic geometry-appearance optimization.</li><li>3D Gaussian Splatting (3DGS) represents scenes through primitives with coupled intrinsic properties:</li><li>We present ICO-GS (Intrinsic Geometry-Appearance Consistency Optimization for 3DGS), a principled framework that enforces this consistency through tightly coupled geometric regularization and appearance learning.</li></ul></div>
+    <p>3D 高斯泼溅 (3DGS) 通过具有耦合内在属性的图元来表示场景：几何属性（位置、协方差、不透明度）和外观属性（与视图相关的颜色）。忠实的重建需要内在的几何外观一致性，其中几何形状准确地捕捉 3D 结构，而外观反映光度测量。然而，稀疏的观察结果会导致外观过度拟合和几何约束不足，从而导致严重的新颖视图伪影。我们提出了 ICO-GS（3DGS 的内在几何外观一致性优化），这是一个原则框架，通过紧密耦合的几何正则化和外观学习来增强这种一致性。</p>
+    <p>我们的方法首先通过基于特征的多视图光度约束来规范几何形状，通过采用像素级顶部选择来处理遮挡和边缘感知平滑度以保留清晰的结构。然后，通过循环一致性深度过滤将外观与几何耦合，识别可靠区域以合成虚拟视图，将几何正确性传播到外观优化中。 LLFF、DTU 和 Blender 上的实验表明 ICO-GS 极大地改善了几何结构和光度测量，始终优于现有的稀疏视图基线，特别是在具有挑战性的弱纹理区域。</p>
+    <figure><img class='paper-fig' src='../assets/2603_02893v1/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：ICO-GS 框架。 
+ 给定稀疏输入视图，我们初始化 3D 高斯并提取深层特征。 
+ 我们的方法通过两个协同作用来增强内在的几何外观一致性 
+ 组件： 
+ (1)鲁棒几何正则化。源特征被扭曲以参考 
+ 通过渲染深度来获取视图，通过以下方式建立遮挡感知的多视图约束： 
+ (a) 采用逐像素 top-k 的鲁棒多视图光度一致性 
+ 遮挡处理的选择，以及 (b) 边缘感知深度平滑度 
+ 保留清晰的几何结构。 
+ (2)几何引导的外观优化。我们利用几何可靠的 
+ 通过 (c) 循环一致性深度过滤识别的区域进行合成 
+ 虚拟视图，然后应用 (d) 虚拟视图之间的光度一致性 
+ 合成和渲染图像，将几何正确性传播到外观中 
+ 学习。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2603_02893v1/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：稀疏视图设置下的几何外观差异。
+ 从上到下：训练视图上的 RGB、训练视图上的深度和测试上的 RGB 
+ 视图，通过 3D 高斯泼溅法通过不同的训练渲染 
+ 视图密度。随着视图的减少，训练视图外观（上）仍然存在 
+ 合身，但深度质量（中）因噪音和飞蚊症而崩溃
+ 由于多视图约束不足。这种几何外观差异 
+ 导致小说视图渲染中出现严重的伪影（底部）。</figcaption></figure>
+    <blockquote>
+      简而言之，这篇论文关注的核心是：3D 高斯泼溅 (3DGS) 通过具有耦合内在属性的图元来表示场景：几何属性（位置、协方差、不透明度）和外观属性（与视图相关的颜色）。忠实的重建需要内在的几何外观一致性，其中几何形状准确地捕捉 3D 结构，而外观反映光度测量。然而，稀疏的观察结果会导致外观过度拟合和几何约束不足，从而导致严重的新颖…
+    </blockquote>
+    <p>新颖的视图合成 (NVS) 见证了 3DGS 的显着进步，3DGS 将场景表示为各向异性 3D 高斯的集合，以实时速度实现照片级真实感渲染。虽然 3DGS 在密集捕捉的场景上实现了实时渲染和高视觉质量，但在实际场景中常见的稀疏视图设置下，其性能会急剧下降。这种退化源于 3DGS 优化中的一个基本问题：几何形状和外观之间缺乏内在一致性。在 3DGS 中，每个基元都通过耦合的内在属性进行参数化，包括定义其空间结构的几何属性（位置、协方差、不透明度）以及确定其光度贡献的外观属性（与视图相关的颜色）。</p>
+    <p>为了忠实地重建场景，这些属性必须满足内在一致性：几何形状应准确捕获底层 3D 结构，而外观应一致地反映跨视点的表面光度测量。然而，稀疏视图 3DGS 违反了这种一致性。标准 3DGS 优化依赖于每个视图的光度监控，可独立最小化每个训练视图的渲染损失。在观察有限的情况下，这种独立的监督允许通过补偿几何误差来使外观过度拟合各个视图，而由于缺乏显式的多视图正则化，3D 几何仍然严重缺乏约束。这会导致内部不一致的高斯模型，在训练视图上产生看似合理的渲染，但在新视图上产生严重的伪影（漂浮物或模糊）。</p>
+    <p>这些挑战在纹理较弱的区域尤其明显，在这些区域中，缺乏独特的外观线索进一步加剧了几何模糊性。解决这个问题需要共同解决两个相互关联的挑战。首先，稀疏观测下如何有效约束几何？最近的研究采用预训练深度估计模型来规范 3DGS 几何形状，但此类方法会受到不完善的预训练模型引入的尺度模糊和噪声的影响。其他方法依赖于密集初始化，但初始几何线索在后续优化过程中往往会逐渐被遗忘。其次，如何将精确的几何形状与可靠的外观优化结合起来以防止过度拟合？</p>
+    <p>BinopticGS 从渲染深度构建虚拟双目对以强制视差一致性，但这种方法依赖于渲染深度，其可靠性无法保证，可能会将深度误差传播到外观优化中……</p>
 
     <h2 id='innovation'>核心创新</h2>
     <p>
-      对照引言与方法部分，这篇论文的创新点主要体现在“如何重新组织问题求解链路”上。相比简单替换一个 backbone 或增加一个 loss，作者更像是在重新定义系统的关键接口与约束方式。
+      综合引言与方法部分，这篇论文的核心创新可以概括为以下几方面：
     </p>
-    <h3>1）从任务设定上重新界定问题边界</h3>
+    <h3>1）问题定义与研究动机</h3>
     <p>
-      论文强调的问题并不只是已有方案做得不够好，而是很多现有方法在目标可控性、泛化范围、效率约束或结构一致性上存在天然短板。因此作者先重述了任务定义，再围绕新的目标函数和场景假设去设计整体方案。
+      新颖的视图合成 (NVS) 见证了 3DGS 的显着进步，3DGS 将场景表示为各向异性 3D 高斯的集合，以实时速度实现照片级真实感渲染。虽然 3DGS 在密集捕捉的场景上实现了实时渲染和高视觉质量，但在实际场景中常见的稀疏视图设置下，其性能会急剧下降。这种退化源于 3DGS 优化中的一个基本问题：几何形状和外观之间缺乏内在一致性。在 3DGS 中，每个基元都通过耦合的内在属性进行参数化，包括定义其空间结构的几何属性（位置、协方差、不透明度）以及确定其光度贡献的外观属性（与视图相关的颜色）。为了忠实地重建场景，这些属性必须满足内在一致性：几何形状应准确捕获底层 3D 结构，而外观应一致地反映跨视点的表面光度测量。然而，稀疏视图 3DGS 违反了这种一致性。标准 3DGS 优化依赖于每个视图的光度监控，可独立最小化每个训练视图的渲染损失。在观察有限的情况下，这种独立的监督允许通过补偿几何误差来使外观过度拟合各个视图，而由于缺乏显式的多视图正则化，3D 几何仍然严重缺乏约束。这会导致内部不一致的高斯模型，在训练视图上产生看似合理的渲染，但在新视图上产生严重的伪影（漂浮物或模糊）。这些挑…
     </p>
-    <h3>2）用统一框架串起表示、推理和优化</h3>
+    <h3>2）方法框架与核心模块</h3>
     <p>
-      从原文描述看，这篇论文并不是把多个模块松散拼接，而是在一个统一框架里安排表示形式、关键模块和训练信号，使它们彼此服务。这类设计往往决定了方法能否真正具备工程可落地性。
+      在本节中，我们介绍 ICO-GS，这是一种稀疏视图重建方法，通过将几何正则化与外观优化相结合来增强内在一致性。整体框架如图：framework所示。我们首先分析稀疏视图设置下的几何外观差异现象（亚秒：动机），然后详细阐述我们稳健的几何正则化（亚秒：几何）和几何引导的外观优化（亚秒：外观）。完整的优化流程在 subsec:optimization 中描述。动机 尽管在密集视图重建方面取得了成功，但 3DGS 在稀疏观测下严重过拟合。我们揭示了一个关键的几何外观差异：随着视图数量的减少，训练视图的外观质量仍然表面上很高，而几何精度却下降，导致新视图上出现严重的伪影（图：动机）。我们发现了两个潜在的缺陷： 几何约束不足。在密集视图设置中，每个 3D 点由多个摄像机（通常超过 10 个）观察，从而对高斯位置提供强大的多视图约束。然而，在稀疏视图中，每个点仅在 2--3 个视图中可见，导致严重的几何模糊。从数学上讲，光度损失仅限制高斯的投影外观，而不限制其深度。因此，高斯可以放置在沿相机光线的任何位置，同时保持零光度误差。这种深度模糊性解释了图中的噪声几何：动机：如果没有足够的多视图重叠，优化…
     </p>
-    <h3>3）把实验目标直接对齐到实际痛点</h3>
+    <h3>3）实验设计与工程价值</h3>
     <p>
-      论文中的实验不仅比较常规 benchmark，也会额外关注更贴近实际系统需求的指标，例如稳定性、控制性、质量上界、对长尾场景的适应能力等。换句话说，它不是只追求单一数值，而是试图证明整套系统在真实使用方式下也成立。
+      数据集我们在三个标准基准上进行实验：用于前向场景的 LLFF、用于以对象为中心的捕获的具有广泛弱纹理区域的具有挑战性的数据集 DTU、以及用于 360° 以对象为中心的场景的 Blender。接下来，我们对 LLFF/DTU 使用 3、6、9 个训练视图，对 Blender 场景使用 8 个视图。输入图像按 8× (LLFF)、4× (DTU) 和 2× (Blender) 下采样，以平衡质量和效率，与之前的工作一致。实现细节我们建立在 BineyeGS 框架的基础上，具有 LLFF 和 DTU 的密集点云初始化，以及 Blender 的随机初始化。我们在 LLFF 和 DTU 数据集上训练 30k 次迭代，在 Blender 上训练 7k 次迭代，与基线一致。几何正则化从 LLFF/DTU 的迭代 20k 开始，Blender 的迭代 4k 开始，而几何引导的外观优化分别从迭代 25k…
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>Abstract 3D Gaussian Splatting (3DGS) represents scenes through primitives with coupled intrinsic properties:</li><li>Novel view synthesis quality under sparse inputs.</li><li>We present ICO-GS (Intrinsic Geometry-Appearance Consistency Optimization for 3DGS), a principled framework that enforces this consistency through tightly coupled geometric regularization and appearance learning.</li></ul></div>
 
     <h2 id='technical'>技术细节</h2>
     <p>
-      方法部分是理解论文价值的关键。结合原文可以看到，作者通常会先定义输入输出，再介绍中间表示、主干模块、损失函数或奖励机制，最后说明训练与推理时各模块如何协同。
-      对这篇论文而言，方法线索主要集中在以下几个方面：
+      下面按照论文的方法章节结构展开，重点说明模型的关键模块、公式设计和训练策略。
     </p>
-    <h3>3.1 方法主线与模块组织</h3>
+    <p>在本节中，我们介绍 ICO-GS，这是一种稀疏视图重建方法，通过将几何正则化与外观优化相结合来增强内在一致性。整体框架如图：framework所示。我们首先分析稀疏视图设置下的几何外观差异现象（亚秒：动机），然后详细阐述我们稳健的几何正则化（亚秒：几何）和几何引导的外观优化（亚秒：外观）。完整的优化流程在 subsec:optimization 中描述。动机 尽管在密集视图重建方面取得了成功，但 3DGS 在稀疏观测下严重过拟合。我们揭示了一个关键的几何外观差异：随着视图数量的减少，训练视图的外观质量仍然表面上很高，而几何精度却下降，导致新视图上出现严重的伪影（图：动机）。我们发现了两个潜在的缺陷： 几何约束不足。在密集视图设置中，每个 3D 点由多个摄像机（通常超过 10 个）观察，从而对高斯位置提供强大的多视图约束。然而，在稀疏视图中，每个点仅在 2--3 个视图中可见，导致严重的几何模糊。从数学上讲，光度损失仅限制高斯的投影外观，而不限制其深度。因此，高斯可以放置在沿相机光线的任何位置，同时保持零光度误差。这种深度模糊性解释了图中的噪声几何：动机：如果没有足够的多视图重叠，优化就缺乏确定正确 3D 位置的约束。不可靠的外观-几何耦合。此外，3DGS 表示本身并不能确保几何外观的一致性。原则上，当高斯错位时，光度损失应该驱动优化器纠正其位置。然而，我们观察到一个有问题的捷径：优化器不是移动高斯，而是调整其颜色和不透明度来补偿几何误差，我们称之为外观补偿。如图所示：动机，尽管几何结构严重不正确（深度噪声），训练视图仍实现了高 PSNR，这表明外观参数掩盖了几何错误。这在稀疏视图下变得尤其严重，其中弱几何约束使模型通过外观操作而不是学习正确的 3D 结构而过度拟合。</p>
+    <p>为了解决这些缺陷，我们提出了 ICO-GS，它通过将稳健的几何正则化（亚秒：几何）与几何引导的外观优化（亚秒：外观）相结合来恢复内在一致性。这些组件协同工作以促进几何形状和外观。稳健的几何正则化 正如 subsec:motivation 中所指出的，稀疏视图 3DGS 受到几何约束不足的困扰。 BineyeGS 试图通过深度扭曲的虚拟视图强制立体一致性来解决这个问题。然而，这种方法存在基本的循环依赖性：不可靠的深度会产生未对齐的虚拟视图，这反过来又会提供损坏的监督，从而进一步降低几何性能。我们通过...打破这个循环</p>
+    <p>$$ \vspace{-0.2cm}
+ \label{eq:inverse_warp} 
+ p&#x27;_{j} = KT_{0 \rightarrow j}(D_{0}(p) \cdot K^{-1} p), $$</p>
     <p>
-      根据方法章节可知，作者首先构建了一个核心表示或中间条件，再通过若干模块把它逐步转换为最终输出。这种结构的优势在于：每个模块都承担明确职责，既便于解释，也更便于在实验中做模块级消融。
-      原文中与主线最相关的描述包括：
+      通过多视图光度一致性确定 ssian 深度。以一个参考视图及其对应的源视图为例，我们首先通过 alpha 混合渲染来渲染深度图。然后，对于参考图像中的每个像素，可以通过以下方式计算其在源图像中对应的像素： 其中表示关联...
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>Intrinsic Geometry-Appearance Consistency Optimization for Sparse-View Gaussian Splatting Kaiqiang Xiong 1,2 Rui Peng 4 Jiahao Wu 1,2 Zhanke Wang 1 Jie Liang 1,2 Xiaoyun Zheng 2 Feng Gao 5 Ronggang Wang 1,2,3 1Guangdong Provincial Key Laboratory of Ultra High…</li></ul></div>
-    <h3>3.2 训练目标、损失与公式信号</h3>
+    <p>$$ \vspace{-0.2cm}
+\label{eq:mpc_rgb}
+
+L = \frac{1}{n-1} \sum_{j=1}^{n-1} \frac {\left\| (I_{j \rightarrow 0} - I_{\text{0}}) \odot M_j \right\|_1} {\left\| M_j \right\|_1}. $$</p>
     <p>
-      论文里的公式通常承担两类角色：一种是定义模型的预测关系与变量约束，另一种是定义优化时真正驱动模型更新的目标函数。阅读这类论文时，关键不是死记公式外形，而是理解每个公式分别在“表达结构”还是“约束行为”上发挥作用。
+      p 从源视图到参考视图，以获取具有指示扭曲期间有效投影像素的二元有效性掩模的重建参考图像。对于理想的未遮挡朗伯表面，像素应该在光度上一致。多视图光度损失强化了这一点：照明-ro…
     </p>
-    <div class='card'><strong>公式说明：</strong><p>当前 PDF 文本中的公式抽取有限，但方法部分已结合原文段落补充核心训练目标、模块关系与评价指标。</p></div>
+    <p>$$ \label{eq:mpc_feat}
+\vspace{-0.2cm}
+
+L = \frac{1}{n-1} \sum_{j=1}^{n-1} \frac {\left\| \frac{1}{2}\left(1 - \cos(\mathcal{F}_{\text{0}}, \mathcal{F}_{j \rightarrow 0 } ) \right) \odot M_j \right\|_1} {\left\| M_j \right\|_1}, $$</p>
     <p>
-      从这些公式与周边段落可以推断，作者想要的不只是局部误差最小化，而是通过更精细的目标设计，让模型在结构一致性、生成质量、时序稳定性或可控性等方面同时受约束。这也是很多新方法能真正优于 baseline 的原因。
+      右\|_1 \| M_j \|_1。方程光照鲁棒特征匹配。方程依赖于 RGB 一致性，这对于真实场景中常见的光照变化、阴影和镜面反射很脆弱。为了实现强大的几何监督，我们将其替换为使用冻结的预训练特征的基于特征的匹配......
     </p>
-    <h3>3.3 把全文方法串起来理解</h3>
+    <p>$$ \begin{aligned}
+ \mathcal{T}_k(p) = \underset{\substack{S \subset \{1,\ldots,n-1\} \\ |S|=k}}{\arg\min} 
+ \sum_{j \in S} \left\| \frac{1}{2}\left(1 - \cos(\mathcal{F}_{\text{0}}(p), \mathcal{F}_{j \rightarrow 0}(p)) \right) \right\|_1.
+ \end{aligned} $$</p>
     <p>
-      如果把这篇论文的方法看成一条流水线，那么它的逻辑通常是：先把输入变成一个更适合推理的中间表示，再围绕该表示施加关键模块与训练目标，最后把输出落到可评估、可可视化的结果上。
-      这种“表示—模块—目标—结果”的闭环设计，是本页所锁定模板最想强调的部分，因为它比零散摘录更能帮助后续复现与横向比较。
+      一致性。即使深度准确，遮挡也会导致光度一致性失败。我们通过逐像素 top-k 选择来解决这个问题，它自适应地从可见源视图中选择最可靠的对应关系。对于每个参考像素，我们识别所有扭曲中最一致的对应关系......
+    </p>
+    <p>$$ \label{eq:mpc_final}
+\mathcal{L}_{\text{mpc}}^{\text{Fea}}(p) = \frac{1}{k} \sum_{j \in \mathcal{T}_k(p)} \left\| \frac{1}{2} \left(1 - \cos(\mathcal{F}_{\text{0}}(p), \mathcal{F}_{j \rightarrow 0}(p)) \right) \right\|_1. $$</p>
+    <p>
+      ightarrow 0 \_j=1^n-1 T_k(p)：这种逐像素选择自然地处理空间变化的遮挡：对于一半视图中被遮挡的像素，剩余的可见视图仍然提供有效的监督。设置平衡覆盖范围和异常值拒绝。边缘感知深度平滑度。在仅从一个视图可见的区域中......
+    </p>
+    <p>$$ \vspace{-0.2cm}
+\label{eq:smooth}
+\mathcal{L}_{\text{smooth}} = \sum_{p} \left\| \nabla D_{\text{0}}(p) \right\|_1 \cdot \exp\left( -\alpha \left\| \nabla I_{\text{0}}(p) \right\|_1 \right), $$</p>
+    <p>
+      可见视图仍然提供有效的监督。设置平衡覆盖范围和异常值拒绝。边缘感知深度平滑度。在仅从一个视图可见的区域中，多视图光度一致性无法提供足够的几何约束。因此，我们用边缘规范这些约束不足的区域……
+    </p>
+    <figure><img class='paper-fig' src='../assets/2603_02893v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：LLFF 数据集的视觉比较。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2603_02893v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：DTU 数据集上的视觉比较。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2603_02893v1/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：Blender 数据集上的视觉比较。</figcaption></figure>
+    <p>
+      把全文方法串起来看，这篇论文的逻辑基本都遵循同一条主线：先把输入组织成更容易处理的表示，再通过模型结构和损失函数把这个表示推向目标输出，最后用可视化与数值实验共同证明该设计有效。
     </p>
 
     <h2 id='experiment'>实验结论</h2>
     <p>
-      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，优势究竟来自哪个模块。对这篇论文来说，实验设计明显围绕“与现有方法的对比 + 对关键组件的消融”展开。
+      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，这种优势来自哪一个设计决策。
     </p>
-    <p>
-      从实验段落的关键词和结果描述看，论文最想传达的结论包括：
-    </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>Experiments on LLFF, DTU, and Blender show ICO-GS substantially improves geometry and photometry, consistently outperforming existing sparse-view baselines, particularly in challenging weakly-textured regions.</li><li>While 3DGS achieves real-time rendering and high visual quality on densely captured scenes, its performance degrades dramatically under sparse-view settings commonly encountered in practical scenarios.</li></ul></div>
-    <figure><img class='paper-fig' src='../assets/2603_02893v1/fig_3.png' alt='Figure 3:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 3：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 3 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_02893v1/fig_4.png' alt='Figure 4:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 4：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 4 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_02893v1/fig_5.png' alt='Figure 5:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 5：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 5 from the source paper.</figcaption></figure>
+    <p>数据集我们在三个标准基准上进行实验：用于前向场景的 LLFF、用于以对象为中心的捕获的具有广泛弱纹理区域的具有挑战性的数据集 DTU、以及用于 360° 以对象为中心的场景的 Blender。接下来，我们对 LLFF/DTU 使用 3、6、9 个训练视图，对 Blender 场景使用 8 个视图。输入图像按 8× (LLFF)、4× (DTU) 和 2× (Blender) 下采样，以平衡质量和效率，与之前的工作一致。实现细节我们建立在 BineyeGS 框架的基础上，具有 LLFF 和 DTU 的密集点云初始化，以及 Blender 的随机初始化。我们在 LLFF 和 DTU 数据集上训练 30k 次迭代，在 Blender 上训练 7k 次迭代，与基线一致。几何正则化从 LLFF/DTU 的迭代 20k 开始，Blender 的迭代 4k 开始，而几何引导的外观优化分别从迭代 25k 和 5k 开始。一旦激活，两者都会在每次迭代时运行。所有实验都在 NVIDIA L40s GPU 上运行。损失权重设置为 、 、 和 。所有变形操作都使用 PyTorch 中的批量并行处理来加速。我们报告了使用不同种子进行的三次独立运行的平均结果。基线 我们将 NeRF 和 3D 高斯分布 (3DGS) 范式的最先进方法进行比较。对于基于 NeRF 的方法，我们包括 DietNeRF 、 RegNeRF 、 FreeNeRF 和 SparseNeRF 。对于基于 3DGS 的方法，我们评估普通 3DGS 和稀疏视图变体： FSGS 、 DNGaussian 、 CoR-GS 、 BineyeGS 、 DropGaussians 、 NexusGS 和 ComapGS 。 LLFF 的比较结果。 tab:llff_results 显示 LLFF 数据集的定量结果。我们的方法在所有视图设置上都实现了最先进的性能：在 3 个视图下提高了 0.76 dB，在 6 个视图下比 ComapGS 提高了 0.17 dB，在 9 个视图下实现了具有竞争力的性能（比第三个视图提高了 0.24 dB）。图：llffcom 展示了精细细节中更少的伪影和更清晰的对象边界。值得注意的是，我们的深度图在背景纹理和前景结构中都表现出明显更清晰的几何边缘。 DTU 上的结果。 tab:dtu_results 显示了所有设置的一致改进：在 3、6 和 9 个视图下分别比基线 +1.06 dB、+0.58 dB 和 +0.01 dB。图：dtucom 显示我们的方法通过遮挡感知光度一致性（亚秒：几何）在区域（红色框）中渲染更清晰的纹理，而深度图则显示更清晰的边界和更精细的细节（白色框）。 Blender 上的结果。对于以对象为中心的 360° 评估，tab:blender 会在 8 视图设置下报告 Blender 数据集上的结果。</p>
+    <p>我们的方法实现了最佳的 PSNR。虽然 SSIM 和 LPIPS 略低于某些方法，但这种权衡反映了我们优先考虑几何精度而不是感知优化。图：blendercom 显示细粒度...</p>
+    <figure><img class='paper-fig' src='../assets/2603_02893v1/figure6_full.png' alt='Figure 6:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 6：使用 3 视图可视化消融研究结果。</figcaption></figure>
     <ul>
-      <li>方法在主任务指标上不是偶然提升，而是与其结构设计和训练目标直接相关；</li>
-      <li>作者通过消融实验说明，若拿掉关键模块，性能与结果质量会明显回落；</li>
-      <li>论文不仅关注数值对比，也关注可视化质量、稳定性或可控性等更接近真实应用的信号。</li>
+      <li>方法在核心指标上的优势与结构设计和训练目标直接相关；</li>
+      <li>消融实验表明，拿掉关键模块后性能与结果质量都有明显回落；</li>
+      <li>论文不仅比较数值，也关注可视化质量、稳定性和泛化能力等更贴近真实使用的信号。</li>
     </ul>
-    <p>
-      因此，实验部分最重要的阅读方式不是死记某一列数字，而是看清：作者究竟想证明哪个机制有效、这个机制的收益是在什么设置下成立、它是否有明显的边界条件。
-    </p>
 
     <h2 id='takeaway'>理解评价</h2>
+    <p>我们提出了一种稀疏视图新颖视图合成的新颖框架，可以有效解决 3D 高斯泼溅中的几何外观差异问题。通过稳健的几何正则化、几何引导的外观优化，我们的方法在不依赖外部深度先验的情况下实现了几何和外观的联合优化。大量的实验证明了最先进的性能，减少了浮标伪影并提高了几何精度。</p>
     <p>
-      从研究定位上看，这篇论文的意义在于它没有把问题局限在某一个局部改动，而是尝试给出一套更完整的求解路径。对读者而言，最值得关注的是它如何重新组合表示、模块和训练目标，以及这些设计是否能迁移到相近任务上。
+      如果把它当成研究参考，建议重点关注三件事：第一，这套方法真正依赖的归纳偏置是什么；第二，实验中真正拉开差距的模块是哪一个；第三，它的局限究竟来自数据、算力还是监督信号本身。
     </p>
     <p>
-      如果把它当成研究参考，我会重点看三件事：
-      第一，这套方法的核心归纳偏置是什么；
-      第二，实验中真正拉开差距的模块是哪一块；
-      第三，它的限制条件是数据、算力、时序长度，还是奖励/监督信号本身。
-    </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>These challenges are particularly pronounced in weakly-textured regions, where the absence of distinctive appearance cues further exacerbates geometric ambiguity.</li><li>Introduction Novel view synthesis (NVS) has witnessed remarkable progress with 3DGS [19], which represents scenes as collections of anisotropic 3D Gaussians to achieve photorealistic rendering at real-time speeds.</li></ul></div>
-    <p>
-      进一步延伸阅读时，可以把这篇工作放到更广泛的技术脉络里：它与同类方法相比，到底是在表示层、生成层、优化层还是评估层提出了更强的方案。下面这些自动检索到的相关论文可作为继续追踪的入口：
+      以下相关论文可以作为进一步追踪的入口：
     </p>
     <ul></ul>
 
     <div class='tip'>
       <strong>一句结论：</strong>
-      这篇论文值得读的原因，不只是它给出了一组更好的结果，而是它提供了一条相对完整的问题求解思路：如何把任务定义、方法设计与实验验证真正对齐到同一条研究主线上。
+      这篇论文值得关注的地方在于，它不只给出了更好的实验结果，更提供了一条相对完整的问题求解路径，把任务定义、方法设计与实验验证真正对齐到了同一条研究主线上。
     </div>
   </article>
 </div>
+
   </div>
 </div>
 </body>
