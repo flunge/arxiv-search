@@ -1135,21 +1135,19 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
 {latest_html}
 
 <section style='display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:18px;'>
-  <div class='card'>
-    <div class='meta'>最近更新</div>
+  <div class='card' style='aspect-ratio:1.618 / 1;display:flex;flex-direction:column;'>
+    <div class='meta' style='font-weight:700;'>最近更新</div>
     <ul style='padding-left:18px;margin-top:10px;'>{recent_list}</ul>
   </div>
-  <div class='card' style='aspect-ratio:1.618 / 1;display:flex;flex-direction:column;justify-content:center;'>
-    <div class='meta'>站点概览</div>
-    <p style='margin-top:10px;'>这里汇总当前站点规模与已覆盖的研究主题，便于快速了解内容范围。</p>
+  <div class='card' style='aspect-ratio:1.618 / 1;display:flex;flex-direction:column;'>
+    <div class='meta' style='font-weight:700;'>站点概览</div>
+    <p style='margin-top:10px;'>{html.escape(domain_overview)}</p>
     <div style='display:grid;grid-template-columns:1fr;gap:10px;margin-top:12px;'>
-      <div><div class='meta'>文章数</div><div style='font-size:24px;font-weight:700'>{len(manifest)}</div></div>
-      <div><div class='meta'>当前涵盖领域</div><div style='font-size:15px;font-weight:700;line-height:1.7;'>{html.escape(domain_overview)}</div></div>
+      <div><span class='meta'>文章数</span><span style='font-size:24px;font-weight:700;margin-left:8px;'>{len(manifest)}</span></div>
     </div>
   </div>
-  <div class='card'>
-    <div class='meta'>分类目录</div>
-    <p style='margin-top:10px;'>点击标签进入独立目录页，查看该领域下的全部相关文章。</p>
+  <div class='card' style='aspect-ratio:1.618 / 1;display:flex;flex-direction:column;'>
+    <div class='meta' style='font-weight:700;'>分类目录</div>
     <div style='margin-top:10px;'>{tag_directory_html}</div>
   </div>
 </section>

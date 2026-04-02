@@ -61,8 +61,11 @@ def test_build_blog_outputs_files(tmp_path: Path) -> None:
     assert "page-shell" in post_html
     assert "applyPageScale" in post_html
     assert "站点概览" in home_html
-    assert "当前涵盖领域" in home_html
+    assert "world model" in home_html
     assert "分类目录" in home_html
+    assert "文章数</span><span" in home_html
+    assert "点击标签进入独立目录页" not in home_html
+    assert "这里汇总当前站点规模与已覆盖的研究主题" not in home_html
     assert "tags/world-model.html" in home_html
     assert "最新发布日期" not in home_html
     assert (site_dir / "tags" / "world-model.html").exists()
