@@ -217,7 +217,12 @@ rand 从所有候选者中统一采样，
 &amp;\text{where}\,\,\, n^\star = \underset{n\in\{1,\dots,N\}}{\arg\min} C\!\big(\hat{\mathbf{s}}^{n}_{t+1:t+H}\big).
 \end{aligned} $$</p>
     <p>
-      在观察到的状态上，我们使用世界模型来估计其以每个动作嵌入为条件的未来状态。最后，我们通过解码和计算成本值来选择使自我车辆能够安全前进同时避免交通违规的动作：其中表示解码过程中的成本函数......
+      公式：\begin{对齐}
+\label{eq:action_selection}
+&amp;\mathbf{A}^{\star}_{t:t+H-1} = \mathbf{A}^{n^\star}_{t:t+H-1}, \\
+&amp;\text{其中}\,\,\, n^\star = \underset{n\in\{1,\dots,N\}}{\arg\min} C\!\big(\hat{\mathbf{s}}^{n}_{t+1:t+H}\big)。
+\结束{对齐}
+上下文：在观察到的状态上，我们使用世界模型来估计其基于每个动作嵌入的未来状态。最后，我们通过解码和计算成本值来选择使自我车辆能够安全前进同时避免交通违规的动作：其中表示解码过程中的成本函数......
     </p>
     <p>$$ \begin{aligned}
 \setlength{\abovedisplayskip}{2pt}
@@ -227,11 +232,19 @@ p_\mathcal{M}\Big(\hat{\mathbf{s}}^{n}_{t+k}| (\mathbf{s}_{1:t}, \hat{\mathbf{s}
 \setlength{\abovedisplayskip}{2pt} 
 \end{aligned} $$</p>
     <p>
-      zh_cn 一个动作。具体来说，根据观察到的状态和潜在的下一步行动，世界模型预测近期的状态。然后，对于更远的未来时间步，世界模型递归地展开，这可以形式化为自回归分解：其中表示条件分布……
+      公式：\begin{对齐}
+\setlength{\abovedisplayskip}{2pt}
+&amp;p_\mathcal{M}(\hat{\mathbf{s}}^{n}_{t+1:t+H}|\mathbf{s}_{1:t},\mathbf{a}^{n}_{1:t+H-1}) =\\
+&amp;\prod\nolimits_{k=1}^{H}
+p_\mathcal{M}\Big(\hat{\mathbf{s}}^{n}_{t+k}| (\mathbf{s}_{1:t}, \hat{\mathbf{s}}^{n}_{t+1:t+k-1})\,\,,\, \mathbf{a}^{n}_{1:t+k-1}\Big)
+\setlength{\abovedisplayskip}{2pt} 
+\结束{对齐}
+上下文：en 一个动作。具体来说，根据观察到的状态和潜在的下一步行动，世界模型预测近期的状态。然后，对于更远的未来时间步，世界模型递归地展开，这可以形式化为自回归分解：其中表示条件分布……
     </p>
     <p>$$ \!\!\mathtt{Att_{seg}}(\!\mathbf{Q}_c,\!\mathbf{K}_c,\!\!\mathbf{V}_c\!) \!=\! \mathtt{softmax}(\mathtt{sim}(\mathbf{Q}_c,\mathbf{K}_c))\!\cdot\!\!\mathbf{V}_c, $$</p>
     <p>
-      使用时间步 的预测状态来描述这些解码器，即 ，其中 。为了实现对驾驶场景的更高层​​次的理解并为预测的交通事件提供视觉解释，我们将分段解码器的语义注意力注入到事件解码器中。分段解码器采用标准…
+      公式：\!\!\mathtt{Att_{seg}}(\!\mathbf{Q}_c,\!\mathbf{K}_c,\!\!\mathbf{V}_c\!) \!=\! \mathtt{softmax}(\mathtt{sim}(\mathbf{Q}_c,\mathbf{K}_c))\!\cdot\!\!\mathbf{V}_c,
+上下文：使用时间步 处的预测状态来描述这些解码器，即 ，其中 。为了实现对驾驶场景的更高层​​次的理解并为预测的交通事件提供视觉解释，我们将分段解码器的语义注意力注入到事件解码器中。分段解码器采用标准…
     </p>
     <p>$$ \begin{aligned}
 \mathbf{Z}_e &amp;= \mathbf{Q}_e \mathbf{K}_e^\top, \,\,\,\mathbf{Z}_c = \mathrm{pad}(\mathbf{Q}_c \mathbf{K}_c^\top), \\
@@ -243,11 +256,21 @@ p_\mathcal{M}\Big(\hat{\mathbf{s}}^{n}_{t+k}| (\mathbf{s}_{1:t}, \hat{\mathbf{s}
  \right).
 \end{aligned} $$</p>
     <p>
-      每个输入类查询的 thbfV_c i^n_t+ks^n_t+k Y^n_t+k。 We then augment the event decoder by fusing its attention logits with the corresponding semantic attention logits from the last segmentation layer: where are learnable event queries, and are computed from predicted future states . zero-pads to match the size…
+      公式：\begin{对齐}
+\mathbf{Z}_e &amp;= \mathbf{Q}_e \mathbf{K}_e^\top, \,\,\,\mathbf{Z}_c = \mathrm{pad}(\mathbf{Q}_c \mathbf{K}_c^\top), \\
+\hat{E}^{n}_{t+k}
+&amp;= \mathrm{sigmoid}\!\left(
+ \mathrm{softmax}\!\left(
+ \mathbf{W}_e * [\mathbf{Z}_e, \mathbf{Z}_c]
+ \right) \!\mathbf{V}_e
+ \右）。
+\结束{对齐}
+上图：thbfV_c i^n_t+k s^n_t+k Y^n_t+k 对于每个输入类查询。然后，我们通过将其注意力逻辑与来自最后分割层的相应语义注意力逻辑融合来增强事件解码器：其中是可学习的事件查询，并且是根据预测的未来状态计算的。零垫以匹配尺寸...
     </p>
     <p>$$ \hat{D}^{n}_{t+k} = \big\| \mathbf{p}^\star - \hat{\mathbf{p}}^{n}_{{t+k}-1} \big\|_2 - \big\| \mathbf{p}^\star - \hat{\mathbf{p}}^{n}_{{t+k}} \big\|_2, $$</p>
     <p>
-      cting the one with the minimum predicted cost.具体来说，对于第 -th 候选 ，我们考虑 (i) 实现目标的进展情况和 (ii) 交通违规事件的风险。设 为目标 3D 位置和步骤 中预测的自我位置。我们将进度定义为目标距离的减少：然后我们定义……
+      公式：\hat{D}^{n}_{t+k} = \big\| \mathbf{p}^\star - \hat{\mathbf{p}}^{n}_{{t+k}-1} \big\|_2 - \big\| \mathbf{p}^\star - \hat{\mathbf{p}}^{n}_{{t+k}} \big\|_2,
+上图：选择预测成本最小的一个。具体来说，对于第 -th 候选 ，我们考虑 (i) 实现目标的进展情况和 (ii) 交通违规事件的风险。设 为目标 3D 位置和步骤 中预测的自我位置。我们将进度定义为目标距离的减少：然后我们定义……
     </p>
     <p>$$ \setlength{\abovedisplayskip}{2pt}
 \label{eq_cost}
@@ -256,7 +279,13 @@ p_\mathcal{M}\Big(\hat{\mathbf{s}}^{n}_{t+k}| (\mathbf{s}_{1:t}, \hat{\mathbf{s}
 \end{aligned}
 \setlength{\belowdisplayskip}{2pt} $$</p>
     <p>
-      et 3D 位置和步骤 中预测的自我位置。我们将进展定义为目标距离的减小：然后我们将预测控制目标定义为：降低远距离预测的权重以考虑增加的不确定性。我们踩着地板，以避免远处台阶的贡献消失，这...
+      公式：\setlength{\abovedisplayskip}{2pt}
+\标签{eq_cost}
+\开始{对齐}
+\!\!\!C(\hat{\mathbf{s}}^{n}_{t+1:t+H}) = \!\!\sum_{k=1}^H \eta_k (-\hat{D}^{n}_{t+k} + \!\!\sum_{j=1}^{\alpha} \lambda_j\, \hat{E}^{n}_{t+k,j}), \\
+\结束{对齐}
+\setlength{\belowdisplayskip}{2pt}
+上下文：et 3D 位置和在步骤 处预测的自我位置。我们将进展定义为目标距离的减小：然后我们将预测控制目标定义为：降低远距离预测的权重以考虑增加的不确定性。我们踩着地板，以避免远处台阶的贡献消失，这...
     </p>
     <figure><img class='paper-fig' src='../assets/2602_23259v1/figure6_full.png' alt='Figure 6:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 6：预测控制过程的可视化。
 在时间 t，我们显示前视图和 BEV 图像（带分割）。
@@ -284,7 +313,7 @@ p_\mathcal{M}\Big(\hat{\mathbf{s}}^{n}_{t+k}| (\mathbf{s}_{1:t}, \hat{\mathbf{s}
 
     <h2 id='takeaway'>理解评价</h2>
     <p>在这项工作中，我们提出了 RaWMPC，一种用于端到端自动驾驶的风险感知世界模型预测控制框架，不需要专家的行动监督。 RaWMPC 学习一个以动作为条件的世界模型来推出多种候选行为，预测未来语义和安全关键事件，并通过显式最小化风险意识成本来选择动作。为了使罕见但灾难性的结果可预测和可避免，我们引入了一种风险意识交互策略，有意收集安全和危险的部署，并进一步提出自我评估蒸馏，以使用 RaWMPC 作为自我评估器来训练有效的行动建议政策。</p>
-    <p>Bench2Drive 和 NAVSIM 上的大量实验表明，即使没有离线预热，RaWMPC 在域转换下也能实现最先进的性能和更强的鲁棒性，显示出显着减少对昂贵的现实世界专家演示的依赖的潜力。对于未来的工作，我们将探索领域适应和更有效的规划，以更好地支持现实世界的部署和模拟到现实的转移。</p>
+    <p>Bench2Drive 和 NAVSIM 上的大量实验表明，即使没有离线预热，RaWMPC 在域转换下也能实现最先进的性能和更强的鲁棒性，显示出显着减少对昂贵的现实世界专家演示的依赖的潜力。对于未来的工作，我们将探索领域适应和更有效的规划，以更好地支持现实世界的部署和模拟到现实的传输。</p>
     <p>
       如果把它当成研究参考，建议重点关注三件事：第一，这套方法真正依赖的归纳偏置是什么；第二，实验中真正拉开差距的模块是哪一个；第三，它的局限究竟来自数据、算力还是监督信号本身。
     </p>
