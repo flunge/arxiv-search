@@ -226,6 +226,129 @@ def _extract_caption_text(pdf_path: Path, label: str, max_chars: int = 500) -> s
     return ""
 
 
+def _figure_band_bounds(page, caption_label: str, top_margin: float = 72) -> Optional[tuple[fitz.Rect, float, float]]:
+    rects = page.search_for(caption_label)
+    if not rects:
+        return None
+
+    caption_rect = rects[0]
+    caption_rects = []
+    for i in range(1, 10):
+        label = f"Figure {i}:"
+        found = page.search_for(label)
+        if found:
+            caption_rects.append((label, found[0]))
+    caption_rects = sorted(caption_rects, key=lambda item: item[1].y0)
+
+    start_y = top_margin
+    for idx, (label, rect) in enumerate(caption_rects):
+        if label == caption_label:
+            if idx > 0:
+                start_y = caption_rects[idx - 1][1].y1 + 8
+            break
+
+    end_y = max(start_y + 20, caption_rect.y0 - 4)
+    return caption_rect, start_y, end_y
+
+
+def _merge_nearby_rects(rects: List[fitz.Rect], x_gap: float = 18, y_gap: float = 18) -> List[fitz.Rect]:
+    merged = [fitz.Rect(r) for r in rects if not r.is_empty]
+    changed = True
+    while changed:
+        changed = False
+        result: List[fitz.Rect] = []
+        while merged:
+            current = merged.pop(0)
+            idx = 0
+            while idx < len(merged):
+                other = merged[idx]
+                close_x = not (current.x1 < other.x0 - x_gap or other.x1 < current.x0 - x_gap)
+                close_y = not (current.y1 < other.y0 - y_gap or other.y1 < current.y0 - y_gap)
+                if close_x and close_y:
+                    current |= other
+                    merged.pop(idx)
+                    changed = True
+                else:
+                    idx += 1
+            result.append(current)
+        merged = result
+    return merged
+
+
+def _collect_visual_candidates(page, start_y: float, end_y: float) -> List[fitz.Rect]:
+    band = fitz.Rect(page.rect.x0, start_y, page.rect.x1, end_y)
+    candidates: List[fitz.Rect] = []
+
+    for image in page.get_images(full=True):
+        try:
+            for rect in page.get_image_rects(image[0]):
+                clipped = rect & band
+                if clipped.is_empty or clipped.width * clipped.height < 2500:
+                    continue
+                candidates.append(clipped)
+        except Exception:
+            continue
+
+    for drawing in page.get_drawings():
+        rect = drawing.get("rect")
+        if not rect:
+            continue
+        clipped = rect & band
+        if clipped.is_empty:
+            continue
+        if clipped.width < 10 or clipped.height < 10:
+            continue
+        if clipped.width * clipped.height < 180:
+            continue
+        candidates.append(clipped)
+
+    return candidates
+
+
+def _expand_rect_with_short_blocks(page, rect: fitz.Rect, start_y: float, end_y: float) -> fitz.Rect:
+    expanded = fitz.Rect(rect)
+    probe = fitz.Rect(rect.x0 - 30, rect.y0 - 20, rect.x1 + 30, rect.y1 + 20)
+    for block in page.get_text("blocks"):
+        block_rect = fitz.Rect(block[:4])
+        if block_rect.is_empty or block_rect.y0 < start_y or block_rect.y1 > end_y + 2:
+            continue
+        text = " ".join(str(block[4]).split())
+        if not text or len(text) > 120 or text.startswith("Figure "):
+            continue
+        if not (probe.intersects(block_rect) or expanded.intersects(block_rect)):
+            continue
+        expanded |= block_rect
+    return expanded
+
+
+def _pick_best_figure_rect(page, rects: List[fitz.Rect], caption_rect: fitz.Rect, start_y: float) -> Optional[fitz.Rect]:
+    if not rects:
+        return None
+
+    band_height = max(1.0, caption_rect.y0 - start_y)
+    band_rect = fitz.Rect(page.rect.x0, start_y, page.rect.x1, caption_rect.y0)
+    best_rect: Optional[fitz.Rect] = None
+    best_score = float("-inf")
+    for rect in rects:
+        clipped = rect & band_rect
+        if clipped.is_empty or clipped.y1 > caption_rect.y0 + 2:
+            continue
+        gap = max(0.0, caption_rect.y0 - clipped.y1)
+        area = clipped.width * clipped.height
+        width_ratio = clipped.width / max(1.0, page.rect.width)
+        height_ratio = clipped.height / band_height
+        score = (
+            min(width_ratio, 1.4) * 1.2
+            + min(height_ratio, 1.4) * 1.1
+            + min(area / max(1.0, page.rect.width * band_height), 1.5) * 1.4
+            + max(0.0, 1.0 - gap / 120.0) * 1.8
+        )
+        if score > best_score:
+            best_score = score
+            best_rect = clipped
+    return best_rect
+
+
 def _extract_figure_region_by_caption(
     pdf_path: Path,
     caption_label: str,
@@ -240,49 +363,30 @@ def _extract_figure_region_by_caption(
         return None
 
     for page in doc:
-        rects = page.search_for(caption_label)
-        if not rects:
+        band = _figure_band_bounds(page, caption_label, top_margin=top_margin)
+        if not band:
             continue
-        cap_rect = rects[0]
-        image_rects = []
-        for image in page.get_images(full=True):
-            try:
-                for rect in page.get_image_rects(image[0]):
-                    if rect.is_empty or rect.width * rect.height < 5000:
-                        continue
-                    image_rects.append(rect)
-            except Exception:
-                continue
+        cap_rect, start_y, end_y = band
+        candidates = _collect_visual_candidates(page, start_y, end_y)
+        merged = _merge_nearby_rects(candidates)
+        merged = [_expand_rect_with_short_blocks(page, rect, start_y, end_y) for rect in merged]
+        best_rect = _pick_best_figure_rect(page, merged, cap_rect, start_y)
 
-        near_rects = [
-            r for r in image_rects if r.y1 <= cap_rect.y0 - 2 and r.y0 >= max(top_margin, cap_rect.y0 - 380)
-        ]
-        if near_rects:
-            x0 = min(r.x0 for r in near_rects) - 6
-            y0 = min(r.y0 for r in near_rects) - 6
-            x1 = max(r.x1 for r in near_rects) + 6
-            y1 = max(r.y1 for r in near_rects) + 6
-            clip = fitz.Rect(x0, y0, x1, y1) & page.rect
-            if clip.width < page.rect.width * 0.55 or clip.height < 120:
-                near_rects = []
+        if best_rect is not None:
+            x_pad = 12 if best_rect.width > page.rect.width * 0.55 else 8
+            y_pad_top = 12 if best_rect.height > 100 else 8
+            y_pad_bottom = 10
+            clip = fitz.Rect(
+                best_rect.x0 - x_pad,
+                max(start_y, best_rect.y0 - y_pad_top),
+                best_rect.x1 + x_pad,
+                min(end_y, best_rect.y1 + y_pad_bottom),
+            ) & page.rect
         else:
-            clip = fitz.Rect(page.rect.x0 + 12, top_margin, page.rect.x1 - 12, cap_rect.y0 - 4)
+            clip = fitz.Rect(page.rect.x0 + 12, start_y, page.rect.x1 - 12, end_y) & page.rect
 
-        if near_rects == []:
-            all_caps = []
-            for i in range(1, 10):
-                label = f"Figure {i}:"
-                found = page.search_for(label)
-                if found:
-                    all_caps.append((label, found[0]))
-            all_caps = sorted(all_caps, key=lambda x: x[1].y0)
-            start_y = top_margin
-            for idx, (label, rect) in enumerate(all_caps):
-                if label == caption_label:
-                    if idx > 0:
-                        start_y = all_caps[idx - 1][1].y1 + 8
-                    break
-            clip = fitz.Rect(page.rect.x0 + 12, start_y, page.rect.x1 - 12, cap_rect.y0 - 4)
+        if clip.width < page.rect.width * 0.28 or clip.height < 80:
+            clip = fitz.Rect(page.rect.x0 + 12, start_y, page.rect.x1 - 12, end_y) & page.rect
 
         pix = page.get_pixmap(matrix=fitz.Matrix(2, 2), clip=clip, alpha=False)
         save_path = out_dir / output_name
@@ -434,6 +538,15 @@ def _streetforward_post_body(doc, date_str: str, figures: List[Dict], related: L
     <p>
       这一步相当于先建立一个跨时间、跨视角共享的特征空间，让后面所有几何和运动建模都在这个统一底座上进行。
     </p>
+    <p>
+      <strong>公式分析：</strong>$X \in \mathbb{{R}}^{{BFPD}}$ 其实明确了模型最初看到的数据组织方式：它不是“先看一帧再看下一帧”，而是把整个 clip 的 patch token 一起送入后续模块。
+      当作者写出 $Z = \mathrm{{flatten}}_{{f,p}}(X)$ 时，本质上是在把“时间维 + 空间 patch 维”拼成一条更长的 token 序列，让 attention 能直接在多帧 patch 之间建立联系。
+      这一步的关键含义是：StreetForward 后面所有几何推断，都是建立在一个<strong>已经跨帧融合过</strong>的表示之上，而不是每帧各自独立预测再硬拼起来。
+    </p>
+    <p>
+      进一步说，$F\cdot P$ 决定了 cross-frame attention 的有效感受野：如果 patch 数多、帧数也多，那么同一块区域就能在更多时刻里找到对应证据。
+      这也是为什么作者沿用 VGGT 的 alternating attention 作为骨干——它先把“哪几个 patch 其实在描述同一处结构”这件事学出来，后面的位姿、深度和运动 head 才有稳定输入。
+    </p>
 
     <h3>3.2 位姿估计与静态场景重建（Pose Estimation and Static Scene Reconstruction）</h3>
     <p>
@@ -465,6 +578,20 @@ def _streetforward_post_body(doc, date_str: str, figures: List[Dict], related: L
     <p>$$G_f^{{static}} = \lbrace g_f(u): \chi_{{f,u}} = 1 \rbrace, \qquad G^{{static}} = \bigcup_{{f=1}}^F G_f^{{static}}$$</p>
     <p>
       这样做的好处是，系统会先搭一个相对稳定的“静态骨架”，避免运动目标把背景几何污染掉。
+    </p>
+    <p>
+      <strong>公式分析：</strong>$g_f(u)=\lbrace \mu_f(u),\Sigma_f(u),\alpha_f(u),c_f(u) \rbrace$ 说明作者并不是只预测“一个 3D 点”，而是预测一个完整 Gaussian primitive：
+      中心 $\mu$ 决定它在空间中的位置，协方差 $\Sigma$ 决定它的形状与尺度，透明度 $\alpha$ 决定它对渲染的贡献，颜色 $c$ 决定外观。
+      换句话说，这个公式把 2D 像素直接提升成了一个可渲染的 3D 表达单元。
+    </p>
+    <p>
+      而 $\mu_f(u) = R_f^\top (K_f^{{-1}}\tilde u D_f(u)-t_f)$ 的含义非常几何化：先把像素坐标 $\tilde u$ 用内参矩阵逆映射成相机坐标系方向，再乘深度得到 3D 点，最后利用外参变换到世界坐标系。
+      所以这不是“网络凭空生成一个 3D 位置”，而是“网络先估计相机和深度，再按经典投影几何把像素反投影回 3D”。这让 StreetForward 的 3DGS 初始化有很强的可解释性。
+    </p>
+    <p>
+      最后，$\chi_{{f,u}} = \mathbb{{I}}[s_{{f,u}} \le \tau_{{dyn}}]$ 和 $G^{{static}} = \bigcup_f G_f^{{static}}$ 共同表达了一个很重要的建模取向：
+      作者先把“足够像静态”的高斯从每帧里筛出来，再跨时间并起来形成全局静态集合。这样做相当于先把背景几何做稳，再把复杂的动态部分单独交给 motion 模块处理。
+      从工程角度看，这一步极大降低了动态区域对背景建模的污染。
     </p>
 
     <h3>3.3 因果动态建模（Causal Dynamics Modeling）</h3>
@@ -498,6 +625,19 @@ def _streetforward_post_body(doc, date_str: str, figures: List[Dict], related: L
     <p>$$v_{{f,u}} \equiv [v^+_{{f,u}}, v^-_{{f,u}}] \in \mathbb{{R}}^6, \qquad \sigma_{{f,u}} > 0$$</p>
     <p>
       其中 $\sigma_{{f,u}}$ 可以理解为动态置信度，既用于静动分离，也用于给训练损失加权。
+    </p>
+    <p>
+      <strong>公式分析：</strong>这里最核心的不是 attention 本身，而是 $\log M$ 这一项。因为当某个 query-key 对不满足 source→target 关系时，$M=0$，对应位置在 softmax 里会被压成 $-\infty$，等价于“完全不允许看见”。
+      这意味着模型不是在做普通的全局聚合，而是在做<strong>带方向约束的时序信息路由</strong>。
+    </p>
+    <p>
+      公式 (1) 的效果可以这样理解：同样是从多帧特征里提信息，VGGT 原来的 global attention 更像“大家一起投票”；StreetForward 的 causal mask 则更像“你只能询问上一刻或下一刻的证人”。
+      对运动建模而言，这个差别非常大，因为速度和位移天然是有方向的。如果没有 source→target 约束，前后帧的信息很容易被平均，最后只剩“这个区域在变”，却学不到“它往哪里变”。
+    </p>
+    <p>
+      接着，$v_{{f,u}} \equiv [v^+_{{f,u}}, v^-_{{f,u}}] \in \mathbb{{R}}^6$ 表示作者不是只预测一个单向 scene flow，而是同时预测前向和后向两个 3D 速度向量。
+      这样一来，模型既可以把当前高斯传播到未来时刻，也可以传播到过去时刻，为后面的时间插值和 forward-backward consistency 奠定基础。
+      与之配套的 $\sigma_{{f,u}}$ 则承担了“这里到底多像动态区域”的置信度角色，因此它既是一个 motion mask，也是后续 loss weighting 的门控变量。
     </p>
 
     <h3>3.4 运动一致性（Motion Consistency）</h3>
@@ -539,6 +679,31 @@ def _streetforward_post_body(doc, date_str: str, figures: List[Dict], related: L
     {fig5_html}
     <p>
       这条约束的意义在于：如果一个点往前和往后预测出来的速度互相矛盾，那说明这套运动场并不自洽。作者用这个约束把时间插值能力真正落到几何一致性上，而不是只做表面上的图像拟合。
+    </p>
+    <p>
+      <strong>公式分析：</strong>$L_{{rigid-2D}}$ 和 $L_{{rigid-3D}}$ 看起来都在做“速度相近”的约束，但它们针对的是两种不同邻域：
+      前者在图像平面上找邻居，强调局部纹理连续区域不要突然出现相反运动；后者在 3D 空间中找最近邻，强调已经被重建到相近空间位置的点，其运动也应当保持一致。
+      这两个正则叠加起来，本质上是在告诉网络：动态目标虽然可以动，但不要动得支离破碎。
+    </p>
+    <p>
+      再看时间一致性部分，$G_f = G^{{static}} \cup \bigcup_{{t\in T}} G^{{dynamic}}_{{f\leftarrow t}}$ 的含义非常强：渲染当前帧时，动态内容并不是直接取“当前帧本地预测”的结果，而是要让相邻时刻传播过来的动态高斯也能解释当前观测。
+      这相当于逼着模型学会一个可跨时间传播的动态表示，而不是在每一帧各自记忆一个局部解。
+    </p>
+    <p>
+      $L_{{fb}} = \sum_u \lVert v^{{f\to f+1}}_u + v^{{f\to f-1}}_u \rVert_1$ 则是 forward-backward symmetry 的最直接表达。
+      如果某个点的前向速度和后向速度互为相反方向，这个损失就会很小；如果两者完全对不上，损失就会变大。
+      因此它不是单纯在惩罚“速度大小”，而是在惩罚“时序上的自相矛盾”。这也是 StreetForward 能做时间插值的重要原因。
+    </p>
+
+    <h3>3.5 把这些公式串起来看</h3>
+    <p>
+      如果把 3.1–3.4 放在一条链路里看，StreetForward 的逻辑其实非常清楚：
+      先用 $X \rightarrow Z$ 建立跨帧共享表征，再用相机与深度公式把像素抬到 3D，随后用 causal mask 把“运动方向”写进特征，最后用 $L_{{rigid}}$ 和 $L_{{fb}}$ 把速度场收紧到一个几何上、时序上都更自洽的解。
+    </p>
+    <p>
+      也就是说，这篇论文不是只提出了一个新的 attention 模块，而是把<strong>表示、几何、运动、正则化</strong>四个层面串成了一套闭环：
+      特征负责表达，深度/位姿负责落到 3D，速度负责跨时间传播，正则项负责防止这套传播退化成不稳定的伪运动。
+      从公式层面看，这正是 StreetForward 相比“只在 VGGT 上加一个 motion head”的工作更完整的地方。
     </p>
 
     <h2 id='experiment'>实验结论</h2>
@@ -826,7 +991,6 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
   <p style='font-size:16px;'>
     聚焦自动驾驶、世界模型与动态重建等前沿方向，持续输出主流论文的结构化解析、技术拆解与研究观察。
   </p>
-  <p class='meta'>这里是博客首页，后续新增文章会继续发布在这里。</p>
 </section>
 
 {stats}

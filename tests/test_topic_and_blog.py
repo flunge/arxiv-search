@@ -2,7 +2,12 @@ from pathlib import Path
 
 import fitz
 
-from build_blog import build_home, build_post_from_pdf
+from build_blog import (
+    _figure_band_bounds,
+    _pick_best_figure_rect,
+    build_home,
+    build_post_from_pdf,
+)
 from topic_interpreter import TopicInterpreter
 
 
@@ -49,4 +54,38 @@ def test_build_blog_outputs_files(tmp_path: Path) -> None:
     post_html = post.read_text(encoding="utf-8")
     assert "../index.html" in post_html
     assert "目录" in post_html
+
+
+def test_figure_band_bounds_uses_previous_caption() -> None:
+    doc = fitz.open()
+    page = doc.new_page(width=612, height=792)
+    page.insert_text((72, 220), "Figure 3:")
+    page.insert_text((72, 405), "Figure 4:")
+
+    band = _figure_band_bounds(page, "Figure 4:", top_margin=72)
+
+    assert band is not None
+    _, start_y, end_y = band
+    assert start_y > 220
+    assert end_y < 405
+    doc.close()
+
+
+def test_pick_best_figure_rect_prefers_region_closest_to_caption() -> None:
+    doc = fitz.open()
+    page = doc.new_page(width=612, height=792)
+    caption_rect = fitz.Rect(53.8, 404.6, 88.9, 413.6)
+    start_y = 272.0
+    rects = [
+        fitz.Rect(53.8, 83.7, 643.5, 311.6),
+        fitz.Rect(45.3, 277.8, 297.9, 391.7),
+    ]
+
+    best = _pick_best_figure_rect(page, rects, caption_rect, start_y)
+
+    assert best is not None
+    assert round(best.x0, 1) == 45.3
+    assert round(best.y1, 1) == 391.7
+    doc.close()
+
 
