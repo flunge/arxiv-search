@@ -54,6 +54,7 @@ def test_build_blog_outputs_files(tmp_path: Path) -> None:
     post_html = post.read_text(encoding="utf-8")
     assert "../index.html" in post_html
     assert "目录" in post_html
+    assert "sidebar-toggle" in post_html
 
 
 def test_figure_band_bounds_uses_previous_caption() -> None:

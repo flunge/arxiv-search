@@ -25,9 +25,15 @@ def _render_page(title: str, body_html: str) -> str:
   <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
   <title>{html.escape(title)}</title>
   <style>
+    html {{
+      overflow-x: auto;
+    }}
     body {{
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      width: 900px;
+      min-width: 900px;
       max-width: 900px;
+      box-sizing: border-box;
       margin: 24px auto;
       padding: 0 16px;
       line-height: 1.9;
@@ -48,17 +54,24 @@ def _render_page(title: str, body_html: str) -> str:
     img.paper-fig {{ width: 100%; border: 1px solid #ddd; border-radius: 8px; }}
     .post-item {{ border:1px solid #e5e5e5; border-radius:8px; padding:10px 12px; margin:10px 0; }}
     .layout {{ display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 28px; align-items: start; }}
-    .sidebar {{ position: sticky; top: 18px; align-self: start; border-right: 1px solid #eee; padding-right: 16px; }}
+    .sidebar {{ position: sticky; top: 18px; align-self: start; border-right: 1px solid #eee; padding-right: 16px; transition: width .2s ease, min-width .2s ease, padding .2s ease, border-color .2s ease; }}
     .sidebar h3 {{ margin-top: 0; font-size: 16px; }}
     .sidebar ul {{ list-style: none; padding-left: 0; margin: 0; }}
     .sidebar li {{ margin: 8px 0; }}
+    .sidebar-controls {{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; }}
+    .sidebar-title {{ margin:0; }}
+    .sidebar-home-link {{ display:inline-block; padding:4px 10px; border:1px solid #d9e5f2; border-radius:999px; background:#f7fbff; font-size:12px; white-space:nowrap; }}
+    .sidebar-toggle {{ width:30px; height:30px; border:1px solid #d9e5f2; border-radius:999px; background:#fff; color:#1769c2; font-size:18px; line-height:1; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto; }}
+    .sidebar-toggle:hover {{ background:#f7fbff; }}
+    .sidebar.collapsed {{ width: 36px; min-width: 36px; padding-right: 0; border-right-color: transparent; overflow: hidden; }}
+    .sidebar.collapsed .sidebar-title,
+    .sidebar.collapsed .sidebar-home-link,
+    .sidebar.collapsed ul {{ display:none; }}
+    .sidebar.collapsed .sidebar-controls {{ justify-content:center; }}
+    .sidebar.collapsed .sidebar-toggle {{ margin:0; }}
     .article {{ min-width: 0; }}
     blockquote {{ margin: 16px 0; padding: 8px 16px; border-left: 4px solid #d8e7ff; background: #f8fbff; color: #333; }}
     .tip {{ background: #f7f9fc; border: 1px solid #e8eef6; border-radius: 10px; padding: 12px; }}
-    @media (max-width: 900px) {{
-      .layout {{ grid-template-columns: 1fr; }}
-      .sidebar {{ position: static; border-right: none; padding-right: 0; border-bottom: 1px solid #eee; padding-bottom: 12px; }}
-    }}
   </style>
   <script>
     window.MathJax = {{
@@ -68,6 +81,15 @@ def _render_page(title: str, body_html: str) -> str:
       }},
       svg: {{ fontCache: 'global' }}
     }};
+
+    function toggleSidebar(button) {{
+      var sidebar = button.closest('.sidebar');
+      if (!sidebar) return;
+      var collapsed = sidebar.classList.toggle('collapsed');
+      button.setAttribute('aria-expanded', String(!collapsed));
+      button.setAttribute('title', collapsed ? '展开目录' : '隐藏目录');
+      button.innerHTML = collapsed ? '&#8250;' : '&#8249;';
+    }}
   </script>
   <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
@@ -421,9 +443,10 @@ def _post_sidebar_html(items: List[tuple]) -> str:
     )
     return (
         "<aside class='sidebar'>"
-        "<div style='display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;'>"
-        "<h3 style='margin:0;'>目录</h3>"
-        "<a href='../index.html' style='display:inline-block;padding:4px 10px;border:1px solid #d9e5f2;border-radius:999px;background:#f7fbff;font-size:12px;'>首页</a>"
+        "<div class='sidebar-controls'>"
+        "<h3 class='sidebar-title'>目录</h3>"
+        "<a href='../index.html' class='sidebar-home-link'>首页</a>"
+        "<button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button>"
         "</div>"
         f"<ul>{links}</ul>"
         "</aside>"
