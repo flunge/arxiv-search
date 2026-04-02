@@ -70,7 +70,7 @@
     blockquote { margin: 16px 0; padding: 8px 16px; border-left: 4px solid #d8e7ff; background: #f8fbff; color: #333; }
     .tip { background: #f7f9fc; border: 1px solid #e8eef6; border-radius: 10px; padding: 12px; }
     .dashboard-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-top:18px; }
-    .dashboard-card { aspect-ratio: 1 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
+    .dashboard-card { aspect-ratio: 1.618 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
     .dashboard-card > * { min-width: 0; }
     .dashboard-card .dashboard-content { display:flex; flex-direction:column; height:100%; min-height:0; }
     .dashboard-card .dashboard-scroll { overflow:auto; min-height:0; }
@@ -130,10 +130,28 @@
     });
   </script>
 
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\(', '\)']],
+        displayMath: [['$$', '$$'], ['\[', '\]']]
+      },
+      svg: { fontCache: 'global' },
+      startup: {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady().then(() => {
+            requestAnimationFrame(applyPageScale);
+          });
+        }
+      }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
+
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
 
@@ -143,103 +161,112 @@
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      这篇论文关注的是“IDESplat 所对应的问题能否在更可控、更稳健或更高质量的条件下被解决”。从摘要与方法描述来看，作者的总体路线是：先搭建一个明确的表示或生成框架，再围绕训练目标、结构设计和实验验证把该问题推进到更可用的工程形态。
+      可推广的 3D 高斯分布旨在使用前馈网络直接预测高斯参数以进行场景重建。在这些参数中，高斯均值特别难以预测，因此通常首先估计深度，然后进行不投影以获得高斯球中心。现有方法通常仅依赖于单个扭曲来估计深度概率，这阻碍了它们充分利用跨视图几何线索的能力，导致不可靠且粗糙的深度图。为了解决这个限制，我们提出了 IDESplat，它迭代地应用扭曲操作来增强深度概率估计，以实现准确的高斯均值预测。首先，为了消除单个扭曲固有的不可靠性，我们引入了深度概率增强单元（DPBU），它以乘法方式集成了级联扭曲操作生成的极注意图。接下来，我们通过堆叠多个 DPBU 构建迭代深度估计过程，逐步识别具有高可能性的潜在深…
     </div>
 
     <h2 id='summary'>简单摘要</h2>
-    <p>
-      从论文摘要可以看出，这项工作的落点并不是单纯提升一个局部模块，而是围绕完整任务链路做系统设计。它通常会同时回答三个问题：任务为什么重要、现有方法卡在哪里、作者的新方案如何绕开这些瓶颈。
-      就这篇论文而言，摘要部分强调的核心是：<strong>Generalizable 3D Gaussian Splatting aims to directly predict Gaussian parameters using a feed-forward network for scene reconstruction. Among these parameters, Gaussian means are…</strong>
-    </p>
-    <p>
-      如果把它放进更大的技术背景中理解，可以把这篇论文视作一条“问题定义 → 表示设计 → 训练优化 → 实验验证”的完整研究闭环。也就是说，作者并不是只给出一个孤立模块，而是希望通过一整套方法让系统在真实场景或关键指标上取得更稳定提升。
-    </p>
-    <figure><img class='paper-fig' src='../assets/2601_03824v3/fig_1.png' alt='Figure 1:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 1：该图来自论文原文，用于说明论文中的核心框架、可视化结果或实验现象。原始图注摘要：Left: Methods [5, 21, 47] that estimate depth probability via a single warp operation. Middle: Our IDESplat can iteratively leverage multi-warp operations to boost the depth probability estimate and refine the depth candidates for accurate Gaussian mean predictions. Right: The experimental results…</figcaption></figure><figure><img class='paper-fig' src='../assets/2601_03824v3/fig_2.png' alt='Figure 2:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 2：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 2 from the source paper.</figcaption></figure>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>To address this limitation, we propose IDESplat, which iteratively applies warp operations to boost depth probability estimation for accurate Gaussian mean prediction.</li><li>The iterative warp framework of our IDESplat is shown in Fig.</li><li>Iteration-based optimization methods [1, 17] are widely used in various tasks [3, 12, 56] due to their ability to progressively enhance and refine the feature learning process.</li></ul></div>
+    <p>可推广的 3D 高斯分布旨在使用前馈网络直接预测高斯参数以进行场景重建。在这些参数中，高斯均值特别难以预测，因此通常首先估计深度，然后进行不投影以获得高斯球中心。现有方法通常仅依赖于单个扭曲来估计深度概率，这阻碍了它们充分利用跨视图几何线索的能力，导致不可靠且粗糙的深度图。为了解决这个限制，我们提出了 IDESplat，它迭代地应用扭曲操作来增强深度概率估计，以实现准确的高斯均值预测。首先，为了消除单个扭曲固有的不可靠性，我们引入了深度概率增强单元（DPBU），它以乘法方式集成了级联扭曲操作生成的极注意图。</p>
+    <p>接下来，我们通过堆叠多个 DPBU 构建迭代深度估计过程，逐步识别具有高可能性的潜在深度候选者。随着 IDESplat 迭代地提高深度概率估计并更新候选深度，深度图逐渐细化，从而产生准确的高斯均值。我们在 RealEstate10K、ACID 和 DL3DV 上进行实验。 IDESplat 实现了出色的重建质量和最先进的性能以及实时效率。在 RE10K 上，它的 PSNR 性能优于 DepthSplat 0.33 dB，仅使用 10.7% 的参数和 70% 的内存。</p>
+    <p>此外，在跨数据集实验中，我们的IDESplat在DTU数据集上比DepthSplat提高了PSNR 2.95 dB，展示了其强大的泛化能力。代码可在 https://github.com/CVL-UESTC/IDESplat https://github.com/CVL-UESTC/IDESplat 获取。</p>
+    <figure><img class='paper-fig' src='../assets/2601_03824v3/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：IDESplat的整体架构。 IDESplat 由三个关键部分组成：特征提取主干、迭代深度概率估计过程和高斯聚焦模块 (GFM)。迭代过程建立在级联深度概率提升单元 (DPBU) 的基础上。在每个 DPBU 内，深度概率由堆叠的扭曲指数极线注意力 (WIEA) 块顺序估计，其中每个块对逐渐细化的特征进行操作，从而产生不同的概率估计。每个单元以乘法方式组合多级扭曲结果，以减轻单个扭曲固有的不可靠性。随着 IDESplat 迭代更新深度候选并提高概率估计，深度图变得更加精确，从而获得准确的高斯均值。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2601_03824v3/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：RealEstate10K 数据集上新颖视图合成的可视化结果比较。我们的 IDESplat 在渲染具有挑战性的区域方面显着优于以前最先进的方法。</figcaption></figure>
+    <blockquote>
+      简而言之，这篇论文关注的核心是：可推广的 3D 高斯分布旨在使用前馈网络直接预测高斯参数以进行场景重建。在这些参数中，高斯均值特别难以预测，因此通常首先估计深度，然后进行不投影以获得高斯球中心。现有方法通常仅依赖于单个扭曲来估计深度概率，这阻碍了它们充分利用跨视图几何线索的能力，导致不可靠且粗糙的深度图。为了解决这个限制，我们提…
+    </blockquote>
+    <p>单场景 3D 高斯溅射 (3DGS) 受益于光栅化友好的管道，使其非常适合实时场景重建，但它的泛化能力有限。可泛化 3DGS 通过使用前馈网络直接预测所有高斯参数来解决这一缺点，使其能够处理未见过的场景。在所有高斯球参数中，高斯均值至关重要，但由于高斯梯度的局部支持性质，很难直接预测，这显着影响整体参数的优化。现有方法通常需要首先估计像素深度图，然后对其进行反投影以获得高斯球的中心。这种设计通过解耦高斯均值参数的预测来降低网络优化过程的难度，同时增加对准确深度估计的依赖。</p>
+    <p>人们已经努力获得准确和精细的深度估计。早期的方法直接使用可微运算从图像特征预测深度概率分布。尽管这些方法可以以可推广的方式预测场景重建的深度图，但它们利用多视图特征相似性的能力有限，这限制了它们的性能。随后的方法引入了使用扭曲操作来建立跨视图特征相似性的成本量，这为深度估计提供了有价值的几何线索并简化了网络学习过程。然而，这些方法仅依赖于单个扭曲来建模特征相似性，这使得它们无法充分利用丰富的几何信息，导致深度图不可靠且粗糙。</p>
+    <p>因此，如何结合多个扭曲来逐渐利用丰富的跨视图几何细节，生成精细且可靠的深度图以进行准确的高斯均值预测，仍然是一个关键挑战。在本文中，我们提出了 IDESplat，它迭代地执行扭曲来细化深度图，以实现准确的高斯均值预测。通过整合级联扭曲结果，我们可以逐步提高特征相似性度量，以识别高似然表面点并抑制低概率深度候选点。我们的 IDESplat 的迭代扭曲框架如图 1 所示。首先，为了消除单个扭曲的不可靠性，我们引入了深度概率提升单元（DPBU），以乘法方式融合多个极注意力图，以获得可靠的深度图。</p>
+    <p>接下来，我们逐步更新深度搜索范围，同时增加……</p>
 
     <h2 id='innovation'>核心创新</h2>
     <p>
-      对照引言与方法部分，这篇论文的创新点主要体现在“如何重新组织问题求解链路”上。相比简单替换一个 backbone 或增加一个 loss，作者更像是在重新定义系统的关键接口与约束方式。
+      综合引言与方法部分，这篇论文的核心创新可以概括为以下几方面：
     </p>
-    <h3>1）从任务设定上重新界定问题边界</h3>
+    <h3>1）问题定义与研究动机</h3>
     <p>
-      论文强调的问题并不只是已有方案做得不够好，而是很多现有方法在目标可控性、泛化范围、效率约束或结构一致性上存在天然短板。因此作者先重述了任务定义，再围绕新的目标函数和场景假设去设计整体方案。
+      单场景 3D 高斯溅射 (3DGS) 受益于光栅化友好的管道，使其非常适合实时场景重建，但它的泛化能力有限。可泛化 3DGS 通过使用前馈网络直接预测所有高斯参数来解决这一缺点，使其能够处理未见过的场景。在所有高斯球参数中，高斯均值至关重要，但由于高斯梯度的局部支持性质，很难直接预测，这显着影响整体参数的优化。现有方法通常需要首先估计像素深度图，然后对其进行反投影以获得高斯球的中心。这种设计通过解耦高斯均值参数的预测来降低网络优化过程的难度，同时增加对准确深度估计的依赖。人们已经努力获得准确和精细的深度估计。早期的方法直接使用可微运算从图像特征预测深度概率分布。尽管这些方法可以以可推广的方式预测场景重建的深度图，但它们利用多视图特征相似性的能力有限，这限制了它们的性能。随后的方法引入了使用扭曲操作来建立跨视图特征相似性的成本量，这为深度估计提供了有价值的几何线索并简化了网络学习过程。然而，这些方法仅依赖于单个扭曲来建模特征相似性，这使得它们无法充分利用丰富的几何信息，导致深度图不可靠且粗糙。因此，如何结合多个扭曲来逐渐利用丰富的跨视图几何细节，生成精细且可靠的深度图以进行准确的高斯均…
     </p>
-    <h3>2）用统一框架串起表示、推理和优化</h3>
+    <h3>2）方法框架与核心模块</h3>
     <p>
-      从原文描述看，这篇论文并不是把多个模块松散拼接，而是在一个统一框架里安排表示形式、关键模块和训练信号，使它们彼此服务。这类设计往往决定了方法能否真正具备工程可落地性。
+      预赛。给定一系列稀疏视图图像 ，其中每个图像具有维度 ，并且相应的相机投影矩阵为 。可推广 3DGS 任务的目标是学习将图像映射到 3D 高斯参数的网络。该过程定义为：其中 是具有可学习参数的前馈网络 。参数 、 、 和 分别是高斯均值、不透明度、协方差和颜色。由于高斯均值难以直接预测，因此大多数现有方法通过将深度图投影到 3D 来估计它们。深度估计方案如下：首先，使用多视图特征提取主干对输入图像序列进行处理，产生下采样的特征 。然后，基于不同视图的相机投影矩阵 和候选深度 计算成本量。具体来说，视图中的特征被扭曲为视图，如下所示： 其中 表示扭曲算子。然后将相关性计算为 和 之间的点积：其中 和 表示特征通道维度。随后，使用 U-Net 进行细化并上采样至输入分辨率为 。最后，应用一个函数来获得每个候选深度的概率，并计算最终的深度图作为它们的加权平均值。为了实现高质量的 3D 重建，准确的深度图至关重要，因为它确定 3D 高斯的中心。然而，这种常用的方法仅依赖于单个交叉视图扭曲来计算特征相似性，未充分利用交叉视图几何形状，并且通常会导致不可靠的粗略深度估计。此外，这种典型的相关性计…
     </p>
-    <h3>3）把实验目标直接对齐到实际痛点</h3>
+    <h3>3）实验设计与工程价值</h3>
     <p>
-      论文中的实验不仅比较常规 benchmark，也会额外关注更贴近实际系统需求的指标，例如稳定性、控制性、质量上界、对长尾场景的适应能力等。换句话说，它不是只追求单一数值，而是试图证明整套系统在真实使用方式下也成立。
+      实验设置数据集。我们的实验在三个大型数据集上进行： RealEstate10K 、 ACID 和 DTU 。 RealEstate10K包含从YouTube下载的房地产视频，分为67,477个训练场景和7,289个测试场景。 ACID 由无人机捕获的自然场景组成，其中有 11,075 个训练场景和 1,972 个测试场景。两个数据集均使用运动结构 (SfM) 算法进行校准，以估计相机每帧的内在和外在参数。遵循之前作品的设置，对于 RealEstate10K 和 ACID 数据集，使用两个上下文图像作为输入，并为每个测试场景渲染三个新颖的目标视图。所有输入和目标图像的分辨率均为 .此外，对于多视图 DTU 数据集（其中包含具有已知相机姿势的以对象为中心的场景），我们报告了 16 个验证场景的结果。实施细节。为了公平比较，我们遵循常用的训练设置。具体来说，我们的训练实验是在 8 个 RTX…
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>To address this limitation, we propose IDESplat, which iteratively applies warp operations to boost depth probability estimation for accurate Gaussian mean prediction.</li></ul></div>
 
     <h2 id='technical'>技术细节</h2>
     <p>
-      方法部分是理解论文价值的关键。结合原文可以看到，作者通常会先定义输入输出，再介绍中间表示、主干模块、损失函数或奖励机制，最后说明训练与推理时各模块如何协同。
-      对这篇论文而言，方法线索主要集中在以下几个方面：
+      下面按照论文的方法章节结构展开，重点说明模型的关键模块、公式设计和训练策略。
     </p>
-    <h3>3.1 方法主线与模块组织</h3>
+    <p>预赛。给定一系列稀疏视图图像 ，其中每个图像具有维度 ，并且相应的相机投影矩阵为 。可推广 3DGS 任务的目标是学习将图像映射到 3D 高斯参数的网络。该过程定义为：其中 是具有可学习参数的前馈网络 。参数 、 、 和 分别是高斯均值、不透明度、协方差和颜色。由于高斯均值难以直接预测，因此大多数现有方法通过将深度图投影到 3D 来估计它们。深度估计方案如下：首先，使用多视图特征提取主干对输入图像序列进行处理，产生下采样的特征 。然后，基于不同视图的相机投影矩阵 和候选深度 计算成本量。具体来说，视图中的特征被扭曲为视图，如下所示： 其中 表示扭曲算子。然后将相关性计算为 和 之间的点积：其中 和 表示特征通道维度。随后，使用 U-Net 进行细化并上采样至输入分辨率为 。最后，应用一个函数来获得每个候选深度的概率，并计算最终的深度图作为它们的加权平均值。为了实现高质量的 3D 重建，准确的深度图至关重要，因为它确定 3D 高斯的中心。然而，这种常用的方法仅依赖于单个交叉视图扭曲来计算特征相似性，未充分利用交叉视图几何形状，并且通常会导致不可靠的粗略深度估计。此外，这种典型的相关性计算方法需要存储所有密集变形特征，这会产生显着的内存开销，特别是当深度候选尺寸很大时。迭代多视图深度估计在本文中，我们提出 IDESplat 使用多个扭曲操作迭代地提高特征相似性度量。随着 IDESplat 逐步挖掘几何线索来识别高概率潜在深度候选者，它可以生成精确且可靠的深度概率估计结果，以进行精确的高斯均值预测。扭曲指数极线关注。扭曲操作是构建成本体积或极注意图的关键，因为它在源视图和目标视图中的特征之间建立了像素级对应关系。然而，如等式所示。 eq:warp_ori，这种变形操作需要对每个深度候选的目标视图特征进行采样，从而产生较高的内存成本。</p>
+    <p>为了减轻固有的内存开销，我们引入了一种扭曲索引极线注意力机制，该机制仅存储用于相似矩阵乘法的扭曲索引。我们首先计算扭曲索引图如下： 其中表示仅记录扭曲期间获得的索引的操作，并且是深度候选矩阵。接下来，我们并行计算特征相关性，如下所示： 其中 表示稀疏矩阵乘法 (SMM)，它使用扭曲索引来确定 与 进行矩阵乘法的位置。然后，我们使用轻量级 2D U-Net 细化相关图以获得 。最后，一个…</p>
+    <p>$$ \label{eq:eq1}
+ f_{\bm \theta}: \{ ({\mathcal I}^{i}, {\mathcal P}^i) \}_{i=1}^{V} \mapsto \{ (\bm{\mu}_j, \bm{\alpha}_j, \bm{\Sigma}_j, \bm{c}_j ) \}_{j=1}^{V \times H \times W}, $$</p>
     <p>
-      根据方法章节可知，作者首先构建了一个核心表示或中间条件，再通过若干模块把它逐步转换为最终输出。这种结构的优势在于：每个模块都承担明确职责，既便于解释，也更便于在实验中做模块级消融。
-      原文中与主线最相关的描述包括：
+      离子预习。给定一系列稀疏视图图像 ，其中每个图像具有维度 ，并且相应的相机投影矩阵为 。可推广 3DGS 任务的目标是学习将图像映射到 3D 高斯参数的网络。这个过程被定义为：哪里是一个前馈网络......
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>Iterative Depth Probability Estimation for Generalizable 3D Gaussian Splatting Wei Long1, Haifeng Wu1, Shiyin Jiang1, Jinhua Zhang1, Xinchun Ji2, Shuhang Gu1* 1University of Electronic Science and Technology of China 2Aerospace Information Research Institute,…</li><li>First, to eliminate the inherent unreliability of a single warp, we introduce a Depth Probability Boosting Unit (DPBU) that integrates epipolar attention maps produced by cascading warp operations in a multiplicative manner.</li></ul></div>
-    <h3>3.2 训练目标、损失与公式信号</h3>
+    <p>$$ \label{eq:warp_ori}
+ {\bm F}^{j \to i} = \mathcal{W}({\bm F}^j, {\mathcal P}^i, {\mathcal P}^j, \bm G) \in \mathbb{R}^{\frac{H}{4} \times \frac{W}{4} \times D\times C}, $$</p>
     <p>
-      论文里的公式通常承担两类角色：一种是定义模型的预测关系与变量约束，另一种是定义优化时真正驱动模型更新的目标函数。阅读这类论文时，关键不是死记公式外形，而是理解每个公式分别在“表达结构”还是“约束行为”上发挥作用。
+      进行下采样特征。然后，基于不同视图的相机投影矩阵 和候选深度 计算成本量。具体来说，视图中的特征被扭曲为视图，如下所示： 其中 表示扭曲算子。然后将相关性计算为...之间的点积
     </p>
-    <div class='card'><strong>公式 / 指标片段 1：</strong><pre>Given a sequence of V sparse-view images I = {Ii}V</pre></div><div class='card'><strong>公式 / 指标片段 2：</strong><pre>i=1 7→{(µj, αj, Σj, cj)}V ×H×W</pre></div><div class='card'><strong>公式 / 指标片段 3：</strong><pre>based on F , the camera projection matrices Pi, Pj for different views, and the depth candidates G = [d1, d2, · · · , dD] ∈</pre></div><div class='card'><strong>公式 / 指标片段 4：</strong><pre>F j→i = W(F j, Pi, Pj, G) ∈R</pre></div>
+    <p>$$ \label{eq:correlation}
+ {\bm C}_{d_m}^{i} = ({\bm F}^i \cdot {\bm F}^{j \to i}_{d_m} / \sqrt{C}) \in \mathbb{R}^{\frac{H}{4} \times \frac{W}{4}}, $$</p>
     <p>
-      从这些公式与周边段落可以推断，作者想要的不只是局部误差最小化，而是通过更精细的目标设计，让模型在结构一致性、生成质量、时序稳定性或可控性等方面同时受约束。这也是很多新方法能真正优于 baseline 的原因。
+      从视图扭曲到视图如下： 其中表示扭曲运算符。然后将相关性计算为 和 之间的点积：其中 和 表示特征通道维度。随后，使用 U-Net 进行细化并上采样至输入分辨率为 。最后，应用一个函数来获得概率……
     </p>
-    <h3>3.3 把全文方法串起来理解</h3>
+    <p>$$ \label{eq:warp}
+ {\bm I}^{j \to i} = \mathcal{IW}({\bm F}^j, {\mathcal P}^i, {\mathcal P}^j, \bm G) \in \mathbb{R}^{\frac{H}{4} \times \frac{W}{4} \times D}, $$</p>
     <p>
-      如果把这篇论文的方法看成一条流水线，那么它的逻辑通常是：先把输入变成一个更适合推理的中间表示，再围绕该表示施加关键模块与训练目标，最后把输出落到可评估、可可视化的结果上。
-      这种“表示—模块—目标—结果”的闭环设计，是本页所锁定模板最想强调的部分，因为它比零散摘录更能帮助后续复现与横向比较。
+      和目标视图。然而，如等式所示。 eq:warp_ori，这种变形操作需要对每个深度候选的目标视图特征进行采样，从而产生较高的内存成本。为了减轻固有的内存开销，我们引入了一种扭曲索引极点注意力机制，该机制仅存储类似的扭曲索引......
+    </p>
+    <p>$$ \label{eq:correlation}
+ {\bm C}^{i} = \mathbf{\Psi}({\bm F}^i, {\bm F}^j, {\bm I}^{j \to i}) \in \mathbb{R}^{\frac{H}{4} \times \frac{W}{4} \times D}, $$</p>
+    <p>
+      IW G 是深度候选矩阵。接下来，我们并行计算特征相关性，如下所示： 其中 表示稀疏矩阵乘法 (SMM)，它使用扭曲索引来确定 与 进行矩阵乘法的位置。然后，我们使用轻量级 2D U-Net 细化相关图以获得……
+    </p>
+    <p>$$ \bm{A}^{i}=\mathrm{softmax} (\tilde{\bm{C}}^{i}). $$</p>
+    <p>
+      e 稀疏矩阵乘法 (SMM)，它使用扭曲索引来确定与 进行矩阵乘法的位置。然后，我们使用轻量级 2D U-Net 细化相关图以获得 。最后，沿着深度维度应用 a 以获得注意力权重：该注意力图对应于…
+    </p>
+    <figure><img class='paper-fig' src='../assets/2601_03824v3/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：ScanNet 数据集上深度误差图的定性比较。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2601_03824v3/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：RE10K 数据集上不同模型的深度预测图比较。</figcaption></figure>
+    <p>
+      把全文方法串起来看，这篇论文的逻辑基本都遵循同一条主线：先把输入组织成更容易处理的表示，再通过模型结构和损失函数把这个表示推向目标输出，最后用可视化与数值实验共同证明该设计有效。
     </p>
 
     <h2 id='experiment'>实验结论</h2>
     <p>
-      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，优势究竟来自哪个模块。对这篇论文来说，实验设计明显围绕“与现有方法的对比 + 对关键组件的消融”展开。
+      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，这种优势来自哪一个设计决策。
     </p>
-    <p>
-      从实验段落的关键词和结果描述看，论文最想传达的结论包括：
-    </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>To achieve high-quality 3D reconstruction, an accurate depth map D is crucial since it determines the centers of 3D Gaussians.</li></ul></div>
-    <figure><img class='paper-fig' src='../assets/2601_03824v3/fig_3.png' alt='Figure 3:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 3：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 3 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2601_03824v3/fig_4.png' alt='Figure 4:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 4：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 4 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2601_03824v3/fig_5.png' alt='Figure 5:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 5：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 5 from the source paper.</figcaption></figure>
+    <p>实验设置数据集。我们的实验在三个大型数据集上进行： RealEstate10K 、 ACID 和 DTU 。 RealEstate10K包含从YouTube下载的房地产视频，分为67,477个训练场景和7,289个测试场景。 ACID 由无人机捕获的自然场景组成，其中有 11,075 个训练场景和 1,972 个测试场景。两个数据集均使用运动结构 (SfM) 算法进行校准，以估计相机每帧的内在和外在参数。遵循之前作品的设置，对于 RealEstate10K 和 ACID 数据集，使用两个上下文图像作为输入，并为每个测试场景渲染三个新颖的目标视图。所有输入和目标图像的分辨率均为 .此外，对于多视图 DTU 数据集（其中包含具有已知相机姿势的以对象为中心的场景），我们报告了 16 个验证场景的结果。实施细节。为了公平比较，我们遵循常用的训练设置。具体来说，我们的训练实验是在 8 个 RTX 4090 GPU 上进行的，总批量大小为 16，使用 AdamW 优化器进行 300,000 次迭代。我们采用余弦学习率计划来优化我们的模型。对于预训练的 Depth Anything V2 主干网，我们使用的学习率为 ，而其余层的学习率为 。在 DepthSplat 之后，我们使用 MSE 和 LPIPS 损失来训练我们的模型。主要结果我们将我们提出的方法与场景级新颖视图合成中的几种领先方法进行了全面比较，涵盖三个代表性类别：光场网络方法，如 GPNR 和 AttnRend ；基于NeRF的方法包括pixelNeRF和MuRF；以及基于 3D 高斯 Splatting 的方法，例如 PixelSplat 、 LatentSplat 、 MVSplat 、 eFreeSplat 、 MonoSplat 和 DepthSplat 。定量结果。如表所示。 ，我们的 IDESplat 在 RealEstate10K 和 ACID 基准测试中的所有视觉质量指标上均实现了最先进的性能。具体来说，在 RE10K 数据集上，与 DepthSplat 相比，我们的方法将 PSNR 提高了 0.33 dB，同时仅使用了 10.7% 的参数。此外，与具有相似数量参数的 MonoSplat 相比，我们的方法实现了 1.12 dB 的显着改进。对于 SSIM 和 LPIPS 指标，我们的方法还分别获得了 0.893 和 0.108 的最佳结果。在 ACID 数据集上，我们的方法比 MonoSplat 的 PSNR 提高了 0.31 dB，最高达到 28.94 dB。</p>
+    <p>IDESplat 的优越性能可归因于其深度概率预测的迭代提升设计，逐渐细化深度图。这种设计使我们的方法能够以更少的参数实现可靠且稳定的深度估计结果，从而实现准确……</p>
+
     <ul>
-      <li>方法在主任务指标上不是偶然提升，而是与其结构设计和训练目标直接相关；</li>
-      <li>作者通过消融实验说明，若拿掉关键模块，性能与结果质量会明显回落；</li>
-      <li>论文不仅关注数值对比，也关注可视化质量、稳定性或可控性等更接近真实应用的信号。</li>
+      <li>方法在核心指标上的优势与结构设计和训练目标直接相关；</li>
+      <li>消融实验表明，拿掉关键模块后性能与结果质量都有明显回落；</li>
+      <li>论文不仅比较数值，也关注可视化质量、稳定性和泛化能力等更贴近真实使用的信号。</li>
     </ul>
-    <p>
-      因此，实验部分最重要的阅读方式不是死记某一列数字，而是看清：作者究竟想证明哪个机制有效、这个机制的收益是在什么设置下成立、它是否有明显的边界条件。
-    </p>
 
     <h2 id='takeaway'>理解评价</h2>
+    <p>我们提出了 IDESplat，它迭代地应用扭曲操作并集成多级极注意力图来增强深度概率估计，以实现准确的高斯均值预测。具体来说，我们首先设计一个深度概率增强单元，以乘法方式放大跨视图特征相似性。然后，我们通过堆叠多个 DPBU 构建迭代深度估计过程，逐渐识别最可能的深度位置。此外，在这个迭代过程中，我们逐渐缩小深度搜索范围并增加特征大小，以实现更精确的深度估计。对于其他高斯参数，我们设计了一个高斯聚焦模块来选择最相关的高斯标记进行基于注意力的特征交互。</p>
+    <p>大规模基准上的实验结果清楚地表明IDESplat实现了出色的重建质量和强大的领域泛化能力。我们当前的模型仍然存在局限性：虽然它能够实现实时 3D 重建，但其效率还有待进一步提高，并且需要相机姿态输入作为先决条件。潜在的改进方向包括进一步提高推理速度和探索无姿态框架。</p>
     <p>
-      从研究定位上看，这篇论文的意义在于它没有把问题局限在某一个局部改动，而是尝试给出一套更完整的求解路径。对读者而言，最值得关注的是它如何重新组合表示、模块和训练目标，以及这些设计是否能迁移到相近任务上。
+      如果把它当成研究参考，建议重点关注三件事：第一，这套方法真正依赖的归纳偏置是什么；第二，实验中真正拉开差距的模块是哪一个；第三，它的局限究竟来自数据、算力还是监督信号本身。
     </p>
     <p>
-      如果把它当成研究参考，我会重点看三件事：
-      第一，这套方法的核心归纳偏置是什么；
-      第二，实验中真正拉开差距的模块是哪一块；
-      第三，它的限制条件是数据、算力、时序长度，还是奖励/监督信号本身。
-    </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>To address this limitation, we propose IDESplat, which iteratively applies warp operations to boost depth probability estimation for accurate Gaussian mean prediction.</li><li>Therefore, how to incorporate multiple warps to gradually leverage rich cross-view geometric details, producing refined and reliable depth maps for accurate Gaussian mean prediction, remains a key challenge.</li><li>Iterative Depth Probability Estimation for Generalizable 3D Gaussian Splatting Wei Long1, Haifeng Wu1, Shiyin Jiang1, Jinhua Zhang1, Xinchun Ji2, Shuhang Gu1* 1University of Electronic Science and Technology of China 2Aerospace Information Research Institute,…</li><li>*corresponding author IDESplat achieves outstanding reconstruction quality and state-of-the-art performance with real-time efficiency.</li></ul></div>
-    <p>
-      进一步延伸阅读时，可以把这篇工作放到更广泛的技术脉络里：它与同类方法相比，到底是在表示层、生成层、优化层还是评估层提出了更强的方案。下面这些自动检索到的相关论文可作为继续追踪的入口：
+      以下相关论文可以作为进一步追踪的入口：
     </p>
     <ul></ul>
 
     <div class='tip'>
       <strong>一句结论：</strong>
-      这篇论文值得读的原因，不只是它给出了一组更好的结果，而是它提供了一条相对完整的问题求解思路：如何把任务定义、方法设计与实验验证真正对齐到同一条研究主线上。
+      这篇论文值得关注的地方在于，它不只给出了更好的实验结果，更提供了一条相对完整的问题求解路径，把任务定义、方法设计与实验验证真正对齐到了同一条研究主线上。
     </div>
   </article>
 </div>
+
   </div>
 </div>
 </body>

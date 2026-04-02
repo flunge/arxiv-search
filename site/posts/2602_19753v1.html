@@ -70,7 +70,7 @@
     blockquote { margin: 16px 0; padding: 8px 16px; border-left: 4px solid #d8e7ff; background: #f8fbff; color: #333; }
     .tip { background: #f7f9fc; border: 1px solid #e8eef6; border-radius: 10px; padding: 12px; }
     .dashboard-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-top:18px; }
-    .dashboard-card { aspect-ratio: 1 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
+    .dashboard-card { aspect-ratio: 1.618 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
     .dashboard-card > * { min-width: 0; }
     .dashboard-card .dashboard-content { display:flex; flex-direction:column; height:100%; min-height:0; }
     .dashboard-card .dashboard-scroll { overflow:auto; min-height:0; }
@@ -130,10 +130,28 @@
     });
   </script>
 
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\(', '\)']],
+        displayMath: [['$$', '$$'], ['\[', '\]']]
+      },
+      svg: { fontCache: 'global' },
+      startup: {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady().then(() => {
+            requestAnimationFrame(applyPageScale);
+          });
+        }
+      }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
+
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
 
@@ -143,103 +161,108 @@
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      这篇论文关注的是“RAP 所对应的问题能否在更可控、更稳健或更高质量的条件下被解决”。从摘要与方法描述来看，作者的总体路线是：先搭建一个明确的表示或生成框架，再围绕训练目标、结构设计和实验验证把该问题推进到更可用的工程形态。
+      3D 高斯溅射 (3DGS) 已成为高质量 3D 场景重建的领先技术。然而，迭代细化和致密化过程导致生成大量基元，每个基元对重建的贡献程度截然不同。因此，估计原始重要性对于在重建过程中消除冗余以及实现有效的压缩和传输都是至关重要的。现有方法通常依赖于基于渲染的分析，其中每个基元通过其在多个相机视点的贡献来评估。然而，这些方法1）对视图的数量和选择敏感； 2）依赖专门的可微分光栅器； 3）计算时间长，且随着观看次数线性增长，使得它们难以集成为即插即用模块，并导致可扩展性和通用性有限。为了解决这些问题，我们提出了 RAP——一种快速前馈的无渲染属性引导方法，用于在 3DGS 中进行有效的重要性评…
     </div>
 
     <h2 id='summary'>简单摘要</h2>
-    <p>
-      从论文摘要可以看出，这项工作的落点并不是单纯提升一个局部模块，而是围绕完整任务链路做系统设计。它通常会同时回答三个问题：任务为什么重要、现有方法卡在哪里、作者的新方案如何绕开这些瓶颈。
-      就这篇论文而言，摘要部分强调的核心是：<strong>3D Gaussian Splatting (3DGS) has emerged as a leading technology for high-quality 3D scene reconstruction. However, the iterative refinement and densification process leads to the…</strong>
-    </p>
-    <p>
-      如果把它放进更大的技术背景中理解，可以把这篇论文视作一条“问题定义 → 表示设计 → 训练优化 → 实验验证”的完整研究闭环。也就是说，作者并不是只给出一个孤立模块，而是希望通过一整套方法让系统在真实场景或关键指标上取得更稳定提升。
-    </p>
-    <figure><img class='paper-fig' src='../assets/2602_19753v1/fig_1.png' alt='Figure 1:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 1：该图来自论文原文，用于说明论文中的核心框架、可视化结果或实验现象。原始图注摘要：Visualization of redundant and low-importance Gaussians in the Train scene from Tanks&amp;Temples. of views, as shown in the Supplementary Material (Sec. 7). Gradient-based variants estimate significance from reconstruction error sensitivity. C3DGS [23] uses backward gradients, selecting the maximum SH…</figcaption></figure><figure><img class='paper-fig' src='../assets/2602_19753v1/fig_2.png' alt='Figure 2:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 2：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 2 from the source paper.</figcaption></figure>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>To address these issues, we propose RAP — a fast feedforward Rendering-free Attributeguided method for efficient importance score Prediction in 3DGS.</li><li>Introduction 3D Gaussian Splatting (3DGS) [15] has recently emerged as a powerful explicit representation for novel view synthesis, achieving high-fidelity reconstruction with real-time rendering efficiency.</li></ul></div>
+    <p>3D 高斯溅射 (3DGS) 已成为高质量 3D 场景重建的领先技术。然而，迭代细化和致密化过程导致生成大量基元，每个基元对重建的贡献程度截然不同。因此，估计原始重要性对于在重建过程中消除冗余以及实现有效的压缩和传输都是至关重要的。现有方法通常依赖于基于渲染的分析，其中每个基元通过其在多个相机视点的贡献来评估。然而，这些方法1）对视图的数量和选择敏感； 2）依赖专门的可微分光栅器； 3）计算时间长，且随着观看次数线性增长，使得它们难以集成为即插即用模块，并导致可扩展性和通用性有限。</p>
+    <p>为了解决这些问题，我们提出了 RAP——一种快速前馈的无渲染属性引导方法，用于在 3DGS 中进行有效的重要性评分预测。 RAP 直接从内在高斯属性和局部邻域统计数据推断原始重要性，避免任何基于渲染或依赖于可见性的计算。紧凑的 MLP 被训练为使用渲染损失、剪枝感知损失和显着性分布正则化损失的组合来预测每个基元的重要性分数。经过少量场景的训练后，RAP 可以有效泛化到未见过的数据，并可以无缝集成到重建、压缩和传输管道中，提供统一、高效的剪枝解决方案。</p>
+    <p>我们的代码公开于：https://github.com/yyyykf/RAP</p>
+    <figure><img class='paper-fig' src='../assets/2602_19753v1/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：Tanks&amp;Temples 中火车场景中冗余和低重要性高斯的可视化。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2602_19753v1/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：RAP学习框架。</figcaption></figure>
+    <blockquote>
+      简而言之，这篇论文关注的核心是：3D 高斯溅射 (3DGS) 已成为高质量 3D 场景重建的领先技术。然而，迭代细化和致密化过程导致生成大量基元，每个基元对重建的贡献程度截然不同。因此，估计原始重要性对于在重建过程中消除冗余以及实现有效的压缩和传输都是至关重要的。现有方法通常依赖于基于渲染的分析，其中每个基元通过其在多个相机视点…
+    </blockquote>
+    <p>3D 高斯泼溅 (3DGS) 最近已成为新颖视图合成的强大显式表示，可实现具有实时渲染效率的高保真度重建。尽管有其优势，3DGS 通常依赖于数百万个高斯图元来实现高保真渲染，这给存储和内存带来了巨大的负担。然而，这些基元以一种高度不平衡的方式对渲染质量做出贡献：这些基元中只有一小部分对渲染质量有价值，而很大一部分由于次优的致密化过程或不完整的训练而变得多余。因此，提出并采用基元重要性分数来选择基元并对其进行优先级排序，以进行差异化处理，例如修剪、压缩、细节层次渲染和传输。</p>
+    <p>例如，LightGaussian 和 PUP-3DGS 等先前的工作表明，由重要性分数引导的修剪可以在不牺牲保真度的情况下显着减少图元的数量。因此，提出一种准确、鲁棒、即插即用的重要性估计方法至关重要，作为 3DGS 多种实际应用中的模块化组件。现有的原始重要性估计方法可以大致分为三类：基于属性的方法、基于渲染的方法和基于学习的方法。 1）基于属性的启发式方法采用简单的规则，例如在优化期间分割大图元或丢弃不透明度低于阈值的图元。</p>
+    <p>虽然重量轻且独立于相机视点，但这些策略忽略了重叠图元之间复杂的混合交互，并且无法反映对渲染质量的真正贡献。 2）基于渲染的方法通过将高斯投影到多个视图上以测量其二维足迹或通过重建误差梯度评估扰动敏感性来估计原始显着性。这些方法提供了更高的精度，但本质上依赖于视图，对视图的数量和选择敏感，并且计算成本昂贵，因为时间成本随着视图计数线性增长。此外，它们需要专门的光栅化，限制了它们的模块化和可扩展性。 3）基于学习的方法联合优化可学习的分数掩模和场景重建。</p>
+    <p>尽管它们可以隐式地学习原始意义，但分数与特定的重建框架紧密耦合，因此缺乏通用性。而且，一旦场景被修改，预先计算的分数就会变得无效……</p>
 
     <h2 id='innovation'>核心创新</h2>
     <p>
-      对照引言与方法部分，这篇论文的创新点主要体现在“如何重新组织问题求解链路”上。相比简单替换一个 backbone 或增加一个 loss，作者更像是在重新定义系统的关键接口与约束方式。
+      综合引言与方法部分，这篇论文的核心创新可以概括为以下几方面：
     </p>
-    <h3>1）从任务设定上重新界定问题边界</h3>
+    <h3>1）问题定义与研究动机</h3>
     <p>
-      论文强调的问题并不只是已有方案做得不够好，而是很多现有方法在目标可控性、泛化范围、效率约束或结构一致性上存在天然短板。因此作者先重述了任务定义，再围绕新的目标函数和场景假设去设计整体方案。
+      3D 高斯泼溅 (3DGS) 最近已成为新颖视图合成的强大显式表示，可实现具有实时渲染效率的高保真度重建。尽管有其优势，3DGS 通常依赖于数百万个高斯图元来实现高保真渲染，这给存储和内存带来了巨大的负担。然而，这些基元以一种高度不平衡的方式对渲染质量做出贡献：这些基元中只有一小部分对渲染质量有价值，而很大一部分由于次优的致密化过程或不完整的训练而变得多余。因此，提出并采用基元重要性分数来选择基元并对其进行优先级排序，以进行差异化处理，例如修剪、压缩、细节层次渲染和传输。例如，LightGaussian 和 PUP-3DGS 等先前的工作表明，由重要性分数引导的修剪可以在不牺牲保真度的情况下显着减少图元的数量。因此，提出一种准确、鲁棒、即插即用的重要性估计方法至关重要，作为 3DGS 多种实际应用中的模块化组件。现有的原始重要性估计方法可以大致分为三类：基于属性的方法、基于渲染的方法和基于学习的方法。 1）基于属性的启发式方法采用简单的规则，例如在优化期间分割大图元或丢弃不透明度低于阈值的图元。虽然重量轻且独立于相机视点，但这些策略忽略了重叠图元之间复杂的混合交互，并且无法反映对渲染…
     </p>
-    <h3>2）用统一框架串起表示、推理和优化</h3>
+    <h3>2）方法框架与核心模块</h3>
     <p>
-      从原文描述看，这篇论文并不是把多个模块松散拼接，而是在一个统一框架里安排表示形式、关键模块和训练信号，使它们彼此服务。这类设计往往决定了方法能否真正具备工程可落地性。
+      我们提出的 RAP 框架由两个阶段组成。首先，我们执行重要性感知特征提取，其中每个高斯由一组从内在属性和局部邻域统计数据导出的与重要性相关的特征表示。然后对这些特征进行标准化，以确保不同场景之间的一致性。其次，我们采用基于学习的重要性预测模块，其中轻量级 MLP 将提取的特征映射到重要性分数。提出了三个精心设计的损失函数，以确保预测的重要性分数从 0 到 1 稳定分布，从而在数据集和下游 GS 处理任务中实现灵活、有效和强大的泛化。重要性感知特征提取我们通过将内在几何和外观属性与归一化统计相结合，为每个高斯基元构造一个紧凑的15维特征向量，其中包括三个步骤：特征计算、特征归一化和特征串联。特征计算。对于高斯集 ，每个图元都由一组原始特征表示，其中 是平均 -NN 距离， 是颜色各向异性， 是排序的高斯尺度， 是高斯体积， 是不透明度， 是 DC 颜色。这些量的计算如下。 itemize 平均 -NN 距离：空间隔离度的测量方法为 其中 表示 Gaussian 的空间位置，并且 是其在欧几里德空间中最近邻居的集合。颜色各向异性：为了捕获与视图相关的外观变化，我们随机采样方向并计算相应的…
     </p>
-    <h3>3）把实验目标直接对齐到实际痛点</h3>
+    <h3>3）实验设计与工程价值</h3>
     <p>
-      论文中的实验不仅比较常规 benchmark，也会额外关注更贴近实际系统需求的指标，例如稳定性、控制性、质量上界、对长尾场景的适应能力等。换句话说，它不是只追求单一数值，而是试图证明整套系统在真实使用方式下也成立。
+      实现细节 RAP 的 MLP 由三个隐藏层组成，宽度分别为 32、32 和 16 个神经元。我们设置 、 、 、 和 作为损失项。特征提取使用最近邻进行局部统计，使用箱进行熵近似，并使用高斯核宽度 。 MLP 在 DL3DV-10K 数据集中随机选择的 10 个场景上进行了 15,000 次迭代训练。我们在与原始 3DGS 相同的三个基准上评估 RAP，包括 Mip-NeRF360 的全套场景（五个室外和四个室内场景）、DeepBlending 的两个场景以及 Tanks&amp;Temples 的两个场景。所有场景均按照标准 3DGS 协议进行训练，使用视图进行训练，其余视图进行测试。我们将 RAP 与多个基线进行比较，包括简单的不透明度阈值启发式、基于可见性的方法（例如 LightGaussian 、 MesonGS 和 EAGLES ）以及基于梯度的方法（例如 C3DGS 和 PUP-3D…
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>To address these issues, we propose RAP — a fast feedforward Rendering-free Attributeguided method for efficient importance score Prediction in 3DGS.</li><li>Introduction 3D Gaussian Splatting (3DGS) [15] has recently emerged as a powerful explicit representation for novel v framework that based on a lightweight MLP with three tailored loss functions is proposed.</li><li>After being trained on a small set of scenes, RAP generalizes effectively to unseen data and can be seamlessly integrated into reconstruction, compression, and transmission pipelines, providing a unified and efficient pruning solution.</li><li>Fast Feedforward Rendering-Free Attribute-Guided Primitive Importance Score Prediction for Efficient 3D Gaussian Splatting Processing Kaifa Yang1 Qi Yang2∗ Yiling Xu1∗ Zhu Li2 1Shanghai Jiao Tong University 2University of Missouri–Kansas City {sekiroyyy, yl.x…</li></ul></div>
 
     <h2 id='technical'>技术细节</h2>
     <p>
-      方法部分是理解论文价值的关键。结合原文可以看到，作者通常会先定义输入输出，再介绍中间表示、主干模块、损失函数或奖励机制，最后说明训练与推理时各模块如何协同。
-      对这篇论文而言，方法线索主要集中在以下几个方面：
+      下面按照论文的方法章节结构展开，重点说明模型的关键模块、公式设计和训练策略。
     </p>
-    <h3>3.1 方法主线与模块组织</h3>
+    <p>我们提出的 RAP 框架由两个阶段组成。首先，我们执行重要性感知特征提取，其中每个高斯由一组从内在属性和局部邻域统计数据导出的与重要性相关的特征表示。然后对这些特征进行标准化，以确保不同场景之间的一致性。其次，我们采用基于学习的重要性预测模块，其中轻量级 MLP 将提取的特征映射到重要性分数。提出了三个精心设计的损失函数，以确保预测的重要性分数从 0 到 1 稳定分布，从而在数据集和下游 GS 处理任务中实现灵活、有效和强大的泛化。重要性感知特征提取我们通过将内在几何和外观属性与归一化统计相结合，为每个高斯基元构造一个紧凑的15维特征向量，其中包括三个步骤：特征计算、特征归一化和特征串联。特征计算。对于高斯集 ，每个图元都由一组原始特征表示，其中 是平均 -NN 距离， 是颜色各向异性， 是排序的高斯尺度， 是高斯体积， 是不透明度， 是 DC 颜色。这些量的计算如下。 itemize 平均 -NN 距离：空间隔离度的测量方法为 其中 表示 Gaussian 的空间位置，并且 是其在欧几里德空间中最近邻居的集合。颜色各向异性：为了捕获与视图相关的外观变化，我们随机采样方向并计算相应的 RGB 颜色。各向异性定义为跨方向的通道标准偏差：其中表示采样方向的标准偏差。越高表示依赖于视图的颜色变化越强。比例和体积：对比例进行排序以确保旋转不变性：然后将高斯体积计算为不透明度和 DC 颜色：不透明度反映混合贡献。 DC 颜色源自零阶 SH 系数，并在三个 RGB 通道上取平均值。逐项列出特征标准化。为了消除尺度偏差并增强高斯模型之间的可比性，每个原始特征都使用全局和本地统计数据进行标准化。全局归一化应用场景范围的分数来提供整个场景的一致参考，其中 和 表示所有高斯的全局平均值和标准差。局部归一化进一步计算基于 -NN 的 -score 以强调局部对比度：</p>
+    <p>其中 和 是邻居集的局部平均值和标准差。对于 DC 颜色，仅应用局部归一化，因为颜色偏差通常是局部致密化的结果，而由于自然场景特征，全局归一化意义不大。由于 z 分数归一化的中心特征是单位方差为零附近，因此根据经验三西格玛规则，大多数值预计会落入其中。然而，在实践中，极端异常值仍然可能发生。为了增强鲁棒性，所有特征都被裁剪到固定的百分位数范围，然后线性重新缩放到。壮举…</p>
+    <p>$$ \label{equ:feature}
+\mathbf{F}^{raw}_i = \{ d_i, A_i, {s_0}_i, {s_1}_i, {s_2}_i, V_i, o_i, C_i \} \in R^{1\times8}, $$</p>
     <p>
-      根据方法章节可知，作者首先构建了一个核心表示或中间条件，再通过若干模块把它逐步转换为最终输出。这种结构的优势在于：每个模块都承担明确职责，既便于解释，也更便于在实验中做模块级消融。
-      原文中与主线最相关的描述包括：
+      通过将内在几何和外观属性与归一化统计相结合，对每个高斯基元进行特征向量，包括三个步骤：特征计算、特征归一化和特征串联。特征计算。对于高斯集，每个基元都由一组原始......
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>Primitive Importance Score Prediction Existing approaches for estimating Gaussian primitive importance can be broadly categorized into attribute-based, rendering-based, and learning-based methods.</li><li>These losses jointly constrain the model training, guiding it to produce stable and separable importance score distributions that are friendly to downstream tasks.</li><li>framework that based on a lightweight MLP with three tailored loss functions is proposed.</li></ul></div>
-    <h3>3.2 训练目标、损失与公式信号</h3>
+    <p>$$ d_i = \frac{1}{K} \sum_{j \in \mathcal{N}_K(i)} \| \mathbf{p}_i - \mathbf{p}_j \|_2, $$</p>
     <p>
-      论文里的公式通常承担两类角色：一种是定义模型的预测关系与变量约束，另一种是定义优化时真正驱动模型更新的目标函数。阅读这类论文时，关键不是死记公式外形，而是理解每个公式分别在“表达结构”还是“约束行为”上发挥作用。
+      i, s_1_i, s_2_i, V_i, o_i, C_i \ R^18，方程 其中 是平均 -NN 距离， 是颜色各向异性， 是排序的高斯尺度， 是高斯体积， 是不透明度， 是 DC 颜色。这些量的计算如下。逐项列出平均 -NN 距离：空间隔离的测量方式为其中表示……
     </p>
-    <div class='card'><strong>公式说明：</strong><p>当前 PDF 文本中的公式抽取有限，但方法部分已结合原文段落补充核心训练目标、模块关系与评价指标。</p></div>
+    <p>$$ A_i = \frac{1}{3} \sum_{c \in \{R,G,B\}} \sigma_m \big( c_i^c(\mathbf{v}_m) \big), $$</p>
     <p>
-      从这些公式与周边段落可以推断，作者想要的不只是局部误差最小化，而是通过更精细的目标设计，让模型在结构一致性、生成质量、时序稳定性或可控性等方面同时受约束。这也是很多新方法能真正优于 baseline 的原因。
+      l 高斯 的位置，是其在欧几里德空间中最近邻的集合。颜色各向异性：为了捕获与视图相关的外观变化，我们随机采样方向并计算相应的 RGB 颜色。各向异性定义为跨方向的通道标准差：其中表示……
     </p>
-    <h3>3.3 把全文方法串起来理解</h3>
+    <p>$$ V_i = s_{0,i} \times s_{1,i} \times s_{2,i}. $$</p>
     <p>
-      如果把这篇论文的方法看成一条流水线，那么它的逻辑通常是：先把输入变成一个更适合推理的中间表示，再围绕该表示施加关键模块与训练目标，最后把输出落到可评估、可可视化的结果上。
-      这种“表示—模块—目标—结果”的闭环设计，是本页所锁定模板最想强调的部分，因为它比零散摘录更能帮助后续复现与横向比较。
+      3 _c \R,G,B\ _m ( c_i^c(v_m) )，方程 其中表示采样方向上的标准偏差。越高表示依赖于视图的颜色变化越强。比例和体积：对比例进行排序以确保旋转不变性：然后将高斯体积计算为不透明度和 DC 颜色：不透明度反映了...
+    </p>
+    <p>$$ f^{(G)}_i = \frac{f_i - \mu^{(G)}}{\sigma^{(G)}}, \quad f^{(L)}_i = \frac{f_i - \mu^{(L)}_i}{\sigma^{(L)}_i}, $$</p>
+    <p>
+      使用全球和本地统计数据进行标准化。全局归一化应用场景范围的分数来提供整个场景的一致参考，其中 和 表示所有高斯的全局平均值和标准差。局部归一化进一步计算基于 -NN 的 -score 以强调局部 co...
+    </p>
+    <p>$$ \mathbf{F}_i = \{f^{(G)}_1, \ldots, f^{(G)}_7, f^{(L)}_1, \ldots, f^{(L)}_8\}, $$</p>
+    <p>
+      在单位方差为零附近，根据经验三西格玛规则，大多数值预计会落入其中。然而，在实践中，极端异常值仍然可能发生。为了增强鲁棒性，所有特征都被裁剪到固定的百分位数范围，然后线性重新缩放到。特征串联...
+    </p>
+    <figure><img class='paper-fig' src='../assets/2602_19753v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：PSNR 与保留率曲线。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2602_19753v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：GSC GPCC</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2602_19753v1/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：个性化特征</figcaption></figure>
+    <p>
+      把全文方法串起来看，这篇论文的逻辑基本都遵循同一条主线：先把输入组织成更容易处理的表示，再通过模型结构和损失函数把这个表示推向目标输出，最后用可视化与数值实验共同证明该设计有效。
     </p>
 
     <h2 id='experiment'>实验结论</h2>
     <p>
-      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，优势究竟来自哪个模块。对这篇论文来说，实验设计明显围绕“与现有方法的对比 + 对关键组件的消融”展开。
+      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，这种优势来自哪一个设计决策。
     </p>
-    <p>
-      从实验段落的关键词和结果描述看，论文最想传达的结论包括：
-    </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>Introduction 3D Gaussian Splatting (3DGS) [15] has recently emerged as a powerful explicit representation for novel view synthesis, achieving high-fidelity reconstruction with real-time rendering efficiency.</li><li>Fast Feedforward Rendering-Free Attribute-Guided Primitive Importance Score Prediction for Efficient 3D Gaussian Splatting Processing Kaifa Yang1 Qi Yang2∗ Yiling Xu1∗ Zhu Li2 1Shanghai Jiao Tong University 2University of Missouri–Kansas City {sekiroyyy, yl.x…</li></ul></div>
-    <figure><img class='paper-fig' src='../assets/2602_19753v1/fig_3.png' alt='Figure 3:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 3：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 3 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2602_19753v1/fig_4.png' alt='Figure 4:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 4：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 4 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2602_19753v1/fig_5.png' alt='Figure 5:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 5：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 5 from the source paper.</figcaption></figure>
+    <p>实现细节 RAP 的 MLP 由三个隐藏层组成，宽度分别为 32、32 和 16 个神经元。我们设置 、 、 、 和 作为损失项。特征提取使用最近邻进行局部统计，使用箱进行熵近似，并使用高斯核宽度 。 MLP 在 DL3DV-10K 数据集中随机选择的 10 个场景上进行了 15,000 次迭代训练。我们在与原始 3DGS 相同的三个基准上评估 RAP，包括 Mip-NeRF360 的全套场景（五个室外和四个室内场景）、DeepBlending 的两个场景以及 Tanks&amp;Temples 的两个场景。所有场景均按照标准 3DGS 协议进行训练，使用视图进行训练，其余视图进行测试。我们将 RAP 与多个基线进行比较，包括简单的不透明度阈值启发式、基于可见性的方法（例如 LightGaussian 、 MesonGS 和 EAGLES ）以及基于梯度的方法（例如 C3DGS 和 PUP-3DGS ）。对于基于渲染的基线，使用训练视图计算重要性分数，以确保在相同条件下进行公平比较。对经过训练的 3DGS 进行事后剪枝 我们通过保留具有最高预测重要性分数的固定百分比（从 5% 到 95%）的高斯，对预训练的 3DGS 表示进行事后剪枝实验。通过在图 1 中绘制保留率与重建质量曲线（PSNR、SSIM、LPIPS）来评估性能。由于篇幅限制，我们在主论文中仅报告了 Mip-NeRF360-Outdoor、Mip-NeRF360-Indoor、Deep Blending 和 Tanks&amp;Temples 数据集的平均 PSNR；补充材料中提供了每个场景的结果以及全套 SSIM 和 LPIPS 指标。考虑到剪枝可以用作 GS 压缩的一部分，为了进一步量化剪枝效率，我们受到每种方法相对于基于不透明度的基线的压缩研究的启发，使用每个场景的平均存储大小作为速率轴来计算 BD-Rate (Bjøntegaard Delta Bitrate)。该指标提供了对跨数据集的率失真行为的紧凑评估——较低的 BD 率表明在可比较的存储预算下具有出色的重建质量。总结结果列于表中。如图和表所示，我们的方法在所有数据集和修剪比率上始终优于先前的方法。虽然在轻度修剪（例如保留 50%）下性能差距相对较小，但随着修剪变得更加积极，这种差距变得越来越明显。</p>
+    <p>在修剪率为 60% 时，RAP 比竞争方法获得高达 0.5 dB PSNR 增益。 BD-Rate 的降低以及 Mip-NeRF360-Outdoor 数据集等方面的改进进一步体现了这一优势。我们还观察到鲁棒性赌注的显着差异......</p>
+
     <ul>
-      <li>方法在主任务指标上不是偶然提升，而是与其结构设计和训练目标直接相关；</li>
-      <li>作者通过消融实验说明，若拿掉关键模块，性能与结果质量会明显回落；</li>
-      <li>论文不仅关注数值对比，也关注可视化质量、稳定性或可控性等更接近真实应用的信号。</li>
+      <li>方法在核心指标上的优势与结构设计和训练目标直接相关；</li>
+      <li>消融实验表明，拿掉关键模块后性能与结果质量都有明显回落；</li>
+      <li>论文不仅比较数值，也关注可视化质量、稳定性和泛化能力等更贴近真实使用的信号。</li>
     </ul>
-    <p>
-      因此，实验部分最重要的阅读方式不是死记某一列数字，而是看清：作者究竟想证明哪个机制有效、这个机制的收益是在什么设置下成立、它是否有明显的边界条件。
-    </p>
 
     <h2 id='takeaway'>理解评价</h2>
+    <p>我们提出了 RAP，一种快速前馈、无渲染和属性引导的框架，用于估计 3DGS 中的原始重要性。通过利用内在属性和标准化邻域统计数据，RAP 避免了依赖于视图的渲染分析，同时实现了强泛化、高效推理以及修剪、重建和压缩方面的一致改进。我们当前与下游任务的集成依赖于根据预测分数修剪固定的全局比率。重建和压缩之间更有原则的耦合仍然是开放的——特别是如何跨区域分配不同的采样密度，或者如何在 GSC 内启用分层或区域自适应编码。我们将这些方向留给未来的探索。</p>
     <p>
-      从研究定位上看，这篇论文的意义在于它没有把问题局限在某一个局部改动，而是尝试给出一套更完整的求解路径。对读者而言，最值得关注的是它如何重新组合表示、模块和训练目标，以及这些设计是否能迁移到相近任务上。
+      如果把它当成研究参考，建议重点关注三件事：第一，这套方法真正依赖的归纳偏置是什么；第二，实验中真正拉开差距的模块是哪一个；第三，它的局限究竟来自数据、算力还是监督信号本身。
     </p>
     <p>
-      如果把它当成研究参考，我会重点看三件事：
-      第一，这套方法的核心归纳偏置是什么；
-      第二，实验中真正拉开差距的模块是哪一块；
-      第三，它的限制条件是数据、算力、时序长度，还是奖励/监督信号本身。
-    </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>Introduction 3D Gaussian Splatting (3DGS) [15] has recently emerged as a powerful explicit representation for novel view synthesis, achieving high-fidelity reconstruction with real-time rendering efficiency.</li></ul></div>
-    <p>
-      进一步延伸阅读时，可以把这篇工作放到更广泛的技术脉络里：它与同类方法相比，到底是在表示层、生成层、优化层还是评估层提出了更强的方案。下面这些自动检索到的相关论文可作为继续追踪的入口：
+      以下相关论文可以作为进一步追踪的入口：
     </p>
     <ul></ul>
 
     <div class='tip'>
       <strong>一句结论：</strong>
-      这篇论文值得读的原因，不只是它给出了一组更好的结果，而是它提供了一条相对完整的问题求解思路：如何把任务定义、方法设计与实验验证真正对齐到同一条研究主线上。
+      这篇论文值得关注的地方在于，它不只给出了更好的实验结果，更提供了一条相对完整的问题求解路径，把任务定义、方法设计与实验验证真正对齐到了同一条研究主线上。
     </div>
   </article>
 </div>
+
   </div>
 </div>
 </body>

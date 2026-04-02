@@ -70,7 +70,7 @@
     blockquote { margin: 16px 0; padding: 8px 16px; border-left: 4px solid #d8e7ff; background: #f8fbff; color: #333; }
     .tip { background: #f7f9fc; border: 1px solid #e8eef6; border-radius: 10px; padding: 12px; }
     .dashboard-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-top:18px; }
-    .dashboard-card { aspect-ratio: 1 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
+    .dashboard-card { aspect-ratio: 1.618 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
     .dashboard-card > * { min-width: 0; }
     .dashboard-card .dashboard-content { display:flex; flex-direction:column; height:100%; min-height:0; }
     .dashboard-card .dashboard-scroll { overflow:auto; min-height:0; }
@@ -130,10 +130,28 @@
     });
   </script>
 
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\(', '\)']],
+        displayMath: [['$$', '$$'], ['\[', '\]']]
+      },
+      svg: { fontCache: 'global' },
+      startup: {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady().then(() => {
+            requestAnimationFrame(applyPageScale);
+          });
+        }
+      }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
+
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
 
@@ -143,103 +161,112 @@
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      这篇论文关注的是“Superpoint 所对应的问题能否在更可控、更稳健或更高质量的条件下被解决”。从摘要与方法描述来看，作者的总体路线是：先搭建一个明确的表示或生成框架，再围绕训练目标、结构设计和实验验证把该问题推进到更可用的工程形态。
+      在动态场景中渲染新颖的视图图像是一项至关重要但具有挑战性的任务。目前的方法主要利用基于 NeRF 的方法来表示静态场景，并使用额外的时变 MLP 来建模场景变形，导致渲染质量相对较低且推理速度较慢。为了应对这些挑战，我们提出了一种名为 Superpoint Gaussian Splatting (SP-GS) 的新颖框架。具体来说，我们的框架首先采用显式 3D 高斯函数来重建场景，然后将具有相似属性（例如旋转、平移和位置）的高斯函数聚类为超点。在这些超级点的支持下，我们的方法成功地将 3D 高斯分布扩展到动态场景，而计算费用仅略有增加。除了在高分辨率下实现最先进的视觉质量和实时渲染之外，超点…
     </div>
 
     <h2 id='summary'>简单摘要</h2>
-    <p>
-      从论文摘要可以看出，这项工作的落点并不是单纯提升一个局部模块，而是围绕完整任务链路做系统设计。它通常会同时回答三个问题：任务为什么重要、现有方法卡在哪里、作者的新方案如何绕开这些瓶颈。
-      就这篇论文而言，摘要部分强调的核心是：<strong>Rendering novel view images in dynamic scenes is a crucial yet challenging task. Current methods mainly utilize NeRF-based methods to represent the static scene and an additional…</strong>
-    </p>
-    <p>
-      如果把它放进更大的技术背景中理解，可以把这篇论文视作一条“问题定义 → 表示设计 → 训练优化 → 实验验证”的完整研究闭环。也就是说，作者并不是只给出一个孤立模块，而是希望通过一整套方法让系统在真实场景或关键指标上取得更稳定提升。
-    </p>
-    <figure><img class='paper-fig' src='../assets/2406_03697v1/fig_1.png' alt='Figure 1:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 1：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 1 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2406_03697v1/fig_2.png' alt='Figure 2:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 2：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 2 from the source paper.</figcaption></figure>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>To tackle these challenges, we propose a novel framework named Superpoint Gaussian Splatting (SP-GS).</li><li>Current methods mainly utilize NeRF-based methods to represent the static scene and an additional timevariant MLP to model scene deformations, resulting in relatively low rendering quality as well as slow inference speed.</li><li>Specifically, our framework first employs explicit 3D Gaussians to reconstruct the scene and then clusters Gaussians with similar properties (e.g., rotation, translation, and location) into superpoints.</li></ul></div>
+    <p>在动态场景中渲染新颖的视图图像是一项至关重要但具有挑战性的任务。目前的方法主要利用基于 NeRF 的方法来表示静态场景，并使用额外的时变 MLP 来建模场景变形，导致渲染质量相对较低且推理速度较慢。为了应对这些挑战，我们提出了一种名为 Superpoint Gaussian Splatting (SP-GS) 的新颖框架。具体来说，我们的框架首先采用显式 3D 高斯函数来重建场景，然后将具有相似属性（例如旋转、平移和位置）的高斯函数聚类为超点。</p>
+    <p>在这些超级点的支持下，我们的方法成功地将 3D 高斯分布扩展到动态场景，而计算费用仅略有增加。除了在高分辨率下实现最先进的视觉质量和实时渲染之外，超点表示还提供了更强的操控能力。大量的实验证明了我们的方法在合成数据集和真实数据集上的实用性和有效性。请参阅我们的项目页面：https://dnvtmf.github.io/SP_GS.github.io。</p>
+    <figure><img class='paper-fig' src='../assets/2406_03697v1/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：我们的管道概述。我们使用从 SfM 重建的点云来初始化 3D 高斯。然后，我们将 3D 高斯分布聚合成超点，并预测给定时间步长的每个 3D 高斯分布的变形。使用变形 3D 高斯上的可微高斯光栅化来渲染图像。此外，可以使用可选的非刚性变形网络来进一步提高性能。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2406_03697v1/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：基线和我们在 D-NeRF 上的方法的定性比较。</figcaption></figure>
+    <blockquote>
+      简而言之，这篇论文关注的核心是：在动态场景中渲染新颖的视图图像是一项至关重要但具有挑战性的任务。目前的方法主要利用基于 NeRF 的方法来表示静态场景，并使用额外的时变 MLP 来建模场景变形，导致渲染质量相对较低且推理速度较慢。为了应对这些挑战，我们提出了一种名为 Superpoint Gaussian Splatting (…
+    </blockquote>
+    <p>合成 3D 场景的高保真新颖视图图像对于从游戏、拍摄到 AR/VR 等各种工业应用至关重要。近年来，神经辐射场（NeRF）通过逼真的渲染展示了其在这项任务上的卓越能力。虽然许多后续工作侧重于提高静态场景的渲染质量或训练和渲染速度，但另一项工作建议将设置扩展到动态场景。尽管人们已经做出了各种尝试来提高效率和动态渲染质量，但引入额外的时变 MLP 来对动态场景中的复杂运动进行建模将不可避免地导致训练和推理过程中计算成本的激增。</p>
+    <p>最近，3D 高斯分布 (3D-GS) 通过引入一种新颖的点状表示（称为 3D 高斯），成功实现了具有高视觉质量的实时渲染。但它主要处理静态场景。虽然在每个3D高斯上利用变形网络等方法可以将3D-GS扩展到动态场景，但渲染速度会受到很大影响，特别是当需要大量3D高斯来表示场景时。受到 3D 重建中成熟的尽可能刚性正则化和点云/图像过分割中的超点/超像素概念的启发，我们在这项工作中提出了一种名为超点高斯泼溅（SP-GS）的新颖方法，用于重建和渲染动态场景。</p>
+    <p>关键的见解在于每个 3D 高斯不应该是一个完全独立的实体。由于刚性运动的特性，一些相邻的 3D 高斯可能在所有时间步都具有类似的平移和旋转变换。我们可以将这些相似的 3D 高斯聚集在一起形成一个超级点，这样就不再需要为每个 3D 高斯计算变形，从而实现更快的渲染速度。具体来说，在通过热身训练过程获得规范空间的初始3D高斯之后，将可学习的关联矩阵应用于初始3D高斯并将它们分组为多个超点。随后，我们的框架将利用一个微小的 MLP 网络来预测超级点的变形，稍后将利用该网络来计算超级点中每个 3D 高斯的变形，从而为动态场景提供新颖的视图渲染。</p>
+    <p>除了每个时间步的渲染损失之外，为了充分利用 As-Rigid-As-Possible 功能……</p>
 
     <h2 id='innovation'>核心创新</h2>
     <p>
-      对照引言与方法部分，这篇论文的创新点主要体现在“如何重新组织问题求解链路”上。相比简单替换一个 backbone 或增加一个 loss，作者更像是在重新定义系统的关键接口与约束方式。
+      综合引言与方法部分，这篇论文的核心创新可以概括为以下几方面：
     </p>
-    <h3>1）从任务设定上重新界定问题边界</h3>
+    <h3>1）问题定义与研究动机</h3>
     <p>
-      论文强调的问题并不只是已有方案做得不够好，而是很多现有方法在目标可控性、泛化范围、效率约束或结构一致性上存在天然短板。因此作者先重述了任务定义，再围绕新的目标函数和场景假设去设计整体方案。
+      合成 3D 场景的高保真新颖视图图像对于从游戏、拍摄到 AR/VR 等各种工业应用至关重要。近年来，神经辐射场（NeRF）通过逼真的渲染展示了其在这项任务上的卓越能力。虽然许多后续工作侧重于提高静态场景的渲染质量或训练和渲染速度，但另一项工作建议将设置扩展到动态场景。尽管人们已经做出了各种尝试来提高效率和动态渲染质量，但引入额外的时变 MLP 来对动态场景中的复杂运动进行建模将不可避免地导致训练和推理过程中计算成本的激增。最近，3D 高斯分布 (3D-GS) 通过引入一种新颖的点状表示（称为 3D 高斯），成功实现了具有高视觉质量的实时渲染。但它主要处理静态场景。虽然在每个3D高斯上利用变形网络等方法可以将3D-GS扩展到动态场景，但渲染速度会受到很大影响，特别是当需要大量3D高斯来表示场景时。受到 3D 重建中成熟的尽可能刚性正则化和点云/图像过分割中的超点/超像素概念的启发，我们在这项工作中提出了一种名为超点高斯泼溅（SP-GS）的新颖方法，用于重建和渲染动态场景。关键的见解在于每个 3D 高斯不应该是一个完全独立的实体。由于刚性运动的特性，一些相邻的 3D 高斯可能在所有时间步…
     </p>
-    <h3>2）用统一框架串起表示、推理和优化</h3>
+    <h3>2）方法框架与核心模块</h3>
     <p>
-      从原文描述看，这篇论文并不是把多个模块松散拼接，而是在一个统一框架里安排表示形式、关键模块和训练信号，使它们彼此服务。这类设计往往决定了方法能否真正具备工程可落地性。
+      本节首先简要介绍第 3 节中的 3D 高斯分布。随后，在第二节中，我们详细介绍了如何将时变变形网络应用于超点，以预测旋转和平移以在任何时间步渲染图像。为了充分利用一个超点内的尽可能刚性的特征，我们的方法还在第二节中引入了属性重建损失。我们还在本节中说明了如何使用可学习的关联矩阵将 3D 高斯聚合为超点。此外，优化和推理的一些细节在第 2 节中进行了解释。 。最后，我们的方法可以支持可选的非刚性变形网络的插件，我们在第 2 节中阐明了这一点。 。我们的方法的概述如图所示。初步：3D 高斯分布 3D 高斯分布（3D-GS）提出了一种新颖的点状场景表示，称为 3D 高斯。每个 3D 高斯均由世界空间中的 3D 协方差矩阵和中心位置 定义，遵循以下表达式： 对于可微优化，协方差矩阵可以分解为缩放矩阵 和旋转矩阵 ，即 ，其中 由 3D 向量表示，并由四元数 表示。在渲染 2D 图像的过程中，3D-GS 使用 EWA Splatting 算法将 3D 高斯投影到 2D 图像平面上。相应的二维高斯，由以 为中心的相机坐标中的协方差矩阵定义，计算如下： 其中 是世界到相机的变换矩阵， 是射影变换的…
     </p>
-    <h3>3）把实验目标直接对齐到实际痛点</h3>
+    <h3>3）实验设计与工程价值</h3>
     <p>
-      论文中的实验不仅比较常规 benchmark，也会额外关注更贴近实际系统需求的指标，例如稳定性、控制性、质量上界、对长尾场景的适应能力等。换句话说，它不是只追求单一数值，而是试图证明整套系统在真实使用方式下也成立。
+      [1] 我们通过对三个数据集的实验证明了我们提出的方法的效率和有效性：具有 8 个场景的合成数据集 D-NeRF、真实世界数据集 HyperNeRF 和 NeRF-DS。对于所有实验，我们报告以下指标：PSNR、SSIM、MS-SSIM、LPIPS、大小（渲染分辨率）和 FPS（渲染速度）。所有实验均在具有 32GB 内存的 NVIDIA V100 GPU 上进行。关于基线，我们将我们的方法与与我们的工作最相关的最先进方法进行比较，包括： D-NeRF 、 TiNeuVox 、 Tensor4D 、 K-Palne 、 HexPlane 、 TI-DNeRF 、 NeRFPlayer 、 4D-GS 、 Deformable 3D GS(D-3D-GS) 和原始 3D Gaussians (3D-GS)。合成数据集 D-NeRF 数据集由 8 个视频组成，每个视频包含 50-200 帧。…
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>To tackle these challenges, we propose a novel framework named Superpoint Gaussian Splatting (SP-GS).</li><li>Current methods mainly utilize NeRF-based methods to represent the static scene and an additional timevariant MLP to model scene deformations, resulting in relatively low rendering quality as well as slow inference speed.</li><li>Superpoint Gaussian Splatting for Real-Time High-Fidelity Dynamic Scene Reconstruction Diwen Wan 1 Ruijie Lu 1 Gang Zeng 1 Abstract Rendering novel view images in dynamic scenes is a crucial yet challenging task.</li><li>Specifically, our framework first employs explicit 3D Gaussians to reconstruct the scene and then clusters Gaussians with similar properties (e.g., rotation, translation, and location) into superpoints.</li></ul></div>
 
     <h2 id='technical'>技术细节</h2>
     <p>
-      方法部分是理解论文价值的关键。结合原文可以看到，作者通常会先定义输入输出，再介绍中间表示、主干模块、损失函数或奖励机制，最后说明训练与推理时各模块如何协同。
-      对这篇论文而言，方法线索主要集中在以下几个方面：
+      下面按照论文的方法章节结构展开，重点说明模型的关键模块、公式设计和训练策略。
     </p>
-    <h3>3.1 方法主线与模块组织</h3>
+    <p>本节首先简要介绍第 3 节中的 3D 高斯分布。随后，在第二节中，我们详细介绍了如何将时变变形网络应用于超点，以预测旋转和平移以在任何时间步渲染图像。为了充分利用一个超点内的尽可能刚性的特征，我们的方法还在第二节中引入了属性重建损失。我们还在本节中说明了如何使用可学习的关联矩阵将 3D 高斯聚合为超点。此外，优化和推理的一些细节在第 2 节中进行了解释。 。最后，我们的方法可以支持可选的非刚性变形网络的插件，我们在第 2 节中阐明了这一点。 。我们的方法的概述如图所示。初步：3D 高斯分布 3D 高斯分布（3D-GS）提出了一种新颖的点状场景表示，称为 3D 高斯。每个 3D 高斯均由世界空间中的 3D 协方差矩阵和中心位置 定义，遵循以下表达式： 对于可微优化，协方差矩阵可以分解为缩放矩阵 和旋转矩阵 ，即 ，其中 由 3D 向量表示，并由四元数 表示。在渲染 2D 图像的过程中，3D-GS 使用 EWA Splatting 算法将 3D 高斯投影到 2D 图像平面上。相应的二维高斯，由以 为中心的相机坐标中的协方差矩阵定义，计算如下： 其中 是世界到相机的变换矩阵， 是射影变换的仿射近似的雅可比矩阵。按深度对 3D 高斯进行排序后，3D-GS 使用体积渲染 (-blending) 渲染图像。像素的颜色是通过混合有序的 2D 高斯分布来计算的，表示为： 其中 表示每个 3D 高斯分布的不透明度，是使用 3D 高斯分布的球谐系数和视图方向计算出的 RGB 颜色。为了优化静态场景并促进实时渲染，3D-GS 引入了快速可微分光栅器和自适应控制 3D 高斯的训练策略。更多细节可以在 3D-GS 中找到，3D-GS 使用的损失函数与 D-SSIM 项相结合：其中 被设置为 。超点高斯泼溅 很明显，3D-GS 仅适合表示静态场景。</p>
+    <p>因此，当面对捕捉动态场景的单目/多视图视频时，我们选择学习规范空间中的 3D 高斯，以及在聚合超点的指导下跨时域的每个 3D 高斯的变形。由于我们假设每个 3D 高斯只有刚性变换，因此只有 3D 高斯的中心位置和旋转矩阵会随时间变化，而其他属性（例如，不透明度 、缩放向量 和球谐系数 ）保持不变。为了对动态场景进行建模，我们将 3D 高斯分布划分为超点（不相交集）。每个超点包含多个3D高斯，而每个3D高斯只有一个对应的超点。遵循 As-Rigid-As-Possible 原则，3D 高斯在同一超点上...</p>
+    <p>$$ \label{eq:gaussian}
+ G_i(\bm{x}) = \exp\left(-\frac{1}{2}(\bm{x}-\gsP_i)^{\top}\mathbf{\Sigma}_i^{-1}(\bm{x}-\gsP_i)\right). $$</p>
     <p>
-      根据方法章节可知，作者首先构建了一个核心表示或中间条件，再通过若干模块把它逐步转换为最终输出。这种结构的优势在于：每个模块都承担明确职责，既便于解释，也更便于在实验中做模块级消融。
-      原文中与主线最相关的描述包括：
+      nary: 3D Gaussian Splatting 3D Gaussian Splatting(3D-GS) 提出了一种新颖的点状场景表示，称为 3D Gaussians 。每个 3D 高斯均由世界空间中的 3D 协方差矩阵和中心位置 定义，遵循以下表达式： 对于可微优化，协方差矩阵可以是…
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>Superpoint Gaussian Splatting for Real-Time High-Fidelity Dynamic Scene Reconstruction Diwen Wan 1 Ruijie Lu 1 Gang Zeng 1 Abstract Rendering novel view images in dynamic scenes is a crucial yet challenging task.</li><li>or training and rendering speed (M¨uller et al., 2022;</li></ul></div>
-    <h3>3.2 训练目标、损失与公式信号</h3>
+    <p>$$ \mathbf{\Sigma}&#x27; = \mathbf{J}\mathbf{W}\mathbf{\Sigma}\mathbf{W}^{\top}\mathbf{J}^{\top}, \quad \gsP&#x27; = \mathbf{J}\mathbf{W}\gsP, $$</p>
     <p>
-      论文里的公式通常承担两类角色：一种是定义模型的预测关系与变量约束，另一种是定义优化时真正驱动模型更新的目标函数。阅读这类论文时，关键不是死记公式外形，而是理解每个公式分别在“表达结构”还是“约束行为”上发挥作用。
+      由 3D 向量表示 并由四元数 表示。在渲染 2D 图像的过程中，3D-GS 使用 EWA Splatting 算法将 3D 高斯投影到 2D 图像平面上。相应的二维高斯，由以 为中心的相机坐标中的协方差矩阵定义，计算如下：wh…
     </p>
-    <div class='card'><strong>公式 / 指标片段 1：</strong><pre>Gaussians G = {Gi : µi, si, qi, σi, hi}. Each 3D Gaussian Gi is defined by a 3D covariance matrix Σi in world</pre></div><div class='card'><strong>公式 / 指标片段 2：</strong><pre>Gi(x) = exp</pre></div><div class='card'><strong>公式 / 指标片段 3：</strong><pre>matrix Ri, i.e., Σi = RiSiS⊤</pre></div><div class='card'><strong>公式 / 指标片段 4：</strong><pre>Σ′ = JWΣW⊤J⊤,</pre></div>
+    <p>$$ \begin{split}
+ C(\bm{p}) &amp; = \sum_{i=1}^{P}\bm{c}_i\alpha_i \prod_{j=1}^{i-1}(1-\alpha_j), \\
+ \alpha_i &amp; = \bm{\sigma}_i \exp\left(-\frac{1}{2}(\bm{p}-\gsP&#x27;_i)^{\top}\mathbf{\Sigma}&#x27;_i(\bm{p}-\gsP&#x27;_i)\right),
+ \end{split} $$</p>
     <p>
-      从这些公式与周边段落可以推断，作者想要的不只是局部误差最小化，而是通过更精细的目标设计，让模型在结构一致性、生成质量、时序稳定性或可控性等方面同时受约束。这也是很多新方法能真正优于 baseline 的原因。
+      ion 其中 是世界到相机的变换矩阵， 是射影变换的仿射近似的雅可比矩阵。按深度对 3D 高斯进行排序后，3D-GS 使用体积渲染 (-blending) 渲染图像。像素的颜色是通过混合有序的二维高斯计算的，如下所示……
     </p>
-    <h3>3.3 把全文方法串起来理解</h3>
+    <p>$$ \loss_{img} = (1-\lambda)\loss_{1} + \lambda \loss_{\mathrm{D-SSIM}}, $$</p>
     <p>
-      如果把这篇论文的方法看成一条流水线，那么它的逻辑通常是：先把输入变成一个更适合推理的中间表示，再围绕该表示施加关键模块与训练目标，最后把输出落到可评估、可可视化的结果上。
-      这种“表示—模块—目标—结果”的闭环设计，是本页所锁定模板最想强调的部分，因为它比零散摘录更能帮助后续复现与横向比较。
+      或使用 3D 高斯和视图方向的球谐系数计算。为了优化静态场景并促进实时渲染，3D-GS 引入了快速可微分光栅器和自适应控制 3D 高斯的训练策略。更多详细信息可以在 3D-GS 中找到，并且...
+    </p>
+    <p>$$ \label{transformation}
+ \gsP_i^t = \spR^t_j \gsP^c_i + \spT^t_j, \gsR_i^t = \spR^t_j \gsR_i^c. $$</p>
+    <p>
+      。遵循As-Rigid-As-Possible原则，同一超点中的3D高斯应该具有相似的变形，可以根据它们在规范空间中的中心位置和旋转矩阵通过相对平移和旋转来表示。因此，第-个的中心位置和旋转矩阵......
+    </p>
+    <p>$$ \label{eq:mlp-F}
+ (\spR_j^t, \spT_j^t) = \mathcal{F}(\gamma(\spP^c_j), \gamma(t)), $$</p>
+    <p>
+      ^t_j，_i^t = ^t_j _i^c。为了预测第-个超点在时间 的相对平移和旋转，我们直接采用变形神经网络，将第-个超点的时间步长和规范位置作为输入，并输出超点相对于…的相对变换。
+    </p>
+    <figure><img class='paper-fig' src='../assets/2406_03697v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：NeRF-DS 数据集上的基线和我们的方法的定性比较。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2406_03697v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：在 HyperNeRF 数据集上对基线和我们的方法进行定性比较。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2406_03697v1/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：我们通过简单地为对应点着色来可视化 3D 高斯和超点。 (a) 渲染图像。 (b) 3D 高斯及其原始颜色。 (c) 3D 高斯由超点着色，这意味着一个超点中的 3D 高斯将具有相同的颜色。 (d) 超级点。</figcaption></figure>
+    <p>
+      把全文方法串起来看，这篇论文的逻辑基本都遵循同一条主线：先把输入组织成更容易处理的表示，再通过模型结构和损失函数把这个表示推向目标输出，最后用可视化与数值实验共同证明该设计有效。
     </p>
 
     <h2 id='experiment'>实验结论</h2>
     <p>
-      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，优势究竟来自哪个模块。对这篇论文来说，实验设计明显围绕“与现有方法的对比 + 对关键组件的消融”展开。
+      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，这种优势来自哪一个设计决策。
     </p>
-    <p>
-      从实验段落的关键词和结果描述看，论文最想传达的结论包括：
-    </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>Though various attempts have been made to improve efficiency and dynamic rendering quality, the introduction of an additional timevarian</li><li>Superpoint Gaussian Splatting for Real-Time High-Fidelity Dynamic Scene Reconstruction Diwen Wan 1 Ruijie Lu 1 Gang Zeng 1 Abstract Rendering novel view images in dynamic scenes is a crucial yet challenging task.</li><li>Introduction Synthesizing high-fidelity novel view images of a 3D scene is imperative for various industrial applications, ranging from gaming and filming to AR/VR.</li><li>Current methods mainly utilize NeRF-based methods to represent the static scene and an additional timevariant MLP to model scene deformations, resulting in relatively low rendering quality as well as slow inference speed.</li></ul></div>
-    <figure><img class='paper-fig' src='../assets/2406_03697v1/fig_3.png' alt='Figure 3:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 3：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 3 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2406_03697v1/fig_4.png' alt='Figure 4:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 4：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 4 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2406_03697v1/fig_5.png' alt='Figure 5:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 5：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 5 from the source paper.</figcaption></figure>
+    <p>[1] 我们通过对三个数据集的实验证明了我们提出的方法的效率和有效性：具有 8 个场景的合成数据集 D-NeRF、真实世界数据集 HyperNeRF 和 NeRF-DS。对于所有实验，我们报告以下指标：PSNR、SSIM、MS-SSIM、LPIPS、大小（渲染分辨率）和 FPS（渲染速度）。所有实验均在具有 32GB 内存的 NVIDIA V100 GPU 上进行。关于基线，我们将我们的方法与与我们的工作最相关的最先进方法进行比较，包括： D-NeRF 、 TiNeuVox 、 Tensor4D 、 K-Palne 、 HexPlane 、 TI-DNeRF 、 NeRFPlayer 、 4D-GS 、 Deformable 3D GS(D-3D-GS) 和原始 3D Gaussians (3D-GS)。合成数据集 D-NeRF 数据集由 8 个视频组成，每个视频包含 50-200 帧。帧和相机姿势一起作为训练数据，而测试视图则取自新视图。定量和定性结果显示在表中。虽然以 的分辨率渲染，但我们实现了比以前基于非高斯泼溅的方法高得多的 FPS。至于 D-3D-GS，他们直接对每个 3D 高斯应用变形网络以获得更高的视觉质量，导致 FPS 比我们低得多。在所有指标方面，我们都取得了优于以前最先进方法的结果。值得注意的是，在计算指标时乐高被排除在外，因为我们观察到所有方法都存在差异。可视化结果请参见图。附录中提供了每个场景的比较。真实世界数据集 HyperNeRF 数据集和 NeRF-DS 作为使用一台或两台相机捕获的两个真实世界基准数据集。为了与以前的方法进行公平比较，我们使用相同的 vrig 场景，即 HyperNeRF 数据集的子集。 HyperNeRF 数据集的定量和定性结果如表 1 所示。 NeRF-DS 的结果如表 1 所示。和图。如表所示。和选项卡。 ，我们的方法在 FPS 方面大幅优于基线，同时实现了卓越或相当的视觉质量。如图所示，我们的结果表现出明显更高的视觉质量，特别是在手部区域。消融研究在我们的论文中，我们引入了两个超参数：超点的数量和最近邻的数量。我们进行实验来测试我们的方法对两个超参数的变化的敏感度。标签。显示了我们的方法在改变这些超参数时的性能，并且我们的方法在所有这些变化下似乎都很稳健。</p>
+    <p>此外，我们引入了属性重建损失以方便将相似的高斯分布在一起。标签。表明属性重建损失可以提高渲染质量。我们在房地产方面提供更多消融……</p>
+    <figure><img class='paper-fig' src='../assets/2406_03697v1/figure6_full.png' alt='Figure 6:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 6：(a) 跳绳场景中姿态估计结果的 PSNR 结果。 (b) 我们将 Trex 场景的底部添加到 hook 场景的底部。</figcaption></figure>
     <ul>
-      <li>方法在主任务指标上不是偶然提升，而是与其结构设计和训练目标直接相关；</li>
-      <li>作者通过消融实验说明，若拿掉关键模块，性能与结果质量会明显回落；</li>
-      <li>论文不仅关注数值对比，也关注可视化质量、稳定性或可控性等更接近真实应用的信号。</li>
+      <li>方法在核心指标上的优势与结构设计和训练目标直接相关；</li>
+      <li>消融实验表明，拿掉关键模块后性能与结果质量都有明显回落；</li>
+      <li>论文不仅比较数值，也关注可视化质量、稳定性和泛化能力等更贴近真实使用的信号。</li>
     </ul>
-    <p>
-      因此，实验部分最重要的阅读方式不是死记某一列数字，而是看清：作者究竟想证明哪个机制有效、这个机制的收益是在什么设置下成立、它是否有明显的边界条件。
-    </p>
 
     <h2 id='takeaway'>理解评价</h2>
+    <p>与3D-GS类似，现实世界场景的重建需要稀疏点云来初始化3D场景。然而，对于像 COLMAP 这样专为静态场景设计的软件来说，初始化点云具有挑战性，从而导致相机姿态减少。因此，这些问题可能会阻碍我们的 SP-GS 达到预期结果。我们的目标是在未来的工作中解决这个问题。本文介绍了超点高斯分布作为一种实现动态场景实时、高质量渲染的新颖方法。在 3D-GS 的基础上，我们的方法涉及将具有相似运动的高斯分组为超点，为高斯光栅化增加极小的负担。实验结果证明了我们的方法具有卓越的视觉质量和渲染速度，同时我们的框架还可以支持各种下游应用程序。</p>
     <p>
-      从研究定位上看，这篇论文的意义在于它没有把问题局限在某一个局部改动，而是尝试给出一套更完整的求解路径。对读者而言，最值得关注的是它如何重新组合表示、模块和训练目标，以及这些设计是否能迁移到相近任务上。
+      如果把它当成研究参考，建议重点关注三件事：第一，这套方法真正依赖的归纳偏置是什么；第二，实验中真正拉开差距的模块是哪一个；第三，它的局限究竟来自数据、算力还是监督信号本身。
     </p>
     <p>
-      如果把它当成研究参考，我会重点看三件事：
-      第一，这套方法的核心归纳偏置是什么；
-      第二，实验中真正拉开差距的模块是哪一块；
-      第三，它的限制条件是数据、算力、时序长度，还是奖励/监督信号本身。
-    </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>To tackle these challenges, we propose a novel framework named Superpoint Gaussian Splatting (SP-GS).</li><li>Superpoint Gaussian Splatting for Real-Time High-Fidelity Dynamic Scene Reconstruction Diwen Wan 1 Ruijie Lu 1 Gang Zeng 1 Abstract Rendering novel view images in dynamic scenes is a crucial yet challenging task.</li></ul></div>
-    <p>
-      进一步延伸阅读时，可以把这篇工作放到更广泛的技术脉络里：它与同类方法相比，到底是在表示层、生成层、优化层还是评估层提出了更强的方案。下面这些自动检索到的相关论文可作为继续追踪的入口：
+      以下相关论文可以作为进一步追踪的入口：
     </p>
     <ul></ul>
 
     <div class='tip'>
       <strong>一句结论：</strong>
-      这篇论文值得读的原因，不只是它给出了一组更好的结果，而是它提供了一条相对完整的问题求解思路：如何把任务定义、方法设计与实验验证真正对齐到同一条研究主线上。
+      这篇论文值得关注的地方在于，它不只给出了更好的实验结果，更提供了一条相对完整的问题求解路径，把任务定义、方法设计与实验验证真正对齐到了同一条研究主线上。
     </div>
   </article>
 </div>
+
   </div>
 </div>
 </body>

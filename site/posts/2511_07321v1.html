@@ -70,7 +70,7 @@
     blockquote { margin: 16px 0; padding: 8px 16px; border-left: 4px solid #d8e7ff; background: #f8fbff; color: #333; }
     .tip { background: #f7f9fc; border: 1px solid #e8eef6; border-radius: 10px; padding: 12px; }
     .dashboard-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-top:18px; }
-    .dashboard-card { aspect-ratio: 1 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
+    .dashboard-card { aspect-ratio: 1.618 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
     .dashboard-card > * { min-width: 0; }
     .dashboard-card .dashboard-content { display:flex; flex-direction:column; height:100%; min-height:0; }
     .dashboard-card .dashboard-scroll { overflow:auto; min-height:0; }
@@ -130,10 +130,28 @@
     });
   </script>
 
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\(', '\)']],
+        displayMath: [['$$', '$$'], ['\[', '\]']]
+      },
+      svg: { fontCache: 'global' },
+      startup: {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady().then(() => {
+            requestAnimationFrame(applyPageScale);
+          });
+        }
+      }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
+
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
 
@@ -143,103 +161,98 @@
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      这篇论文关注的是“YoNoSplat 所对应的问题能否在更可控、更稳健或更高质量的条件下被解决”。从摘要与方法描述来看，作者的总体路线是：先搭建一个明确的表示或生成框架，再围绕训练目标、结构设计和实验验证把该问题推进到更可用的工程形态。
+      从非结构化图像集合中快速、灵活地重建 3D 场景仍然是一个重大挑战。我们提出了 YoNoSplat，这是一种前馈模型，可以从任意数量的图像中重建高质量的 3D 高斯分布表示。我们的模型具有高度通用性，可以有效地处理已摆位和未摆位、校准和未校准的输入。 YoNoSplat 预测每个视图的局部高斯和相机姿势，使用预测或提供的姿势将其聚合成全局表示。为了克服联合学习 3D 高斯和相机参数的固有困难，我们引入了一种新颖的混合训练策略。这种方法通过最初使用地面实况姿势来聚合局部高斯并逐渐过渡到预测和地面实况姿势的混合来减轻两个任务之间的纠缠，这可以防止训练不稳定和暴露偏差。我们通过一种新颖的成对相机距…
     </div>
 
     <h2 id='summary'>简单摘要</h2>
-    <p>
-      从论文摘要可以看出，这项工作的落点并不是单纯提升一个局部模块，而是围绕完整任务链路做系统设计。它通常会同时回答三个问题：任务为什么重要、现有方法卡在哪里、作者的新方案如何绕开这些瓶颈。
-      就这篇论文而言，摘要部分强调的核心是：<strong>Fast and flexible 3D scene reconstruction from unstructured image collections remains a significant challenge. We present YoNoSplat, a feedforward model that reconstructs high-qua…</strong>
-    </p>
-    <p>
-      如果把它放进更大的技术背景中理解，可以把这篇论文视作一条“问题定义 → 表示设计 → 训练优化 → 实验验证”的完整研究闭环。也就是说，作者并不是只给出一个孤立模块，而是希望通过一整套方法让系统在真实场景或关键指标上取得更稳定提升。
-    </p>
-    <figure><img class='paper-fig' src='../assets/2511_07321v1/fig_1.png' alt='Figure 1:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 1：该图来自论文原文，用于说明论文中的核心框架、可视化结果或实验现象。原始图注摘要：YoNoSplat, a versatile feedforward model for rapid 3D reconstruction. Given an arbitrary number of unposed and uncalibrated input images covering a wide range of scenes, it predicts 3D Gaussians and can also utilize ground-truth camera poses or intrinsics when available.</figcaption></figure><figure><img class='paper-fig' src='../assets/2511_07321v1/fig_2.png' alt='Figure 2:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 2：该图来自论文原文，用于说明论文中的核心框架、可视化结果或实验现象。原始图注摘要：Effect of different global Gaussian aggregation strategies during training. (a) Aggregating global Gaussians with predicted camera poses results in poor rendering quality because errors in pose estimation and Gaussian learning compound each other. (b) Using ground-truth poses introduces exposure bi…</figcaption></figure>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>We present YoNoSplat, a feedforward model that reconstructs high-quality 3D Gaussian Splatting representations from an arbitrary number of images.</li><li>This approach mitigates the entanglement between the two tasks by initially using ground-truth poses to aggregate local Gaussians and gradually transitioning to a mix of predicted and ground-truth poses, which prevents both training instability and exposure b…</li><li>Fast and flexible 3D scene reconstruction from unstructured image collections remains a significant challenge.</li></ul></div>
+    <p>从非结构化图像集合中快速、灵活地重建 3D 场景仍然是一个重大挑战。我们提出了 YoNoSplat，这是一种前馈模型，可以从任意数量的图像中重建高质量的 3D 高斯分布表示。我们的模型具有高度通用性，可以有效地处理已摆位和未摆位、校准和未校准的输入。 YoNoSplat 预测每个视图的局部高斯和相机姿势，使用预测或提供的姿势将其聚合成全局表示。为了克服联合学习 3D 高斯和相机参数的固有困难，我们引入了一种新颖的混合训练策略。</p>
+    <p>这种方法通过最初使用地面实况姿势来聚合局部高斯并逐渐过渡到预测和地面实况姿势的混合来减轻两个任务之间的纠缠，这可以防止训练不稳定和暴露偏差。我们通过一种新颖的成对相机距离归一化方案以及将相机内在函数嵌入到网络中进一步解决了尺度模糊问题。此外，YoNoSplat 还可以预测内在参数，使其适用于未校准的输入。 YoNoSplat 展示了卓越的效率，在 NVIDIA GH200 GPU 上仅需 2.69 秒即可从 100 个视图（分辨率为 280×518）重建场景。</p>
+    <p>它在无姿势和依赖姿势的设置中均在标准基准测试中实现了最先进的性能。我们的项目页面位于 https://botaoye.github.io/yonosplat/botaoye.github.io/yonosplat/。</p>
+    <figure><img class='paper-fig' src='../assets/2511_07321v1/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：训练期间不同全局高斯聚合策略的效果。 (a) 将全局高斯与预测的相机姿势聚合会导致渲染质量较差，因为姿势估计和高斯学习中的错误相互叠加。 （b）使用真实姿势会引入曝光偏差（如绿色箭头所示：使用真实姿势进行训练，但使用预测姿势进行测试会导致不同视图中局部高斯的错位）。 (c) 我们的混合强制训练在无姿势和依赖姿势的设置中实现了高渲染质量。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2511_07321v1/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：概述. (a) 使用 DINOv2 编码器提取特征，然后对图像进行局部全局关注，最后用于预测相机姿势和局部 3D 高斯。 
+ (b) 内在条件嵌入（ICE）模块预测内在参数（焦距），然后将其转换为相机光线并重新编码为高斯预测的条件，从而解决尺度模糊性。</figcaption></figure>
+    <blockquote>
+      简而言之，这篇论文关注的核心是：从非结构化图像集合中快速、灵活地重建 3D 场景仍然是一个重大挑战。我们提出了 YoNoSplat，这是一种前馈模型，可以从任意数量的图像中重建高质量的 3D 高斯分布表示。我们的模型具有高度通用性，可以有效地处理已摆位和未摆位、校准和未校准的输入。 YoNoSplat 预测每个视图的局部高斯和相…
+    </blockquote>
+    <p>前馈高斯分布已成为加速 3D 场景重建的一个有前景的方向，可直接从输入图像预测 3D 高斯参数。这种方法绕过了 NeRF 和原始 3D 高斯分布 (3DGS) 等方法所需的耗时的每个场景优化。然而，现有前馈模型在现实世界中的适用性通常受到限制性假设的限制，例如需要精确的相机姿势、校准的内在函数或固定的、有限数量的输入视图。在实践中，场景重建需要在灵活且无约束的条件下进行：相机姿势可能不可用或有噪声，相机内在未知，并且图像数量可能变化很大。</p>
+    <p>设计一个能够概括这些不同设置（不同数量的视图、摆姿势或未摆姿势、校准或未校准）的单一模型仍然是一个开放的挑战。在这项工作中，我们引入了 YoNoSplat，这是一种前馈模型，可以从任意数量的未摆姿势和未校准图像重建 3D 场景，同时还可以无缝集成可用的地面实况相机信息。最近的无姿态方法通过将高斯函数直接预测到统一的规范空间中，在稀疏输入（2-4 个视图）上显示出了令人印象深刻的结果。然而，这种方法很难扩展到更多的视图。</p>
+    <p>为了确保可扩展性和多功能性，YoNoSplat 采用了不同的范例：它首先预测每个视图的局部高斯及其相应的相机姿势，然后将其聚合到全局坐标系中。然而，这种从局部到全局的设计引入了重大的训练挑战：相机姿势和 3D 几何的联合学习是高度复杂的。姿态估计中的错误可能会破坏高斯的学习信号，反之亦然。使用模型自己的预测姿势聚合高斯的简单方法（称为“自我强迫机制”）会导致训练不稳定和性能不佳（图a）。相反，教师强制方法仅依赖真实姿势进行聚合，解耦了任务，但引入了曝光偏差。</p>
+    <p>在这种情况下，模型永远不会根据其自身的不完美姿态预测进行训练，从而导致在必须依赖于它们时的推理性能下降（图b）。为了解决这个困境，我们提出了一种新颖的混合强制训练策略。培训从纯粹的教师强制开始，以建立稳定的几何基础。随着训练的进行，我们逐渐将模型的预测姿势引入聚合中……</p>
 
     <h2 id='innovation'>核心创新</h2>
     <p>
-      对照引言与方法部分，这篇论文的创新点主要体现在“如何重新组织问题求解链路”上。相比简单替换一个 backbone 或增加一个 loss，作者更像是在重新定义系统的关键接口与约束方式。
+      综合引言与方法部分，这篇论文的核心创新可以概括为以下几方面：
     </p>
-    <h3>1）从任务设定上重新界定问题边界</h3>
+    <h3>1）问题定义与研究动机</h3>
     <p>
-      论文强调的问题并不只是已有方案做得不够好，而是很多现有方法在目标可控性、泛化范围、效率约束或结构一致性上存在天然短板。因此作者先重述了任务定义，再围绕新的目标函数和场景假设去设计整体方案。
+      前馈高斯分布已成为加速 3D 场景重建的一个有前景的方向，可直接从输入图像预测 3D 高斯参数。这种方法绕过了 NeRF 和原始 3D 高斯分布 (3DGS) 等方法所需的耗时的每个场景优化。然而，现有前馈模型在现实世界中的适用性通常受到限制性假设的限制，例如需要精确的相机姿势、校准的内在函数或固定的、有限数量的输入视图。在实践中，场景重建需要在灵活且无约束的条件下进行：相机姿势可能不可用或有噪声，相机内在未知，并且图像数量可能变化很大。设计一个能够概括这些不同设置（不同数量的视图、摆姿势或未摆姿势、校准或未校准）的单一模型仍然是一个开放的挑战。在这项工作中，我们引入了 YoNoSplat，这是一种前馈模型，可以从任意数量的未摆姿势和未校准图像重建 3D 场景，同时还可以无缝集成可用的地面实况相机信息。最近的无姿态方法通过将高斯函数直接预测到统一的规范空间中，在稀疏输入（2-4 个视图）上显示出了令人印象深刻的结果。然而，这种方法很难扩展到更多的视图。为了确保可扩展性和多功能性，YoNoSplat 采用了不同的范例：它首先预测每个视图的局部高斯及其相应的相机姿势，然后将其聚合到全局坐…
     </p>
-    <h3>2）用统一框架串起表示、推理和优化</h3>
+    <h3>2）方法框架与核心模块</h3>
     <p>
-      从原文描述看，这篇论文并不是把多个模块松散拼接，而是在一个统一框架里安排表示形式、关键模块和训练信号，使它们彼此服务。这类设计往往决定了方法能否真正具备工程可落地性。
+      -1mm 我们引入了一种从多个图像中前馈预测 3D 高斯函数的方法。我们的方法支持广泛的场景尺度，并且可以选择利用可用的地面实况相机姿势和内在特征。问题表述 给定未摆出的图像作为输入，其中 ，我们的目标是学习一个前馈网络，该网络可以预测代表底层场景的 3D 高斯分布。通过从训练数据中学习几何和外观先验，我们的方法直接重建新场景，而不需要耗时的优化。为此，首先预测每个视图的局部 3D 高斯，可以使用给定或预测的相机姿势将其转换为全局场景表示。具体来说，相机位姿参数定义为 ，其中 表示旋转矩阵，表示平移向量，表示串联操作。此外，如第 2 节所述。 ，我们的网络还可以预测相机本征，因此也可以消除相机校准的要求。形式上，我们的目标是学习以下映射：这里， 表示高斯参数 ，分别表示中心位置、不透明度、旋转、比例和颜色。所有参数最初都是在本地输入相机视图中预测的，随后可以使用预测或给定的相机姿势将其转换为全局表示。 -1mm 高斯输出空间和训练策略的分析 -2mm 输出空间：局部预测与典型预测 前馈重建模型的基本设计选择是其输出空间。现有方法分为两大类。 NoPoSplat 和 Flare 等无姿…
     </p>
-    <h3>3）把实验目标直接对齐到实际痛点</h3>
+    <h3>3）实验设计与工程价值</h3>
     <p>
-      论文中的实验不仅比较常规 benchmark，也会额外关注更贴近实际系统需求的指标，例如稳定性、控制性、质量上界、对长尾场景的适应能力等。换句话说，它不是只追求单一数值，而是试图证明整套系统在真实使用方式下也成立。
+      -3mm 实验设置 -3mm 数据集 我们使用官方 split 在 RealEstate10K (RE10K) 和 DL3DV 上进行训练。 RE10K 由室内房地产视频组成（67,477 个训练/7,289 个测试）。 DL3DV包含10,000个户外视频，其中140个用于测试。为了对 RE10K 进行评估，我们保留带有帧的测试序列（1,580 个序列），并由于场景规模较小而使用 6 个上下文视图。在 DL3DV 上，我们使用输入视图和最大帧间隙进行测试。为了泛化，我们通过使用固定目标视图对每个序列的视图进行采样来评估 ScanNet++ 上的 DL3DV 训练模型。输入是通过相机中心最远点采样选择的；随机提供 8 个视图作为验证。实现细节是使用 PyTorch 实现的。编码器采用具有 24 个注意力层的 DINOv2 Large 模型，解码器由 18 个交替注意力层组成。骨干网、高斯…
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>Given V unposed images (Iv)V v=1 as input, where Iv ∈R3×H×W , our objective is to learn a feedforward network θ that predicts 3D Gaussians representing the underlying scene.</li></ul></div>
 
     <h2 id='technical'>技术细节</h2>
     <p>
-      方法部分是理解论文价值的关键。结合原文可以看到，作者通常会先定义输入输出，再介绍中间表示、主干模块、损失函数或奖励机制，最后说明训练与推理时各模块如何协同。
-      对这篇论文而言，方法线索主要集中在以下几个方面：
+      下面按照论文的方法章节结构展开，重点说明模型的关键模块、公式设计和训练策略。
     </p>
-    <h3>3.1 方法主线与模块组织</h3>
+    <p>-1mm 我们引入了一种从多个图像中前馈预测 3D 高斯函数的方法。我们的方法支持广泛的场景尺度，并且可以选择利用可用的地面实况相机姿势和内在特征。问题表述 给定未摆出的图像作为输入，其中 ，我们的目标是学习一个前馈网络，该网络可以预测代表底层场景的 3D 高斯分布。通过从训练数据中学习几何和外观先验，我们的方法直接重建新场景，而不需要耗时的优化。为此，首先预测每个视图的局部 3D 高斯，可以使用给定或预测的相机姿势将其转换为全局场景表示。具体来说，相机位姿参数定义为 ，其中 表示旋转矩阵，表示平移向量，表示串联操作。此外，如第 2 节所述。 ，我们的网络还可以预测相机本征，因此也可以消除相机校准的要求。形式上，我们的目标是学习以下映射：这里， 表示高斯参数 ，分别表示中心位置、不透明度、旋转、比例和颜色。所有参数最初都是在本地输入相机视图中预测的，随后可以使用预测或给定的相机姿势将其转换为全局表示。 -1mm 高斯输出空间和训练策略的分析 -2mm 输出空间：局部预测与典型预测 前馈重建模型的基本设计选择是其输出空间。现有方法分为两大类。 NoPoSplat 和 Flare 等无姿态模型直接在统一的规范空间中预测高斯分布，这自然地将所有视图的输出对齐到共享坐标系中。相比之下，pixelSplat 和 MVSplat 等与姿势相关的方法在局部、每个视图空间中预测高斯分布，并依赖地面实况相机姿势将它们转换为全局世界框架。虽然规范空间预测对少量视图有效，但其性能会随着视图计数的增加而下降（见表），这一观察结果与相关前馈点云预测模型中的发现一致。为了确保可扩展性和多功能性，YoNoSplat 采用本地预测范例。我们构建模型来预测每个视图的局部高斯及其相应的相机姿势。</p>
+    <p>这种设计通过使用预测姿势进行聚合来实现无姿势重建的主要目标，但它还保留了与可以提供地面真实姿势的姿势相关工作流程的完全兼容性。这种灵活性对于现实世界的应用至关重要，例如地图重建，其中需要与预先存在的准确姿态分布对齐。训练策略：减轻姿势纠缠联合预测 3D 高斯和相机参数具有挑战性，因为其中一个错误会破坏另一个错误。仅使用预测姿势进行聚合（自我强迫）会紧密耦合任务，导致训练不稳定和性能下降（图、表）。仅使用真实姿势（教师强制）可以提供......</p>
+    <p>$$ f_{\boldsymbol{\theta}}:\left\{\left(\boldsymbol{I}^v\right)\right\}_{v=1}^V \mapsto\left\{ \cup \left(\boldsymbol{\mu}_j^v, \alpha_j^v, \boldsymbol{r}_j^v, \boldsymbol{s}_j^v, \boldsymbol{c}_j^v\right) , \boldsymbol{k}^v, \boldsymbol{p}^v\right\}_{j=1,\dots,H \times W}^{v=1,\dots,V}.
+\label{eq:mapping} $$</p>
     <p>
-      根据方法章节可知，作者首先构建了一个核心表示或中间条件，再通过若干模块把它逐步转换为最终输出。这种结构的优势在于：每个模块都承担明确职责，既便于解释，也更便于在实验中做模块级消融。
-      原文中与主线最相关的描述包括：
+      lR^v R^33 t^v R^3[] k^v，因此也可以消除相机标定的要求。形式上，我们的目标是学习以下映射：这里， 表示高斯参数 ，分别表示中心位置、不透明度、旋转、比例和颜色。所有参数最初都是在本地输入凸轮中预测的……
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>3.2, our network also predicts the camera intrinsics kv, thus can also eliminate the requirement 3 Preprint DINO Gaussian Heads Pose Head Intrinsic Token Global 3D Gaussians … N Input Views (a) Overall Pipeline Local-Global Attention … … … … … … ICE … ICE … I…</li><li>3 METHOD We introduce YoNoSplat, a method for the feedforward prediction of 3D Gaussians from multiple images.</li><li>(a) Features are extracted with a DINOv2 encoder, followed by local-global attention across images, and finally used to predict camera poses and local 3D Gaussians.</li></ul></div>
-    <h3>3.2 训练目标、损失与公式信号</h3>
+    <p>$$ \mathcal{L} = \mathcal{L}_{\text{image}} + \lambda_{\text{intrin}}\mathcal{L}_{\text{intrin}} + \lambda_{\text{pose}}\mathcal{L}_{\text{pose}} + \lambda_{\text{opacity}}\mathcal{L}_{\text{opacity}}. $$</p>
     <p>
-      论文里的公式通常承担两类角色：一种是定义模型的预测关系与变量约束，另一种是定义优化时真正驱动模型更新的目标函数。阅读这类论文时，关键不是死记公式外形，而是理解每个公式分别在“表达结构”还是“约束行为”上发挥作用。
+      L3DV。在这里，我们展示了在无姿势、无校准设置下的结果，与依赖姿势的方法 DepthSplat 相比，它仍然产生更高质量的新颖视图渲染。 -4mm 人物 -1mm 模型训练 -2mm 我们的模型采用多任务损失进行训练，如下所示： 渲染损失 继之前的工作之后......
     </p>
-    <div class='card'><strong>公式 / 指标片段 1：</strong><pre>v=1 as input, where Iv ∈R3×H×W , our</pre></div><div class='card'><strong>公式 / 指标片段 2：</strong><pre>are defined as pv = [Rv, tv], where Rv ∈R3×3 denotes the rotation matrix, tv ∈R3 represents</pre></div><div class='card'><strong>公式 / 指标片段 3：</strong><pre>, kv, pv v=1,...,V</pre></div><div class='card'><strong>公式 / 指标片段 4：</strong><pre>j=1,...,H×W .</pre></div>
+    <p>$$ \mathcal{L}_{\text{R}}(i, j) = \arccos((\operatorname{tr}\left((\mathbf{R}_{i \leftarrow j})^\top \hat{\mathbf{R}}_{i \leftarrow j}\right) - 1) / 2),
+ \mathcal{L}_{\text{t}}(i, j) = \mathcal{H}_{\delta}(\hat{\mathbf{t}}_{i \leftarrow j} - \mathbf{t}_{i \leftarrow j}). $$</p>
     <p>
-      从这些公式与周边段落可以推断，作者想要的不只是局部误差最小化，而是通过更精细的目标设计，让模型在结构一致性、生成质量、时序稳定性或可控性等方面同时受约束。这也是很多新方法能真正优于 baseline 的原因。
+      row j = p_i^-1 p_j L_pose=1N(N-1) _i j (L_R(i, j) + _t L_t(i, j)) N L_R L_t 计算如下： 这里 表示矩阵的迹，计算 Huber 损失。不透明度损失 由于高斯分布是按像素预测的，因此高斯分布的总数随着视图数量的增加而快速增长。为了缓解这个问题，w...
     </p>
-    <h3>3.3 把全文方法串起来理解</h3>
+    <figure><img class='paper-fig' src='../assets/2511_07321v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：DL3DV 的定性比较。在这里，我们展示了在无姿势、无校准设置下的结果，与依赖姿势的方法 DepthSplat 相比，它仍然产生更高质量的新颖视图渲染。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2511_07321v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：ScanNet++ 上的定性比较。 YoNoSplat 很好地推广到 ScanNet++，并且与 AnySplat 相比，展示了跨不同视图的高斯融合更加连贯。此外，添加更多输入会带来更好的渲染质量，因为提供了更多信息。</figcaption></figure>
     <p>
-      如果把这篇论文的方法看成一条流水线，那么它的逻辑通常是：先把输入变成一个更适合推理的中间表示，再围绕该表示施加关键模块与训练目标，最后把输出落到可评估、可可视化的结果上。
-      这种“表示—模块—目标—结果”的闭环设计，是本页所锁定模板最想强调的部分，因为它比零散摘录更能帮助后续复现与横向比较。
+      把全文方法串起来看，这篇论文的逻辑基本都遵循同一条主线：先把输入组织成更容易处理的表示，再通过模型结构和损失函数把这个表示推向目标输出，最后用可视化与数值实验共同证明该设计有效。
     </p>
 
     <h2 id='experiment'>实验结论</h2>
     <p>
-      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，优势究竟来自哪个模块。对这篇论文来说，实验设计明显围绕“与现有方法的对比 + 对关键组件的消融”展开。
+      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，这种优势来自哪一个设计决策。
     </p>
-    <p>
-      从实验段落的关键词和结果描述看，论文最想传达的结论包括：
-    </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>It achieves state-of-the-art performance on standard benchmarks in both pose-free and pose-dependent settings.</li><li>We present YoNoSplat, a feedforward model that reconstructs high-quality 3D Gaussian Splatting representations from an arbitrary number of images.</li></ul></div>
-    <figure><img class='paper-fig' src='../assets/2511_07321v1/fig_3.png' alt='Figure 3:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 3：该图来自论文原文，用于说明论文中的核心框架、可视化结果或实验现象。原始图注摘要：Overview of YoNoSplat. (a) Features are extracted with a DINOv2 encoder, followed by local-global attention across images, and finally used to predict camera poses and local 3D Gaussians. (b) The Intrinsic Condition Embedding (ICE) module predicts intrinsic parameters (i.e., focal length), which ar…</figcaption></figure><figure><img class='paper-fig' src='../assets/2511_07321v1/fig_4.png' alt='Figure 4:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 4：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 4 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2511_07321v1/fig_5.png' alt='Figure 5:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 5：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 5 from the source paper.</figcaption></figure>
+    <p>-3mm 实验设置 -3mm 数据集 我们使用官方 split 在 RealEstate10K (RE10K) 和 DL3DV 上进行训练。 RE10K 由室内房地产视频组成（67,477 个训练/7,289 个测试）。 DL3DV包含10,000个户外视频，其中140个用于测试。为了对 RE10K 进行评估，我们保留带有帧的测试序列（1,580 个序列），并由于场景规模较小而使用 6 个上下文视图。在 DL3DV 上，我们使用输入视图和最大帧间隙进行测试。为了泛化，我们通过使用固定目标视图对每个序列的视图进行采样来评估 ScanNet++ 上的 DL3DV 训练模型。输入是通过相机中心最远点采样选择的；随机提供 8 个视图作为验证。实现细节是使用 PyTorch 实现的。编码器采用具有 24 个注意力层的 DINOv2 Large 模型，解码器由 18 个交替注意力层组成。骨干网、高斯中心头和相机姿态头的参数从 初始化，而其余层随机初始化。在训练过程中，我们随机选择 2 到 32 个视图之间的输入视图数量，并采样 4 个目标视图。我们以两种不同的分辨率训练模型，并且。该模型在 16 个 GH200 GPU 上训练 150k 步骤，每个步骤的批量大小为 2，同时模型从预训练的权重进行初始化，并在 32 个 GH200 GPU 上进一步训练另外 150k 步骤，批量大小为 1。 评估指标 对于新颖的视图合成任务，我们使用常用指标进行评估：PSNR、SSIM 和 LPIPS。对于姿态估计，我们报告阈值为 5 、 10 和 20 的累积角度姿态误差曲线 (AUC) 下的面积。基线 我们在新颖的视图合成上与 SOTA 代表性的稀疏视图泛化方法进行比较：1）基于优化：InstantSplat； 2）姿势相关：MVSplat、DepthSplat； 3）无姿势：NoPoSplat 和 AnySplat 。对于相对位姿估计，我们与 SOTA 方法进行比较： MASt3R 、 VGGT 和 。 -5mm 0mm 实验结果和分析 -2mm 新颖视图合成 为了在复杂的现实世界场景上评估我们的方法，我们在 DL3DV 上使用不同数量的输入视图、场景比例和输入先验对其进行测试。如表所示，我们的模型始终优于以前的 SOTA 方法。值得注意的是，它大幅超越了 NoPoSplat 和 AnySplat 等领先的无姿态方法。更引人注目的是，即使在最具挑战性的无姿势、无内在设置中，我们的模型在所有视图计数上都优于 SOTA 姿势相关方法 DepthSplat。</p>
+    <p>这凸显了我们的模型学习强大先验的能力，可以弥补地面实况相机信息的缺乏。定性地，图显示我们的重建具有更好的跨视图一致性，避免了基线中出现的伪影和不准确的几何形状。这…</p>
+
     <ul>
-      <li>方法在主任务指标上不是偶然提升，而是与其结构设计和训练目标直接相关；</li>
-      <li>作者通过消融实验说明，若拿掉关键模块，性能与结果质量会明显回落；</li>
-      <li>论文不仅关注数值对比，也关注可视化质量、稳定性或可控性等更接近真实应用的信号。</li>
+      <li>方法在核心指标上的优势与结构设计和训练目标直接相关；</li>
+      <li>消融实验表明，拿掉关键模块后性能与结果质量都有明显回落；</li>
+      <li>论文不仅比较数值，也关注可视化质量、稳定性和泛化能力等更贴近真实使用的信号。</li>
     </ul>
-    <p>
-      因此，实验部分最重要的阅读方式不是死记某一列数字，而是看清：作者究竟想证明哪个机制有效、这个机制的收益是在什么设置下成立、它是否有明显的边界条件。
-    </p>
 
     <h2 id='takeaway'>理解评价</h2>
+    <p>-4mm 在这项工作中，我们引入了一种多功能前馈模型，用于从任意数量的图像进行高质量 3D 高斯重建，该模型具有独特的能力，能够在无姿势/依赖姿势和校准/未校准设置下运行。我们解决了两个关键挑战：几何和姿势学习的纠缠，以及尺度模糊性。我们新颖的混合强制训练策略通过平衡训练稳定性和减轻暴露偏差来解决前者。对于后者，我们将稳健的最大成对距离归一化与内在条件嵌入（ICE）模块相结合，该模块能够从未校准的输入进行重建。</p>
+    <p>这些贡献显着提高了前馈 3D 重建的灵活性和鲁棒性。致谢 这项工作得到了瑞士国家超级计算中心 (CSCS) 阿尔卑斯山项目 ID a144 的资助，作为瑞士人工智能计划的一部分。叶波涛和陈波奇得到了 ETH 人工智能中心的部分支持。</p>
     <p>
-      从研究定位上看，这篇论文的意义在于它没有把问题局限在某一个局部改动，而是尝试给出一套更完整的求解路径。对读者而言，最值得关注的是它如何重新组合表示、模块和训练目标，以及这些设计是否能迁移到相近任务上。
+      如果把它当成研究参考，建议重点关注三件事：第一，这套方法真正依赖的归纳偏置是什么；第二，实验中真正拉开差距的模块是哪一个；第三，它的局限究竟来自数据、算力还是监督信号本身。
     </p>
     <p>
-      如果把它当成研究参考，我会重点看三件事：
-      第一，这套方法的核心归纳偏置是什么；
-      第二，实验中真正拉开差距的模块是哪一块；
-      第三，它的限制条件是数据、算力、时序长度，还是奖励/监督信号本身。
-    </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>ABSTRACT Fast and flexible 3D scene reconstruction from unstructured image collections remains a significant challenge.</li></ul></div>
-    <p>
-      进一步延伸阅读时，可以把这篇工作放到更广泛的技术脉络里：它与同类方法相比，到底是在表示层、生成层、优化层还是评估层提出了更强的方案。下面这些自动检索到的相关论文可作为继续追踪的入口：
+      以下相关论文可以作为进一步追踪的入口：
     </p>
     <ul></ul>
 
     <div class='tip'>
       <strong>一句结论：</strong>
-      这篇论文值得读的原因，不只是它给出了一组更好的结果，而是它提供了一条相对完整的问题求解思路：如何把任务定义、方法设计与实验验证真正对齐到同一条研究主线上。
+      这篇论文值得关注的地方在于，它不只给出了更好的实验结果，更提供了一条相对完整的问题求解路径，把任务定义、方法设计与实验验证真正对齐到了同一条研究主线上。
     </div>
   </article>
 </div>
+
   </div>
 </div>
 </body>

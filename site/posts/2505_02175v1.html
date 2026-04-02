@@ -70,7 +70,7 @@
     blockquote { margin: 16px 0; padding: 8px 16px; border-left: 4px solid #d8e7ff; background: #f8fbff; color: #333; }
     .tip { background: #f7f9fc; border: 1px solid #e8eef6; border-radius: 10px; padding: 12px; }
     .dashboard-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-top:18px; }
-    .dashboard-card { aspect-ratio: 1 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
+    .dashboard-card { aspect-ratio: 1.618 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
     .dashboard-card > * { min-width: 0; }
     .dashboard-card .dashboard-content { display:flex; flex-direction:column; height:100%; min-height:0; }
     .dashboard-card .dashboard-scroll { overflow:auto; min-height:0; }
@@ -130,10 +130,28 @@
     });
   </script>
 
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\(', '\)']],
+        displayMath: [['$$', '$$'], ['\[', '\]']]
+      },
+      svg: { fontCache: 'global' },
+      startup: {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady().then(() => {
+            requestAnimationFrame(applyPageScale);
+          });
+        }
+      }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
+
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
 
@@ -143,103 +161,114 @@
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      这篇论文关注的是“SparSplat 所对应的问题能否在更可控、更稳健或更高质量的条件下被解决”。从摘要与方法描述来看，作者的总体路线是：先搭建一个明确的表示或生成框架，再围绕训练目标、结构设计和实验验证把该问题推进到更可用的工程形态。
+      通过多视图立体重建 (MVS) 和新视图合成 (NVS) 从场景中恢复 3D 信息本身就具有挑战性，特别是在涉及稀疏视图设置的场景中。 D Gaussian Splatting (DGS) 的出现实现了实时、逼真的 NVS。随后，D Gaussian Splatting (DGS) 利用透视精确的 D Gaussian 图元光栅化在渲染过程中实现精确的几何表示，从而在保持实时性能的同时改进 3D 场景重建。最近的方法已经解决了稀疏实时 NVS 的问题，在可推广的、基于 MVS 的学习框架中使用 DGS 来回归 D 高斯参数。我们的工作通过联合解决可泛化稀疏 D 重建和 NVS 的挑战来扩展了…
     </div>
 
     <h2 id='summary'>简单摘要</h2>
-    <p>
-      从论文摘要可以看出，这项工作的落点并不是单纯提升一个局部模块，而是围绕完整任务链路做系统设计。它通常会同时回答三个问题：任务为什么重要、现有方法卡在哪里、作者的新方案如何绕开这些瓶颈。
-      就这篇论文而言，摘要部分强调的核心是：<strong>Recovering 3D information from scenes via multi-view stereo reconstruction (MVS) and novel view synthesis (NVS) is inherently challenging, particularly in scenarios involving spar…</strong>
-    </p>
-    <p>
-      如果把它放进更大的技术背景中理解，可以把这篇论文视作一条“问题定义 → 表示设计 → 训练优化 → 实验验证”的完整研究闭环。也就是说，作者并不是只给出一个孤立模块，而是希望通过一整套方法让系统在真实场景或关键指标上取得更稳定提升。
-    </p>
-    <figure><img class='paper-fig' src='../assets/2505_02175v1/fig_1.png' alt='Figure 1:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 1：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 1 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2505_02175v1/fig_2.png' alt='Figure 2:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 2：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 2 from the source paper.</figcaption></figure>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>We propose an MVS-based learning pipeline that regresses 2DGS surface element parameters in a feed-forward fashion to perform 3D shape reconstruction and NVS from sparse-view images.</li><li>Following this, 2D Gaussian Splatting (2DGS) leveraged perspective accurate 2D Gaussian primitive rasterization to achieve accurate geometry representation during rendering, improving 3D scene reconstruction while maintaining real-time performance.</li><li>Recent approaches have tackled the problem of sparse real-time NVS using 3DGS within a generalizable, MVS-based learning framework to regress 3D Gaussian parameters.</li></ul></div>
+    <p>通过多视图立体重建 (MVS) 和新视图合成 (NVS) 从场景中恢复 3D 信息本身就具有挑战性，特别是在涉及稀疏视图设置的场景中。 D Gaussian Splatting (DGS) 的出现实现了实时、逼真的 NVS。随后，D Gaussian Splatting (DGS) 利用透视精确的 D Gaussian 图元光栅化在渲染过程中实现精确的几何表示，从而在保持实时性能的同时改进 3D 场景重建。</p>
+    <p>最近的方法已经解决了稀疏实时 NVS 的问题，在可推广的、基于 MVS 的学习框架中使用 DGS 来回归 D 高斯参数。我们的工作通过联合解决可泛化稀疏 D 重建和 NVS 的挑战来扩展了这一研究领域，并成功地完成了这两项任务。我们提出了一种基于 MVS 的学习管道，以前馈方式回归 2DGS 表面元素参数，以从稀疏视图图像执行 D 形状重建和 NVS。我们进一步表明，我们的可推广管道可以受益于预先存在的基础多视图深度视觉特征。</p>
+    <p>由此产生的模型在 DTU 稀疏 3D 重建基准上，在与地面实值的倒角距离以及最先进的 NVS 方面获得了最先进的结果。它还展示了 BlendedMVS 以及 Tanks 和 Temples 数据集的强大泛化能力。我们注意到，我们的模型在基于隐式表示体渲染的前馈稀疏视图重建方面优于现有技术，同时提供了近 2 个数量级的推理速度。代码将在 https://shubhendu-jena.github.io/SparSplat/https://shubhendu-jena.github.io/SparSplat/ 提供</p>
+    <figure><img class='paper-fig' src='../assets/2505_02175v1/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：我们提出了第一个基于多视图图像的通用前馈 2DGS 预测模型。它在稀疏 DTU 3D 重建基准测试中实现了最先进的性能，与基于隐式表示体渲染的竞争相比，推理速度提高了几个数量级。多视图输入深度特征被单应性扭曲到目标视图中。两重网络执行深度多视图立体和像素对齐的 2D 表面元素属性回归。这些表面元素的透视精确高斯泼溅可以实现实时新颖的视图合成和网格提取。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2505_02175v1/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：对数据集 DTU 中 3 个输入视图的重建进行定性比较。 （推理时间：我们的 0.8 秒，UfoRecon 66 秒）。</figcaption></figure>
+    <blockquote>
+      简而言之，这篇论文关注的核心是：通过多视图立体重建 (MVS) 和新视图合成 (NVS) 从场景中恢复 3D 信息本身就具有挑战性，特别是在涉及稀疏视图设置的场景中。 D Gaussian Splatting (DGS) 的出现实现了实时、逼真的 NVS。随后，D Gaussian Splatting (DGS) 利用透视精确的…
+    </blockquote>
+    <p>-5pt 从稀疏图像输入重建三维场景仍然是计算机视觉领域的一项重大挑战，其应用涵盖机器人、自主系统和增强/虚拟现实。基于传统深度多视图立体 (MVS) 的方法（例如 MVSNet）通过在相机视锥体内构建 3D 成本体积来估计深度图，从而为该任务奠定了基础。随后的改进，包括杨等人的方法。 ，顾等人。 ，王等人。和丁等人。 ，提高了深度精度。然而，这些方法通常需要大量的后处理，例如深度图过滤，并且难以应对低纹理区域、噪声敏感性和不完整的数据，尤其是稀疏图像视图。</p>
+    <p>此外，它们无法启用独立的新颖视图合成（NVS）。神经隐式表示技术已成为强大的替代方案，通过神经符号距离函数 (SDF) 隐式表示表面，从而提供高保真 3D 重建。体积渲染的进步通过直接优化多视图图像的场景几何形状和辐射度，实现了更平滑、更详细的重建。最近，3D 高斯溅射 (3DGS) 引入了高斯基元的使用，以实现更快的实时、逼真的 NVS。虽然此方法提供了显着的改进，但从这些图元获取连续的 3D 表面仍然具有挑战性。</p>
+    <p>改善表面萃取的解决方案已经出现。例如，SuGaR 通过后处理来增强表面对准。此外，2D 高斯分布 (2DGS) 通过调整的图元表示和改进的渲染算法提高了重建精度。尽管取得了这些进步，大多数当前的方法，特别是场景特定的测试时间优化方法，仍然面临着局限性，包括高计算需求、广泛的输入视图要求以及跨不同场景的有限泛化。为了解决这些问题，可推广的 3D 重建和 NVS 模型旨在利用图像特征，使用在大型数据集上训练的前馈网络来预测辐射度和有符号距离场。</p>
+    <p>然而，作为基于体积渲染的方法，它们继承了明显缓慢的推理速度。最近的工作引入了无前馈优化的高斯泼溅模型，该模型使用像素对齐的 3D 高斯基元，借助泼溅过程中使用的基于图块的光栅化和快速 GPU 排序算法，从稀疏视图快速合成新颖的视图。这些方法…</p>
 
     <h2 id='innovation'>核心创新</h2>
     <p>
-      对照引言与方法部分，这篇论文的创新点主要体现在“如何重新组织问题求解链路”上。相比简单替换一个 backbone 或增加一个 loss，作者更像是在重新定义系统的关键接口与约束方式。
+      综合引言与方法部分，这篇论文的核心创新可以概括为以下几方面：
     </p>
-    <h3>1）从任务设定上重新界定问题边界</h3>
+    <h3>1）问题定义与研究动机</h3>
     <p>
-      论文强调的问题并不只是已有方案做得不够好，而是很多现有方法在目标可控性、泛化范围、效率约束或结构一致性上存在天然短板。因此作者先重述了任务定义，再围绕新的目标函数和场景假设去设计整体方案。
+      -5pt 从稀疏图像输入重建三维场景仍然是计算机视觉领域的一项重大挑战，其应用涵盖机器人、自主系统和增强/虚拟现实。基于传统深度多视图立体 (MVS) 的方法（例如 MVSNet）通过在相机视锥体内构建 3D 成本体积来估计深度图，从而为该任务奠定了基础。随后的改进，包括杨等人的方法。 ，顾等人。 ，王等人。和丁等人。 ，提高了深度精度。然而，这些方法通常需要大量的后处理，例如深度图过滤，并且难以应对低纹理区域、噪声敏感性和不完整的数据，尤其是稀疏图像视图。此外，它们无法启用独立的新颖视图合成（NVS）。神经隐式表示技术已成为强大的替代方案，通过神经符号距离函数 (SDF) 隐式表示表面，从而提供高保真 3D 重建。体积渲染的进步通过直接优化多视图图像的场景几何形状和辐射度，实现了更平滑、更详细的重建。最近，3D 高斯溅射 (3DGS) 引入了高斯基元的使用，以实现更快的实时、逼真的 NVS。虽然此方法提供了显着的改进，但从这些图元获取连续的 3D 表面仍然具有挑战性。改善表面萃取的解决方案已经出现。例如，SuGaR 通过后处理来增强表面对准。此外，2D 高斯分布 (2DGS) 通过…
     </p>
-    <h3>2）用统一框架串起表示、推理和优化</h3>
+    <h3>2）方法框架与核心模块</h3>
     <p>
-      从原文描述看，这篇论文并不是把多个模块松散拼接，而是在一个统一框架里安排表示形式、关键模块和训练信号，使它们彼此服务。这类设计往往决定了方法能否真正具备工程可落地性。
+      给定一些彩色图像，其中 \( I_i R^H W 3 \)，我们的目标是有效地获得观察到的场景或对象的 3D 重建。这种重建需要 3D 三角形网格和新颖的视图合成功能。我们通过学习一个可推广的前馈模型来实现这一目标，该模型可以在一次前向传递中将输入图像映射到任何目标视图的平面元素（图）。这些 D 基元通过透视精确的高斯泼溅实现高效的深度和颜色体积渲染。通过 TSDF 算法可以从分散的深度中获得显式网格，而颜色渲染可以实现实时新颖的视图合成。背景：高斯分布 3D 高斯分布 (3DGS) 将场景表示为一组 3D 各向异性高斯 \(\G\\)，每个由质心 \(x\)、比例 \(S\)、旋转 \(R\)、不透明度 \(\) 和 SH 编码颜色 \(c\) 定义。协方差为： 可以通过\(J\)和\(W\)投影到屏幕空间：这里，\(W\)是世界到相机的变换矩阵，\(J\)是将高斯投影到图像平面上的局部仿射变换矩阵。渲染将预先排序的高斯投影到图像平面，并通过 \( \) 合成将它们混合：其中调整后的不透明度为： 这里，\(y&#x27;\) 是像素，\(x&#x27;\) 是高斯分布中心 ( ) 在 2D 图像平面上…
     </p>
-    <h3>3）把实验目标直接对齐到实际痛点</h3>
+    <h3>3）实验设计与工程价值</h3>
     <p>
-      论文中的实验不仅比较常规 benchmark，也会额外关注更贴近实际系统需求的指标，例如稳定性、控制性、质量上界、对长尾场景的适应能力等。换句话说，它不是只追求单一数值，而是试图证明整套系统在真实使用方式下也成立。
+      -5pt 在本节中，我们展示了我们提出的方法的性能。首先，我们概述了我们的实验配置、实施细节、数据集和基线方法。其次，我们对三个常用的多视图数据集（即 DTU 、 BlendedMVS 和 Tanks and Temples ）进行了定量和定性比较。最后，我们进行消融研究来评估我们提出的方法的组成部分的影响。 -15pt 数据集 根据之前的研究，我们在训练阶段使用 DTU 数据集。 DTU 数据集的特点是室内多视图立体数据，具有来自 124 个不同场景和 7 种不同照明条件下的地面实况点云。在整个实验中，我们使用相同的 15 个场景作为测试目的，保留其余场景用于训练。关于 BlendedMVS 数据集，我们选择与 SparseNeuS 中使用的场景相同的场景，并随机选择一些额外的场景。对于 DTU 或 BMVS 中的每个场景，我们使用 SparseNeuS 后的相同稀疏输入视图。为了确保…
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>We propose an MVS-based learning pipeline that regresses 2DGS surface element parameters in a feed-forward fashion to perform 3D shape reconstruction and NVS from sparse-view images.</li><li>Following this, 2D Gaussian Splatting (2DGS) leveraged perspective accurate 2D Gaussian primitive rasterization to achieve accurate geometry representation during rendering, improving 3D scene reconstruction while maintaining real-time performance.</li><li>Rennes, CNRS, IRISA 2Technical University of Munich Abstract Recovering 3D information from scenes via multi-view stereo reconstruction (MVS) and novel view synthesis (NVS) is inherently challenging, particularly in scenarios involving sparse-view setups.</li><li>Recent approaches have tackled the problem of sparse real-time NVS using 3DGS within a generalizable, MVS-based learning framework to regress 3D Gaussian parameters.</li></ul></div>
 
     <h2 id='technical'>技术细节</h2>
     <p>
-      方法部分是理解论文价值的关键。结合原文可以看到，作者通常会先定义输入输出，再介绍中间表示、主干模块、损失函数或奖励机制，最后说明训练与推理时各模块如何协同。
-      对这篇论文而言，方法线索主要集中在以下几个方面：
+      下面按照论文的方法章节结构展开，重点说明模型的关键模块、公式设计和训练策略。
     </p>
-    <h3>3.1 方法主线与模块组织</h3>
+    <p>给定一些彩色图像，其中 \( I_i R^H W 3 \)，我们的目标是有效地获得观察到的场景或对象的 3D 重建。这种重建需要 3D 三角形网格和新颖的视图合成功能。我们通过学习一个可推广的前馈模型来实现这一目标，该模型可以在一次前向传递中将输入图像映射到任何目标视图的平面元素（图）。这些 D 基元通过透视精确的高斯泼溅实现高效的深度和颜色体积渲染。通过 TSDF 算法可以从分散的深度中获得显式网格，而颜色渲染可以实现实时新颖的视图合成。背景：高斯分布 3D 高斯分布 (3DGS) 将场景表示为一组 3D 各向异性高斯 \(\G\\)，每个由质心 \(x\)、比例 \(S\)、旋转 \(R\)、不透明度 \(\) 和 SH 编码颜色 \(c\) 定义。协方差为： 可以通过\(J\)和\(W\)投影到屏幕空间：这里，\(W\)是世界到相机的变换矩阵，\(J\)是将高斯投影到图像平面上的局部仿射变换矩阵。渲染将预先排序的高斯投影到图像平面，并通过 \( \) 合成将它们混合：其中调整后的不透明度为： 这里，\(y&#x27;\) 是像素，\(x&#x27;\) 是高斯分布中心 ( ) 在 2D 图像平面上的投影。从不同的角度观看时，3D 图元可能会产生歧义。 2D 足迹可以对应于多种可能的 3D 基元配置。此外，当点远离基元中心时，用于将 3D 高斯基元投影到图像平面上的透视仿射近似变得不太准确。这些元素会导致 3D 不一致，而 2D 图元有助于缓解这些不一致。 2D 高斯分布 (2DGS) 将基元表示为平面 2D 高斯，提高多视图深度一致性，同时保持新颖的视图性能。屏幕空间中的每个高斯定义为： 其中 和 是 splat 局部切平面上射线-splat 相交点的 UV 坐标， 是屏幕空间像素坐标。射线-splat 交集具有涉及单应性矩阵的封闭形式表达式：其中 、 、 是可学习的缩放因子， 、 是可以从可学习的 splat 旋转 导出的切向向量 ， 是 splat 在世界空间中的可学习中心。此后，如等式中所示。每个splat都有一个可学习的不透明度参数。 Alpha 混合的执行方式如下式所示：</p>
+    <p>使用每个splat的可学习颜色从深度排序基元获取渲染颜色。与基于 3DGS 的几何建模不同，这种方法通过在 splat 渲染中精确建模透视来提高多视图深度一致性和 3D 重建质量。模型给定输入图像及其相机姿态（包括 3D 旋转和平移），我们的模型为给定目标视图预测像素对齐的 2DGS 高斯参数图：对于测试时重建，在平均分散深度上执行 TSDF 深度融合。每个深度都使用由推断的 splat 贴图组成的高斯基元集进行 splatted 以供查看。高斯分布…</p>
+    <p>$$ \mathbf{\Sigma} = \mathbf{R} \mathbf{S} \mathbf{S}^T \mathbf{R}^T. $$</p>
     <p>
-      根据方法章节可知，作者首先构建了一个核心表示或中间条件，再通过若干模块把它逐步转换为最终输出。这种结构的优势在于：每个模块都承担明确职责，既便于解释，也更便于在实验中做模块级消融。
-      原文中与主线最相关的描述包括：
+      新颖的视图合成。背景：高斯分布 3D 高斯分布 (3DGS) 将场景表示为一组 3D 各向异性高斯 \(\G\\)，每个由质心 \(x\)、比例 \(S\)、旋转 \(R\)、不透明度 \(\) 和 SH 编码颜色 \(c\) 定义。协方差是：它可以投影到屏幕空间v…
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>Fast Multi-View Reconstruction with Generalizable 2D Gaussian Splatting Shubhendu Jena1, Shishir Reddy Vutukur2, Adnane Boukhayma1 1Inria, Univ.</li></ul></div>
-    <h3>3.2 训练目标、损失与公式信号</h3>
+    <p>$$ \mathbf{\Sigma&#x27;} = \mathbf{J} \mathbf{W} \mathbf{\Sigma} \mathbf{W}^T \mathbf{J}^T. $$</p>
     <p>
-      论文里的公式通常承担两类角色：一种是定义模型的预测关系与变量约束，另一种是定义优化时真正驱动模型更新的目标函数。阅读这类论文时，关键不是死记公式外形，而是理解每个公式分别在“表达结构”还是“约束行为”上发挥作用。
+      f 3D 各向异性高斯 \( \ G \ \)，每个由质心 \( x \)、尺度 \( S \)、旋转 \( R \)、不透明度 \( \) 和 SH 编码颜色 \( c \) 定义。协方差为： 可以通过\(J\)和\(W\)投影到屏幕空间：这里，\(W\)是世界到相机的变换矩阵，\(J\)是局部af…
     </p>
-    <div class='card'><strong>公式 / 指标片段 1：</strong><pre>Given a few color images e.g. {Ii}i=1,2,3, where Ii ∈</pre></div><div class='card'><strong>公式 / 指标片段 2：</strong><pre>Σ = RSST RT .</pre></div><div class='card'><strong>公式 / 指标片段 3：</strong><pre>Σ′ = JWΣWT JT .</pre></div>
+    <p>$$ \label{eq:alpha_blend}
+ \mathbf{C} = \sum_{i \in \mathbf{N}} \mathbf{\alpha}_i&#x27; \mathbf{c}_i \prod_{j=1}^{i-1}(1-\mathbf{\alpha}_j&#x27;), $$</p>
     <p>
-      从这些公式与周边段落可以推断，作者想要的不只是局部误差最小化，而是通过更精细的目标设计，让模型在结构一致性、生成质量、时序稳定性或可控性等方面同时受约束。这也是很多新方法能真正优于 baseline 的原因。
+      hbfW \)：这里，\( W \) 是世界到相机的变换矩阵，\( J \) 是将高斯投影到图像平面上的局部仿射变换矩阵。渲染将预先排序的高斯投影到图像平面，并通过 \(\) 合成将它们混合：其中调整后的不透明度为： 这里，\(y&#x27;\) 是 t...
     </p>
-    <h3>3.3 把全文方法串起来理解</h3>
+    <p>$$ \label{eq:alpha_mod}
+\mathbf{\alpha}_i&#x27; = \mathbf{\alpha}_i e^{-\frac{1}{2}(\mathbf{y&#x27;}-\mathbf{x&#x27;})^T \mathbf{\Sigma&#x27;^{-1}}(\mathbf{y&#x27;}-\mathbf{x&#x27;})}. $$</p>
     <p>
-      如果把这篇论文的方法看成一条流水线，那么它的逻辑通常是：先把输入变成一个更适合推理的中间表示，再围绕该表示施加关键模块与训练目标，最后把输出落到可评估、可可视化的结果上。
-      这种“表示—模块—目标—结果”的闭环设计，是本页所锁定模板最想强调的部分，因为它比零散摘录更能帮助后续复现与横向比较。
+      \( J \) 是将高斯投影到图像平面上的局部仿射变换矩阵。渲染将预先排序的高斯投影到图像平面，并通过 \( \) 合成将它们混合：其中调整后的不透明度为： 这里，\(y&#x27;\) 是像素，\(x&#x27;\) 是高斯分布中心在…上的 ( ) 投影。
+    </p>
+    <p>$$ \mathcal{G}(\boldsymbol{x}) = \exp\left(-\frac{u(\boldsymbol{x})^2 + v(\boldsymbol{x})^2}{2}\right), $$</p>
+    <p>
+      当点远离原始中心时，图像平面上的原始图像变得不太准确。这些元素会导致 3D 不一致，而 2D 图元有助于缓解这些不一致。 2D 高斯分布 (2DGS) 将基元表示为平面 2D 高斯，提高多视图深度一致性，同时保持新颖的视图…
+    </p>
+    <p>$$ \boldsymbol{H} = \begin{bmatrix}
+ s_u \boldsymbol{t}_u &amp; s_v \boldsymbol{t}_v &amp; \boldsymbol{0} &amp; \boldsymbol{p} \\
+ 0 &amp; 0 &amp; 0 &amp; 1
+\end{bmatrix}, $$</p>
+    <p>
+      方程 G(x) = (-u(x)^2 + v(x)^22)，方程 其中 和 是 splat 局部切平面上光线与 splat 相交的 UV 坐标， 是屏幕空间像素坐标。射线-splat 交集具有涉及单应性矩阵的封闭形式表达式：其中 、 、 是可学习的缩放因子……
+    </p>
+    <figure><img class='paper-fig' src='../assets/2505_02175v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：对数据集 BMVS 中 3 个输入视图的重建进行定性比较。请注意，我们使用我们的方法重建详细表面，无需任何微调。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2505_02175v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：使用我们的方法从数据集 Tanks 和 Temples 中的 3 个输入视图重建的定性结果，无需任何微调。请注意，这些都是非常具有挑战性的户外案例。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2505_02175v1/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：使用 3 个源图像对 DTU 进行 Novel-View 综合定性评估。我们优于 SOTA MVSGaussian，并且在输入视图重叠较低的区域中表现出更清晰的视图合成结果</figcaption></figure>
+    <p>
+      把全文方法串起来看，这篇论文的逻辑基本都遵循同一条主线：先把输入组织成更容易处理的表示，再通过模型结构和损失函数把这个表示推向目标输出，最后用可视化与数值实验共同证明该设计有效。
     </p>
 
     <h2 id='experiment'>实验结论</h2>
     <p>
-      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，优势究竟来自哪个模块。对这篇论文来说，实验设计明显围绕“与现有方法的对比 + 对关键组件的消融”展开。
+      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，这种优势来自哪一个设计决策。
     </p>
-    <p>
-      从实验段落的关键词和结果描述看，论文最想传达的结论包括：
-    </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>HF-NeuS [82] improves NeuS by modeling transparency as a transformation of the signed distance field and using a coarse-to-fine strategy to refine high-frequency details.</li><li>Generalizable Neural Radiance Fields and Surface Reconstruction Recent advancements in neural radiance fields (NeRFs) have improved novel view synthesis from sparse observations by exploring various strategies for scene geometry [19, 30, 38, 57, 85].</li></ul></div>
-    <figure><img class='paper-fig' src='../assets/2505_02175v1/fig_3.png' alt='Figure 3:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 3：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 3 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2505_02175v1/fig_4.png' alt='Figure 4:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 4：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 4 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2505_02175v1/fig_5.png' alt='Figure 5:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 5：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 5 from the source paper.</figcaption></figure>
+    <p>-5pt 在本节中，我们展示了我们提出的方法的性能。首先，我们概述了我们的实验配置、实施细节、数据集和基线方法。其次，我们对三个常用的多视图数据集（即 DTU 、 BlendedMVS 和 Tanks and Temples ）进行了定量和定性比较。最后，我们进行消融研究来评估我们提出的方法的组成部分的影响。 -15pt 数据集 根据之前的研究，我们在训练阶段使用 DTU 数据集。 DTU 数据集的特点是室内多视图立体数据，具有来自 124 个不同场景和 7 种不同照明条件下的地面实况点云。在整个实验中，我们使用相同的 15 个场景作为测试目的，保留其余场景用于训练。关于 BlendedMVS 数据集，我们选择与 SparseNeuS 中使用的场景相同的场景，并随机选择一些额外的场景。对于 DTU 或 BMVS 中的每个场景，我们使用 SparseNeuS 后的相同稀疏输入视图。为了确保对 DTU 的公正评估，我们使用 IDR 的前景掩模来掩盖重建的网格，并评估我们的方法在测试集上的表现，这与之前的研究一致。此外，为了评估我们提出的框架的泛化能力，我们在 BlendedMVS 数据集上定性比较我们的方法，并在没有任何微调的情况下提供 Tanks 和 Temples 数据集的一些额外示例。对于我们的新颖视图合成实验，我们遵循场景内相同的测试图像分割以及与 MVSGaussian 中相同的测试场景。我们还在补充材料中提供了一些额外的重建和新颖的视图合成定性比较，包括一些视频示例。 -15pt 基线 为了展示我们方法的有效性，我们与 a) SparseNeus 、 VolRecon 、 ReTR 、 GeoTransfer 和 UfoRecon （领先的通用神经表面重建方法）进行了比较； b) 可推广的神经/ DGS 渲染方法 PixelNeRF 、 IBRNet 、 MVSNeRF 、 GeoNeRF 和 MVSGaussian ； c) 神经隐式重建方法 VolSDF、NeuS 和基于高斯 Splatting 的方法 3D Gaussian Splatting 和 2D Gaussian Splatting 需要特定场景的训练；最后，d) 完善的多视图立体 (MVS) 方法 Colmap 、 MVSNet 和 CasMVSNet 以及 MASt3R 。 -15pt 实现细节 我们的模型是使用 PyTorch 实现的。</p>
+    <p>在训练期间，我们使用图像分辨率 ，（源图像的数量）设置为 。网络架构主要遵循以下。在单个 RTX A GPU 上使用 Adam 优化器进行训练超过 k 个步骤，初始学习率为 。为了提取…</p>
+    <figure><img class='paper-fig' src='../assets/2505_02175v1/figure6_full.png' alt='Figure 6:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 6：使用 3 个源图像对 DTU 进行额外的 Novel-View 综合定性评估。我们的性能优于 SOTA MVSGaussian，并表现出更清晰的视图合成结果，特别是在对象边界上。</figcaption></figure>
     <ul>
-      <li>方法在主任务指标上不是偶然提升，而是与其结构设计和训练目标直接相关；</li>
-      <li>作者通过消融实验说明，若拿掉关键模块，性能与结果质量会明显回落；</li>
-      <li>论文不仅关注数值对比，也关注可视化质量、稳定性或可控性等更接近真实应用的信号。</li>
+      <li>方法在核心指标上的优势与结构设计和训练目标直接相关；</li>
+      <li>消融实验表明，拿掉关键模块后性能与结果质量都有明显回落；</li>
+      <li>论文不仅比较数值，也关注可视化质量、稳定性和泛化能力等更贴近真实使用的信号。</li>
     </ul>
-    <p>
-      因此，实验部分最重要的阅读方式不是死记某一列数字，而是看清：作者究竟想证明哪个机制有效、这个机制的收益是在什么设置下成立、它是否有明显的边界条件。
-    </p>
 
     <h2 id='takeaway'>理解评价</h2>
+    <p>-5pt 我们提出了第一个基于泛化 D 高斯分布的方法，与隐式泛化 SOTA 方法相比，能够实现快速多视图重建，加速因子接近数量级。我们的方法受益于从现有 D 和 D 基础模型中提取的深层特征的输入，即来自 DinoV2 的单目语义特征和来自 MASt3R 的成对图像特征，MASt3R 编码输入图像之间的密集对应关系。我们还在 DTU 数据集上的新颖视图合成和 D 重建任务中取得了最先进的结果，在 BlendedMVS 数据集上具有很强的泛化能力，并在更具挑战性的 Tanks 和 Temples 数据集上取得了有希望的结果。</p>
+    <p>部分 - 补充材料 -\\[1ex] Shubhendu Jena1、Shishir Reddy Vutukur2、Adnane Boukhayma1\\ 1Inria，大学。 Rennes, CNRS, IRISA\\ 2慕尼黑工业大学中心 2ex ] 在这里，我们展示了我们的重建结果与其他方法的定性视频比较，以直观地展示我们的方法的影响。还包括我们新颖的视图合成结果的其他定性结果，最后我们总结了 DTU 和 BlendedMVS 评估数据集的一些额外实验细节以及其他实现细节。</p>
+    <p>\\ 实施细节。接下来，对于深度估计，我们分别对粗略和精细阶段进行采样和深度平面。我们设置 、 、 、 、 和 作为我们的损失权重。</p>
     <p>
-      从研究定位上看，这篇论文的意义在于它没有把问题局限在某一个局部改动，而是尝试给出一套更完整的求解路径。对读者而言，最值得关注的是它如何重新组合表示、模块和训练目标，以及这些设计是否能迁移到相近任务上。
+      如果把它当成研究参考，建议重点关注三件事：第一，这套方法真正依赖的归纳偏置是什么；第二，实验中真正拉开差距的模块是哪一个；第三，它的局限究竟来自数据、算力还是监督信号本身。
     </p>
     <p>
-      如果把它当成研究参考，我会重点看三件事：
-      第一，这套方法的核心归纳偏置是什么；
-      第二，实验中真正拉开差距的模块是哪一块；
-      第三，它的限制条件是数据、算力、时序长度，还是奖励/监督信号本身。
-    </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>Despite these advances, most current methods, especially the scene specific test-time optimization ones, still face limitations including high computational demands, extensive input view requirements, and limited generalization across different scenes.</li><li>Our work extends this line of research by addressing the challenge of generalizable sparse 3D reconstruction and NVS jointly, and manages to perform successfully at both tasks.</li><li>Fast Multi-View Reconstruction with Generalizable 2D Gaussian Splatting Shubhendu Jena1, Shishir Reddy Vutukur2, Adnane Boukhayma1 1Inria, Univ.</li><li>The advent of 3D Gaussian Splatting (3DGS) enabled real-time, photorealistic NVS.</li></ul></div>
-    <p>
-      进一步延伸阅读时，可以把这篇工作放到更广泛的技术脉络里：它与同类方法相比，到底是在表示层、生成层、优化层还是评估层提出了更强的方案。下面这些自动检索到的相关论文可作为继续追踪的入口：
+      以下相关论文可以作为进一步追踪的入口：
     </p>
     <ul></ul>
 
     <div class='tip'>
       <strong>一句结论：</strong>
-      这篇论文值得读的原因，不只是它给出了一组更好的结果，而是它提供了一条相对完整的问题求解思路：如何把任务定义、方法设计与实验验证真正对齐到同一条研究主线上。
+      这篇论文值得关注的地方在于，它不只给出了更好的实验结果，更提供了一条相对完整的问题求解路径，把任务定义、方法设计与实验验证真正对齐到了同一条研究主线上。
     </div>
   </article>
 </div>
+
   </div>
 </div>
 </body>

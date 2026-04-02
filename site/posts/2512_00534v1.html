@@ -70,7 +70,7 @@
     blockquote { margin: 16px 0; padding: 8px 16px; border-left: 4px solid #d8e7ff; background: #f8fbff; color: #333; }
     .tip { background: #f7f9fc; border: 1px solid #e8eef6; border-radius: 10px; padding: 12px; }
     .dashboard-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-top:18px; }
-    .dashboard-card { aspect-ratio: 1 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
+    .dashboard-card { aspect-ratio: 1.618 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
     .dashboard-card > * { min-width: 0; }
     .dashboard-card .dashboard-content { display:flex; flex-direction:column; height:100%; min-height:0; }
     .dashboard-card .dashboard-scroll { overflow:auto; min-height:0; }
@@ -130,10 +130,28 @@
     });
   </script>
 
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\(', '\)']],
+        displayMath: [['$$', '$$'], ['\[', '\]']]
+      },
+      svg: { fontCache: 'global' },
+      startup: {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady().then(() => {
+            requestAnimationFrame(applyPageScale);
+          });
+        }
+      }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
+
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
 
@@ -143,103 +161,105 @@
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      这篇论文关注的是“Cross-Temporal 所对应的问题能否在更可控、更稳健或更高质量的条件下被解决”。从摘要与方法描述来看，作者的总体路线是：先搭建一个明确的表示或生成框架，再围绕训练目标、结构设计和实验验证把该问题推进到更可用的工程形态。
+      随着时间的推移保持一致的 3D 场景表示是计算机视觉领域的一项重大挑战。从稀疏视图观测中更新 3D 场景对于各种现实应用至关重要，包括城市规划、灾害评估和历史遗址保护，在这些应用中，密集扫描通常不可用或不切实际。在本文中，我们提出了 Cross-Temporal 3D Gaussian Splatting（Cross-Temporal 3DGS），这是一种使用稀疏图像和先前捕获的场景先验有效重建和更新不同时间段的 3D 场景的新颖框架。我们的方法包括三个阶段：1）跨时间相机对齐，用于估计和对齐不同时间戳的相机姿势； 2）基于干扰的置信度初始化，识别时间戳之间未变化的区域，从而指导更新； 3)…
     </div>
 
     <h2 id='summary'>简单摘要</h2>
-    <p>
-      从论文摘要可以看出，这项工作的落点并不是单纯提升一个局部模块，而是围绕完整任务链路做系统设计。它通常会同时回答三个问题：任务为什么重要、现有方法卡在哪里、作者的新方案如何绕开这些瓶颈。
-      就这篇论文而言，摘要部分强调的核心是：<strong>Maintaining consistent 3D scene representations over time is a significant challenge in computer vision. Updating 3D scenes from sparse-view observations is crucial for various re…</strong>
-    </p>
-    <p>
-      如果把它放进更大的技术背景中理解，可以把这篇论文视作一条“问题定义 → 表示设计 → 训练优化 → 实验验证”的完整研究闭环。也就是说，作者并不是只给出一个孤立模块，而是希望通过一整套方法让系统在真实场景或关键指标上取得更稳定提升。
-    </p>
-    <figure><img class='paper-fig' src='../assets/2512_00534v1/fig_1.png' alt='Figure 1:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 1：该图来自论文原文，用于说明论文中的核心框架、可视化结果或实验现象。原始图注摘要：Scene update via Cross-temporal 3DGS. Given sparse-view inputs at tn, our proposed Cross-temporal 3DGS updates the 3D scene from a well-observed timestamp t0 to the sparse observed timestamp tn. scenes across different points in time, often from sparse or incomplete visual data. This demands not on…</figcaption></figure><figure><img class='paper-fig' src='../assets/2512_00534v1/fig_2.png' alt='Figure 2:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 2：该图来自论文原文，用于说明论文中的核心框架、可视化结果或实验现象。原始图注摘要：Overall pipeline of Cross-Temporal 3DGS.</figcaption></figure>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>In this paper, we propose Cross-Temporal 3D Gaussian Splatting (CrossTemporal 3DGS), a novel framework for efficiently reconstructing and updating 3D scenes across different time periods, using sparse images and previously captured scene priors.</li><li>Maintaining consistent 3D scene representations over time is a significant challenge in computer vision.</li></ul></div>
+    <p>随着时间的推移保持一致的 3D 场景表示是计算机视觉领域的一项重大挑战。从稀疏视图观测中更新 3D 场景对于各种现实应用至关重要，包括城市规划、灾害评估和历史遗址保护，在这些应用中，密集扫描通常不可用或不切实际。在本文中，我们提出了 Cross-Temporal 3D Gaussian Splatting（Cross-Temporal 3DGS），这是一种使用稀疏图像和先前捕获的场景先验有效重建和更新不同时间段的 3D 场景的新颖框架。</p>
+    <p>我们的方法包括三个阶段：1）跨时间相机对齐，用于估计和对齐不同时间戳的相机姿势； 2）基于干扰的置信度初始化，识别时间戳之间未变化的区域，从而指导更新； 3) 渐进式跨时间优化，将历史先验信息迭代地集成到 3D 场景中以提高重建质量。我们的方法支持非连续捕获，不仅可以使用新的稀疏视图进行更新以细化现有场景，还可以借助当前捕获从有限数据中恢复过去的场景。此外，我们展示了这种方法仅使用稀疏图像实现时间变化的潜力，这些图像稍后可以根据需要重建为详细的 3D 表示。</p>
+    <p>实验结果表明，在重建质量和数据效率方面比基线方法有了显着改进，使该方法成为场景版本控制、跨时态数字孪生和长期空间记录的有前途的解决方案。</p>
+    <figure><img class='paper-fig' src='../assets/2512_00534v1/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：通过跨时空 3DGS 进行场景更新。给定 t_n 处的稀疏视图输入，我们提出的跨时间 3DGS 将 3D 场景从良好观察的时间戳 t_0 更新为稀疏观察的时间戳 t_n。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2512_00534v1/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：跨时空 3DGS 的整体流程。</figcaption></figure>
+    <blockquote>
+      简而言之，这篇论文关注的核心是：随着时间的推移保持一致的 3D 场景表示是计算机视觉领域的一项重大挑战。从稀疏视图观测中更新 3D 场景对于各种现实应用至关重要，包括城市规划、灾害评估和历史遗址保护，在这些应用中，密集扫描通常不可用或不切实际。在本文中，我们提出了 Cross-Temporal 3D Gaussian Splat…
+    </blockquote>
+    <p>在计算机视觉和图形领域，保持一致且可更新的 3D 场景表示是一个基本但尚未充分探索的挑战。虽然神经辐射场 (NeRF) 和 3D 高斯分布 (3DGS) 等现代技术极大地提高了静态 3D 场景建模的质量和交互性，但它们在很大程度上仅限于单时间戳重建。在城市数字孪生、文化遗产保护和灾后响应等许多现实应用中，越来越需要根据稀疏或不完整的视觉数据来重建、修改和比较不同时间点的场景。这不仅需要高保真场景重建，还需要稀疏视图和非连续捕获设置下的鲁棒时间泛化。</p>
+    <p>城市规划者可能希望仅使用档案图像来评估几年来城市布局的变化。保护团队可能需要使用之前的 3D 重建和新获取的照片来修复受损的历史遗址。在这些场景中，数据通常仅限于跨不同设备、视点或时间戳的一些无序捕获，使得传统的密集重建管道不可行。使用先前捕获的模型作为先验，从稀疏观测中更新场景的能力将为长期空间记录和分析提供“按需重建”范式。尽管人们对动态 3D 重建和场景编辑的兴趣日益浓厚，但现有方法仍难以实现这一目标。</p>
+    <p>4D-GS 等动态 3DGS 方法需要密集的时间观察和显式运动建模，这使得它们不适合独立捕获的时间点。 Wild-Gaussian 和 CL-Splats 等变化检测技术可以定位场景差异，但通常无法重建更新的场景级几何结构或依赖于相机一致性。同时，GaussianEditor 等 3D 场景编辑器支持手动或文本引导操作，但严重依赖用户干预，且结构精度有限。这些方法暴露了一个关键差距：缺乏能够从稀疏跨时间图像更新 3D 场景的统一框架。</p>
+    <p>为了应对这些挑战，我们提出了 Cross-Temporal 3D Gaussian Splatting（Cross-Temporal 3DGS），这是一种新颖的框架，旨在使用稀疏视图和历史先验跨时间更新或恢复 3D 场景。我们的方法引入了一个三阶段管道来弥合独立捕获的观测之间的时间间隙：首先，我们实现跨时间相机对齐，w...</p>
 
     <h2 id='innovation'>核心创新</h2>
     <p>
-      对照引言与方法部分，这篇论文的创新点主要体现在“如何重新组织问题求解链路”上。相比简单替换一个 backbone 或增加一个 loss，作者更像是在重新定义系统的关键接口与约束方式。
+      综合引言与方法部分，这篇论文的核心创新可以概括为以下几方面：
     </p>
-    <h3>1）从任务设定上重新界定问题边界</h3>
+    <h3>1）问题定义与研究动机</h3>
     <p>
-      论文强调的问题并不只是已有方案做得不够好，而是很多现有方法在目标可控性、泛化范围、效率约束或结构一致性上存在天然短板。因此作者先重述了任务定义，再围绕新的目标函数和场景假设去设计整体方案。
+      在计算机视觉和图形领域，保持一致且可更新的 3D 场景表示是一个基本但尚未充分探索的挑战。虽然神经辐射场 (NeRF) 和 3D 高斯分布 (3DGS) 等现代技术极大地提高了静态 3D 场景建模的质量和交互性，但它们在很大程度上仅限于单时间戳重建。在城市数字孪生、文化遗产保护和灾后响应等许多现实应用中，越来越需要根据稀疏或不完整的视觉数据来重建、修改和比较不同时间点的场景。这不仅需要高保真场景重建，还需要稀疏视图和非连续捕获设置下的鲁棒时间泛化。城市规划者可能希望仅使用档案图像来评估几年来城市布局的变化。保护团队可能需要使用之前的 3D 重建和新获取的照片来修复受损的历史遗址。在这些场景中，数据通常仅限于跨不同设备、视点或时间戳的一些无序捕获，使得传统的密集重建管道不可行。使用先前捕获的模型作为先验，从稀疏观测中更新场景的能力将为长期空间记录和分析提供“按需重建”范式。尽管人们对动态 3D 重建和场景编辑的兴趣日益浓厚，但现有方法仍难以实现这一目标。 4D-GS 等动态 3DGS 方法需要密集的时间观察和显式运动建模，这使得它们不适合独立捕获的时间点。 Wild-Gaussian…
     </p>
-    <h3>2）用统一框架串起表示、推理和优化</h3>
+    <h3>2）方法框架与核心模块</h3>
     <p>
-      从原文描述看，这篇论文并不是把多个模块松散拼接，而是在一个统一框架里安排表示形式、关键模块和训练信号，使它们彼此服务。这类设计往往决定了方法能否真正具备工程可落地性。
+      概述 在目标时间直接从稀疏视图重建 3D 场景会导致重建质量显着下降，并且无法利用历史数据作为有效先验，从而降低城市变化监测或灾难恢复等现实应用中场景更新的准确性和可用性。现有的基于3DGS的场景更新方法，例如场景编辑，通常依赖于手动注释或语义指导，这可能不可靠且不可控。这种限制限制了实际应用中的可用性和现实性。此外，当前基于3DGS的动态场景重建方法通常假设时间连续性和相机一致性，需要大量的训练时间，使得它们不适合在不一致的条件下捕获过去和当前数据的场景。这些限制凸显了使用 3DGS 进行场景更新的几个关键挑战：1) 缺乏非连续捕获的跨时间对齐，2) 无法从先前的观察中自动提取有价值的先验，3) 在稀疏视图重建过程中无法有效利用这些先验。如图所示，我们的方法通过三个关键创新解决了这些差距：1）跨时域相机对齐：利用点云配准来确保跨不同时间戳的相机姿势的稳健对齐，2）基于干扰的置信度初始化：通过基于干扰的方法自动识别场景中的稳定区域，从而保留先验知识，以及3）渐进式跨时域优化：将高质量场景先验集成到3DGS重建过程中逐步提高保真度和计算效率。跨时间相机对齐在不同时间点进行独立姿态估计可…
     </p>
-    <h3>3）把实验目标直接对齐到实际痛点</h3>
+    <h3>3）实验设计与工程价值</h3>
     <p>
-      论文中的实验不仅比较常规 benchmark，也会额外关注更贴近实际系统需求的指标，例如稳定性、控制性、质量上界、对长尾场景的适应能力等。换句话说，它不是只追求单一数值，而是试图证明整套系统在真实使用方式下也成立。
+      比较方法：我们将我们的方法与三个基线进行比较：原始 3DGS 方法、基于 3DGS 的稀疏视图重建方法 InstantSplat 和最近的场景编辑框架。基线被定义为仅使用稀疏视图图像从头开始训练的直接 3DGS，而不利用时间的图像先验信息，但在我们的方法中利用融合的密集点云。该设置反映了稀疏和时间隔离观察下的典型重建管道，并且在没有场景先验的情况下充当了强大的性能下限。 GaussianEditor 比较涉及使用 3D 场景编辑方法，该方法能够在现有 3DGS 场景上进行语义文本引导更新。虽然它最初并不是用于跨时间重建，但我们通过提供带注释的文本提示来指示所需的场景变化来适应此任务。这种比较凸显了基于编辑的方法在实现几何一致和时间精确更新方面的局限性。实施细节：所有实验均在单个 NVIDIA RTX A5000 GPU 上进行。我们采用官方 3DGS 实现作为重建主干，并将我们的方法应用…
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>Given sparse-view inputs at tn, our proposed Cross-temporal 3DGS updates the 3D scene from a well-observed timestamp t0 to the sparse observed timestamp tn.</li><li>Introduction Maintaining consistent and updatable 3D scene representations across time is a fundamental yet underexplored challenge in computer vision and graphics.</li><li>• We design a novel confidence-guided optimization strategy to selectively propagate reliable priors while adapting to new scene content;</li><li>Chan framework designed to update or recover 3D scenes across time using sparse views and historical priors.</li></ul></div>
 
     <h2 id='technical'>技术细节</h2>
     <p>
-      方法部分是理解论文价值的关键。结合原文可以看到，作者通常会先定义输入输出，再介绍中间表示、主干模块、损失函数或奖励机制，最后说明训练与推理时各模块如何协同。
-      对这篇论文而言，方法线索主要集中在以下几个方面：
+      下面按照论文的方法章节结构展开，重点说明模型的关键模块、公式设计和训练策略。
     </p>
-    <h3>3.1 方法主线与模块组织</h3>
+    <p>概述 在目标时间直接从稀疏视图重建 3D 场景会导致重建质量显着下降，并且无法利用历史数据作为有效先验，从而降低城市变化监测或灾难恢复等现实应用中场景更新的准确性和可用性。现有的基于3DGS的场景更新方法，例如场景编辑，通常依赖于手动注释或语义指导，这可能不可靠且不可控。这种限制限制了实际应用中的可用性和现实性。此外，当前基于3DGS的动态场景重建方法通常假设时间连续性和相机一致性，需要大量的训练时间，使得它们不适合在不一致的条件下捕获过去和当前数据的场景。这些限制凸显了使用 3DGS 进行场景更新的几个关键挑战：1) 缺乏非连续捕获的跨时间对齐，2) 无法从先前的观察中自动提取有价值的先验，3) 在稀疏视图重建过程中无法有效利用这些先验。如图所示，我们的方法通过三个关键创新解决了这些差距：1）跨时域相机对齐：利用点云配准来确保跨不同时间戳的相机姿势的稳健对齐，2）基于干扰的置信度初始化：通过基于干扰的方法自动识别场景中的稳定区域，从而保留先验知识，以及3）渐进式跨时域优化：将高质量场景先验集成到3DGS重建过程中逐步提高保真度和计算效率。跨时间相机对齐在不同时间点进行独立姿态估计可能会导致坐标系未对齐。为了确保独立捕获的时间戳之间的几何一致性，我们提出了一种跨时间相机对齐策略，该策略可以跨时间重建和注册场景结构，为后续优化提供统一的坐标。相机在不同时间戳 ( 和 ) 处的姿势导致坐标系之间发生未知的刚性变换（旋转和平移）。直接从 到 转移先前的场景信息而不解决这种不对准会引入几何不一致和投影误差，最终降低重建质量。</p>
+    <p>为了解决这个问题，我们利用场景结构将两个时间戳对齐到统一的坐标系中。虽然局部场景变化可能存在，但我们假设全局布局基本保持不变，这使我们能够使用跨时间点云配准来确定最佳刚性变换。我们估计相机姿态并使用 DUSt3R 生成密集点云，因为密集点云对稀疏视图重建显示出积极的影响。然后将采样降低到 1/4 以提高效率。为了将它们与 COLMAP 坐标系对齐，我们通过最小化重投影误差来计算相似变换。这种优化是使用 Level 来解决的……</p>
+    <p>$$ P_{\text{fused}} = P_c \cup P_n^{\text{aligned}}.
+\label{eq:aa} $$</p>
     <p>
-      根据方法章节可知，作者首先构建了一个核心表示或中间条件，再通过若干模块把它逐步转换为最终输出。这种结构的优势在于：每个模块都承担明确职责，既便于解释，也更便于在实验中做模块级消融。
-      原文中与主线最相关的描述包括：
+      图的左下。为了进一步提高COLMAP点云之间的几何一致性，我们采用迭代最近点（ICP）算法来制定变换并应用于点云和相机位姿，示例结果如图所示。最后，融合点云被...
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>Related Works 3D Gaussian Splatting:</li><li>Firstly, we implement Cross-Temporal Camera Alignment, which aligns camera poses by matching point clouds from t0 and tn.</li><li>Utilizing the high-confidence regions from t0, we conduct a confidence-guided 3DGS training at tn, where confidence maps are iteratively refined.</li></ul></div>
-    <h3>3.2 训练目标、损失与公式信号</h3>
+    <p>$$ \begin{aligned}
+L_{\text{init}} = \sum_{p} c_p \Bigg[
+ &amp;\sum_{k \in p} \left\| I_k^{\text{render}} - I_k^{t_n} \right\|_1 \\
+ &amp;+ \left( 1 - \text{SSIM}(I_p^{\text{render}}, I_p^{t_n}) \right)
+\Bigg],
+\end{aligned} $$</p>
     <p>
-      论文里的公式通常承担两类角色：一种是定义模型的预测关系与变量约束，另一种是定义优化时真正驱动模型更新的目标函数。阅读这类论文时，关键不是死记公式外形，而是理解每个公式分别在“表达结构”还是“约束行为”上发挥作用。
+      但随着优化的进展和图像监督的主导。稀疏观察的初步训练。使用\(P_fused\)，我们在\(t_n\)处初始化3DGS模型\(G_n\)，并利用来自\(t_n\)的稀疏视图图像和来自\(t_0\)的高置信度区域进行初步优化。损失函数...
     </p>
-    <div class='card'><strong>公式说明：</strong><p>当前 PDF 文本中的公式抽取有限，但方法部分已结合原文段落补充核心训练目标、模块关系与评价指标。</p></div>
+    <p>$$ C_{\text{iter}}^i(p) = \begin{cases} 
+1 &amp; \text{if \;} mSSIM(p) \geq \tau_{\text{iter}} \\ 
+0 &amp; \text{otherwise}.
+\end{cases} $$</p>
     <p>
-      从这些公式与周边段落可以推断，作者想要的不只是局部误差最小化，而是通过更精细的目标设计，让模型在结构一致性、生成质量、时序稳定性或可控性等方面同时受约束。这也是很多新方法能真正优于 baseline 的原因。
+      当前模型 \(G_n\) 并根据地面实况图像 \(I_t_0^i\) 计算细粒度相似度得分。我们通过更细粒度的相似性评估和更严格的阈值来细化置信图。补丁式修改的 SSIM 分数用于在优化迭代中逐步扩展置信区域……
     </p>
-    <h3>3.3 把全文方法串起来理解</h3>
+    <figure><img class='paper-fig' src='../assets/2512_00534v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：跨时间相机对齐。此过程涉及通过注册密集点云来估计和对齐来自不同时间戳（\(t_0\) 和 \(t_n\)）的相机姿势，确保有效场景更新的几何一致性。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2512_00534v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：t_0 和 t_n 的点云对齐。使用 ICP 进一步细化初始对齐结果（左），以实现更精确的变换（右），确保场景结构和相机姿势的准确配准。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2512_00534v1/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：定性比较。我们展示了数据集中三个场景（Airpods、Tower）中四种不同方法（InstantSplat、Baseline、GaussianEditor、Ours）的性能。对于每个场景，我们都会显示一个训练视图和两个测试视图来说明每种方法的有效性。更改的部分在框中突出显示。</figcaption></figure>
     <p>
-      如果把这篇论文的方法看成一条流水线，那么它的逻辑通常是：先把输入变成一个更适合推理的中间表示，再围绕该表示施加关键模块与训练目标，最后把输出落到可评估、可可视化的结果上。
-      这种“表示—模块—目标—结果”的闭环设计，是本页所锁定模板最想强调的部分，因为它比零散摘录更能帮助后续复现与横向比较。
+      把全文方法串起来看，这篇论文的逻辑基本都遵循同一条主线：先把输入组织成更容易处理的表示，再通过模型结构和损失函数把这个表示推向目标输出，最后用可视化与数值实验共同证明该设计有效。
     </p>
 
     <h2 id='experiment'>实验结论</h2>
     <p>
-      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，优势究竟来自哪个模块。对这篇论文来说，实验设计明显围绕“与现有方法的对比 + 对关键组件的消融”展开。
+      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，这种优势来自哪一个设计决策。
     </p>
-    <p>
-      从实验段落的关键词和结果描述看，论文最想传达的结论包括：
-    </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>Experimental results show significant improvements over baseline methods in reconstruction quality and data efficiency, making this approach a promising solution for scene versioning, cross-temporal digital twins, and long-term spatial documentation.</li><li>2) Interference-based confidence initialization to identify unchanged regions between timestamps, thereby guiding updates;</li><li>Updating 3D scenes from sparse-view observations is crucial for various real-world applications, including urban planning, disaster assessment, and historical site preservation, where dense scans are often unavailable or impractical.</li><li>and 3) Progressive crosstemporal optimization, which iteratively integrates historical prior information into the 3D scene to enhance reconstruction quality.</li></ul></div>
-    <figure><img class='paper-fig' src='../assets/2512_00534v1/fig_3.png' alt='Figure 3:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 3：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 3 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2512_00534v1/fig_4.png' alt='Figure 4:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 4：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 4 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2512_00534v1/fig_5.png' alt='Figure 5:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 5：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 5 from the source paper.</figcaption></figure>
+    <p>比较方法：我们将我们的方法与三个基线进行比较：原始 3DGS 方法、基于 3DGS 的稀疏视图重建方法 InstantSplat 和最近的场景编辑框架。基线被定义为仅使用稀疏视图图像从头开始训练的直接 3DGS，而不利用时间的图像先验信息，但在我们的方法中利用融合的密集点云。该设置反映了稀疏和时间隔离观察下的典型重建管道，并且在没有场景先验的情况下充当了强大的性能下限。 GaussianEditor 比较涉及使用 3D 场景编辑方法，该方法能够在现有 3DGS 场景上进行语义文本引导更新。虽然它最初并不是用于跨时间重建，但我们通过提供带注释的文本提示来指示所需的场景变化来适应此任务。这种比较凸显了基于编辑的方法在实现几何一致和时间精确更新方面的局限性。实施细节：所有实验均在单个 NVIDIA RTX A5000 GPU 上进行。我们采用官方 3DGS 实现作为重建主干，并将我们的方法应用于合成数据集和现实数据集。对于基于干扰的置信度初始化，每个图像被划分为补丁，如果修改后的 SSIM 分数超过阈值，则为补丁分配高置信度。使用来自目标时间戳的稀疏视图图像，在经过 500 个优化步骤的短暂适应阶段后计算置信图。在渐进式跨时间优化过程中，置信图每 108 个时期都会使用更严格的阈值和更精细的补丁大小进行细化。完整的优化过程最多运行 7000 次迭代，或者如果置信图覆盖率变化低于 2%，则提前终止。每个场景一次包含一个预训练的 3DGS 模型（训练了 7000 个步骤）。更新过程一次使用 8 个稀疏训练视图和 4 个测试视图。数据集：我们在新数据集上进行了实验，该数据集是专门为跨时间场景更新任务而设计的。该数据集非常适合该任务，因为它处理场景内的对象添加、删除和修改，确保场景的跨时间更新。该数据集由 1 个虚拟场景和 4 个现实世界场景组成，即 City、Airpods、Cup、Keyboard 和 Tower。在时间 时，每个场景包含 100 张具有相应相机姿势的图像，而在时间 时，它包含 12 张图像。所有图像均为标准 1920*1080p。</p>
+    <p>此外，该数据集还包括一个经过 7000 个 epoch 训练的预训练 3DGS 模型，为评估跨时间场景更新提供了结构化基准。指标：我们报告 PSNR 、 SSIM 和 LPIPS 的图像指标，...</p>
+
     <ul>
-      <li>方法在主任务指标上不是偶然提升，而是与其结构设计和训练目标直接相关；</li>
-      <li>作者通过消融实验说明，若拿掉关键模块，性能与结果质量会明显回落；</li>
-      <li>论文不仅关注数值对比，也关注可视化质量、稳定性或可控性等更接近真实应用的信号。</li>
+      <li>方法在核心指标上的优势与结构设计和训练目标直接相关；</li>
+      <li>消融实验表明，拿掉关键模块后性能与结果质量都有明显回落；</li>
+      <li>论文不仅比较数值，也关注可视化质量、稳定性和泛化能力等更贴近真实使用的信号。</li>
     </ul>
-    <p>
-      因此，实验部分最重要的阅读方式不是死记某一列数字，而是看清：作者究竟想证明哪个机制有效、这个机制的收益是在什么设置下成立、它是否有明显的边界条件。
-    </p>
 
     <h2 id='takeaway'>理解评价</h2>
+    <p>我们的方法仍然存在一些局限性。在极度稀疏的情况下，DUSt3R 位姿可能会由于有限的图像重叠或弱纹理而变得不可靠，这可能会将错误传播到初始化和后续优化。此外，处理随时间推移发生的剧烈几何变化也仍然具有挑战性。总的来说，我们的方法假设主要是稳定的全局场景布局；大规模变形和严重的结构变化带来了挑战，是未来工作的目标。在本文中，我们提出了 Cross-Temporal 3DGS，这是一个统一的框架，用于使用稀疏视图图像和历史先验跨不同时间戳更新或重建 3D 场景。</p>
+    <p>我们的方法通过三个组成部分解决了跨时间建模的核心挑战：跨时间相机对齐、基于干扰的置信度初始化以及随着时间的推移集成先验的渐进优化。对真实和合成数据集的实验验证了每个组件的贡献，并表明我们的方法即使在严重稀疏的情况下也能实现高保真、时间一致的重建。通过从少至 4 个无约束图像中实现可靠更新，跨时态 3DGS 为长期场景建模提供了实用且数据高效的解决方案。</p>
     <p>
-      从研究定位上看，这篇论文的意义在于它没有把问题局限在某一个局部改动，而是尝试给出一套更完整的求解路径。对读者而言，最值得关注的是它如何重新组合表示、模块和训练目标，以及这些设计是否能迁移到相近任务上。
+      如果把它当成研究参考，建议重点关注三件事：第一，这套方法真正依赖的归纳偏置是什么；第二，实验中真正拉开差距的模块是哪一个；第三，它的局限究竟来自数据、算力还是监督信号本身。
     </p>
     <p>
-      如果把它当成研究参考，我会重点看三件事：
-      第一，这套方法的核心归纳偏置是什么；
-      第二，实验中真正拉开差距的模块是哪一块；
-      第三，它的限制条件是数据、算力、时序长度，还是奖励/监督信号本身。
-    </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>3Zhongguancun Laboratory, Beijing, China {947066339, xiaoyanghang, zhiyingleng, liang xiaohui}@buaa.edu.cn, frederick.li@durham.ac.uk Abstract Maintaining consistent 3D scene representations over time is a significant challenge in computer vision.</li></ul></div>
-    <p>
-      进一步延伸阅读时，可以把这篇工作放到更广泛的技术脉络里：它与同类方法相比，到底是在表示层、生成层、优化层还是评估层提出了更强的方案。下面这些自动检索到的相关论文可作为继续追踪的入口：
+      以下相关论文可以作为进一步追踪的入口：
     </p>
     <ul></ul>
 
     <div class='tip'>
       <strong>一句结论：</strong>
-      这篇论文值得读的原因，不只是它给出了一组更好的结果，而是它提供了一条相对完整的问题求解思路：如何把任务定义、方法设计与实验验证真正对齐到同一条研究主线上。
+      这篇论文值得关注的地方在于，它不只给出了更好的实验结果，更提供了一条相对完整的问题求解路径，把任务定义、方法设计与实验验证真正对齐到了同一条研究主线上。
     </div>
   </article>
 </div>
+
   </div>
 </div>
 </body>

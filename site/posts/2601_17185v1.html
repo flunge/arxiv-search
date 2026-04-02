@@ -70,7 +70,7 @@
     blockquote { margin: 16px 0; padding: 8px 16px; border-left: 4px solid #d8e7ff; background: #f8fbff; color: #333; }
     .tip { background: #f7f9fc; border: 1px solid #e8eef6; border-radius: 10px; padding: 12px; }
     .dashboard-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-top:18px; }
-    .dashboard-card { aspect-ratio: 1 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
+    .dashboard-card { aspect-ratio: 1.618 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
     .dashboard-card > * { min-width: 0; }
     .dashboard-card .dashboard-content { display:flex; flex-direction:column; height:100%; min-height:0; }
     .dashboard-card .dashboard-scroll { overflow:auto; min-height:0; }
@@ -130,10 +130,28 @@
     });
   </script>
 
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\(', '\)']],
+        displayMath: [['$$', '$$'], ['\[', '\]']]
+      },
+      svg: { fontCache: 'global' },
+      startup: {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady().then(() => {
+            requestAnimationFrame(applyPageScale);
+          });
+        }
+      }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
+
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
 
@@ -143,103 +161,139 @@
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      这篇论文关注的是“LGDWT-GS 所对应的问题能否在更可控、更稳健或更高质量的条件下被解决”。从摘要与方法描述来看，作者的总体路线是：先搭建一个明确的表示或生成框架，再围绕训练目标、结构设计和实验验证把该问题推进到更可用的工程形态。
+      我们提出了一种用于少镜头 3D 重建的新方法，该方法集成了全局和局部频率正则化，以稳定几何结构并在稀疏视图条件下保留精细细节，解决了现有 3D 高斯泼溅 (3DGS) 模型的关键限制。我们还引入了一个新的多光谱温室数据集，其中包含在受控条件下从不同植物物种捕获的四个光谱带。除了数据集之外，我们还发布了一个开源基准测试包，它定义了标准化的少样本重建协议，用于评估基于 3DGS 的方法。对我们的多光谱数据集以及标准基准的实验表明，所提出的方法比现有基线实现了更清晰、更稳定和光谱一致的重建。这项工作的数据集和代码是公开的（https://github.com/Advanced-Vision-and…
     </div>
 
     <h2 id='summary'>简单摘要</h2>
-    <p>
-      从论文摘要可以看出，这项工作的落点并不是单纯提升一个局部模块，而是围绕完整任务链路做系统设计。它通常会同时回答三个问题：任务为什么重要、现有方法卡在哪里、作者的新方案如何绕开这些瓶颈。
-      就这篇论文而言，摘要部分强调的核心是：<strong>—We propose a new method for few-shot 3D reconstruction that integrates global and local frequency regularization to stabilize geometry and preserve fine details under sparse-view…</strong>
-    </p>
-    <p>
-      如果把它放进更大的技术背景中理解，可以把这篇论文视作一条“问题定义 → 表示设计 → 训练优化 → 实验验证”的完整研究闭环。也就是说，作者并不是只给出一个孤立模块，而是希望通过一整套方法让系统在真实场景或关键指标上取得更稳定提升。
-    </p>
-    <figure><img class='paper-fig' src='../assets/2601_17185v1/fig_1.png' alt='Figure 1:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 1：该图来自论文原文，用于说明论文中的核心框架、可视化结果或实验现象。原始图注摘要：Overview of the LGDWT-GS framework. The model introduces frequency-domain regularization through global and local DWT losses. Combined supervision (L1, SSIM, and global DWT and local DWT) enhances structural stability and textural fidelity. Black and blue arrows represent operation and gradient flo…</figcaption></figure><figure><img class='paper-fig' src='../assets/2601_17185v1/fig_2.png' alt='Figure 2:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 2：该图来自论文原文，用于说明论文中的核心框架、可视化结果或实验现象。原始图注摘要：Wavelet decomposition of the input image into four subbands: (a) LL (approximation), (b) LH (horizontal), (c) HL (vertical), (d) HH (diagonal). structures between rendered and reference images, ensuring coherent reconstruction of both LF and mid-frequency content while suppressing noisy HF artifact…</figcaption></figure>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>—We propose a new method for few-shot 3D reconstruction that integrates global and local frequency regularization to stabilize geometry and preserve fine details under sparse-view conditions, addressing a key limitation of existing 3D Gaussian Splatting (3DGS…</li><li>Building on this foundation, we extend the framework to handle multispectral data.</li><li>We address the few-view 3D reconstruction challenge with our proposed method, a frequency-aware extension of 3DGS that integrates the Discrete Wavelet Transform (DWT) to guide spatial-frequency learning.</li></ul></div>
+    <p>我们提出了一种用于少镜头 3D 重建的新方法，该方法集成了全局和局部频率正则化，以稳定几何结构并在稀疏视图条件下保留精细细节，解决了现有 3D 高斯泼溅 (3DGS) 模型的关键限制。我们还引入了一个新的多光谱温室数据集，其中包含在受控条件下从不同植物物种捕获的四个光谱带。除了数据集之外，我们还发布了一个开源基准测试包，它定义了标准化的少样本重建协议，用于评估基于 3DGS 的方法。对我们的多光谱数据集以及标准基准的实验表明，所提出的方法比现有基线实现了更清晰、更稳定和光谱一致的重建。</p>
+    <p>这项工作的数据集和代码是公开的（https://github.com/Advanced-Vision-and-Learning-Lab/sparse-view-3dgs-pack）。</p>
+    <figure><img class='paper-fig' src='../assets/2601_17185v1/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：LGDWT-GS 框架概述。
+ 该模型通过全局和局部 DWT 损失引入频域正则化。
+ 组合监督（L1、SSIM、全局 DWT 和局部 DWT）增强了结构稳定性和纹理保真度。
+ 黑色和蓝色箭头分别代表操作流和梯度流。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2601_17185v1/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：将输入图像小波分解为四个子带： 
+ (a) LL（近似值）， 
+ (b) LH（水平）， 
+ (c) HL（垂直）， 
+ (d) HH（对角线）。</figcaption></figure>
+    <blockquote>
+      简而言之，这篇论文关注的核心是：我们提出了一种用于少镜头 3D 重建的新方法，该方法集成了全局和局部频率正则化，以稳定几何结构并在稀疏视图条件下保留精细细节，解决了现有 3D 高斯泼溅 (3DGS) 模型的关键限制。我们还引入了一个新的多光谱温室数据集，其中包含在受控条件下从不同植物物种捕获的四个光谱带。除了数据集之外，我们还发…
+    </blockquote>
+    <p>新颖的视图合成旨在从有限数量的图像中渲染场景中看不见的视点。神经辐射场（NeRF）实现了逼真的质量，但依赖于密集的多视图监督和较长的训练时间，这限制了它们在机器人和农业领域等实际环境中的使用，在这些环境中捕获许多视图通常是不可行的。 3DGS 解决了这些计算瓶颈，实现了实时渲染和高效优化。然而，在少视图场景中，3DGS 往往会过度重建可用的高频 (HF) 区域，在训练视图中锐利地再现纹理和边缘，同时丢失平滑的低频 (LF) 结构和场景的整体稳定性。</p>
+    <p>我们用我们提出的方法解决了少视图 3D 重建的挑战，这是 3DGS 的频率感知扩展，集成了离散小波变换 (DWT) 来指导空间频率学习。通过将渲染图像和地面实况图像分解为多尺度子带，该模型明确平衡了低频和高频信息。引入了两种互补的监督策略：保持大规模一致性的全局 DWT 损失和细化局部细节和精细边缘的补丁式 DWT 损失。这些组件一起平衡高频和低频区域，在稀疏监督下产生更清晰、更可靠的重建。在此基础上，我们扩展了框架以处理多光谱数据。</p>
+    <p>所提出的多光谱 3DGS 使用共享几何和特定模态的外观参数联合重建 RGB 和近红外 (NIR) 视图，确保跨频段的光谱和空间一致性。为了支持这一领域的研究，我们引入了一个新的多光谱温室数据集以及一个标准化稀疏视图评估协议的开源少样本基准测试包。我们在标准基准（LLFF、MipNeRF360）和新数据集上验证了 LGDWT-GS 的 RGB 和多光谱版本。这项工作的主要贡献总结如下：逐条介绍联合局部和全局频域监督以改进 3D 重建。</p>
+    <p>开发包含四个光谱带（红、绿、红边、近红外）的开源多光谱温室数据集。将 3DGS 扩展到多光谱域，实现一致的跨光谱重建。建立标准化的少样本 3DGS 基准和评估协议。逐项列出</p>
 
     <h2 id='innovation'>核心创新</h2>
     <p>
-      对照引言与方法部分，这篇论文的创新点主要体现在“如何重新组织问题求解链路”上。相比简单替换一个 backbone 或增加一个 loss，作者更像是在重新定义系统的关键接口与约束方式。
+      综合引言与方法部分，这篇论文的核心创新可以概括为以下几方面：
     </p>
-    <h3>1）从任务设定上重新界定问题边界</h3>
+    <h3>1）问题定义与研究动机</h3>
     <p>
-      论文强调的问题并不只是已有方案做得不够好，而是很多现有方法在目标可控性、泛化范围、效率约束或结构一致性上存在天然短板。因此作者先重述了任务定义，再围绕新的目标函数和场景假设去设计整体方案。
+      新颖的视图合成旨在从有限数量的图像中渲染场景中看不见的视点。神经辐射场（NeRF）实现了逼真的质量，但依赖于密集的多视图监督和较长的训练时间，这限制了它们在机器人和农业领域等实际环境中的使用，在这些环境中捕获许多视图通常是不可行的。 3DGS 解决了这些计算瓶颈，实现了实时渲染和高效优化。然而，在少视图场景中，3DGS 往往会过度重建可用的高频 (HF) 区域，在训练视图中锐利地再现纹理和边缘，同时丢失平滑的低频 (LF) 结构和场景的整体稳定性。我们用我们提出的方法解决了少视图 3D 重建的挑战，这是 3DGS 的频率感知扩展，集成了离散小波变换 (DWT) 来指导空间频率学习。通过将渲染图像和地面实况图像分解为多尺度子带，该模型明确平衡了低频和高频信息。引入了两种互补的监督策略：保持大规模一致性的全局 DWT 损失和细化局部细节和精细边缘的补丁式 DWT 损失。这些组件一起平衡高频和低频区域，在稀疏监督下产生更清晰、更可靠的重建。在此基础上，我们扩展了框架以处理多光谱数据。所提出的多光谱 3DGS 使用共享几何和特定模态的外观参数联合重建 RGB 和近红外 (NIR) 视图，确保…
     </p>
-    <h3>2）用统一框架串起表示、推理和优化</h3>
+    <h3>2）方法框架与核心模块</h3>
     <p>
-      从原文描述看，这篇论文并不是把多个模块松散拼接，而是在一个统一框架里安排表示形式、关键模块和训练信号，使它们彼此服务。这类设计往往决定了方法能否真正具备工程可落地性。
+      我们引入了 LGDWT-GS 框架，它将频域监督集成到 3DGS 管道中，以改进少样本 3D 重建。然后，我们将此框架扩展到多光谱版本，在共享 3D 几何结构下联合重建 RGB 和 NIR 模态。 LGDWT-GS 框架所提出的方法通过全局和局部（补丁式）DWT 损失引入频率感知监督来扩展原始 3DGS。这种集成增强了大规模结构一致性和细粒度纹理恢复，而无需修改可微分泼溅渲染器。在少镜头设置中，由于视图重叠有限，COLMAP 只能重建少量稀疏点。为了获得更密集和更稳定的初始化，深度先验和多视图立体重建被用来生成额外的伪点，为高斯表示形成更完整的几何基础。每个高斯基元都由均值向量、协方差矩阵、颜色和不透明度参数化。在训练期间，可微分光栅器将这些高斯投影到图像平面中，并使用复合损失函数（如方程 所示）针对真实视图优化渲染的输出，该函数共同平衡空间、感知和频域目标，确保像素级保真度，增强结构相似性，并分别规范全局和局部频率分量。权重因子控制优化过程中全局和分片 DWT 监督的相对贡献。具有该损失函数的总体建议方法如图所示。全局 DWT 监督 全局 DWT 损失强制渲染图像和地面实况图像之间…
     </p>
-    <h3>3）把实验目标直接对齐到实际痛点</h3>
+    <h3>3）实验设计与工程价值</h3>
     <p>
-      论文中的实验不仅比较常规 benchmark，也会额外关注更贴近实际系统需求的指标，例如稳定性、控制性、质量上界、对长尾场景的适应能力等。换句话说，它不是只追求单一数值，而是试图证明整套系统在真实使用方式下也成立。
+      基准测试我们引入了用于少样本 3D 重建的端到端基准测试管道，该管道统一了多个高斯泼溅基线的数据处理、训练和评估。虽然 Nerfstudio 等现有框架简化了 NeRF 式实验，但它们尚未为少样本高斯泼溅工作流程或稀疏视图条件下的标准化评估提供本机支持。我们的系统使用常见的多视图数据集，并使用 COLMAP 执行统一的 SfM 阶段，以确保所有实验中相机姿势和稀疏几何结构的一致性。在此共享基础之上，该管道使用通用配置和日志记录接口支持多个小样本高斯泼溅变体的训练，包括 3DGS 、 FSGS 和 DNGaussian 。基准测试包是完全模块化的，允许通过统一的 API 注册新的数据集和新的高斯分布方法，而无需重新设计环境或修改现有管道。这种设计支持一次性安装、多模型工作流程，具有固定的数据布局、标准化指标和一致的评估协议。因此，模型、场景和随机种子之间的比较变得公平、可重复和可再现，从而…
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>McFarland, and Joshua Peeples, Member, IEEE Abstract—We propose a new method for few-shot 3D reconstruction that integrates global and local frequency regularization to stabilize geometry and preserve fine details under sparse-view conditions, addressing a ke…</li><li>To obtain a denser and more stable initialization, depth priors and multi-view stereo reconstructions are used to generate additional pseudo-points, forming a more complete geometric basis for the Gaussian representation.</li><li>INTRODUCTION Novel view synthesis aims to render unseen viewpoints of a scene from a limited number of images.</li><li>We address the few-view 3D reconstruction challenge with our proposed method, a frequency-aware extension of 3DGS that integrates the Discrete Wavelet Transform (DWT) to guide spa framework to a multispectral version that jointly reconstructs RGB and NIR moda…</li></ul></div>
 
     <h2 id='technical'>技术细节</h2>
     <p>
-      方法部分是理解论文价值的关键。结合原文可以看到，作者通常会先定义输入输出，再介绍中间表示、主干模块、损失函数或奖励机制，最后说明训练与推理时各模块如何协同。
-      对这篇论文而言，方法线索主要集中在以下几个方面：
+      下面按照论文的方法章节结构展开，重点说明模型的关键模块、公式设计和训练策略。
     </p>
-    <h3>3.1 方法主线与模块组织</h3>
+    <p>我们引入了 LGDWT-GS 框架，它将频域监督集成到 3DGS 管道中，以改进少样本 3D 重建。然后，我们将此框架扩展到多光谱版本，在共享 3D 几何结构下联合重建 RGB 和 NIR 模态。 LGDWT-GS 框架所提出的方法通过全局和局部（补丁式）DWT 损失引入频率感知监督来扩展原始 3DGS。这种集成增强了大规模结构一致性和细粒度纹理恢复，而无需修改可微分泼溅渲染器。在少镜头设置中，由于视图重叠有限，COLMAP 只能重建少量稀疏点。为了获得更密集和更稳定的初始化，深度先验和多视图立体重建被用来生成额外的伪点，为高斯表示形成更完整的几何基础。每个高斯基元都由均值向量、协方差矩阵、颜色和不透明度参数化。在训练期间，可微分光栅器将这些高斯投影到图像平面中，并使用复合损失函数（如方程 所示）针对真实视图优化渲染的输出，该函数共同平衡空间、感知和频域目标，确保像素级保真度，增强结构相似性，并分别规范全局和局部频率分量。权重因子控制优化过程中全局和分片 DWT 监督的相对贡献。具有该损失函数的总体建议方法如图所示。全局 DWT 监督 全局 DWT 损失强制渲染图像和地面实况图像之间的大规模频率一致性，从而促进跨视图的结构稳定性。使用一级 Haar 小波变换将每个图像分解为四个频率子带。 LL 子带表示图像的 LF 近似并保留其粗略的全局结构。 LH 子带捕获与垂直边缘相对应的水平 HF 分量。 HL 子带捕获与水平边缘相对应的垂直 HF 分量。 HH 子带包含对角 HF 信息，可突出显示精细的角状细节。捕获粗略的结构信息和全局照明，表示水平和垂直边缘响应，并对精细纹理和噪声进行编码。如图。 。全局DWT损失方程项定义如下： 其中表示每个子带的频率权重。</p>
+    <p>为了减轻对不稳定 HF 区域的过度拟合，包含了 HH 分量，但分配了接近零的权重 ( )。该公式对齐渲染图像和参考图像之间的全局频率结构，确保低频和中频内容的连贯重建，同时抑制噪声高频伪影。分片 DWT 监督 尽管全局监督强制执行整体频率一致性，但局部区域仍可能表现出重建不足的情况，特别是在平滑的低频区域中嵌入精细的高频细节的情况。为了解决这个问题，引入了补丁式 DWT 监督，通过局部强调频率平衡来细化这些区域。...</p>
+    <p>$$ \mathcal{L}_{\text{total}} =
+\mathcal{L}_{\text{L1}} +
+\mathcal{L}_{\text{SSIM}} +
+\alpha \mathcal{L}_{\text{gDWT}} +
+\beta \mathcal{L}_{\text{pDWT}}.
+\label{eq:ltotal} $$</p>
     <p>
-      根据方法章节可知，作者首先构建了一个核心表示或中间条件，再通过若干模块把它逐步转换为最终输出。这种结构的优势在于：每个模块都承担明确职责，既便于解释，也更便于在实验中做模块级消融。
-      原文中与主线最相关的描述包括：
+      表示。每个高斯基元都由均值向量、协方差矩阵、颜色和不透明度参数化。在训练期间，可微分光栅器将这些高斯投影到图像平面中，并使用复合损失函数针对真实视图优化渲染输出，如 Equa 所示...
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>To obtain a denser and more stable initialization, depth priors and multi-view stereo reconstructions are used to generate additional pseudo-points, forming a more complete geometric basis for the Gaussian representation.</li><li>During training, the differentiable rasterizer projects these Gaussians into the image plane, and the rendered outputs are 3 Fig.</li><li>LGDWT-GS Framework The proposed method extends the original 3DGS by introducing frequency-aware supervision through global and local (patch-wise) DWT losses.</li></ul></div>
-    <h3>3.2 训练目标、损失与公式信号</h3>
+    <p>$$ \mathcal{L}_{\text{Global-DWT}} =
+\sum_{s \in \{LL, LH, HL, HH\}}
+w_s \, \|\widehat{\mathbf{I}}_{S} - \mathbf{I}_{S}\|_1,
+\label{eq:global_dwt} $$</p>
     <p>
-      论文里的公式通常承担两类角色：一种是定义模型的预测关系与变量约束，另一种是定义优化时真正驱动模型更新的目标函数。阅读这类论文时，关键不是死记公式外形，而是理解每个公式分别在“表达结构”还是“约束行为”上发挥作用。
+      水平边缘。 HH 子带包含对角 HF 信息，可突出显示精细的角状细节。捕获粗略的结构信息和全局照明，表示水平和垂直边缘响应，并对精细纹理和噪声进行编码。如图。 。全局 DWT 损失方程项定义为 f…
     </p>
-    <div class='card'><strong>公式 / 指标片段 1：</strong><pre>Ltotal = LL1 + LSSIM + αLgDWT + βLpDWT.</pre></div><div class='card'><strong>公式 / 指标片段 2：</strong><pre>LGlobal-DWT =</pre></div>
+    <p>$$ E_{LF}(x,y) =
+\frac{\|\mathbf{I}_{LL}(x,y)\|_1}{
+\|\mathbf{I}_{LL}(x,y)\|_1 + \|\mathbf{I}_{HF}(x,y)\|_1},
+\label{eq:energy} $$</p>
     <p>
-      从这些公式与周边段落可以推断，作者想要的不只是局部误差最小化，而是通过更精细的目标设计，让模型在结构一致性、生成质量、时序稳定性或可控性等方面同时受约束。这也是很多新方法能真正优于 baseline 的原因。
+      e，以低频能量 ( ) 指标为指导，该指标量化了 LF 相对于 HF 含量等式的主导地位。每个图像首先通过单级 Haar 小波变换进行分解： 其中 表示低频（结构）子带，表示聚合的高频分量 。对于每个空间位置...
     </p>
-    <h3>3.3 把全文方法串起来理解</h3>
+    <p>$$ \mathcal{L}_{\text{Patch-DWT}} =
+\frac{1}{N_p}\sum_{p=1}^{N_p}
+\sum_{B \in \{LH, HL\}}
+\|\widehat{\mathbf{I}}^{\,p}_{B} - \mathbf{I}^{\,p}_{B}\|_1,
+\label{eq:patch_dwt} $$</p>
     <p>
-      如果把这篇论文的方法看成一条流水线，那么它的逻辑通常是：先把输入变成一个更适合推理的中间表示，再围绕该表示施加关键模块与训练目标，最后把输出落到可评估、可可视化的结果上。
-      这种“表示—模块—目标—结果”的闭环设计，是本页所锁定模板最想强调的部分，因为它比零散摘录更能帮助后续复现与横向比较。
+      低频区域中的自然信息较弱或高频细节缺失，如图所示。因此，这些区域被优先考虑以进行局部频率细化。对于每个选定的补丁，应用一级 Haar 小波变换，并在 HF 子带上计算加权损失，以增强局部细节……
+    </p>
+    <p>$$ \mathcal{L}_{\text{Multi}} =
+\mathcal{L}_{\text{RGB}} + \lambda_{\text{NIR}}\, \mathcal{L}_{\text{NIR}},
+\label{eq:multi} $$</p>
+    <p>
+      维护共享的几何参数，同时编码特定于模态的颜色属性。然后应用两遍可微光栅化来生成相应的渲染。允许两个分支在统一的几何结构下联合优化，同时保留光谱差异。监管结合再…
+    </p>
+    <p>$$ \text{mask} = \max(\text{RGB}_{\text{res}}, \text{NIR}_{\text{res}}),
+\label{eq:mask} $$</p>
+    <p>
+      IR 通道方程：它控制 NIR 分支的相对贡献。在致密化过程中，在任一光谱通道中表现出高残差的区域中会产生新的高斯方程：确保两个光谱域选择性地引导几何细化。这种共享几何形状、双重外观……
+    </p>
+    <figure><img class='paper-fig' src='../assets/2601_17185v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：用于补丁选择的E_LF图： 
+ (a) 基本事实， 
+ (b) E_LF 地图。 
+ 红色区域表示低 E_LF 值，表明 LF 稳定性较弱或缺失 HF 细节，并揭示了重建中的空间频率不平衡。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2601_17185v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：多光谱 LGDWT-3DGS 框架。 
+ 伪 RGB 图像（由红、绿和红边带构建）用于基于 COLMAP 的姿态估计和稀疏重建。 
+ 然后，使用交叉光谱监督和基于 DWT 的频率正则化，在共享几何结构下联合优化 RGB 和 NIR 通道，从而提高稀疏视图场景下的几何一致性和光谱对齐。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2601_17185v1/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：三个代表性植物场景的示例光谱通道。各列对应于 580 nm（绿色）、660 nm（红色）、735 nm（红边）和 820 nm（NIR）波段。最后一列显示了用于 COLMAP 重建的伪 RGB 复合材料。</figcaption></figure>
+    <p>
+      把全文方法串起来看，这篇论文的逻辑基本都遵循同一条主线：先把输入组织成更容易处理的表示，再通过模型结构和损失函数把这个表示推向目标输出，最后用可视化与数值实验共同证明该设计有效。
     </p>
 
     <h2 id='experiment'>实验结论</h2>
     <p>
-      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，优势究竟来自哪个模块。对这篇论文来说，实验设计明显围绕“与现有方法的对比 + 对关键组件的消融”展开。
+      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，这种优势来自哪一个设计决策。
     </p>
-    <p>
-      从实验段落的关键词和结果描述看，论文最想传达的结论包括：
-    </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>Alongside the dataset, we release an open-source benchmarking package that defines standardized few-shot reconstruction protocols for evaluating 3DGS-based methods.</li><li>Neural Radiance Fields (NeRF) [1] achieve photorealistic quality but rely on dense multi-view supervision and long training times, which limits their use in practical settings such as robotics [2] and agriculture [3] domains where capturing many views is ofte…</li></ul></div>
-    <figure><img class='paper-fig' src='../assets/2601_17185v1/fig_3.png' alt='Figure 3:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 3：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 3 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2601_17185v1/fig_4.png' alt='Figure 4:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 4：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 4 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2601_17185v1/fig_5.png' alt='Figure 5:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 5：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 5 from the source paper.</figcaption></figure>
+    <p>基准测试我们引入了用于少样本 3D 重建的端到端基准测试管道，该管道统一了多个高斯泼溅基线的数据处理、训练和评估。虽然 Nerfstudio 等现有框架简化了 NeRF 式实验，但它们尚未为少样本高斯泼溅工作流程或稀疏视图条件下的标准化评估提供本机支持。我们的系统使用常见的多视图数据集，并使用 COLMAP 执行统一的 SfM 阶段，以确保所有实验中相机姿势和稀疏几何结构的一致性。在此共享基础之上，该管道使用通用配置和日志记录接口支持多个小样本高斯泼溅变体的训练，包括 3DGS 、 FSGS 和 DNGaussian 。基准测试包是完全模块化的，允许通过统一的 API 注册新的数据集和新的高斯分布方法，而无需重新设计环境或修改现有管道。这种设计支持一次性安装、多模型工作流程，具有固定的数据布局、标准化指标和一致的评估协议。因此，模型、场景和随机种子之间的比较变得公平、可重复和可再现，从而最大限度地减少环境相关的变异性并促进对少样本 3D 重建性能的可靠分析。定量结果我们在标准基准上评估了所提出的框架，包括 LLFF、MipNeRF360 和我们的受控温室多光谱数据集。该评估旨在评估不同视图稀疏度和光谱多样性水平下的重建质量。所有模型均在单个 NVIDIA A100 GPU 上进行训练。尽管其效率很高，但所提出的 LGDWT-GS 管道在每个场景三分钟内收敛，同时在稀疏视图、密集视图和多光谱设置中实现了最先进的性能。尽管提出的框架支持任意数量的输入视图，但我们在先前工作中普遍采用的代表性配置下报告结果。具体来说，我们使用三个输入视图对 LLFF 进行评估，这是标准的少镜头设置。对于 MipNeRF360，我们使用 24 个输入视图报告结果，由于数据集的复杂几何形状和广泛的视点变化，这被广泛视为少数镜头配置。对于温室数据集，我们采用固定的少镜头设置，每个植物有十个视图，反映了现实的农业捕获条件。表显示 LGDWT-GS 在三视图 LLFF 数据集上显着提高了性能。</p>
+    <p>这些结果证实频率监督可以防止稀疏视图训练中常见的过度拟合和结构错误。 LGDWT-GS 的表现也始终优于 DNGaussian，这表明频率……</p>
+    <figure><img class='paper-fig' src='../assets/2601_17185v1/figure6_full.png' alt='Figure 6:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 6：温室成像设置。显示了 MSIS-AGRI-1-A 相机、LED 照明系统、电动转盘和用于几何校准的立方体参考标记。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2601_17185v1/figure7_full.png' alt='Figure 7:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 7：Few-shot 3DGS 基准测试工具概述。整体框架和图改编自Anomalib。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2601_17185v1/figure8_full.png' alt='Figure 8:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 8：基线 3DGS 与我们在 LLFF 和 MipNeRF360 上的 LGDWT-GS 之间的定性比较。红色框突出显示了能够更好地保留精细细节（树叶、边缘、薄结构）的区域。</figcaption></figure>
     <ul>
-      <li>方法在主任务指标上不是偶然提升，而是与其结构设计和训练目标直接相关；</li>
-      <li>作者通过消融实验说明，若拿掉关键模块，性能与结果质量会明显回落；</li>
-      <li>论文不仅关注数值对比，也关注可视化质量、稳定性或可控性等更接近真实应用的信号。</li>
+      <li>方法在核心指标上的优势与结构设计和训练目标直接相关；</li>
+      <li>消融实验表明，拿掉关键模块后性能与结果质量都有明显回落；</li>
+      <li>论文不仅比较数值，也关注可视化质量、稳定性和泛化能力等更贴近真实使用的信号。</li>
     </ul>
-    <p>
-      因此，实验部分最重要的阅读方式不是死记某一列数字，而是看清：作者究竟想证明哪个机制有效、这个机制的收益是在什么设置下成立、它是否有明显的边界条件。
-    </p>
 
     <h2 id='takeaway'>理解评价</h2>
+    <p>我们引入了 LGDWT-GS，这是 3DGS 的频率感知扩展，专为少样本 3D 重建而设计。通过集成全局和逐块 DWT 监督，我们的方法捕获多尺度结构和纹理信息，减轻稀疏视图设置的过度重建倾向。该模型保留了大规模一致性和细粒度细节，与 LLFF、MipNeRF360 和我们新的温室数据集的 3DGS、SparseNeRF 和 PGDGS 等强大基线相比，实现了卓越的稳定性和感知质量。除了 RGB 域之外，我们还将框架扩展到多光谱设置，在共享几何结构下联合重建 RGB 和 NIR 通道，确保跨波段的光谱和空间一致性。</p>
+    <p>为了支持这个方向的研究，我们发布了一个受控多光谱温室数据集和一个附带的少样本基准测试包，该包标准化了稀疏视图评估协议。总体而言，LGDWT-GS 表明，结合频域先验和多光谱监督是在数据有限的条件下构建高效、保留细节的 3D 场景表示的有效策略。未来的工作将侧重于通过频率引导致密化和修剪策略扩展该框架，以根据光谱频率线索自适应地细化高斯分布，并将该方法推广到更广泛的多光谱数据集。此外，我们的目标是将这个框架扩展到“野外”或控制较少的农业环境，例如田间种植的作物，以便在具有挑战性的户外条件下实现强大的现实世界 3D 重建。</p>
     <p>
-      从研究定位上看，这篇论文的意义在于它没有把问题局限在某一个局部改动，而是尝试给出一套更完整的求解路径。对读者而言，最值得关注的是它如何重新组合表示、模块和训练目标，以及这些设计是否能迁移到相近任务上。
+      如果把它当成研究参考，建议重点关注三件事：第一，这套方法真正依赖的归纳偏置是什么；第二，实验中真正拉开差距的模块是哪一个；第三，它的局限究竟来自数据、算力还是监督信号本身。
     </p>
     <p>
-      如果把它当成研究参考，我会重点看三件事：
-      第一，这套方法的核心归纳偏置是什么；
-      第二，实验中真正拉开差距的模块是哪一块；
-      第三，它的限制条件是数据、算力、时序长度，还是奖励/监督信号本身。
-    </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>McFarland, and Joshua Peeples, Member, IEEE Abstract—We propose a new method for few-shot 3D reconstruction that integrates global and local frequency regularization to stabilize geometry and preserve fine details under sparse-view conditions, addressing a ke…</li><li>We address the few-view 3D reconstruction challenge with our proposed method, a frequency-aware extension of 3DGS that integrates the Discrete Wavelet Transform (DWT) to guide spatial-frequency learning.</li><li>3DGS [4] addresses these computational bottlenecks, enabling real-time rendering and efficient optimization.</li></ul></div>
-    <p>
-      进一步延伸阅读时，可以把这篇工作放到更广泛的技术脉络里：它与同类方法相比，到底是在表示层、生成层、优化层还是评估层提出了更强的方案。下面这些自动检索到的相关论文可作为继续追踪的入口：
+      以下相关论文可以作为进一步追踪的入口：
     </p>
     <ul></ul>
 
     <div class='tip'>
       <strong>一句结论：</strong>
-      这篇论文值得读的原因，不只是它给出了一组更好的结果，而是它提供了一条相对完整的问题求解思路：如何把任务定义、方法设计与实验验证真正对齐到同一条研究主线上。
+      这篇论文值得关注的地方在于，它不只给出了更好的实验结果，更提供了一条相对完整的问题求解路径，把任务定义、方法设计与实验验证真正对齐到了同一条研究主线上。
     </div>
   </article>
 </div>
+
   </div>
 </div>
 </body>

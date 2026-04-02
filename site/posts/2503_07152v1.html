@@ -70,7 +70,7 @@
     blockquote { margin: 16px 0; padding: 8px 16px; border-left: 4px solid #d8e7ff; background: #f8fbff; color: #333; }
     .tip { background: #f7f9fc; border: 1px solid #e8eef6; border-radius: 10px; padding: 12px; }
     .dashboard-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-top:18px; }
-    .dashboard-card { aspect-ratio: 1 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
+    .dashboard-card { aspect-ratio: 1.618 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
     .dashboard-card > * { min-width: 0; }
     .dashboard-card .dashboard-content { display:flex; flex-direction:column; height:100%; min-height:0; }
     .dashboard-card .dashboard-scroll { overflow:auto; min-height:0; }
@@ -130,10 +130,28 @@
     });
   </script>
 
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\(', '\)']],
+        displayMath: [['$$', '$$'], ['\[', '\]']]
+      },
+      svg: { fontCache: 'global' },
+      startup: {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady().then(() => {
+            requestAnimationFrame(applyPageScale);
+          });
+        }
+      }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
+
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
 
@@ -143,103 +161,110 @@
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      这篇论文关注的是“Controllable 所对应的问题能否在更可控、更稳健或更高质量的条件下被解决”。从摘要与方法描述来看，作者的总体路线是：先搭建一个明确的表示或生成框架，再围绕训练目标、结构设计和实验验证把该问题推进到更可用的工程形态。
+      三维场景生成在计算机视觉中至关重要，其应用涵盖自动驾驶、游戏和虚拟宇宙。当前的方法要么缺乏用户控制，要么依赖于不精确、非直观的条件。在这项工作中，我们提出了一种使用场景图（一种可访问的、用户友好的控制格式）来生成户外 3D 场景的方法。我们开发了一个交互式系统，将稀疏场景图转换为密集的 BEV（鸟瞰图）嵌入图，指导条件扩散模型生成与场景图描述相匹配的 3D 场景。在推理过程中，用户可以轻松创建或修改场景图以生成大规模的室外场景。我们创建了一个包含配对场景图和 3D 语义场景的大型数据集来训练 BEV 嵌入和扩散模型。实验结果表明，我们的方法始终能够生成与输入场景图紧密结合的高质量 3D 城市…
     </div>
 
     <h2 id='summary'>简单摘要</h2>
-    <p>
-      从论文摘要可以看出，这项工作的落点并不是单纯提升一个局部模块，而是围绕完整任务链路做系统设计。它通常会同时回答三个问题：任务为什么重要、现有方法卡在哪里、作者的新方案如何绕开这些瓶颈。
-      就这篇论文而言，摘要部分强调的核心是：<strong>Three-dimensional scene generation is crucial in computer vision, with applications spanning autonomous driving, gaming and the metaverse. Current methods either lack user control…</strong>
-    </p>
-    <p>
-      如果把它放进更大的技术背景中理解，可以把这篇论文视作一条“问题定义 → 表示设计 → 训练优化 → 实验验证”的完整研究闭环。也就是说，作者并不是只给出一个孤立模块，而是希望通过一整套方法让系统在真实场景或关键指标上取得更稳定提升。
-    </p>
-    <figure><img class='paper-fig' src='../assets/2503_07152v1/fig_1.png' alt='Figure 1:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 1：该图来自论文原文，用于说明论文中的核心框架、可视化结果或实验现象。原始图注摘要：Scene Graph Guided 3D Outdoor Scene Generation. Compared to text descriptions and BEV maps, scene graphs offer a more intuitive and user-friendly format for controlling 3D scene generation. We also develop an interactive system that allows users to generate/edit dense 3D scenes through scene graph…</figcaption></figure><figure><img class='paper-fig' src='../assets/2503_07152v1/fig_2.png' alt='Figure 2:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 2：该图来自论文原文，用于说明论文中的核心框架、可视化结果或实验现象。原始图注摘要：Overview of Scene Graph Guided 3D Scene Generation. The Scene Graph Guided 3D Generation structure consists of three main components: the interactive system (red), BEM processing (blue), and diffusion generation (bottom). Through the interactive system, users can construct their own Scene Graphs us…</figcaption></figure>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>In this work, we propose a method that uses scene graphs—an accessible, user-friendly control format—to generate outdoor 3D scenes.</li><li>In this context, the scene graph emerges as an ideal candidate due to its structured, regularized, and sparse representation, which makes it particularly well-suited for 3D outdoor scene generation and allows efficient control over complex layouts.</li><li>Motivated by these benefits, we propose a new framework that leverages the scene graph as a sparse-todense pipeline for 3D outdoor scene generation.</li></ul></div>
+    <p>三维场景生成在计算机视觉中至关重要，其应用涵盖自动驾驶、游戏和虚拟宇宙。当前的方法要么缺乏用户控制，要么依赖于不精确、非直观的条件。在这项工作中，我们提出了一种使用场景图（一种可访问的、用户友好的控制格式）来生成户外 3D 场景的方法。我们开发了一个交互式系统，将稀疏场景图转换为密集的 BEV（鸟瞰图）嵌入图，指导条件扩散模型生成与场景图描述相匹配的 3D 场景。在推理过程中，用户可以轻松创建或修改场景图以生成大规模的室外场景。</p>
+    <p>我们创建了一个包含配对场景图和 3D 语义场景的大型数据集来训练 BEV 嵌入和扩散模型。实验结果表明，我们的方法始终能够生成与输入场景图紧密结合的高质量 3D 城市场景。据我们所知，这是第一种根据场景图生成 3D 室外场景的方法。</p>
+    <figure><img class='paper-fig' src='../assets/2503_07152v1/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：场景图引导 3D 场景生成概述。场景图引导 3D 生成结构由三个主要组件组成：交互系统（红色）、BEM 处理（蓝色）和扩散生成（底部）。通过交互系统，用户可以使用交互界面或文本交互来构建自己的场景图。构建的场景图由 GNN 处理，并使用辅助任务与扩散模型联合训练以增强控制。然后场景图中的每个节点由分配模块定位以形成 BEM。该 BEM 用作 3D 金字塔离散扩散模型的调节输入，该模型生成最终的 3D 室外场景。请注意，“Recon”、“Classification”和“CANE”分别表示“边缘重建”、“节点分类”和“上下文感知节点嵌入”。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2503_07152v1/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：场景图生成。 LLM 将用户的提示转换为场景图，指导 3D 场景生成。</figcaption></figure>
+    <blockquote>
+      简而言之，这篇论文关注的核心是：三维场景生成在计算机视觉中至关重要，其应用涵盖自动驾驶、游戏和虚拟宇宙。当前的方法要么缺乏用户控制，要么依赖于不精确、非直观的条件。在这项工作中，我们提出了一种使用场景图（一种可访问的、用户友好的控制格式）来生成户外 3D 场景的方法。我们开发了一个交互式系统，将稀疏场景图转换为密集的 BEV（鸟…
+    </blockquote>
+    <p>3D 场景生成因其创建逼真、物理连贯的 3D 场景的潜力而受到广泛关注。这些模型提供了一种强大的方法来理解和模拟 3D 世界的复杂性。在 3D 场景生成的各种方法中，概率生成模型在最近的进展中显示出了巨大的前景。然而，这些模型的随机性使得生成过程难以精确控制，强调需要可编辑和可控的生成过程。为了实现可控场景生成，许多方法利用了 2D 条件生成方面的最新进展，例如 DALL-E 和稳定扩散，其中基于自然语言生成高质量图像。</p>
+    <p>受这些模型的启发，一些方法使用 2D 视图来指导 3D 内容生成。然而，这些方法主要是以对象为中心的，并且由于其大规模和互连结构而无法扩展到复杂的室外场景。其他方法应用基于文本的条件来直接控制 3D 场景生成，例如 Text2LiDAR 。然而，文本转 3D 对物理约束和空间细节的控制不足：它无法有效执行现实世界的物理规则或精确控制场景元素（例如对象数量），导致输出无法满足指定要求。一种可能的解决方案是将现有的 3D 室内场景生成方法扩展到室外环境。</p>
+    <p>然而，这种适应非常具有挑战性。室内场景生成通常依赖于多视图图像来合成有界的纹理表面，重点关注对象外观和空间关系。相比之下，室外场景是无界的，主要使用无纹理激光雷达点云捕获，旨在对大规模空间布局和背景连续性进行建模。最近的户外场景生成研究尝试探索 3D 户外场景生成的独特控制。例如，依赖BEV布局或语义地图，需要用户提供像素级的控制信号，这在交互方面提出了挑战，特别是对于大规模、复杂的3D室外场景。因此，选择合适的介质来生成可控的 3D 室外场景至关重要。</p>
+    <p>在这种情况下，场景图因其结构化、正则化和稀疏表示而成为理想的候选者，这使得它特别适合 3D 室外场景生成，并允许对复杂布局进行有效控制。此外，场景图很直观，使我们能够……</p>
 
     <h2 id='innovation'>核心创新</h2>
     <p>
-      对照引言与方法部分，这篇论文的创新点主要体现在“如何重新组织问题求解链路”上。相比简单替换一个 backbone 或增加一个 loss，作者更像是在重新定义系统的关键接口与约束方式。
+      综合引言与方法部分，这篇论文的核心创新可以概括为以下几方面：
     </p>
-    <h3>1）从任务设定上重新界定问题边界</h3>
+    <h3>1）问题定义与研究动机</h3>
     <p>
-      论文强调的问题并不只是已有方案做得不够好，而是很多现有方法在目标可控性、泛化范围、效率约束或结构一致性上存在天然短板。因此作者先重述了任务定义，再围绕新的目标函数和场景假设去设计整体方案。
+      3D 场景生成因其创建逼真、物理连贯的 3D 场景的潜力而受到广泛关注。这些模型提供了一种强大的方法来理解和模拟 3D 世界的复杂性。在 3D 场景生成的各种方法中，概率生成模型在最近的进展中显示出了巨大的前景。然而，这些模型的随机性使得生成过程难以精确控制，强调需要可编辑和可控的生成过程。为了实现可控场景生成，许多方法利用了 2D 条件生成方面的最新进展，例如 DALL-E 和稳定扩散，其中基于自然语言生成高质量图像。受这些模型的启发，一些方法使用 2D 视图来指导 3D 内容生成。然而，这些方法主要是以对象为中心的，并且由于其大规模和互连结构而无法扩展到复杂的室外场景。其他方法应用基于文本的条件来直接控制 3D 场景生成，例如 Text2LiDAR 。然而，文本转 3D 对物理约束和空间细节的控制不足：它无法有效执行现实世界的物理规则或精确控制场景元素（例如对象数量），导致输出无法满足指定要求。一种可能的解决方案是将现有的 3D 室内场景生成方法扩展到室外环境。然而，这种适应非常具有挑战性。室内场景生成通常依赖于多视图图像来合成有界的纹理表面，重点关注对象外观和空间关系。相比之下…
     </p>
-    <h3>2）用统一框架串起表示、推理和优化</h3>
+    <h3>2）方法框架与核心模块</h3>
     <p>
-      从原文描述看，这篇论文并不是把多个模块松散拼接，而是在一个统一框架里安排表示形式、关键模块和训练信号，使它们彼此服务。这类设计往往决定了方法能否真正具备工程可落地性。
+      我们首先在第二节中讨论场景图的制定。 。然后我们将在第 2 节中介绍如何根据场景图生成 3D 室外场景。 。在秒。 ，我们描述了所提出的方法如何促进 3D 场景的便捷创建。场景图公式 形式上，场景图的特征是其节点和边为 \( G = (V, E) \)。节点集 \( V \) 由两种类型组成（即 \( V = V_I V_R \)）： a) 实例节点 (\( V_I \)) 表示具有 中定义的标准标签的可数对象，例如车辆和行人。每个节点 \( v_i V_I \) 都与一个特征向量 相关联，其中 \( c_i R^d \) 表示维度为 的节点属性，\( p_i R^2 \) 表示指定其在 BEV 图中中心位置的坐标。 b) 场景道路节点（\(V_R\)），在一个节点中定义道路的结构和场景的其他全局背景信息，即 。我们通过定义两种类型的边 \( E \) 来进一步构建图结构，以捕获本质关系： a) 物理邻近性：对于任意两个实例节点 \( v_i, v_j V_I \)，如果欧几里德距离 \( d_ij = \|p_i - p_j\| \) 小于阈值 \( _d \)，我们定义一条边 \…
     </p>
-    <h3>3）把实验目标直接对齐到实际痛点</h3>
+    <h3>3）实验设计与工程价值</h3>
     <p>
-      论文中的实验不仅比较常规 benchmark，也会额外关注更贴近实际系统需求的指标，例如稳定性、控制性、质量上界、对长尾场景的适应能力等。换句话说，它不是只追求单一数值，而是试图证明整套系统在真实使用方式下也成立。
+      数据准备由于缺乏现有 3D 室外 LiDAR 场景的配对场景图数据，我们从 CarlaSC 数据集中的每个场景生成场景图数据，创建一个名为 CarlaSG 的新数据集。基于第 2 节中讨论的场景图公式，我们从 CarlaSC 中的每个 3D 语义图中提取 3D 场景图，并将其投影到 2D 上。图中提供了 3D 室外场景及其场景图的示例。值得注意的是，由于人行道和地面的空间分布与道路布局紧密结合，我们将原始 CarlaSC 数据集中的 Ground 和 Sidewalk 类与 Road 类合并，并将它们标记为 Road。我们进一步将道路分为五种类型：直路、丁字路口、十字路口、弯道和其他。补充材料中提供了加工技术的更多详细信息。评估协议我们从两个方面评估我们的方法：评估生成场景的质量和测量生成场景与其相应场景图之间的对齐情况。此外，我们还进行了用户研究，以感知评估生成场景的场景图对齐情况。所…
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>In this work, we propose a method that uses scene graphs—an accessible, user-friendly control format—to generate outdoor 3D scenes.</li><li>edge reconstruction and node classification, which further improve the model’s ability to interpret and represent the scene graph effectively.</li><li>Next, a novel Allocation Module is developed to assign spatial positions to produce a Bird’s Eye View Embedding Map (BEM).</li><li>Among the various methods for 3D scene generati framework that leverages the scene graph as a sparse-todense pipeline for 3D outdoor scene generation.</li></ul></div>
 
     <h2 id='technical'>技术细节</h2>
     <p>
-      方法部分是理解论文价值的关键。结合原文可以看到，作者通常会先定义输入输出，再介绍中间表示、主干模块、损失函数或奖励机制，最后说明训练与推理时各模块如何协同。
-      对这篇论文而言，方法线索主要集中在以下几个方面：
+      下面按照论文的方法章节结构展开，重点说明模型的关键模块、公式设计和训练策略。
     </p>
-    <h3>3.1 方法主线与模块组织</h3>
+    <p>我们首先在第二节中讨论场景图的制定。 。然后我们将在第 2 节中介绍如何根据场景图生成 3D 室外场景。 。在秒。 ，我们描述了所提出的方法如何促进 3D 场景的便捷创建。场景图公式 形式上，场景图的特征是其节点和边为 \( G = (V, E) \)。节点集 \( V \) 由两种类型组成（即 \( V = V_I V_R \)）： a) 实例节点 (\( V_I \)) 表示具有 中定义的标准标签的可数对象，例如车辆和行人。每个节点 \( v_i V_I \) 都与一个特征向量 相关联，其中 \( c_i R^d \) 表示维度为 的节点属性，\( p_i R^2 \) 表示指定其在 BEV 图中中心位置的坐标。 b) 场景道路节点（\(V_R\)），在一个节点中定义道路的结构和场景的其他全局背景信息，即 。我们通过定义两种类型的边 \( E \) 来进一步构建图结构，以捕获本质关系： a) 物理邻近性：对于任意两个实例节点 \( v_i, v_j V_I \)，如果欧几里德距离 \( d_ij = \|p_i - p_j\| \) 小于阈值 \( _d \)，我们定义一条边 \( e_ij E \)。 b) 道路连通性：对于任何实例节点 \( v_i V_I \) 和单例道路节点 \( v_r V_R \)，为连接到道路结构创建一条边 \( e_ir E \)。在实践中，我们使用简化图作为控制信号来简化用户交互，其中每个实例节点仅包含其语义标签和表示为补丁索引的近似二维位置。另外，场景道路节点由道路类型来表示。场景图引导扩散给定 2D 场景图，我们的方法旨在生成与场景图定义的结构一致的 3D 语义场景。接下来，我们首先使用图神经网络（GNN）将场景图转换为密集的二维嵌入。接下来，我们通过训练以场景图嵌入为条件的 2D 扩散模型来合成合理的 2D 场景图。最后，我们使用条件 3D 扩散模型根据 2D 场景图生成最终的 3D 室外场景。场景图神经网络。场景图神经网络（图红色（b））旨在为场景图生成节点嵌入，以捕获局部结构和全局上下文信息。特别是，我们利用图注意力网络（GAT）来实现 GNN。</p>
+    <p>给定一个图 \( G = (V, E) \)，邻接矩阵 \( A R^|V| |V| \) 编码节点之间的连接性，节点嵌入由图中节点 \( v_i \) 的两层 GAT 计算。为了将全局上下文合并到节点嵌入中，我们将每个节点的嵌入与池化全局嵌入 \( h_G \) 连接起来作为最终嵌入，即，其中 \( [; ] \) 表示连接， \( Pooling ()\) 是图全局均值池化操作，并且是多层感知器。我们将输出嵌入命名为上下文感知节点嵌入（CANE）。我们训练 GNN 有两个目标：辅助任务（图红色（d））和下游任务（图红色（e））。对于辅助任务，我们应用边缘重建损失，如图形自动编码......</p>
+    <p>$$ \mathbf{h}_i^{\text{CANE}} = \text{MLP}([\mathbf{h}_i;\mathbf{h}_G 
+ ]), \mathbf{h}_G= \text{Pooling}(\{\mathbf{h}_i \mid v_i \in \mathcal{V}\}), $$</p>
     <p>
-      根据方法章节可知，作者首先构建了一个核心表示或中间条件，再通过若干模块把它逐步转换为最终输出。这种结构的优势在于：每个模块都承担明确职责，既便于解释，也更便于在实验中做模块级消融。
-      原文中与主线最相关的描述包括：
+      邻接矩阵 \( A R^|V| |V| \) 编码节点之间的连接性，节点嵌入由图中节点 \( v_i \) 的两层 GAT 计算。为了将全局上下文合并到节点嵌入中，我们将每个节点的嵌入与池化全局嵌入 \( h_G \) 连接起来作为最终嵌入......
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>Next, a novel Allocation Module is developed to assign spatial positions to produce a Bird’s Eye View Embedding Map (BEM).</li><li>Finally, the BEM is used to condition a 3D Pyramid Discrete Diffusion Model [34] to generate the complete 3D scene.</li><li>• We curate a large-scale dataset including paired 3D scenes and scene-graphs for model training.</li></ul></div>
-    <h3>3.2 训练目标、损失与公式信号</h3>
+    <p>$$ \label{eq:a_loss}
+ \mathcal{L}_a = \text{BCE}(\hat{\mathbf{A}}, \mathbf{A})+ \frac{1}{|\mathcal{V}|} \sum_{i=1}^{|\mathcal{V}|} \text{CE} (y_i, \hat{y}_i), $$</p>
     <p>
-      论文里的公式通常承担两类角色：一种是定义模型的预测关系与变量约束，另一种是定义优化时真正驱动模型更新的目标函数。阅读这类论文时，关键不是死记公式外形，而是理解每个公式分别在“表达结构”还是“约束行为”上发挥作用。
+      e 输出嵌入为上下文感知节点嵌入（CANE）。我们训练 GNN 有两个目标：辅助任务（图红色（d））和下游任务（图红色（e））。对于辅助任务，我们应用图自动编码器（GAE）中的边缘重建损失和节点分类损失，由二元交叉给出
     </p>
-    <div class='card'><strong>公式 / 指标片段 1：</strong><pre>edges as G = (V, E). The set of nodes V consists of two</pre></div><div class='card'><strong>公式 / 指标片段 2：</strong><pre>types (i.e., V = VI ∪VR): a) Instance Nodes (VI) that</pre></div><div class='card'><strong>公式 / 指标片段 3：</strong><pre>the scene in one node, i.e., VR = {vr}. We further construct</pre></div><div class='card'><strong>公式 / 指标片段 4：</strong><pre>if the Euclidean distance dij = ∥pi −pj∥is smaller than</pre></div>
+    <p>$$ \hat{\mathbf{A}} = \sigma(\mathbf{h}_G \mathbf{h}_G^\top), \hat{y}_i = \text{Softmax}(\text{MLP} (\mathbf{h}_i^\text{CANE})), $$</p>
     <p>
-      从这些公式与周边段落可以推断，作者想要的不只是局部误差最小化，而是通过更精细的目标设计，让模型在结构一致性、生成质量、时序稳定性或可控性等方面同时受约束。这也是很多新方法能真正优于 baseline 的原因。
+      图自动编码器（GAE）中的 dge 重建损失和节点分类损失由下式给出，其中 是二元交叉熵，是节点交叉熵损失，并且是 sigmoid 函数。 eq:a_loss第一项是重建场景的全局边缘结构，具体是邻接矩阵\(A\)....
     </p>
-    <h3>3.3 把全文方法串起来理解</h3>
+    <p>$$ \label{eq:allocation}
+ \mathbf{L} = \sum_{i=1}^{|\mathcal{V}|} \mathcal{M}(\hat{p}_i) \odot \mathbf{h}_i^\text{CANE}, $$</p>
     <p>
-      如果把这篇论文的方法看成一条流水线，那么它的逻辑通常是：先把输入变成一个更适合推理的中间表示，再围绕该表示施加关键模块与训练目标，最后把输出落到可评估、可可视化的结果上。
-      这种“表示—模块—目标—结果”的闭环设计，是本页所锁定模板最想强调的部分，因为它比零散摘录更能帮助后续复现与横向比较。
+      ures，有效地捕获 CANE 中的本地和全局信息。对于下游任务，嵌入 \( h_i^CANE \) 用作计算 BEV 嵌入图（BEM，图红色（c））的输入，作为下一阶段扩散中顺序扩散模型的条件。这些嵌入被传递给所有…
+    </p>
+    <p>$$ \hat{p}_i \sim \text{GumbelSoftmax}_{\tau}(\text{Head}(\mathbf{h}_i^\text{CANE})), $$</p>
+    <p>
+      C M(p_i) \0,1\^H_b W_b 沿通道维度扩展到 \( R^H_b W_b C \) 以实现与节点嵌入 \( h_i^CANE R^C \) 的逐元素乘法。在实现中，我们通过从基于 MLP 的定位头采样位置来执行推理，即 Gumbel 软体的温度在哪里……
+    </p>
+    <p>$$ q(\mathbf{X}_t \mid \mathbf{X}_0) = \operatorname{Cat}(\mathbf{X}_t; \mathbf{P} = \mathbf{X}_0 \bar{\mathbf{Q}}_t), $$</p>
+    <p>
+      一代。在前向过程中，2D 映射 \( X_0 \) 使用过渡矩阵 \( Q_t \) 在 \( T \) 个时间步中逐渐损坏，这会增加噪声为 。这个过程也可以使用累积矩阵\(Q_t\)来表示，允许我们直接从原始映射\(X_0\)中采样\(X_t\)，其中\(Ca…
+    </p>
+    <figure><img class='paper-fig' src='../assets/2503_07152v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：使用场景图控制 3D 室外场景生成。我们比较基线方法。结果表明，我们的方法生成的场景与所提供的场景图一致，而 SG2Im 和 LLM 方法在对象数量和道路类型方面表现出不一致。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2503_07152v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：场景生成的多样性。在同一场景图下比较我们的方法生成的三个场景。这证明了我们的方法能够根据相同的输入生成不同但一致的场景。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2503_07152v1/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：不同培训策略的影响。使用第二个和最后一个策略训练的模型表现出诸如车辆位于人行道上、重叠物体以及捕获物体数量不一致等问题。第三种策略生成语义上合理的场景，但难以将对象数量和道路类型与场景图准确匹配。相反，第一个策略产生与输入场景图良好对齐的高质量场景，因此我们选择第一个策略来训练我们的网络。</figcaption></figure>
+    <p>
+      把全文方法串起来看，这篇论文的逻辑基本都遵循同一条主线：先把输入组织成更容易处理的表示，再通过模型结构和损失函数把这个表示推向目标输出，最后用可视化与数值实验共同证明该设计有效。
     </p>
 
     <h2 id='experiment'>实验结论</h2>
     <p>
-      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，优势究竟来自哪个模块。对这篇论文来说，实验设计明显围绕“与现有方法的对比 + 对关键组件的消融”展开。
+      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，这种优势来自哪一个设计决策。
     </p>
-    <p>
-      从实验段落的关键词和结果描述看，论文最想传达的结论包括：
-    </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>Compared to conventional GANs [13] and VAEs [19], they offer improved performance through a progressive denoising mechanism [14], enhancing training stability and the ability to model complex distributions.</li><li>Meanwhile, the few works [21, 22, 29, 34, 50] designed for outdoor scene generation prioritize visual fidelity over controllability.</li></ul></div>
-    <figure><img class='paper-fig' src='../assets/2503_07152v1/fig_3.png' alt='Figure 3:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 3：该图来自论文原文，用于说明论文中的核心框架、可视化结果或实验现象。原始图注摘要：Scene Graph Generation. LLMs convert the user’s prompt into a scene graph, which guides 3D scene generation. 3.2. Scene-graph-guided Diffusion Given a 2D scene graph, our method aims at generating a 3D semantic scene that aligns with the structure defined by the scene graph. In the following, we fi…</figcaption></figure><figure><img class='paper-fig' src='../assets/2503_07152v1/fig_4.png' alt='Figure 4:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 4：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 4 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2503_07152v1/fig_5.png' alt='Figure 5:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 5：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 5 from the source paper.</figcaption></figure>
+    <p>数据准备由于缺乏现有 3D 室外 LiDAR 场景的配对场景图数据，我们从 CarlaSC 数据集中的每个场景生成场景图数据，创建一个名为 CarlaSG 的新数据集。基于第 2 节中讨论的场景图公式，我们从 CarlaSC 中的每个 3D 语义图中提取 3D 场景图，并将其投影到 2D 上。图中提供了 3D 室外场景及其场景图的示例。值得注意的是，由于人行道和地面的空间分布与道路布局紧密结合，我们将原始 CarlaSC 数据集中的 Ground 和 Sidewalk 类与 Road 类合并，并将它们标记为 Road。我们进一步将道路分为五种类型：直路、丁字路口、十字路口、弯道和其他。补充材料中提供了加工技术的更多详细信息。评估协议我们从两个方面评估我们的方法：评估生成场景的质量和测量生成场景与其相应场景图之间的对齐情况。此外，我们还进行了用户研究，以感知评估生成场景的场景图对齐情况。所有实验均在具有 1k 个随机选择的场景图的测试集上进行。有关评估指标和用户研究示例的详细信息可以在补充材料中找到。场景质量评估。我们遵循评估协议来评估场景质量。我们使用平均交并集 (mIoU) 和平均准确度 (MA) 来评估语义合理性。此外，我们还使用 Fréchet 3D Distance (F3D) 来测量特征相似性，该方法计算预训练的基于 CNN 的自动编码器的特征空间中生成的场景与真实场景之间的 Fréchet 距离。控制能力。我们使用平均绝对误差 (MAE) 和 Jaccard 索引来评估生成的对象计数和场景图节点计数之间的对齐情况。 MAE 量化数值差异，而 Jaccard 指数则衡量对象类型的重叠程度，反映生成的场景与场景图结构的匹配程度。用户研究。我们使用差分平均意见得分（DMOS）（一种主观评分方法）来评估生成的场景与输入场景图的对齐情况，考虑对象数量、位置和道路类型。实验设置训练和推理设置。</p>
+    <p>在 2D 扩散模型和 GNN 的联合训练期间，我们应用数据增强，并在扩散模型中包含 10% 的无条件数据，以及 GNN 输入上的 30% 特征掩码，以模拟某些用户可能不提供某些节点的位置信息的场景。在推理过程中，我们将分配模块中的 Gumbel 温度设置为 2.0，以在生成的场景中引入随机性。更多详情...</p>
+    <figure><img class='paper-fig' src='../assets/2503_07152v1/figure6_full.png' alt='Figure 6:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 6：无条件比例与无条件比例发电质量和控制。评估mIoU、MA、Jaccard指数和MAE作为无条件比例在扩散训练期间变化。考虑到场景质量和控制之间的权衡，我们选择0.1作为平衡点。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2503_07152v1/figure7_full.png' alt='Figure 7:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 7：用户研究：场景生成方法的 DMOS 比较。我们的方法与场景图规范非常吻合。</figcaption></figure>
     <ul>
-      <li>方法在主任务指标上不是偶然提升，而是与其结构设计和训练目标直接相关；</li>
-      <li>作者通过消融实验说明，若拿掉关键模块，性能与结果质量会明显回落；</li>
-      <li>论文不仅关注数值对比，也关注可视化质量、稳定性或可控性等更接近真实应用的信号。</li>
+      <li>方法在核心指标上的优势与结构设计和训练目标直接相关；</li>
+      <li>消融实验表明，拿掉关键模块后性能与结果质量都有明显回落；</li>
+      <li>论文不仅比较数值，也关注可视化质量、稳定性和泛化能力等更贴近真实使用的信号。</li>
     </ul>
-    <p>
-      因此，实验部分最重要的阅读方式不是死记某一列数字，而是看清：作者究竟想证明哪个机制有效、这个机制的收益是在什么设置下成立、它是否有明显的边界条件。
-    </p>
 
     <h2 id='takeaway'>理解评价</h2>
+    <p>在这项工作中，我们提出了一种集成交互系统、BEV 嵌入图和扩散生成的解决方案，以实现可控的 3D 室外场景生成。挑战源于复杂的户外景观，具有丰富的信息和结构多样性。我们的方法利用场景图将信息从稀疏表示转换为密集表示。配合交互系统，用户可以直观、简洁地生成自己想要的3D户外场景。比较实验表明，我们的方法实现了更准确的对象数量以及与输入场景图的对齐。这些结果表明，我们的方法是用于可控 3D 室外场景生成的稳健且有效的解决方案。</p>
     <p>
-      从研究定位上看，这篇论文的意义在于它没有把问题局限在某一个局部改动，而是尝试给出一套更完整的求解路径。对读者而言，最值得关注的是它如何重新组合表示、模块和训练目标，以及这些设计是否能迁移到相近任务上。
+      如果把它当成研究参考，建议重点关注三件事：第一，这套方法真正依赖的归纳偏置是什么；第二，实验中真正拉开差距的模块是哪一个；第三，它的局限究竟来自数据、算力还是监督信号本身。
     </p>
     <p>
-      如果把它当成研究参考，我会重点看三件事：
-      第一，这套方法的核心归纳偏置是什么；
-      第二，实验中真正拉开差距的模块是哪一块；
-      第三，它的限制条件是数据、算力、时序长度，还是奖励/监督信号本身。
-    </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>For example, [9, 62] rely on BEV layouts or semantic maps, which require users to provide pixel-level control signals, posing a challenge in terms of interaction, especially for large-scale, complex 3D outdoor scenes.</li></ul></div>
-    <p>
-      进一步延伸阅读时，可以把这篇工作放到更广泛的技术脉络里：它与同类方法相比，到底是在表示层、生成层、优化层还是评估层提出了更强的方案。下面这些自动检索到的相关论文可作为继续追踪的入口：
+      以下相关论文可以作为进一步追踪的入口：
     </p>
     <ul></ul>
 
     <div class='tip'>
       <strong>一句结论：</strong>
-      这篇论文值得读的原因，不只是它给出了一组更好的结果，而是它提供了一条相对完整的问题求解思路：如何把任务定义、方法设计与实验验证真正对齐到同一条研究主线上。
+      这篇论文值得关注的地方在于，它不只给出了更好的实验结果，更提供了一条相对完整的问题求解路径，把任务定义、方法设计与实验验证真正对齐到了同一条研究主线上。
     </div>
   </article>
 </div>
+
   </div>
 </div>
 </body>

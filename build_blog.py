@@ -1137,7 +1137,7 @@ def _extract_figure_captions_from_text(text: str, max_items: int = 6) -> List[Di
                 "label": f"Figure {number}:",
                 "number": number,
                 "caption_en": caption,
-                "caption_cn": f"图 {number}：该图来自论文原文，用于说明论文中的核心框架、可视化结果或实验现象。原始图注摘要：{caption}",
+                "caption_cn": f"图 {number}：该图展示了论文中的关键结构、流程或实验结果。",
             }
         )
         if len(items) >= max_items:
@@ -1158,7 +1158,7 @@ def _combine_figure_entries(figure_files: List[str], captions: List[Dict[str, st
                 "caption_en": caption_en,
                 "caption_cn": caption.get(
                     "caption_cn",
-                    f"图 {number}：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：{caption_en}",
+                    f"图 {number}：该图展示了论文中的关键模块、实验设置或可视化效果。",
                 ),
             }
         )
@@ -1630,21 +1630,37 @@ def _render_equations_with_explanations(equations: List[Dict[str, str]], docs_di
         latex = _clean_text_block(item.get("latex", ""))
         if not latex:
             continue
-        context_cn = _translate_to_zh(item.get("context_en", ""), docs_dir) if item.get("context_en") else ""
-        explanation = context_cn or "这条公式定义了论文中一个关键的优化目标、预测关系或评价指标。阅读时应重点关注左侧变量表示什么、右侧各项如何共同约束模型行为。"
-        parts.append(
-            "<div class='card'>"
-            f"<strong>公式 {idx}</strong>"
-            f"<p>$$ {html.escape(latex)} $$</p>"
-            f"<p>{html.escape(explanation)}</p>"
-            "<p>进一步理解时，可以把这条公式拆成“被求解的对象”“约束项/损失项”“它对训练或推理带来的效果”三部分来读，这也是论文方法成立的核心原因。</p>"
-            "</div>"
-        )
-    return "".join(parts) or "<div class='card'><strong>公式说明</strong><p>当前论文的可解析公式较少，已优先基于方法段落转写原理，并避免保留难以理解的英文公式注释。</p></div>"
+        context_en = item.get("context_en", "")
+        context_cn = _translate_to_zh(context_en, docs_dir) if context_en else ""
+        parts.append(f"    <p>$$ {html.escape(latex)} $$</p>")
+        if context_cn:
+            parts.append(f"    <p>\n      {html.escape(context_cn)}\n    </p>")
+        else:
+            parts.append('    <p>上述公式定义了模型中一个关键的变量关系或优化目标。理解它时，可以把等号左侧看作\u201c要学什么\u201d，右侧各项看作\u201c怎么约束学习方向\u201d。</p>')
+    if not parts:
+        return ""
+    return "\n".join(parts)
 
 
 def _render_all_figures(figures: List[Dict], slug: str) -> str:
     return _figure_html_from_entries(figures, slug, max_items=len(figures)) if figures else "<p>当前未抽取到可稳定展示的整图资源。</p>"
+
+
+def _cn_paragraphs(text: str) -> str:
+    """Split translated Chinese text into HTML paragraphs."""
+    paras = [p.strip() for p in text.split("\n") if p.strip()]
+    if len(paras) <= 1 and len(text) > 300:
+        sentences = re.split(r"(?<=[。！？；])", text)
+        current = ""
+        paras = []
+        for s in sentences:
+            current += s
+            if len(current) > 200:
+                paras.append(current.strip())
+                current = ""
+        if current.strip():
+            paras.append(current.strip())
+    return "\n".join(f"    <p>{html.escape(p)}</p>" for p in paras if p)
 
 
 def _generic_deep_dive_post_body(doc, figures: List[Dict], related: List[Dict], slug: str, text: str, docs_dir: Path, source_material: Dict[str, object]) -> str:
@@ -1661,123 +1677,113 @@ def _generic_deep_dive_post_body(doc, figures: List[Dict], related: List[Dict], 
     experiment_cn = _translate_excerpt(experiment_text, docs_dir, char_limit=2800)
     conclusion_cn = _translate_excerpt(conclusion_text, docs_dir, char_limit=1800)
 
-    innovation_points_cn = _translate_excerpt(intro_text, docs_dir, char_limit=1400)
-    method_points_cn = _translate_excerpt(method_text, docs_dir, char_limit=1400)
-    experiment_points_cn = _translate_excerpt(experiment_text, docs_dir, char_limit=1400)
-    takeaway_points_cn = _translate_excerpt(conclusion_text or abstract_text, docs_dir, char_limit=1200)
-
     equation_items = source_material.get("equations") if isinstance(source_material.get("equations"), list) else []
-    figure_gallery_html = _render_all_figures(figures, slug)
     related_html = _deep_dive_related_html(related[:4], docs_dir=docs_dir)
     sidebar = _post_sidebar_html(DEEP_DIVE_SECTION_ITEMS)
     equation_html = _render_equations_with_explanations(equation_items, docs_dir, max_items=6)
+    alias = _paper_alias(doc.title)
+
+    # Distribute figures across sections for natural placement
+    n_figs = len(figures)
+    summary_figs = figures[:min(2, n_figs)]
+    tech_figs = figures[min(2, n_figs):min(5, n_figs)]
+    exp_figs = figures[min(5, n_figs):]
+
+    def render_fig_group(fig_list: List[Dict]) -> str:
+        parts = []
+        for item in fig_list:
+            if not item.get("path"):
+                continue
+            parts.append(
+                f"    <figure><img class='paper-fig' src='../assets/{html.escape(slug)}/{html.escape(item['path'])}' alt='{html.escape(item.get('label', ''))}' loading='lazy' decoding='async' />"
+                f"<figcaption style='font-size:12px;'>{html.escape(item.get('caption_cn', ''))}</figcaption></figure>"
+            )
+        return "\n".join(parts)
+
+    summary_figs_html = render_fig_group(summary_figs)
+    tech_figs_html = render_fig_group(tech_figs)
+    exp_figs_html = render_fig_group(exp_figs)
+
+    abstract_paras = _cn_paragraphs(abstract_cn)
+    intro_paras = _cn_paragraphs(intro_cn)
+    method_paras = _cn_paragraphs(method_cn)
+    experiment_paras = _cn_paragraphs(experiment_cn)
+    conclusion_paras = _cn_paragraphs(conclusion_cn)
 
     return f"""
 <div class='layout'>
   {sidebar}
 
   <article class='article'>
-    <h1>{html.escape(_paper_alias(doc.title))}</h1>
+    <h1>{html.escape(alias)}</h1>
     <p class='meta'>原论文：{html.escape(doc.title)} · 中文精读</p>
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      这篇论文围绕“{html.escape(_paper_alias(doc.title))} 所对应的研究问题”提出了一套完整方案：先明确任务目标与现有瓶颈，再通过新的表示、模块或训练目标把问题收敛成一条更稳定的工程链路，最后用实验验证该设计在质量、效率、可控性或泛化性上的改进。
+      {html.escape(_clip_text(abstract_cn, 300))}
     </div>
 
     <h2 id='summary'>简单摘要</h2>
-    <p>
-      这篇工作的落点不是只改进一个局部模块，而是围绕完整任务链路重新组织系统设计。作者首先回答“为什么这个问题值得做”，接着说明现有方案为什么不足，最后再解释自己的方法如何把表示、训练和推理串成一条更可行的路径。
-    </p>
-    <p>
-      按照论文摘要的原意，这篇工作最关键的信息可以概括为：{html.escape(_clip_text(abstract_cn, 260))}
-    </p>
-    <p>
-      如果把它放在更大的技术脉络里理解，这篇论文可以视为“问题定义 → 方法设计 → 优化训练 → 实验验证”的完整闭环，而不是只给出一个孤立技巧。这样的工作更适合被写成博客精读，因为它的价值不在某一行代码，而在整条设计链路为什么成立。
-    </p>
-    {_figure_html_from_entries(figures, slug, max_items=min(2, len(figures))) if figures else "<p>当前页面未抽取到稳定的图像资源，以下内容将主要基于论文结构做中文精读。</p>"}
-    <div class='card'><strong>摘要中文转述：</strong><p>{html.escape(abstract_cn)}</p></div>
+{abstract_paras}
+{summary_figs_html}
+    <blockquote>
+      简而言之，这篇论文关注的核心是：{html.escape(_clip_text(abstract_cn, 150))}
+    </blockquote>
+{intro_paras}
 
     <h2 id='innovation'>核心创新</h2>
     <p>
-      对照引言与方法部分可以看出，这篇论文的创新点并不只是“做了一个新模块”，而是重新组织了问题的求解顺序与约束方式。作者更关心的是如何把任务定义、表示设计、训练目标和实验验证压到同一条主线上。
+      综合引言与方法部分，这篇论文的核心创新可以概括为以下几方面：
     </p>
-    <h3>1）从任务设定上重新界定问题边界</h3>
+    <h3>1）问题定义与研究动机</h3>
     <p>
-      作者首先重述了任务本身：到底什么才是这个问题里真正重要、且现有方法长期处理不好的部分。只有把问题边界说清楚，后续的新结构与新损失才有意义。
+      {html.escape(_clip_text(intro_cn, 500))}
     </p>
-    <h3>2）用统一框架串起表示、推理和优化</h3>
+    <h3>2）方法框架与核心模块</h3>
     <p>
-      从原文来看，作者并不是把很多模块松散拼在一起，而是在一个统一框架中安排中间表示、关键网络和训练目标，使它们彼此约束、彼此服务。这类设计通常决定了方法是否真的具备可复现与可落地性。
+      {html.escape(_clip_text(method_cn, 500))}
     </p>
-    <h3>3）把实验目标直接对齐到实际痛点</h3>
+    <h3>3）实验设计与工程价值</h3>
     <p>
-      论文中的实验不只是追求一个漂亮数字，而是尽量把评价方式对齐到真实使用情境，例如质量、稳定性、可控性、几何一致性或长尾场景下的可用性。这样实验结论才真正能支撑方法设计本身。
+      {html.escape(_clip_text(experiment_cn, 400))}
     </p>
-    <div class='card'><strong>创新点中文提炼：</strong><p>{html.escape(innovation_points_cn or intro_cn[:400])}</p></div>
 
     <h2 id='technical'>技术细节</h2>
     <p>
-      方法部分是理解论文价值的核心。阅读这类论文时，最重要的不是背结论，而是看清楚：输入是什么，中间表示是什么，关键模块如何传递信息，损失或奖励又如何把模型推向作者想要的解。
+      下面按照论文的方法章节结构展开，重点说明模型的关键模块、公式设计和训练策略。
     </p>
-    <h3>3.1 方法主线与模块组织</h3>
+{method_paras}
+{equation_html}
+{tech_figs_html}
     <p>
-      从方法章节来看，作者首先构建了一个核心表示或条件变量，再通过若干模块逐步把它变成最终输出。这种设计的优势在于：每个模块都有明确职责，既便于解释，也方便在实验中做消融分析。
-    </p>
-    <div class='card'><strong>方法中文拆解：</strong><p>{html.escape(method_cn)}</p></div>
-    <div class='card'><strong>方法关键点：</strong><p>{html.escape(method_points_cn or method_cn[:500])}</p></div>
-    <h3>3.2 训练目标、损失与公式信号</h3>
-    <p>
-      论文里的公式通常承担两类角色：一类是定义变量之间的结构关系，另一类是定义优化时真正推动模型收敛的损失或目标函数。理解公式时，不应只看符号本身，而应看每一项在约束什么、强调什么、解决什么问题。
-    </p>
-    {equation_html}
-    <p>
-      从这些公式及其上下文可以看出，作者追求的并不只是某个局部误差变小，而是希望通过更精细的目标设计，使模型在结构一致性、生成质量、时序稳定性、语义可控性或物理合理性等方面同时受约束。这往往是新方法真正超过 baseline 的关键原因。
-    </p>
-    <h3>3.3 全部图示与模块可视化</h3>
-    <p>
-      下面按论文中的图序展示全部已抽取图示。每张图都配有完整中文图注，便于把文字中的方法逻辑与可视化结果对应起来看。
-    </p>
-    {figure_gallery_html}
-    <p>
-      如果把全文方法串起来看，这篇论文的逻辑基本都遵循同一条主线：先把输入组织成更容易处理的表示，再通过模型结构和损失函数把这个表示推向目标输出，最后用可视化与数值实验共同证明该设计有效。把这条主线看清楚，比死记某个局部模块更重要。
+      把全文方法串起来看，这篇论文的逻辑基本都遵循同一条主线：先把输入组织成更容易处理的表示，再通过模型结构和损失函数把这个表示推向目标输出，最后用可视化与数值实验共同证明该设计有效。
     </p>
 
     <h2 id='experiment'>实验结论</h2>
     <p>
-      实验部分主要回答两个问题：第一，这个方法是否真的优于已有基线；第二，这种优势究竟来自哪一个设计决策。只有这两个问题回答清楚，论文的方法贡献才算真正成立。
+      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，这种优势来自哪一个设计决策。
     </p>
-    <p>
-      按照实验章节原文，这篇论文想强调的核心结论主要包括：
-    </p>
-    <div class='card'><strong>实验中文转述：</strong><p>{html.escape(experiment_cn)}</p></div>
-    <div class='card'><strong>实验结论提炼：</strong><p>{html.escape(experiment_points_cn or experiment_cn[:500])}</p></div>
+{experiment_paras}
+{exp_figs_html}
     <ul>
-      <li>方法在核心任务指标上的优势不是偶然的，而是与结构设计和训练目标直接相关；</li>
-      <li>消融实验说明，一旦拿掉关键模块或关键约束，模型性能与结果质量都会明显回落；</li>
-      <li>论文不仅比较数值，也比较可视化质量、稳定性、控制性和泛化能力等更接近真实使用的信号。</li>
+      <li>方法在核心指标上的优势与结构设计和训练目标直接相关；</li>
+      <li>消融实验表明，拿掉关键模块后性能与结果质量都有明显回落；</li>
+      <li>论文不仅比较数值，也关注可视化质量、稳定性和泛化能力等更贴近真实使用的信号。</li>
     </ul>
-    <p>
-      因此，实验部分最重要的阅读方式并不是死记某一列数字，而是看清：作者究竟在证明哪个机制有效、这个机制的收益在什么设置下成立，以及它是否存在明显边界条件。
-    </p>
 
     <h2 id='takeaway'>理解评价</h2>
+{conclusion_paras}
     <p>
-      从研究定位上看，这篇论文的意义不在某一个局部 trick，而在于它试图给出一条较完整的问题求解路径。对读者而言，最值得关注的是：它如何重组表示、模块和训练目标，以及这些设计是否能迁移到相近任务上。
+      如果把它当成研究参考，建议重点关注三件事：第一，这套方法真正依赖的归纳偏置是什么；第二，实验中真正拉开差距的模块是哪一个；第三，它的局限究竟来自数据、算力还是监督信号本身。
     </p>
     <p>
-      如果把它当成研究参考，我建议重点看三件事：第一，这套方法真正依赖的归纳偏置是什么；第二，实验中真正拉开差距的是哪一个模块；第三，它的限制究竟来自数据、算力、时序长度，还是监督/奖励信号本身。
-    </p>
-    <div class='card'><strong>结论与局限中文转述：</strong><p>{html.escape(conclusion_cn)}</p></div>
-    <div class='card'><strong>进一步思考：</strong><p>{html.escape(takeaway_points_cn or conclusion_cn[:500])}</p></div>
-    <p>
-      进一步延伸阅读时，可以把这篇工作放到更广泛的技术脉络里：它与同类方法相比，到底是在表示层、生成层、优化层还是评估层提出了更强的方案。下面这些相关论文可以作为继续追踪的入口：
+      以下相关论文可以作为进一步追踪的入口：
     </p>
     {related_html}
 
     <div class='tip'>
       <strong>一句结论：</strong>
-      这篇论文值得读的原因，不只是它给出了一组更好的结果，而是它提供了一条相对完整的问题求解思路：如何把任务定义、方法设计与实验验证真正对齐到同一条研究主线上。
+      这篇论文值得关注的地方在于，它不只给出了更好的实验结果，更提供了一条相对完整的问题求解路径，把任务定义、方法设计与实验验证真正对齐到了同一条研究主线上。
     </div>
   </article>
 </div>
@@ -1934,7 +1940,7 @@ def rewrite_all_posts(
     max_chars: int = 14000,
     commit_each: bool = False,
     push_each: bool = False,
-    preserve_existing_deep: bool = True,
+    preserve_existing_deep: bool = False,
 ) -> List[Path]:
     docs = Path(docs_dir)
     site = Path(site_dir)
@@ -2150,7 +2156,7 @@ def main() -> None:
             max_chars=14000,
             commit_each=args.commit_each or args.push_each,
             push_each=args.push_each,
-            preserve_existing_deep=True,
+            preserve_existing_deep=False,
         )
         print(f"Full rewrite completed: {len(posts)} posts")
     elif args.all:
@@ -2177,4 +2183,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

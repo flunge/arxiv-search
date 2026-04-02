@@ -70,7 +70,7 @@
     blockquote { margin: 16px 0; padding: 8px 16px; border-left: 4px solid #d8e7ff; background: #f8fbff; color: #333; }
     .tip { background: #f7f9fc; border: 1px solid #e8eef6; border-radius: 10px; padding: 12px; }
     .dashboard-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-top:18px; }
-    .dashboard-card { aspect-ratio: 1 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
+    .dashboard-card { aspect-ratio: 1.618 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
     .dashboard-card > * { min-width: 0; }
     .dashboard-card .dashboard-content { display:flex; flex-direction:column; height:100%; min-height:0; }
     .dashboard-card .dashboard-scroll { overflow:auto; min-height:0; }
@@ -130,10 +130,28 @@
     });
   </script>
 
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\(', '\)']],
+        displayMath: [['$$', '$$'], ['\[', '\]']]
+      },
+      svg: { fontCache: 'global' },
+      startup: {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady().then(() => {
+            requestAnimationFrame(applyPageScale);
+          });
+        }
+      }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
+
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
 
@@ -143,103 +161,120 @@
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      这篇论文关注的是“ConsisDrive 所对应的问题能否在更可控、更稳健或更高质量的条件下被解决”。从摘要与方法描述来看，作者的总体路线是：先搭建一个明确的表示或生成框架，再围绕训练目标、结构设计和实验验证把该问题推进到更可用的工程形态。
+      自动驾驶依赖于在大规模、高质量多视图驾驶视频上训练的强大模型。尽管世界模型为生成真实驾驶数据提供了一种经济高效的解决方案，但它们经常遭受身份漂移的困扰，即由于缺乏实例级时间约束，同一对象在不同帧之间改变其外观或类别。我们引入了 ConsisDrive，这是一种身份保护的驾驶世界模型，旨在在实例级别强制执行时间一致性。我们的框架包含两个关键组成部分：（1）实例掩码注意力，它在注意力块中应用实例身份掩码和轨迹掩码，以确保视觉标记仅与跨空间和时间维度的相应实例特征交互，从而保持对象身份一致性； (2) 实例掩蔽损失，通过概率实例掩蔽自适应地强调前景区域，减少背景噪声，同时保持整体场景保真度。通过集…
     </div>
 
     <h2 id='summary'>简单摘要</h2>
-    <p>
-      从论文摘要可以看出，这项工作的落点并不是单纯提升一个局部模块，而是围绕完整任务链路做系统设计。它通常会同时回答三个问题：任务为什么重要、现有方法卡在哪里、作者的新方案如何绕开这些瓶颈。
-      就这篇论文而言，摘要部分强调的核心是：<strong>Autonomous driving relies on robust models trained on large-scale, high-quality multi-view driving videos. Although world models provide a cost-effective solution for generating r…</strong>
-    </p>
-    <p>
-      如果把它放进更大的技术背景中理解，可以把这篇论文视作一条“问题定义 → 表示设计 → 训练优化 → 实验验证”的完整研究闭环。也就是说，作者并不是只给出一个孤立模块，而是希望通过一整套方法让系统在真实场景或关键指标上取得更稳定提升。
-    </p>
-    <figure><img class='paper-fig' src='../assets/2602_03213v3/fig_1.png' alt='Figure 1:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 1：该图来自论文原文，用于说明论文中的核心框架、可视化结果或实验现象。原始图注摘要：Limitations of Prior Works in Instance Identity Preservation Across Frames. (a) Category Shift: In DriveDreamer2 Zhao et al. (2024), the bus gradually turns into a truck, indicating a failure to preserve semantic identity over time. (b) Color Shift: In MagicDrive-V2 Gao et al. (2024b), the car’s co…</figcaption></figure><figure><img class='paper-fig' src='../assets/2602_03213v3/fig_2.png' alt='Figure 2:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 2：该图来自论文原文，用于说明论文中的核心框架、可视化结果或实验现象。原始图注摘要：Overview. (a) Instance-Masked Attention, which explicitly directs the model’s attention to each individual instance by incorporating both an instance identity mask and trajectory mask. (b) Instance-Masked Loss Supervision, a probabilistic instance-focused training objective that employs instance lo…</figcaption></figure>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>Our framework incorporates two key components:</li><li>By integrating these mechanisms, ConsisDrive achieves state-of-the-art driving video generation quality and demonstrates significant improvements in downstream autonomous driving tasks on the nuScenes dataset.</li></ul></div>
+    <p>自动驾驶依赖于在大规模、高质量多视图驾驶视频上训练的强大模型。尽管世界模型为生成真实驾驶数据提供了一种经济高效的解决方案，但它们经常遭受身份漂移的困扰，即由于缺乏实例级时间约束，同一对象在不同帧之间改变其外观或类别。我们引入了 ConsisDrive，这是一种身份保护的驾驶世界模型，旨在在实例级别强制执行时间一致性。我们的框架包含两个关键组成部分：（1）实例掩码注意力，它在注意力块中应用实例身份掩码和轨迹掩码，以确保视觉标记仅与跨空间和时间维度的相应实例特征交互，从而保持对象身份一致性；</p>
+    <p>(2) 实例掩蔽损失，通过概率实例掩蔽自适应地强调前景区域，减少背景噪声，同时保持整体场景保真度。通过集成这些机制，ConsisDrive 实现了最先进的驾驶视频生成质量，并在 nuScenes 数据集上展示了下游自动驾驶任务的显着改进。我们的项目页面在这里（https://shanpoyang654.github.io/ConsisDrive/page.html）。</p>
+    <figure><img class='paper-fig' src='../assets/2602_03213v3/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：先前工作在跨框架实例身份保存方面的局限性。
+(a) 类别转变：在 DriveDreamer2 中，公共汽车逐渐变成卡车，表明随着时间的推移未能保留语义身份。 
+(b) 颜色偏移：在 MagicDrive-V2 中，汽车的颜色在帧之间变化不一致，违反了时间外观一致性。 
+(b) 前景稀释：在 MagicDrive-V2 中，场景级监督稀释了对关键前景区域的监督，破坏了行人等小型实例的时间身份一致性。相比之下，我们的方法明确地强制执行实例级时间约束，保持跨帧的一致性并有效解决这些问题。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2602_03213v3/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：概述。
+(a) Instance-Masked Attention，通过合并实例身份掩码和轨迹掩码，明确地将模型的注意力引导到每个单独的实例。
+(b) 实例屏蔽损失监督，一个以实例为中心的概率训练目标，它采用实例损失屏蔽来强调对前景区域的监督。
+(c)实例掩模构造。说明如何根据 3D 框投影构建实例标识掩码、实例轨迹掩码和实例丢失掩码。</figcaption></figure>
+    <blockquote>
+      简而言之，这篇论文关注的核心是：自动驾驶依赖于在大规模、高质量多视图驾驶视频上训练的强大模型。尽管世界模型为生成真实驾驶数据提供了一种经济高效的解决方案，但它们经常遭受身份漂移的困扰，即由于缺乏实例级时间约束，同一对象在不同帧之间改变其外观或类别。我们引入了 ConsisDrive，这是一种身份保护的驾驶世界模型，旨在在实例级别…
+    </blockquote>
+    <p>自动驾驶在过去的几十年里引起了学术界和工业界的广泛关注。为了实现可靠的性能，自动驾驶系统依赖于带有精确注释的高质量、大规模多视图驾驶视频，这对于训练感知、跟踪和规划模型至关重要。然而，收集和标记此类现实世界的驾驶数据既昂贵又费力。受益于生成视频模型的快速进步，驾驶世界模型已成为一种有前途的替代方案。这些模型可以大规模合成多样化且真实的驾驶场景，从而显着减少对昂贵的数据收集和注释的需求。跨帧的实例身份保留对于生成真实的驾驶视频至关重要，因为它直接影响视频质量并决定其在下游自动驾驶任务中的适用性。</p>
+    <p>例如，多对象跟踪和感知任务需要时间稳定的实例外观，以确保可靠的时间上下文理解。同样，规划依赖于周围代理的时间一致轨迹来支持准确的运动预测。这些要求要求世界模型在连续帧中一致地维护实例身份（例如类别、颜色和形状），从而确保动态对象的外观和行为的连续性。从更广泛的角度来看，保留实例身份的能力对于世界模型有效捕获现实世界环境的潜在动态至关重要。从技术上讲，实施强时间一致性可以提高基于合成数据训练的自动驾驶模型的可靠性，最终增强其对现实场景的泛化。</p>
+    <p>然而，现有的基于扩散的世界模型经常遭受身份漂移的困扰，即同一对象在不同帧之间改变其外观甚至类别（例如，红色汽车变成黑色，或公共汽车变成卡车），如图 1 所示。这种身份不一致严重降低了视频的真实感，并限制了生成的数据对下游驾驶任务的适用性。我们确定了这个问题的三个主要原因。首先，缺乏明确的实例身份条件会阻止模型在长期范围内锚定一致的身份。例如，DriveDreamer2 不包含特定于实例的条件（例如类别），导致明显的语义变化，如图 (a) 所示。</p>
+    <p>这凸显了注入显式实例 ID 的必要性……</p>
 
     <h2 id='innovation'>核心创新</h2>
     <p>
-      对照引言与方法部分，这篇论文的创新点主要体现在“如何重新组织问题求解链路”上。相比简单替换一个 backbone 或增加一个 loss，作者更像是在重新定义系统的关键接口与约束方式。
+      综合引言与方法部分，这篇论文的核心创新可以概括为以下几方面：
     </p>
-    <h3>1）从任务设定上重新界定问题边界</h3>
+    <h3>1）问题定义与研究动机</h3>
     <p>
-      论文强调的问题并不只是已有方案做得不够好，而是很多现有方法在目标可控性、泛化范围、效率约束或结构一致性上存在天然短板。因此作者先重述了任务定义，再围绕新的目标函数和场景假设去设计整体方案。
+      自动驾驶在过去的几十年里引起了学术界和工业界的广泛关注。为了实现可靠的性能，自动驾驶系统依赖于带有精确注释的高质量、大规模多视图驾驶视频，这对于训练感知、跟踪和规划模型至关重要。然而，收集和标记此类现实世界的驾驶数据既昂贵又费力。受益于生成视频模型的快速进步，驾驶世界模型已成为一种有前途的替代方案。这些模型可以大规模合成多样化且真实的驾驶场景，从而显着减少对昂贵的数据收集和注释的需求。跨帧的实例身份保留对于生成真实的驾驶视频至关重要，因为它直接影响视频质量并决定其在下游自动驾驶任务中的适用性。例如，多对象跟踪和感知任务需要时间稳定的实例外观，以确保可靠的时间上下文理解。同样，规划依赖于周围代理的时间一致轨迹来支持准确的运动预测。这些要求要求世界模型在连续帧中一致地维护实例身份（例如类别、颜色和形状），从而确保动态对象的外观和行为的连续性。从更广泛的角度来看，保留实例身份的能力对于世界模型有效捕获现实世界环境的潜在动态至关重要。从技术上讲，实施强时间一致性可以提高基于合成数据训练的自动驾驶模型的可靠性，最终增强其对现实场景的泛化。然而，现有的基于扩散的世界模型经常遭受身份漂移的困扰，即…
     </p>
-    <h3>2）用统一框架串起表示、推理和优化</h3>
+    <h3>2）方法框架与核心模块</h3>
     <p>
-      从原文描述看，这篇论文并不是把多个模块松散拼接，而是在一个统一框架里安排表示形式、关键模块和训练信号，使它们彼此服务。这类设计往往决定了方法能否真正具备工程可落地性。
+      我们引入了一种身份保护的驾驶世界模型，专门设计用于强制实例级时间一致性。我们的框架将实例意识融入到 3D 全注意力机制（第 2 节）和训练目标（第 2 节）中，其中精心构建的实例掩码充当结构先验，以指导跨框架的一致性。我们模型的整体架构如图所示。概述 在 OpenSora V2.0 的基础上，我们采用变分自动编码器（视频 DC-AE）进行视频编码，使用 T5XXL 和 CLIP-Large 进行文本编码，使用 MMDiT 作为去噪过程的基础模型。为了实现细粒度控制，我们引入了一套全面的控制条件，包括边界框投影、路线图和场景描述，并将它们集成到条件视频生成过程中。此外，我们引入了实例类别标签、实例大小和跟踪 ID 来提取实例身份条件并将它们合并到注意力过程中，这是我们提出的实例屏蔽注意力模块中的关键机制，详细信息请参见第 2 节。 。鉴于需要处理多个控制元素，我们采用 ControlNet 将控制信号注入视频生成过程。为了集成这些控制感知表示，我们将双流 MMDiT 主干的前 19 个基本块复制为专用控制块。每个控制块将条件特征与基本块的相应输出融合，从而调制特征流并确保控制信号有效地…
     </p>
-    <h3>3）把实验目标直接对齐到实际痛点</h3>
+    <h3>3）实验设计与工程价值</h3>
     <p>
-      论文中的实验不仅比较常规 benchmark，也会额外关注更贴近实际系统需求的指标，例如稳定性、控制性、质量上界、对长尾场景的适应能力等。换句话说，它不是只追求单一数值，而是试图证明整套系统在真实使用方式下也成立。
+      设置数据集和基线。我们在 nuScenes 数据集上训练和评估我们的模型。为了对我们的方法进行基准测试，我们将其与最先进的驾驶世界模型进行比较，包括 BEVControl 、 DriveDiffusion 、 DriveDreamer2 、 Panacea 和 MagicDrive-V2 。指标。对于真实感评估，我们使用 FID 和 FVD 来衡量视频质量。为了评估属性绑定和实例掩蔽损失监督的有效性，我们测量生成的实例与其条件类别和大小之间的对齐情况，确保语义和几何结构都得到忠实保留。该评估是通过感知任务进行的，因为准确的类别识别和尺寸定位是可靠感知的基本要求。因此，感知性能直接反映了对象类别和空间范围的生成准确性。具体来说，继 Panacea 之后，我们采用基于视频的感知模型 StreamPETR 并报告 nuScenes 检测分数 (NDS) 和平均精度 (mAP) 等指标。其中，m…
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>Our framework incorporates instance awareness into both the 3D full attention mechanism (Sec.</li></ul></div>
 
     <h2 id='technical'>技术细节</h2>
     <p>
-      方法部分是理解论文价值的关键。结合原文可以看到，作者通常会先定义输入输出，再介绍中间表示、主干模块、损失函数或奖励机制，最后说明训练与推理时各模块如何协同。
-      对这篇论文而言，方法线索主要集中在以下几个方面：
+      下面按照论文的方法章节结构展开，重点说明模型的关键模块、公式设计和训练策略。
     </p>
-    <h3>3.1 方法主线与模块组织</h3>
+    <p>我们引入了一种身份保护的驾驶世界模型，专门设计用于强制实例级时间一致性。我们的框架将实例意识融入到 3D 全注意力机制（第 2 节）和训练目标（第 2 节）中，其中精心构建的实例掩码充当结构先验，以指导跨框架的一致性。我们模型的整体架构如图所示。概述 在 OpenSora V2.0 的基础上，我们采用变分自动编码器（视频 DC-AE）进行视频编码，使用 T5XXL 和 CLIP-Large 进行文本编码，使用 MMDiT 作为去噪过程的基础模型。为了实现细粒度控制，我们引入了一套全面的控制条件，包括边界框投影、路线图和场景描述，并将它们集成到条件视频生成过程中。此外，我们引入了实例类别标签、实例大小和跟踪 ID 来提取实例身份条件并将它们合并到注意力过程中，这是我们提出的实例屏蔽注意力模块中的关键机制，详细信息请参见第 2 节。 。鉴于需要处理多个控制元素，我们采用 ControlNet 将控制信号注入视频生成过程。为了集成这些控制感知表示，我们将双流 MMDiT 主干的前 19 个基本块复制为专用控制块。每个控制块将条件特征与基本块的相应输出融合，从而调制特征流并确保控制信号有效地合并到整个生成管道中。 Instance-Masked Attention Instance-Masked Attention 模块如图（a）所示，旨在引导模型对每个单独实例的注意力。通过从图（c）中的对象边界框构造实例掩码，我们有效地防止了跨多个实例的信息泄漏。我们添加了建议的可学习实例屏蔽注意力模块来处理每个实例的身份调节。实例屏蔽注意力模块将实例身份条件与复制块的相应输出融合，并调整其特征以实现实例感知注意力。现在，我们详细描述实例屏蔽注意力模块中的关键操作。如图（a）所示，实例屏蔽注意力模块旨在明确引导模型对每个单独实例的注意力。实例掩码是由对象边界框构造的，如图 1 所示。</p>
+    <p>(c)，防止跨实例的信息泄漏并确保实例级的解开。我们引入了一种可学习的实例屏蔽注意力机制，该机制注入每个实例的身份条件并将它们与复制块的相应输出融合。通过调节这些功能，该模块可以实现实例感知注意力，从而保留实例身份并确保跨空间和时间维度的实例一致性。现在我们详细描述 Instance-Masked Attention 模块的关键操作。实例身份条件对于视频中出现的每个实例，我们构建一个全局......</p>
+    <p>$$ g_i = \text{MLP}\!\left([\tau_\theta(c_i), \gamma(s_i), \gamma( ID_i)]\right). $$</p>
     <p>
-      根据方法章节可知，作者首先构建了一个核心表示或中间条件，再通过若干模块把它逐步转换为最终输出。这种结构的优势在于：每个模块都承担明确职责，既便于解释，也更便于在实验中做模块级消融。
-      原文中与主线最相关的描述包括：
+      映射以对跟踪 ID 和边界框大小进行编码。同时，我们采用 CLIP-Large 文本编码器从类别标签中提取语义特征。这些组件连接并通过多层感知器 (MLP)，以生成实例全局身份条件嵌入：T…
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>The overall architecture of our model is illustrated in Fig.</li><li>Our framework incorporates instance awareness into both the 3D full attention mechanism (Sec.</li><li>3.2) and the training objective (Sec.</li></ul></div>
-    <h3>3.2 训练目标、损失与公式信号</h3>
+    <p>$$ \tilde{V} = \text{SA}_\text{mask}([V, G]). $$</p>
     <p>
-      论文里的公式通常承担两类角色：一种是定义模型的预测关系与变量约束，另一种是定义优化时真正驱动模型更新的目标函数。阅读这类论文时，关键不是死记公式外形，而是理解每个公式分别在“表达结构”还是“约束行为”上发挥作用。
+      ectionInstance-Masked Attention 和 Fuse 机制 我们将从副本 MMDiT 块中提取的视觉标记表示为 ，将实例条件标记表示为 。然后，我们在 Instance-Masked Attention 模块中的主干特征和连接的实例条件标记上应用 3D 自注意力（SA），这可以...
     </p>
-    <div class='card'><strong>公式 / 指标片段 1：</strong><pre>• Our model achieves SOTA video generation quality with high FID and FVD on the</pre></div>
+    <p>$$ \tilde{\mathbf{x}}_{i,c}^t = \mathbf{K}^t \left( \mathbf{R}^t \mathbf{X}_{i,c} + \mathbf{T}^t \right), 
+\quad
+\mathbf{x}_{i,c}^t = \Big(\tfrac{\tilde{x}}{\tilde{z}}, \tfrac{\tilde{y}}{\tilde{z}}\Big), $$</p>
     <p>
-      从这些公式与周边段落可以推断，作者想要的不只是局部误差最小化，而是通过更精细的目标设计，让模型在结构一致性、生成质量、时序稳定性或可控性等方面同时受约束。这也是很多新方法能真正优于 baseline 的原因。
+      表示投影边界框覆盖 token 的空间区域的实例 ID 集合，如图 (c) 所示。形式上，每个实例都由带有角 的 3D 边界框表示，其中 。给定帧 处的相机参数，角点将被投影为形成多边形的凸包......
     </p>
-    <h3>3.3 把全文方法串起来理解</h3>
+    <p>$$ I(v_k) \equiv I(t,p) = \{\, i \mid \exists (x,y),\, \tilde{BM}_i(t,x,y)=1 \,\}, $$</p>
     <p>
-      如果把这篇论文的方法看成一条流水线，那么它的逻辑通常是：先把输入变成一个更适合推理的中间表示，再围绕该表示施加关键模块与训练目标，最后把输出落到可评估、可可视化的结果上。
-      这种“表示—模块—目标—结果”的闭环设计，是本页所锁定模板最想强调的部分，因为它比零散摘录更能帮助后续复现与横向比较。
+      i,c^t = (xz, yz), 形成多边形的凸包方程。光栅化产生二进制掩模。我们进一步应用三线性插值将这些掩模映射到潜在空间，表示为 。对于从 VAE 压缩获得的补丁标记，我们定义对应于 的扁平视觉标记在哪里。即时…
+    </p>
+    <p>$$ V = V + \tanh(\omega)\,\tilde{V}[:m], $$</p>
+    <p>
+      确保跨框架的同一实例的令牌可以相互关注，同时严格禁止跨不同实例的交互。这种设计通过显式地启用特定于实例的特征在其轨迹上的传播来保持时间一致性。最后，输出...
+    </p>
+    <p>$$ \label{eq: dynamic_mask_loss}
+\mathcal{\tilde{L}}_{\text{mask}} = 
+\begin{cases}
+\mathcal{L}_{\text{mask}}, &amp; \text{if } p &lt; \alpha \\
+\mathcal{L}, &amp; \text{if } p \geq \alpha
+\end{cases} $$</p>
+    <p>
+      逐元素乘法。然而，直接将这种屏蔽损失应用于所有训练样本可能会导致模型对前景物体过度拟合，进而损害背景区域（例如道路和高清地图）的生成质量。为了缓解这个问题，我们采用概率动态模型……
+    </p>
+    <figure><img class='paper-fig' src='../assets/2602_03213v3/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：三个关键模块的消融研究。 
+(a) 删除身份掩码会导致实例类别渲染不正确，例如，交通锥变成蹲伏的行人。 
+(b) 移除轨迹遮罩会导致汽车颜色发生变化。</figcaption></figure>
+    <p>
+      把全文方法串起来看，这篇论文的逻辑基本都遵循同一条主线：先把输入组织成更容易处理的表示，再通过模型结构和损失函数把这个表示推向目标输出，最后用可视化与数值实验共同证明该设计有效。
     </p>
 
     <h2 id='experiment'>实验结论</h2>
     <p>
-      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，优势究竟来自哪个模块。对这篇论文来说，实验设计明显围绕“与现有方法的对比 + 对关键组件的消融”展开。
+      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，这种优势来自哪一个设计决策。
     </p>
-    <p>
-      从实验段落的关键词和结果描述看，论文最想传达的结论包括：
-    </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>By integrating these mechanisms, ConsisDrive achieves state-of-the-art driving video generation quality and demonstrates significant improvements in downstream autonomous driving tasks on the nuScenes dataset.</li><li>and (2) Instance-Masked Loss, which adaptively emphasizes foreground regions with probabilistic instance masking, reducing background noise while maintaining overall scene fidelity.</li><li>IDENTITY-PRESERVING DRIVING WORLD MODELS FOR VIDEO GENERATION BY INSTANCE MASK Zhuoran Yang, Yanyong Zhang ∗ University of Science and Technology of China shanpoyang@mail.ustc.edu.cn, yanyongz@ustc.edu.cn ABSTRACT Autonomous driving relies on robust models tr…</li></ul></div>
-    <figure><img class='paper-fig' src='../assets/2602_03213v3/fig_3.png' alt='Figure 3:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 3：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 3 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2602_03213v3/fig_4.png' alt='Figure 4:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 4：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 4 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2602_03213v3/fig_5.png' alt='Figure 5:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 5：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 5 from the source paper.</figcaption></figure>
+    <p>设置数据集和基线。我们在 nuScenes 数据集上训练和评估我们的模型。为了对我们的方法进行基准测试，我们将其与最先进的驾驶世界模型进行比较，包括 BEVControl 、 DriveDiffusion 、 DriveDreamer2 、 Panacea 和 MagicDrive-V2 。指标。对于真实感评估，我们使用 FID 和 FVD 来衡量视频质量。为了评估属性绑定和实例掩蔽损失监督的有效性，我们测量生成的实例与其条件类别和大小之间的对齐情况，确保语义和几何结构都得到忠实保留。该评估是通过感知任务进行的，因为准确的类别识别和尺寸定位是可靠感知的基本要求。因此，感知性能直接反映了对象类别和空间范围的生成准确性。具体来说，继 Panacea 之后，我们采用基于视频的感知模型 StreamPETR 并报告 nuScenes 检测分数 (NDS) 和平均精度 (mAP) 等指标。其中，mAP直接衡量物体类别检测的准确性，而NDS则将类别检测与定位、定向等方面结合起来，提供感知质量的整体评估。为了进一步评估跨帧的实例特定特征的传播，我们评估了现实世界自动驾驶场景中多目标跟踪（MOT）任务的模型。 MOT 使用 ID 开关 (IDS) 等指标来明确衡量随着时间的推移保持一致的对象身份的能力。我们还采用 StreamPETR 模型作为跟踪器并报告标准 MOT 指标，包括 AMOTA、AMOTP 和 IDS。虽然 Bevfusion 也被用于感知评估，但它基于图像模型，性能比基于视频的 StreamPETR 差，并且缺乏提供对象跟踪指标的能力。出于这些原因，我们选择 StreamPETR 作为我们的评估模型。训练细节我们的方法是基于OpenSora V2.0实现的。所有训练输入均设置为 16x256x448 并在 A100 GPU 上进行。实验结果表明，我们的方法可以稳定生成超过200帧。主要结果定量分析为了验证我们生成的视频的细粒度时间一致性和高保真度，我们将我们的方法与各种最先进的驾驶世界模型进行比较。我们使用 nuScenes 数据集的标签作为条件生成训练和验证数据。视觉真实感和时间保真度。</p>
+    <p>我们生成的视频实现了卓越的时间保真度，将 FVD 降低至 .这种改进源于所提出的实例屏蔽注意力模块，该模块保留跨帧的实例属性，从而增强实例级时间一致性。...</p>
+
     <ul>
-      <li>方法在主任务指标上不是偶然提升，而是与其结构设计和训练目标直接相关；</li>
-      <li>作者通过消融实验说明，若拿掉关键模块，性能与结果质量会明显回落；</li>
-      <li>论文不仅关注数值对比，也关注可视化质量、稳定性或可控性等更接近真实应用的信号。</li>
+      <li>方法在核心指标上的优势与结构设计和训练目标直接相关；</li>
+      <li>消融实验表明，拿掉关键模块后性能与结果质量都有明显回落；</li>
+      <li>论文不仅比较数值，也关注可视化质量、稳定性和泛化能力等更贴近真实使用的信号。</li>
     </ul>
-    <p>
-      因此，实验部分最重要的阅读方式不是死记某一列数字，而是看清：作者究竟想证明哪个机制有效、这个机制的收益是在什么设置下成立、它是否有明显的边界条件。
-    </p>
 
     <h2 id='takeaway'>理解评价</h2>
+    <p>我们提出了一种保留身份的驾驶世界模型，专门用于增强实例级时间一致性。我们的方法引入了两个关键的进步：实例掩码注意力模块，它明确地将模型的注意力引导到每个单独的实例，以及实例掩码损失监督，它使用实例掩码来强调对前景区域的监督。通过整合这些实例感知机制，实现了 SOTA 生成质量并显着改善了下游自动驾驶任务。致谢这项工作得到了教育部基础与交叉学科突破计划（编号：JYB2025XDXM113）和国家自然科学基金（编号：62332016）的支持。</p>
+    <p>道德声明这项工作的重点是自动驾驶研究的视频生成。我们的模型是在公开数据集（例如 nuScenes）上进行训练和评估的，仅用于学术研究。我们强调，生成的数据不应在未经仔细验证的情况下直接部署在现实世界的驾驶系统中，因为安全关键应用程序需要严格的测试。再现性声明我们提供模型架构、训练目标和评估协议的全面详细信息。这项工作中使用的所有数据集都是公开的，并且详细记录了实施细节以确保可重复性。代码和配置文件包含在补充材料中，以方便进一步研究和独立验证。</p>
     <p>
-      从研究定位上看，这篇论文的意义在于它没有把问题局限在某一个局部改动，而是尝试给出一套更完整的求解路径。对读者而言，最值得关注的是它如何重新组合表示、模块和训练目标，以及这些设计是否能迁移到相近任务上。
+      如果把它当成研究参考，建议重点关注三件事：第一，这套方法真正依赖的归纳偏置是什么；第二，实验中真正拉开差距的模块是哪一个；第三，它的局限究竟来自数据、算力还是监督信号本身。
     </p>
     <p>
-      如果把它当成研究参考，我会重点看三件事：
-      第一，这套方法的核心归纳偏置是什么；
-      第二，实验中真正拉开差距的模块是哪一块；
-      第三，它的限制条件是数据、算力、时序长度，还是奖励/监督信号本身。
-    </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>Published as a conference paper at ICLR 2026 CONSISDRIVE:</li><li>IDENTITY-PRESERVING DRIVING WORLD MODELS FOR VIDEO GENERATION BY INSTANCE MASK Zhuoran Yang, Yanyong Zhang ∗ University of Science and Technology of China shanpoyang@mail.ustc.edu.cn, yanyongz@ustc.edu.cn ABSTRACT Autonomous driving relies on robust models tr…</li><li>Although world models provide a cost-effective solution for generating realistic driving data, they often suffer from identity drift, where the same object changes its appearance or category across frames due to the absence of instance-level temporal constrai…</li><li>We introduce ConsisDrive, an identity-preserving driving world model designed to enforce temporal consistency at the instance level.</li></ul></div>
-    <p>
-      进一步延伸阅读时，可以把这篇工作放到更广泛的技术脉络里：它与同类方法相比，到底是在表示层、生成层、优化层还是评估层提出了更强的方案。下面这些自动检索到的相关论文可作为继续追踪的入口：
+      以下相关论文可以作为进一步追踪的入口：
     </p>
     <ul></ul>
 
     <div class='tip'>
       <strong>一句结论：</strong>
-      这篇论文值得读的原因，不只是它给出了一组更好的结果，而是它提供了一条相对完整的问题求解思路：如何把任务定义、方法设计与实验验证真正对齐到同一条研究主线上。
+      这篇论文值得关注的地方在于，它不只给出了更好的实验结果，更提供了一条相对完整的问题求解路径，把任务定义、方法设计与实验验证真正对齐到了同一条研究主线上。
     </div>
   </article>
 </div>
+
   </div>
 </div>
 </body>

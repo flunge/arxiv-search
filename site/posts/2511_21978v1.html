@@ -70,7 +70,7 @@
     blockquote { margin: 16px 0; padding: 8px 16px; border-left: 4px solid #d8e7ff; background: #f8fbff; color: #333; }
     .tip { background: #f7f9fc; border: 1px solid #e8eef6; border-radius: 10px; padding: 12px; }
     .dashboard-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-top:18px; }
-    .dashboard-card { aspect-ratio: 1 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
+    .dashboard-card { aspect-ratio: 1.618 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
     .dashboard-card > * { min-width: 0; }
     .dashboard-card .dashboard-content { display:flex; flex-direction:column; height:100%; min-height:0; }
     .dashboard-card .dashboard-scroll { overflow:auto; min-height:0; }
@@ -130,10 +130,28 @@
     });
   </script>
 
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\(', '\)']],
+        displayMath: [['$$', '$$'], ['\[', '\]']]
+      },
+      svg: { fontCache: 'global' },
+      startup: {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady().then(() => {
+            requestAnimationFrame(applyPageScale);
+          });
+        }
+      }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
+
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
 
@@ -143,103 +161,105 @@
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      这篇论文关注的是“PAT3D 所对应的问题能否在更可控、更稳健或更高质量的条件下被解决”。从摘要与方法描述来看，作者的总体路线是：先搭建一个明确的表示或生成框架，再围绕训练目标、结构设计和实验验证把该问题推进到更可用的工程形态。
+      我们介绍 PAT3D，这是第一个物理增强的文本到 3D 场景生成框架，它将视觉语言模型与基于物理的模拟相结合，以生成物理上合理、可模拟且无交叉的 3D 场景。给定文本提示，PAT3D 生成 3D 对象，推断它们的空间关系，并将它们组织成分层场景树，然后将其转换为模拟的初始条件。可微分刚体模拟器可确保重力下真实的物体交互，推动场景达到静态平衡，而不会相互渗透。为了进一步提高场景质量，我们引入了循环仿真优化程序，保证物理稳定性和不相交，同时提高与输入提示的语义一致性。实验表明，PAT3D 在物理合理性、语义一致性和视觉质量方面远远优于先前的方法。除了高质量生成之外，PAT3D 还独特地为场景编辑…
     </div>
 
     <h2 id='summary'>简单摘要</h2>
-    <p>
-      从论文摘要可以看出，这项工作的落点并不是单纯提升一个局部模块，而是围绕完整任务链路做系统设计。它通常会同时回答三个问题：任务为什么重要、现有方法卡在哪里、作者的新方案如何绕开这些瓶颈。
-      就这篇论文而言，摘要部分强调的核心是：<strong>We introduce PAT3D, the first physics-augmented text-to-3D scene generation framework that integrates vision–language models with physics-based simulation to produce physically pl…</strong>
-    </p>
-    <p>
-      如果把它放进更大的技术背景中理解，可以把这篇论文视作一条“问题定义 → 表示设计 → 训练优化 → 实验验证”的完整研究闭环。也就是说，作者并不是只给出一个孤立模块，而是希望通过一整套方法让系统在真实场景或关键指标上取得更稳定提升。
-    </p>
-    <figure><img class='paper-fig' src='../assets/2511_21978v1/fig_1.png' alt='Figure 1:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 1：该图来自论文原文，用于说明论文中的核心框架、可视化结果或实验现象。原始图注摘要：PAT3D is the first text-to-3D scene generation framework that produces simulation-ready and intersection-free results. The left column shows results from direct depth-based arrangements, which suffer from object interpenetrations (top) and collapse under simulation due to inconsistent layouts (bott…</figcaption></figure><figure><img class='paper-fig' src='../assets/2511_21978v1/fig_2.png' alt='Figure 2:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 2：该图来自论文原文，用于说明论文中的核心框架、可视化结果或实验现象。原始图注摘要：Overview of our text-to-3D scene generation pipeline. (a) Given an input text, a reference image is first generated to capture spatial relations among objects, from which 3D assets are generated using vision foundation models, and a scene tree is extracted using a VLM. (b) Assets are arranged into…</figcaption></figure>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>We introduce PAT3D, the first physics-augmented text-to-3D scene generation framework that integrates vision–language models with physics-based simulation to produce physically plausible, simulation-ready, and intersection-free 3D scenes.</li><li>Beyond high-quality generation, PAT3D uniquely enables simulation-ready 3D scenes for downstream tasks such as scene editing and robotic manipulation.</li></ul></div>
+    <p>我们介绍 PAT3D，这是第一个物理增强的文本到 3D 场景生成框架，它将视觉语言模型与基于物理的模拟相结合，以生成物理上合理、可模拟且无交叉的 3D 场景。给定文本提示，PAT3D 生成 3D 对象，推断它们的空间关系，并将它们组织成分层场景树，然后将其转换为模拟的初始条件。可微分刚体模拟器可确保重力下真实的物体交互，推动场景达到静态平衡，而不会相互渗透。为了进一步提高场景质量，我们引入了循环仿真优化程序，保证物理稳定性和不相交，同时提高与输入提示的语义一致性。</p>
+    <p>实验表明，PAT3D 在物理合理性、语义一致性和视觉质量方面远远优于先前的方法。除了高质量生成之外，PAT3D 还独特地为场景编辑和机器人操作等下游任务提供了模拟就绪的 3D 场景。代码和数据将在接受后发布。</p>
+    <figure><img class='paper-fig' src='../assets/2511_21978v1/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：PAT3D 是第一个文本到 3D 场景生成框架，可生成模拟就绪且无交叉的结果。
+ 左列显示了直接基于深度的排列的结果，这些排列会受到对象相互渗透（顶部）的影响，并且由于布局不一致（底部）而在模拟下崩溃。中间一栏显示 PAT3D 结果，其中物理有效的布局在模拟下保持稳定。这些高质量场景可立即用于下游应用程序，包括场景编辑和机器人操作（右）。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2511_21978v1/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：我们的文本到 3D 场景生成流程的概述。
+ (a) 给定输入文本，首先生成参考图像以捕获对象之间的空间关系，使用视觉基础模型从中生成 3D 资产，并使用 VLM 提取场景树。 (b) 使用来自单目深度估计的 3D 先验（左）将资产排列成初始布局，然后使用场景树进行细化以生成用于模拟的无交叉配置（右）。 (c) 正向模拟可确保物理合理性，但可能会扭曲语义（左）。我们通过循环仿真优化来解决这个问题，加强语义一致性和物理有效性（右）。</figcaption></figure>
+    <blockquote>
+      简而言之，这篇论文关注的核心是：我们介绍 PAT3D，这是第一个物理增强的文本到 3D 场景生成框架，它将视觉语言模型与基于物理的模拟相结合，以生成物理上合理、可模拟且无交叉的 3D 场景。给定文本提示，PAT3D 生成 3D 对象，推断它们的空间关系，并将它们组织成分层场景树，然后将其转换为模拟的初始条件。可微分刚体模拟器可确…
+    </blockquote>
+    <p>从自然语言生成逼真且可编辑的 3D 场景的能力在虚拟现实、机器人、数字孪生和内容创建等各个领域具有广泛的应用。扩散和自回归生成模型的最新进展极大地拓展了文本到 3D 场景生成的界限，使得合成高质量的对象几何形状和引人注目的视觉内容成为可能。然而，尽管取得了这些进步，现有的方法仍难以确保生成的场景表现出物理合理性——这是需要交互、模拟或构建现实世界对应的下游应用程序的关键要求。特别是，当前的 3D 场景生成管道通常将布局合成视为纯粹的几何问题，完全忽略物理推理或使用简单的启发式方法来防止不利的物理交互，例如对象相交。</p>
+    <p>由于缺乏物理的明确约束，这会导致常见问题，例如浮动、堆叠不稳定和不正确的支撑关系，最终限制了场景的真实感和可用性。早期的努力已经结合了物理约束来增强单对象稳定性，或者使用视频扩散先验来实现合理的动力学，但这些方法都没有解决稳定且语义连贯的多对象场景所需的复杂空间依赖性和接触交互。一个有前途的方向是将基于物理的模拟集成到场景生成过程中以增强物理真实感。然而，这种方法带来了一些挑战。首先，对象必须表示为单独分段的 3D 网格，以便能够模拟重力和接触力下的相互作用。</p>
+    <p>将模拟应用于由单个连接网格表示的场景是无效的，因为它无法捕获对象之间的交互。其次，基于物理的模拟需要一个适定的初始配置，通常没有交叉点，以避免数值不稳定和不切实际的行为。然而，识别这种无交集的起始状态并非易事。最后，即使模拟场景在物理上是合理的，由于有效静态平衡的多重性，它也可能偏离输入文本中描述的预期语义。为了应对这些挑战，我们提出了 PAT3D，这是一种物理增强的文本到 3D 场景生成框架，它将可微分刚体接触模拟集成到生成管道中。</p>
+    <p>给定文本提示，我们首先合成参考图像以...</p>
 
     <h2 id='innovation'>核心创新</h2>
     <p>
-      对照引言与方法部分，这篇论文的创新点主要体现在“如何重新组织问题求解链路”上。相比简单替换一个 backbone 或增加一个 loss，作者更像是在重新定义系统的关键接口与约束方式。
+      综合引言与方法部分，这篇论文的核心创新可以概括为以下几方面：
     </p>
-    <h3>1）从任务设定上重新界定问题边界</h3>
+    <h3>1）问题定义与研究动机</h3>
     <p>
-      论文强调的问题并不只是已有方案做得不够好，而是很多现有方法在目标可控性、泛化范围、效率约束或结构一致性上存在天然短板。因此作者先重述了任务定义，再围绕新的目标函数和场景假设去设计整体方案。
+      从自然语言生成逼真且可编辑的 3D 场景的能力在虚拟现实、机器人、数字孪生和内容创建等各个领域具有广泛的应用。扩散和自回归生成模型的最新进展极大地拓展了文本到 3D 场景生成的界限，使得合成高质量的对象几何形状和引人注目的视觉内容成为可能。然而，尽管取得了这些进步，现有的方法仍难以确保生成的场景表现出物理合理性——这是需要交互、模拟或构建现实世界对应的下游应用程序的关键要求。特别是，当前的 3D 场景生成管道通常将布局合成视为纯粹的几何问题，完全忽略物理推理或使用简单的启发式方法来防止不利的物理交互，例如对象相交。由于缺乏物理的明确约束，这会导致常见问题，例如浮动、堆叠不稳定和不正确的支撑关系，最终限制了场景的真实感和可用性。早期的努力已经结合了物理约束来增强单对象稳定性，或者使用视频扩散先验来实现合理的动力学，但这些方法都没有解决稳定且语义连贯的多对象场景所需的复杂空间依赖性和接触交互。一个有前途的方向是将基于物理的模拟集成到场景生成过程中以增强物理真实感。然而，这种方法带来了一些挑战。首先，对象必须表示为单独分段的 3D 网格，以便能够模拟重力和接触力下的相互作用。将模拟应用于由…
     </p>
-    <h3>2）用统一框架串起表示、推理和优化</h3>
+    <h3>2）方法框架与核心模块</h3>
     <p>
-      从原文描述看，这篇论文并不是把多个模块松散拼接，而是在一个统一框架里安排表示形式、关键模块和训练信号，使它们彼此服务。这类设计往往决定了方法能否真正具备工程可落地性。
+      我们的框架包括三个阶段：3D 对象和空间关系提取（sec:data_preparation），其中 3D 资产是从文本生成的，其空间关系被组织成场景树；布局初始化（sec:intersec_free_initial_layout），首先使用从参考图像获得的单目深度先验来排列生成的资产，并使用场景树将它们细化为无交集配置；布局优化（sec:layout_opt），其中应用循环仿真优化程序来确保物理合理性并提高 3D 场景的语义一致性。 3D 对象和空间关系提取由于使用文本到 3D 模型和 LLM 直接生成 3D 对象和布局通常无法捕获复杂的空间关系，因此我们采用文本到图像模型来生成参考图像，以指导对象生成和场景树构建。参见图：管道(a)。 3D 对象生成 为了为文本提示指定的场景生成单独的对象，使用参考图像查询 VLM 以获得对象类标签，并相应地使用 Grounded-SAM 对图像进行分割。基于分割的对象区域，我们进一步提示 VLM 生成包含对象语义、材质、颜色和方向的详细文本描述。这些描述被输入到文本到 3D 管道中，以合成语义一致且视觉逼真的高质量、有纹理的 3D 资源。空间关系…
     </p>
-    <h3>3）把实验目标直接对齐到实际痛点</h3>
+    <h3>3）实验设计与工程价值</h3>
     <p>
-      论文中的实验不仅比较常规 benchmark，也会额外关注更贴近实际系统需求的指标，例如稳定性、控制性、质量上界、对长尾场景的适应能力等。换句话说，它不是只追求单一数值，而是试图证明整套系统在真实使用方式下也成立。
+      比较基线 我们将我们的方法与三个基线进行比较：GraphDreamer、MIDI 和 Blender-MCP。 GraphDreamer 和 Blender-MCP 都采用文本提示作为输入，而 MIDI 使用参考图像作为输入。为了确保公平比较，我们向 MIDI 提供我们的场景参考图像作为其输入。数据集 由于一般场景生成没有标准基准，因此我们构建了自己的测试数据集，其中包含 18 个文本提示。其中，3个提示取自MIDI，2个提示取自GraphDreamer。此外，我们使用法学硕士生成 13 个跨越不同场景的新文本提示。这些提示描述了对象之间的物理交互，包括一堆书和一篮子水果。我们的方法生成的其他 3D 结果，与基线进行比较，以及相应的文本提示和参考图像，可以在可视化网站（https://3dsim-baseline-visualization.netlify.app/）上找到。除了这些比较…
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>First, objects must be represented as individually segmented 3D meshes to enable simulation of interactions under gravity and contact forces.</li><li>Second, physics-based simul framework that integrates vision–language models with physics-based simulation to produce physically plausible, simulation-ready, and intersection-free 3D scenes.</li></ul></div>
 
     <h2 id='technical'>技术细节</h2>
     <p>
-      方法部分是理解论文价值的关键。结合原文可以看到，作者通常会先定义输入输出，再介绍中间表示、主干模块、损失函数或奖励机制，最后说明训练与推理时各模块如何协同。
-      对这篇论文而言，方法线索主要集中在以下几个方面：
+      下面按照论文的方法章节结构展开，重点说明模型的关键模块、公式设计和训练策略。
     </p>
-    <h3>3.1 方法主线与模块组织</h3>
+    <p>我们的框架包括三个阶段：3D 对象和空间关系提取（sec:data_preparation），其中 3D 资产是从文本生成的，其空间关系被组织成场景树；布局初始化（sec:intersec_free_initial_layout），首先使用从参考图像获得的单目深度先验来排列生成的资产，并使用场景树将它们细化为无交集配置；布局优化（sec:layout_opt），其中应用循环仿真优化程序来确保物理合理性并提高 3D 场景的语义一致性。 3D 对象和空间关系提取由于使用文本到 3D 模型和 LLM 直接生成 3D 对象和布局通常无法捕获复杂的空间关系，因此我们采用文本到图像模型来生成参考图像，以指导对象生成和场景树构建。参见图：管道(a)。 3D 对象生成 为了为文本提示指定的场景生成单独的对象，使用参考图像查询 VLM 以获得对象类标签，并相应地使用 Grounded-SAM 对图像进行分割。基于分割的对象区域，我们进一步提示 VLM 生成包含对象语义、材质、颜色和方向的详细文本描述。这些描述被输入到文本到 3D 管道中，以合成语义一致且视觉逼真的高质量、有纹理的 3D 资源。空间关系提取然后我们从参考图像中提取场景中对象之间的相对空间关系并分析它们的物理依赖性。此信息为无交集布局初始化 (sec:intersec_free_initial_layout) 和后续优化 (sec:layout_opt) 提供基本指导。具体来说，对于参考图像中具有相似水平位置和相邻垂直位置的每对分割对象，我们提示 VLM 推断它们沿重力轴的依赖性，识别诸如打开、包含和支撑等关系。然后，所得的成对关系被组织成一个分层场景树，该树对物体如何在重力作用下相互支撑进行编码。从地面作为根节点开始，我们遍历场景并迭代地将对象添加为树中的节点。对于与现有节点有直接物理依赖性的每个未访问对象，我们将其作为该节点的子节点插入。这个递归过程一直持续到所有对象都被包含在内。</p>
+    <p>算法 中提供了其他详细信息，图：pipeline(a) 中显示了一个示例。布局初始化为了获得无交叉且语义一致的初始布局以用于后续的循环仿真优化，我们首先计算平移和缩放变换以构建与参考图像一致的初步布局，然后使用提取的场景树对其进行细化以确保没有对象交叉和更强的物理约束。参见图：管道(b)。初步布局我们将 sec:3d_ Generation 中生成的对象排列到布局中的简单方法......</p>
+    <p>$$ \min_{q_0} L(q_{n+1}(q_0)) 
+ \quad \text{s.t.} \quad f(q_{n+1}) = 0,
+ \label{eq:loss} $$</p>
     <p>
-      根据方法章节可知，作者首先构建了一个核心表示或中间条件，再通过若干模块把它逐步转换为最终输出。这种结构的优势在于：每个模块都承担明确职责，既便于解释，也更便于在实验中做模块级消融。
-      原文中与主线最相关的描述包括：
+      由于复杂的对象间交互，仅进行模拟可能会导致场景偏离其预期语义。为了解决这个问题，我们引入了循环仿真优化来提高模拟场景中的语义一致性。参见图：管道(c)。具体来说，我们改进了无交集初始化……
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>Recent advances in diffusion and autoregressive generative models have significantly pushed the boundaries of text-to-3D scene generation, making it possible to synthesize high-quality object geometry and compelling visual content Lin et al.</li></ul></div>
-    <h3>3.2 训练目标、损失与公式信号</h3>
+    <p>$$ l_i = d(\mathbf{p}^i_{\min}, \text{BBox}_t)^2 +
+ d(\mathbf{p}^i_{\max}, \text{BBox}_t)^2,
+ \label{eq:local_loss} $$</p>
     <p>
-      论文里的公式通常承担两类角色：一种是定义模型的预测关系与变量约束，另一种是定义优化时真正驱动模型更新的目标函数。阅读这类论文时，关键不是死记公式外形，而是理解每个公式分别在“表达结构”还是“约束行为”上发挥作用。
+      英石。 f(q_n+1) = 0，方程，其中测量语义不一致并表示所有对象上的净力。对于每个具有容器 的对象，我们将其在水平面上的投影边界框定义为 。局部损失惩罚 from 的角点的偏差：其中 if ，否则，是欧几里德距离 fr…
     </p>
-    <div class='card'><strong>公式说明：</strong><p>当前 PDF 文本中的公式抽取有限，但方法部分已结合原文段落补充核心训练目标、模块关系与评价指标。</p></div>
+    <p>$$ L(q_{n+1}(q_0)) = \sum_{i=1}^{N} l_i,
+ \label{eq:total_loss} $$</p>
     <p>
-      从这些公式与周边段落可以推断，作者想要的不只是局部误差最小化，而是通过更精细的目标设计，让模型在结构一致性、生成质量、时序稳定性或可控性等方面同时受约束。这也是很多新方法能真正优于 baseline 的原因。
+      局部损失惩罚 from 的角点的偏差：其中 if ，否则，是 到框边界的欧几里得距离。总损失定义为场景中物体的总数。相对于 的直接梯度不能通过微分静态平衡约束来获得……
     </p>
-    <h3>3.3 把全文方法串起来理解</h3>
+    <figure><img class='paper-fig' src='../assets/2511_21978v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：与基线方法的比较。场景是根据我们的文本提示生成的。 OOM 表示内存不足。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2511_21978v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：场景编辑。我们演示了添加和删除操作后的平衡状态：（a）初始场景，（b）删除底部的一本书，（c）删除笔架，（d）在顶部添加一本书。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2511_21978v1/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：不带场景树和带场景树的布局初始化。从深度预测获得的布局（a）没有基于场景树的调整，（b）有基于场景树的调整。
+ （文本提示：``...整齐地堆放三本书...&#x27;&#x27;。请参阅supp:text_prompt 了解完整的提示。）</figcaption></figure>
     <p>
-      如果把这篇论文的方法看成一条流水线，那么它的逻辑通常是：先把输入变成一个更适合推理的中间表示，再围绕该表示施加关键模块与训练目标，最后把输出落到可评估、可可视化的结果上。
-      这种“表示—模块—目标—结果”的闭环设计，是本页所锁定模板最想强调的部分，因为它比零散摘录更能帮助后续复现与横向比较。
+      把全文方法串起来看，这篇论文的逻辑基本都遵循同一条主线：先把输入组织成更容易处理的表示，再通过模型结构和损失函数把这个表示推向目标输出，最后用可视化与数值实验共同证明该设计有效。
     </p>
 
     <h2 id='experiment'>实验结论</h2>
     <p>
-      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，优势究竟来自哪个模块。对这篇论文来说，实验设计明显围绕“与现有方法的对比 + 对关键组件的消融”展开。
+      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，这种优势来自哪一个设计决策。
     </p>
-    <p>
-      从实验段落的关键词和结果描述看，论文最想传达的结论包括：
-    </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>These high-quality scenes are immediately usable for downstream applications, including scene editing and robotic manipulation (right).</li></ul></div>
-    <figure><img class='paper-fig' src='../assets/2511_21978v1/fig_3.png' alt='Figure 3:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 3：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 3 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2511_21978v1/fig_4.png' alt='Figure 4:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 4：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 4 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2511_21978v1/fig_5.png' alt='Figure 5:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 5：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 5 from the source paper.</figcaption></figure>
+    <p>比较基线 我们将我们的方法与三个基线进行比较：GraphDreamer、MIDI 和 Blender-MCP。 GraphDreamer 和 Blender-MCP 都采用文本提示作为输入，而 MIDI 使用参考图像作为输入。为了确保公平比较，我们向 MIDI 提供我们的场景参考图像作为其输入。数据集 由于一般场景生成没有标准基准，因此我们构建了自己的测试数据集，其中包含 18 个文本提示。其中，3个提示取自MIDI，2个提示取自GraphDreamer。此外，我们使用法学硕士生成 13 个跨越不同场景的新文本提示。这些提示描述了对象之间的物理交互，包括一堆书和一篮子水果。我们的方法生成的其他 3D 结果，与基线进行比较，以及相应的文本提示和参考图像，可以在可视化网站（https://3dsim-baseline-visualization.netlify.app/）上找到。除了这些比较之外，我们还在supp:more_examples中展示了我们的方法生成的另外12个示例。评估指标我们使用五个指标评估生成的场景：CLIP 分数、VQA 分数、模拟场景位移 (D)、穿透三角形对的比率 (R) 和物理合理性分数。这些指标共同衡量语义一致性、物理稳定性、相互渗透性和整体物理合理性。 support:metrics 中提供了所有指标的详细信息。性能和讨论在Fig:comparison_general中，我们在涉及复杂对象交互的五个一般场景上将PAT3D与基线方法进行比较。 support:more_examples 中提供了与 MIDI 和 GraphDreamer 中突出显示的四个场景的其他比较。重要的是，在PAT3D中，参考图像仅用于提取文本提示中隐含的复杂空间关系；最终场景不需要与参考图像保持视觉一致。 GraphDreamer 很难扩展到更大的场景，因为它通过分数蒸馏采样 (SDS) 联合优化对象几何形状和场景布局，这是高度资源密集型的。此外，GraphDreamer 对文本提示中的空间关系的理解很弱。如图fig:comparison_general的第二个、第四个和第五个场景所示，它经常忽略空间约束，导致对象排列混乱。 Blender-MCP 生成的布局几乎没有物理真实感。在Fig:comparison_general的第一和第二个场景中，剃须刀和牙刷漂浮在杯子上方，盘子悬浮在半空中。</p>
+    <p>它还会产生比例不切实际的物体：在第四个场景中，蛋糕和花瓶与桌子相比显得小得不成比例。 MIDI 在处理具有复杂对象接触的场景时遇到困难，如下所示......</p>
+
     <ul>
-      <li>方法在主任务指标上不是偶然提升，而是与其结构设计和训练目标直接相关；</li>
-      <li>作者通过消融实验说明，若拿掉关键模块，性能与结果质量会明显回落；</li>
-      <li>论文不仅关注数值对比，也关注可视化质量、稳定性或可控性等更接近真实应用的信号。</li>
+      <li>方法在核心指标上的优势与结构设计和训练目标直接相关；</li>
+      <li>消融实验表明，拿掉关键模块后性能与结果质量都有明显回落；</li>
+      <li>论文不仅比较数值，也关注可视化质量、稳定性和泛化能力等更贴近真实使用的信号。</li>
     </ul>
-    <p>
-      因此，实验部分最重要的阅读方式不是死记某一列数字，而是看清：作者究竟想证明哪个机制有效、这个机制的收益是在什么设置下成立、它是否有明显的边界条件。
-    </p>
 
     <h2 id='takeaway'>理解评价</h2>
+    <p>wrappfigurer0.53 -0.5cm minipage[t]0.48 overpic[width=]figures/limitation.pdf overpic 失败案例 1. 文字提示：``挂在树上的秋千&#x27;&#x27;。 minipage minipage[t]0.48 overpic[width=]figures/fail2.png overpic 失败案例2、文字提示：“一个棕色的真皮沙发，装饰着毛绒玩具，……”。</p>
+    <p>请参阅supp:text_prompt 以获取完整的提示。 minipage -0.4cm wrapfigure 我们提出了 PAT3D，这是一种用于文本到 3D 场景生成的物理增强框架，它将视觉语言推理与可微刚体模拟集成在一起。通过将生成过程分解为可解释的阶段（对象和关系提取、布局初始化和物理引导的布局优化），我们的方法生成的 3D 场景不仅在语义上有意义，而且在物理上合理且可用于模拟。通过对多样化、接触丰富的场景进行大量实验，我们证明了 PAT3D 与现有方法相比能够实现卓越的物理真实感。</p>
+    <p>我们相信 PAT3D 代表着在连接高级场景理解与低级物理推理方面向前迈出了一步。我们希望这项工作能够激发对物理基础、可控和可编辑 3D 场景生成的进一步研究。局限性和未来的工作我们在Fig:failure_case1和Fig:failure_case2中展示了两个代表性的失败案例。虽然 PAT3D 可以处理最常见的物理依赖性，但某些微妙的关系仍然具有挑战性。在图：failure_case1 中，提示“悬挂在树上的秋千”中的“悬挂”概念被误解，而物理上正确的配置需要将秋千悬挂在两个特定的附着点上。</p>
+    <p>将我们的系统扩展到更广泛的空间关系和更大范围的场景都是未来工作的有希望的方向。哦…</p>
     <p>
-      从研究定位上看，这篇论文的意义在于它没有把问题局限在某一个局部改动，而是尝试给出一套更完整的求解路径。对读者而言，最值得关注的是它如何重新组合表示、模块和训练目标，以及这些设计是否能迁移到相近任务上。
+      如果把它当成研究参考，建议重点关注三件事：第一，这套方法真正依赖的归纳偏置是什么；第二，实验中真正拉开差距的模块是哪一个；第三，它的局限究竟来自数据、算力还是监督信号本身。
     </p>
     <p>
-      如果把它当成研究参考，我会重点看三件事：
-      第一，这套方法的核心归纳偏置是什么；
-      第二，实验中真正拉开差距的模块是哪一块；
-      第三，它的限制条件是数据、算力、时序长度，还是奖励/监督信号本身。
-    </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>PHYSICS-AUGMENTED TEXT-TO-3D SCENE GENERATION Guying Lin1 Kemeng Huang2,1 Michael Liu1 Ruihan Gao1 Hanke Chen1 Lyuhao Chen1 Beijia Lu1 Taku Komura2 Yuan Liu3 Jun-Yan Zhu1 Minchen Li1,4 1Carnegie Mellon University 2The University of Hong Kong 3The Hong Kong Un…</li><li>pears, bananas, oranges, and apples, alongside two stacks of jam jars.” Supported Applications Physically Implausible Scenes Figure 1:</li><li>PAT3D is the first text-to-3D scene generation framework that produces simulation-ready and intersection-free results.</li><li>The left column shows results from direct depth-based arrangements, which suffer from object interpenetrations (top) and collapse under simulation due to inconsistent layouts (bottom).</li></ul></div>
-    <p>
-      进一步延伸阅读时，可以把这篇工作放到更广泛的技术脉络里：它与同类方法相比，到底是在表示层、生成层、优化层还是评估层提出了更强的方案。下面这些自动检索到的相关论文可作为继续追踪的入口：
+      以下相关论文可以作为进一步追踪的入口：
     </p>
     <ul></ul>
 
     <div class='tip'>
       <strong>一句结论：</strong>
-      这篇论文值得读的原因，不只是它给出了一组更好的结果，而是它提供了一条相对完整的问题求解思路：如何把任务定义、方法设计与实验验证真正对齐到同一条研究主线上。
+      这篇论文值得关注的地方在于，它不只给出了更好的实验结果，更提供了一条相对完整的问题求解路径，把任务定义、方法设计与实验验证真正对齐到了同一条研究主线上。
     </div>
   </article>
 </div>
+
   </div>
 </div>
 </body>

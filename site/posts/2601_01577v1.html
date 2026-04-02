@@ -70,7 +70,7 @@
     blockquote { margin: 16px 0; padding: 8px 16px; border-left: 4px solid #d8e7ff; background: #f8fbff; color: #333; }
     .tip { background: #f7f9fc; border: 1px solid #e8eef6; border-radius: 10px; padding: 12px; }
     .dashboard-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-top:18px; }
-    .dashboard-card { aspect-ratio: 1 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
+    .dashboard-card { aspect-ratio: 1.618 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
     .dashboard-card > * { min-width: 0; }
     .dashboard-card .dashboard-content { display:flex; flex-direction:column; height:100%; min-height:0; }
     .dashboard-card .dashboard-scroll { overflow:auto; min-height:0; }
@@ -130,10 +130,28 @@
     });
   </script>
 
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\(', '\)']],
+        displayMath: [['$$', '$$'], ['\[', '\]']]
+      },
+      svg: { fontCache: 'global' },
+      startup: {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady().then(() => {
+            requestAnimationFrame(applyPageScale);
+          });
+        }
+      }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
+
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
 
@@ -143,103 +161,157 @@
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      这篇论文关注的是“HanoiWorld 所对应的问题能否在更可控、更稳健或更高质量的条件下被解决”。从摘要与方法描述来看，作者的总体路线是：先搭建一个明确的表示或生成框架，再围绕训练目标、结构设计和实验验证把该问题推进到更可用的工程形态。
+      当前自主控制器强化学习的尝试对数据要求较高，但结果表现不佳、不稳定，无法抓住和锚定安全概念，并且由于像素重建的性质而过度关注噪声特征。虽然当前的自监督学习方法通​​过利用联合嵌入预测架构（JEPA）来学习高维表示是有趣且有效的替代方案，因为该想法是模仿人类大脑的自然状态，利用想象力和最小的观察样本来获取新技能。本研究介绍了 HanoiWorld，这是一种基于 JEPA 的世界模型，使用循环神经网络 (RNN) 进行具有有效推理时间的长期水平规划。在不同环境下的 Highway-Env 包上进行的实验展示了制定驾驶计划的有效能力，同时具有与 SOTA 基线相比相当大的碰撞率的安全意识。
     </div>
 
     <h2 id='summary'>简单摘要</h2>
-    <p>
-      从论文摘要可以看出，这项工作的落点并不是单纯提升一个局部模块，而是围绕完整任务链路做系统设计。它通常会同时回答三个问题：任务为什么重要、现有方法卡在哪里、作者的新方案如何绕开这些瓶颈。
-      就这篇论文而言，摘要部分强调的核心是：<strong>Current attempts of Reinforcement Learning for Autonomous Controller are data-demanding while the result are under-performed, unstable and unable to grapple and anchoring on the c…</strong>
-    </p>
-    <p>
-      如果把它放进更大的技术背景中理解，可以把这篇论文视作一条“问题定义 → 表示设计 → 训练优化 → 实验验证”的完整研究闭环。也就是说，作者并不是只给出一个孤立模块，而是希望通过一整套方法让系统在真实场景或关键指标上取得更稳定提升。
-    </p>
-    <figure><img class='paper-fig' src='../assets/2601_01577v1/fig_1.png' alt='Figure 1:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 1：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 1 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2601_01577v1/fig_2.png' alt='Figure 2:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 2：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 2 from the source paper.</figcaption></figure>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>While current Self-Supervised Learning approachs that learning on high-dimensional representation by leveraging the Joint Embedding Predictive Architecture (JEPA) is interesting and effective alternative, as the idea is mimicking the natural of human’s brain…</li></ul></div>
+    <p>当前自主控制器强化学习的尝试对数据要求较高，但结果表现不佳、不稳定，无法抓住和锚定安全概念，并且由于像素重建的性质而过度关注噪声特征。虽然当前的自监督学习方法通​​过利用联合嵌入预测架构（JEPA）来学习高维表示是有趣且有效的替代方案，因为该想法是模仿人类大脑的自然状态，利用想象力和最小的观察样本来获取新技能。本研究介绍了 HanoiWorld，这是一种基于 JEPA 的世界模型，使用循环神经网络 (RNN) 进行具有有效推理时间的长期水平规划。在不同环境下的 Highway-Env 包上进行的实验展示了制定驾驶计划的有效能力，同时具有与 SOTA 基线相比相当大的碰撞率的安全意识。</p>
+    <figure><img class='paper-fig' src='../assets/2601_01577v1/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：拟议的 HanoiWorld 世界模型（左）包括基于 V-JEPA-2 检查点的视觉编码器和 RSSM 主干，用于对下一个可能的环境转变（绿色块）进行长期规划。 （右）环境的总体系统架构旨在通过在代理与数据稀缺的交互上创建这样的反馈循环来有效地推出和从环境中进行模型训练</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2601_01577v1/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：所提议的 HanoiWorld 编码器架构概述。
+ 预训练和冻结的 V-JEPA 2 编码器用作高质量表示骨干，以提高有限数据设置下的训练效率和嵌入鲁棒性。
+ 下游瓶颈多层感知器 (MLP) 经过训练，将高维表示投影到大小为 1024 128 的紧凑且与任务兼容的潜在空间中。
+ 与此同时，学生编码器分支还包含一个额外的 2D 卷积神经网络 (CNN) 模块来预测空间表示。
+ 两个分支均使用 _1 对齐损失进行联合优化，如下式所示： eq:jepa_loss 和 VICReg 正则化目标 。</figcaption></figure>
+    <blockquote>
+      简而言之，这篇论文关注的核心是：当前自主控制器强化学习的尝试对数据要求较高，但结果表现不佳、不稳定，无法抓住和锚定安全概念，并且由于像素重建的性质而过度关注噪声特征。虽然当前的自监督学习方法通​​过利用联合嵌入预测架构（JEPA）来学习高维表示是有趣且有效的替代方案，因为该想法是模仿人类大脑的自然状态，利用想象力和最小的观察样本…
+    </blockquote>
+    <p>自 1986 年卡内基梅隆大学首次进行自动驾驶汽车 (AV) 实验以来，自动驾驶汽车的开发研究领域在技术和现实世界的实际应用方面都取得了重大进展。车辆预计能够安全运行，同时应对不确定性、部分可观测性和多智能体环境的挑战（自我车辆与周围车辆之间的交互，以及行人障碍物等）。然而，正如所建议的，这些挑战确实限制了在这种基于强化学习的控制器上部署和实验的可行性，并且先前的工作仅基于物理环境中的朴素转移范式，这导致由于噪声和数据碎片而导致训练不稳定。</p>
+    <p>从技术角度来看，自动驾驶的决策传统上依赖于模拟器进行经验推出，而基于数据丰富性假设的强化学习规划算法，而经典的尝试 - 例如蒙特卡罗树搜索（MCTS）或部分可观察马尔可夫决策过程（POMDP）下的置信空间规划（POMDP）需要模拟器内的大量计算开销，以便在不进行策略训练的情况下进行实验推出，虽然这些方法确实解决了不确定性，但可扩展性较差是有限的。此外，这种推出策略往往会在长期范围内放大误差，并导致模型不准确度的提高。</p>
+    <p>此外，观察级预测倾向于优先考虑视觉和运动保真度作为重建挑战，这可能无法真正封装与决策相关的流形，并导致对象控制效率低下。灵感来自于人类获得新技能的能力，即通过利用基于当前与环境的相互作用对可能的未来场景进行想象的能力——基于可供性的理论和人类记忆，可以将其形式化为模型设计实现，即使用自我监督学习范式的表示来学习环境动态。联合嵌入预测架构（JEPA）提出通过直接预测未来表示来学习潜在空间，无需重建原始观察结果，而仅在编码器之间进行结构对齐并强制执行信息可变性，而不是通过噪声的随机性来防止嵌入崩溃。</p>
+    <p>V-JEPA-2 是最先进的模型，扩展了这一理念……</p>
 
     <h2 id='innovation'>核心创新</h2>
     <p>
-      对照引言与方法部分，这篇论文的创新点主要体现在“如何重新组织问题求解链路”上。相比简单替换一个 backbone 或增加一个 loss，作者更像是在重新定义系统的关键接口与约束方式。
+      综合引言与方法部分，这篇论文的核心创新可以概括为以下几方面：
     </p>
-    <h3>1）从任务设定上重新界定问题边界</h3>
+    <h3>1）问题定义与研究动机</h3>
     <p>
-      论文强调的问题并不只是已有方案做得不够好，而是很多现有方法在目标可控性、泛化范围、效率约束或结构一致性上存在天然短板。因此作者先重述了任务定义，再围绕新的目标函数和场景假设去设计整体方案。
+      自 1986 年卡内基梅隆大学首次进行自动驾驶汽车 (AV) 实验以来，自动驾驶汽车的开发研究领域在技术和现实世界的实际应用方面都取得了重大进展。车辆预计能够安全运行，同时应对不确定性、部分可观测性和多智能体环境的挑战（自我车辆与周围车辆之间的交互，以及行人障碍物等）。然而，正如所建议的，这些挑战确实限制了在这种基于强化学习的控制器上部署和实验的可行性，并且先前的工作仅基于物理环境中的朴素转移范式，这导致由于噪声和数据碎片而导致训练不稳定。从技术角度来看，自动驾驶的决策传统上依赖于模拟器进行经验推出，而基于数据丰富性假设的强化学习规划算法，而经典的尝试 - 例如蒙特卡罗树搜索（MCTS）或部分可观察马尔可夫决策过程（POMDP）下的置信空间规划（POMDP）需要模拟器内的大量计算开销，以便在不进行策略训练的情况下进行实验推出，虽然这些方法确实解决了不确定性，但可扩展性较差是有限的。此外，这种推出策略往往会在长期范围内放大误差，并导致模型不准确度的提高。此外，观察级预测倾向于优先考虑视觉和运动保真度作为重建挑战，这可能无法真正封装与决策相关的流形，并导致对象控制效率低下。灵感来自于人类…
     </p>
-    <h3>2）用统一框架串起表示、推理和优化</h3>
+    <h3>2）方法框架与核心模块</h3>
     <p>
-      从原文描述看，这篇论文并不是把多个模块松散拼接，而是在一个统一框架里安排表示形式、关键模块和训练信号，使它们彼此服务。这类设计往往决定了方法能否真正具备工程可落地性。
+      HanoiWorld：基于联合嵌入预测架构的自动车辆控制器世界模型 Tran Tien Dat1,2、Nguyen Hai An1,2、Nguyen Khanh Viet Dung1,2、Nguyen Duy Duc1,2 1越南河内科技大学数学与信息学学院 2美国特洛伊大学 {Dat.TT228006， An.NH227993}@sis.hust.edu.vn {Dung.NKV207947, Duc.ND218129}@sis.hust.edu.vn dtran220296@troy.edu 摘要 目前自主控制器强化学习的尝试对数据要求很高，但结果表现不佳、不稳定，无法抓住和锚定安全概念，并且过度集中由于像素重建的性质，噪声特征受到影响。虽然当前的自监督学习方法通​​过利用联合嵌入预测架构（JEPA）来学习高维表示是有趣且有效的替代方案，因为该想法是模仿人类大脑的自然状态，利用想象力和最小的观察样本来获取新技能。本研究介绍了 HanoiWorld，这是一种基于 JEPA 的世界模型，使用循环神经网络 (RNN) 进行具有有效推理时间的长期水平规划。在不同环境下的 Highway-…
     </p>
-    <h3>3）把实验目标直接对齐到实际痛点</h3>
+    <h3>3）实验设计与工程价值</h3>
     <p>
-      论文中的实验不仅比较常规 benchmark，也会额外关注更贴近实际系统需求的指标，例如稳定性、控制性、质量上界、对长尾场景的适应能力等。换句话说，它不是只追求单一数值，而是试图证明整套系统在真实使用方式下也成立。
+      本文的这一部分将重点介绍用于评估 HanoiWorld 与不同基线方法相比的性能的实验。 实验描述 为了评估 HanoiWorld 与不同替代方案的比较性能，实验应在由 提供的 HighwayEnv 包的环境中进行，其中包括 Highway、Roundabout、Merge，这将在小节中详细讨论，我们在设计时选择的比较世界模型设计包括由 提出的 DreamerV3、VQ-VAE + ConvLSTM 基于 和 HanoiWorld 提出的代理建议。基线模型描述如下： itemize 提出的基于 ConvLSTM planner 的 VQ-VAE 编码器是一个小型且离散的潜在世界模型，旨在对潜在空间进行有效的推理和规划，作为 的思想的继承。基于 VQ-VAE 的解决方案是在 Atari 游戏的 10 万个情节上使用近端策略优化 (PPO) 算法设计的，该算法提出用于离散想象的推出的潜在空间…
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>While current Self-Supervised Learning approachs that learning on high-dimensional representation by leveraging the Joint Embedding Predictive Architecture (JEPA) is interesting and effective alternative, as the idea is mimicking the natural of human’s brain…</li></ul></div>
 
     <h2 id='technical'>技术细节</h2>
     <p>
-      方法部分是理解论文价值的关键。结合原文可以看到，作者通常会先定义输入输出，再介绍中间表示、主干模块、损失函数或奖励机制，最后说明训练与推理时各模块如何协同。
-      对这篇论文而言，方法线索主要集中在以下几个方面：
+      下面按照论文的方法章节结构展开，重点说明模型的关键模块、公式设计和训练策略。
     </p>
-    <h3>3.1 方法主线与模块组织</h3>
+    <p>HanoiWorld：基于联合嵌入预测架构的自动车辆控制器世界模型 Tran Tien Dat1,2、Nguyen Hai An1,2、Nguyen Khanh Viet Dung1,2、Nguyen Duy Duc1,2 1越南河内科技大学数学与信息学学院 2美国特洛伊大学 {Dat.TT228006， An.NH227993}@sis.hust.edu.vn {Dung.NKV207947, Duc.ND218129}@sis.hust.edu.vn dtran220296@troy.edu 摘要 目前自主控制器强化学习的尝试对数据要求很高，但结果表现不佳、不稳定，无法抓住和锚定安全概念，并且过度集中由于像素重建的性质，噪声特征受到影响。虽然当前的自监督学习方法通​​过利用联合嵌入预测架构（JEPA）来学习高维表示是有趣且有效的替代方案，因为该想法是模仿人类大脑的自然状态，利用想象力和最小的观察样本来获取新技能。本研究介绍了 HanoiWorld，这是一种基于 JEPA 的世界模型，使用循环神经网络 (RNN) 进行具有有效推理时间的长期水平规划。在不同环境下的 Highway-Env 包上进行的实验展示了制定驾驶计划的有效能力，同时具有与 SOTA 基线相比相当大的碰撞率的安全意识。 1 引言 自 1986 年卡内基梅隆大学首次进行自动驾驶汽车（AV）实验以来[1]，自动驾驶汽车的研究领域在技术和现实应用方面都取得了重大进展。车辆预计能够安全运行，同时应对不确定性、部分可观测性和多智能体环境的挑战（自我车辆与周围车辆之间的交互，以及行人障碍物等）[2, 3]。然而，正如[4]所表明的，这些挑战确实限制了在这种基于强化学习的控制器上进行部署和实验的可行性，并且之前的工作仅基于从物理环境中简单传输 1 arXiv:2601.01577v1 [cs.RO] 4 Jan 2026 2 范式，这会导致由于噪声和数据碎片而导致训练不稳定 [4-6]。</p>
+    <p>从技术角度来看，AV的决策传统上依赖于模拟器进行经验推出，以及基于数据丰富性假设的强化学习规划算法[7, 8]，而经典的尝试 - 例如蒙特卡洛树搜索（MCTS）或部分可观察马尔可夫决策过程（POMDP）下的置信空间规划（POMDP）需要模拟器内的大量计算开销来进行实验推出，而不进行策略训练[9-11]，而这些方法确实提供了解决不确定性，但可扩展性有限[12]。此外，这种推出策略往往会放大长期范围内的误差，并导致模型不准确度的提高[13, 14]。此外，观察水平预测倾向于优先考虑视觉和运动保真度作为重新考虑的因素。</p>
+    <p>$$ \label{eq:FID}
+\mathrm{FID}(\mathcal{X}_r, \mathcal{X}_g)
+=
+\|\boldsymbol{\mu}_r - \boldsymbol{\mu}_g\|_2^2
++
+\mathrm{Tr}
+\left(
+\boldsymbol{\Sigma}_r
++
+\boldsymbol{\Sigma}_g
+-
+2\left(
+\boldsymbol{\Sigma}_r \boldsymbol{\Sigma}_g
+\right)^{\frac{1}{2}}
+\right) $$</p>
     <p>
-      根据方法章节可知，作者首先构建了一个核心表示或中间条件，再通过若干模块把它逐步转换为最终输出。这种结构的优势在于：每个模块都承担明确职责，既便于解释，也更便于在实验中做模块级消融。
-      原文中与主线最相关的描述包括：
+      现实差距 一个持续存在的困难是没有一个单一的指标可以完全捕捉驾驶世界模型的质量。生成指标为 FID - Fréchet 起始距离，或 FVD - Fréchet 视频距离，可以表示为等式： eq：FID 和 Eq。等式：FVD。这些指标衡量视觉真实感，但是……
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>A Joint Embedding Predictive Architecture Based World Model for Autonomous Vehicle Controller Tran Tien Dat1,2, Nguyen Hai An1,2, Nguyen Khanh Viet Dung1,2, Nguyen Duy Duc1,2 1Faculty of Mathematics and Informatics, Hanoi University of Science and Technology,…</li><li>However, as [4] suggest, these challenges does limit the feasibility on deploying and experimenting on such reinforced-learning based controller, and prior work only based on naive transfering 1 arXiv:2601.01577v1 [cs.RO] 4 Jan 2026 2 paradigms from the physi…</li></ul></div>
-    <h3>3.2 训练目标、损失与公式信号</h3>
+    <p>$$ \label{eq:FVD}
+\mathrm{FVD}(\mathcal{V}_r, \mathcal{V}_g)
+=
+\|\boldsymbol{\mu}_r - \boldsymbol{\mu}_g\|_2^2
++
+\mathrm{Tr}
+\left(
+\boldsymbol{\Sigma}_r
++
+\boldsymbol{\Sigma}_g
+-
+2\left(
+\boldsymbol{\Sigma}_r \boldsymbol{\Sigma}_g
+\right)^{\frac{1}{2}}
+\right) $$</p>
     <p>
-      论文里的公式通常承担两类角色：一种是定义模型的预测关系与变量约束，另一种是定义优化时真正驱动模型更新的目标函数。阅读这类论文时，关键不是死记公式外形，而是理解每个公式分别在“表达结构”还是“约束行为”上发挥作用。
+      这些指标衡量视觉真实感，但可能会忽略物理合理性或规划相关性。假设：分别逐项列出并表示真实图像样本集和生成图像样本集。和 分别表示真实视频样本和生成视频样本的集合。并表示深度 f 的经验平均向量...
     </p>
-    <div class='card'><strong>公式说明：</strong><p>当前 PDF 文本中的公式抽取有限，但方法部分已结合原文段落补充核心训练目标、模块关系与评价指标。</p></div>
+    <p>$$ \label{eq:MDP}
+\mathcal{M} = (\mathcal{S}, \mathcal{A}, \mathcal{P}, r, \gamma), $$</p>
     <p>
-      从这些公式与周边段落可以推断，作者想要的不只是局部误差最小化，而是通过更精细的目标设计，让模型在结构一致性、生成质量、时序稳定性或可控性等方面同时受约束。这也是很多新方法能真正优于 baseline 的原因。
+      应利用的算法 符号 我们的问题可以形式化为确定性马尔可夫决策过程（MDP），使用内部连续随机状态和确定性状态，并按照建议在有限水平环境中产生确定性连续动作。 MDP 可以...
     </p>
-    <h3>3.3 把全文方法串起来理解</h3>
+    <p>$$ \bar{\theta}
+\;\leftarrow\;
+\tau\,\bar{\theta}
++
+(1 - \tau)\,\theta,
+\label{eq:ema_update} $$</p>
     <p>
-      如果把这篇论文的方法看成一条流水线，那么它的逻辑通常是：先把输入变成一个更适合推理的中间表示，再围绕该表示施加关键模块与训练目标，最后把输出落到可评估、可可视化的结果上。
-      这种“表示—模块—目标—结果”的闭环设计，是本页所锁定模板最想强调的部分，因为它比零散摘录更能帮助后续复现与横向比较。
+      使用对齐损失作为方程。 eq:jepa_loss 和 VICReg 正则化目标 。图 EMA 教师编码器。让 表示学生编码器的参数， 表示教师编码器的参数。教师参数使用指数移动平均值进行更新：其中 是动量系数。...
+    </p>
+    <p>$$ \mathcal{L}_{\text{align}}
+=
+\left\|
+P_\phi\!\left(\Delta_y, E_\theta(x)\right)
+-
+\operatorname{sg}\!\left(E_{\bar{\theta}}(y)\right)
+\right\|_1,
+\label{eq:jepa_loss} $$</p>
+    <p>
+      nt，我们设置 = 0.996。蒙面表示预测。给定视频和通过删除时空补丁子集获得的屏蔽视图，编码器从可见标记中提取表示。训练预测器来预测屏蔽标记的表示。主要培训目标是定义……
+    </p>
+    <p>$$ \label{eq:rssm_generative}
+\begin{aligned}
+h_t &amp;= f_\theta(h_{t-1}, z_{t-1}, a_{t-1}), \\
+z_t &amp;\sim p_\theta(s_t \mid h_t), \\
+z_t &amp;\sim p_\theta(z_t \mid h_t, z_t), \\
+r_t &amp;\sim p_\theta(r_t \mid h_t, z_t).
+\end{aligned} $$</p>
+    <p>
+      mory 模块，存储长期历史语义的确定性记忆，以及基于环境编码信号的不确定性预测的随机潜在值，用于捕获世界的演化，以及以世界状态转换为条件的智能体的预期先验。生成式项目…
+    </p>
+    <figure><img class='paper-fig' src='../assets/2601_01577v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：Highway-v0 环境 - 快照取自</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2601_01577v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：roundabout-v0 环境 - 取自的快照</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2601_01577v1/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：roundabout-v0 环境 - 取自的快照</figcaption></figure>
+    <p>
+      把全文方法串起来看，这篇论文的逻辑基本都遵循同一条主线：先把输入组织成更容易处理的表示，再通过模型结构和损失函数把这个表示推向目标输出，最后用可视化与数值实验共同证明该设计有效。
     </p>
 
     <h2 id='experiment'>实验结论</h2>
     <p>
-      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，优势究竟来自哪个模块。对这篇论文来说，实验设计明显围绕“与现有方法的对比 + 对关键组件的消融”展开。
+      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，这种优势来自哪一个设计决策。
     </p>
-    <p>
-      从实验段落的关键词和结果描述看，论文最想传达的结论包括：
-    </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>A Joint Embedding Predictive Architecture Based World Model for Autonomous Vehicle Controller Tran Tien Dat1,2, Nguyen Hai An1,2, Nguyen Khanh Viet Dung1,2, Nguyen Duy Duc1,2 1Faculty of Mathematics and Informatics, Hanoi University of Science and Technology,…</li><li>While current Self-Supervised Learning approachs that learning on high-dimensional representation by leveraging the Joint Embedding Predictive Architecture (JEPA) is interesting and effective alternative, as the idea is mimicking the natural of human’s brain…</li><li>This study introduces HanoiWorld, a JEPA-based world model that using recurrent neural network (RNN) for making longterm horizontal planning with effective inference time.</li><li>Experiments conducted on Highway-Env package with difference enviroment showcase the effective capability of making driving plan while safety-awareness with considerable collision rate in comparison with SOTA baselines.</li><li>1 Introduction Since the first experiment on an Autonomous Vehicle (AV) was conducted in 1986 at Carnegie Mellon University [1], the research domain of developing self-driving vehicles has made significant progress, both in technical and practical application…</li></ul></div>
-    <figure><img class='paper-fig' src='../assets/2601_01577v1/fig_3.png' alt='Figure 3:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 3：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 3 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2601_01577v1/fig_4.png' alt='Figure 4:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 4：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 4 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2601_01577v1/fig_5.png' alt='Figure 5:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 5：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 5 from the source paper.</figcaption></figure>
+    <p>本文的这一部分将重点介绍用于评估 HanoiWorld 与不同基线方法相比的性能的实验。 实验描述 为了评估 HanoiWorld 与不同替代方案的比较性能，实验应在由 提供的 HighwayEnv 包的环境中进行，其中包括 Highway、Roundabout、Merge，这将在小节中详细讨论，我们在设计时选择的比较世界模型设计包括由 提出的 DreamerV3、VQ-VAE + ConvLSTM 基于 和 HanoiWorld 提出的代理建议。基线模型描述如下： itemize 提出的基于 ConvLSTM planner 的 VQ-VAE 编码器是一个小型且离散的潜在世界模型，旨在对潜在空间进行有效的推理和规划，作为 的思想的继承。基于 VQ-VAE 的解决方案是在 Atari 游戏的 10 万个情节上使用近端策略优化 (PPO) 算法设计的，该算法提出用于离散想象的推出的潜在空间规划。 DreamerV3 目前已达到 State-Off-The-Art 水平的性能，具有 RSSM 网络的长期水平规划能力，这确实通过尝试学习鲁棒性和环境不可知的泛化模型来启发 HanoiWorld 的设计，该模型用于预测可能的下一个潜在状态、奖励和延续，该模型用于向多层感知器层生成有关奖励和值的训练信号基于想象的 rollout 的预测，Actor 遵循 REINFORCE 梯度更新，或混合来自 RSSM 的更新学习信号，以实现鲁棒和稳定的学习 itemize 对于评估指标，选择的指标 2 指标 - 平均奖励（例如分数）和碰撞率如下： itemize 平均奖励/分数是用于评估代理在规划效率上的效率的指标 - 这是跨步骤的奖励信号的平均值 - 其中用方程展示。 eq:avg_reward 碰撞率是一个指标，可以通过自我车辆发生碰撞的事件比例来估计，用方程式表示。 eq:collision_rate itemize 鉴于： itemize 表示所有评估事件的平均驾驶奖励。是评估集的总数。索引剧集。对剧集内的时间步进行索引。是在episode中的时间步收到的瞬时奖励。</p>
+    <p>逐条解释：较高的值表示更好的驾驶行为，意味着更平稳的控制（更少的晃动）和更安全的轨迹（更少的碰撞）。案例研究 该实验是在交互式…</p>
+
     <ul>
-      <li>方法在主任务指标上不是偶然提升，而是与其结构设计和训练目标直接相关；</li>
-      <li>作者通过消融实验说明，若拿掉关键模块，性能与结果质量会明显回落；</li>
-      <li>论文不仅关注数值对比，也关注可视化质量、稳定性或可控性等更接近真实应用的信号。</li>
+      <li>方法在核心指标上的优势与结构设计和训练目标直接相关；</li>
+      <li>消融实验表明，拿掉关键模块后性能与结果质量都有明显回落；</li>
+      <li>论文不仅比较数值，也关注可视化质量、稳定性和泛化能力等更贴近真实使用的信号。</li>
     </ul>
-    <p>
-      因此，实验部分最重要的阅读方式不是死记某一列数字，而是看清：作者究竟想证明哪个机制有效、这个机制的收益是在什么设置下成立、它是否有明显的边界条件。
-    </p>
 
     <h2 id='takeaway'>理解评价</h2>
+    <p>这项研究展示了 HanoiWorld，一种基于 JEPA 的世界模型，用于在强化学习中训练自动车辆控制器时进行模拟生成，结果证明 HanoiWorld 能够在作为 SOTA 基线的潜在域内制定有效的规划策略，而较轻的竞争对手由于计算效率的原因，使得这些尝试看起来比基于像素重建的方法更有吸引力。此外，我们的模型确实表明，在某些特定场景下，HanoiWorld 的碰撞率较低，这可以假设该模型确实学习了跨环境的安全性概念，但与 DreamerV3 等 SOTA 基线相比，该模型的规划机制表现不佳。</p>
+    <p>值得注意的是，当前的研究并没有尝试使用多模态输入作为语言、全局图来整合更多的全局上下文条件；加上实际评估的潜在探索——了解WorldModel在不同环境硬度下的刨削机制；这表明有可能为以后的研究提供进一步的指导，并继续使用 HanoiWorld 的结果。</p>
     <p>
-      从研究定位上看，这篇论文的意义在于它没有把问题局限在某一个局部改动，而是尝试给出一套更完整的求解路径。对读者而言，最值得关注的是它如何重新组合表示、模块和训练目标，以及这些设计是否能迁移到相近任务上。
+      如果把它当成研究参考，建议重点关注三件事：第一，这套方法真正依赖的归纳偏置是什么；第二，实验中真正拉开差距的模块是哪一个；第三，它的局限究竟来自数据、算力还是监督信号本身。
     </p>
     <p>
-      如果把它当成研究参考，我会重点看三件事：
-      第一，这套方法的核心归纳偏置是什么；
-      第二，实验中真正拉开差距的模块是哪一块；
-      第三，它的限制条件是数据、算力、时序长度，还是奖励/监督信号本身。
-    </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>2.1 From Model-Based Reinforcement Learning to Driving World Models The conceptual roots of driving world models lie in model-based reinforcement learning (MBRL), where an agent learns a dynamics model and then plans by simulating futures.</li><li>These challenges co-align and trigger the need of reframe the training approach for the reinforcement-learning controller using the compact while semantic vivid representation for attaining the scalability and reliability that inspired on human’s biological m…</li></ul></div>
-    <p>
-      进一步延伸阅读时，可以把这篇工作放到更广泛的技术脉络里：它与同类方法相比，到底是在表示层、生成层、优化层还是评估层提出了更强的方案。下面这些自动检索到的相关论文可作为继续追踪的入口：
+      以下相关论文可以作为进一步追踪的入口：
     </p>
     <ul></ul>
 
     <div class='tip'>
       <strong>一句结论：</strong>
-      这篇论文值得读的原因，不只是它给出了一组更好的结果，而是它提供了一条相对完整的问题求解思路：如何把任务定义、方法设计与实验验证真正对齐到同一条研究主线上。
+      这篇论文值得关注的地方在于，它不只给出了更好的实验结果，更提供了一条相对完整的问题求解路径，把任务定义、方法设计与实验验证真正对齐到了同一条研究主线上。
     </div>
   </article>
 </div>
+
   </div>
 </div>
 </body>

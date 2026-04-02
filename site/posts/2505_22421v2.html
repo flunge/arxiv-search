@@ -70,7 +70,7 @@
     blockquote { margin: 16px 0; padding: 8px 16px; border-left: 4px solid #d8e7ff; background: #f8fbff; color: #333; }
     .tip { background: #f7f9fc; border: 1px solid #e8eef6; border-radius: 10px; padding: 12px; }
     .dashboard-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-top:18px; }
-    .dashboard-card { aspect-ratio: 1 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
+    .dashboard-card { aspect-ratio: 1.618 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
     .dashboard-card > * { min-width: 0; }
     .dashboard-card .dashboard-content { display:flex; flex-direction:column; height:100%; min-height:0; }
     .dashboard-card .dashboard-scroll { overflow:auto; min-height:0; }
@@ -130,10 +130,28 @@
     });
   </script>
 
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\(', '\)']],
+        displayMath: [['$$', '$$'], ['\[', '\]']]
+      },
+      svg: { fontCache: 'global' },
+      startup: {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady().then(() => {
+            requestAnimationFrame(applyPageScale);
+          });
+        }
+      }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
+
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
 
@@ -143,103 +161,105 @@
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      这篇论文关注的是“GeoDrive 所对应的问题能否在更可控、更稳健或更高质量的条件下被解决”。从摘要与方法描述来看，作者的总体路线是：先搭建一个明确的表示或生成框架，再围绕训练目标、结构设计和实验验证把该问题推进到更可用的工程形态。
+      世界模型的最新进展彻底改变了动态环境模拟，使系统能够预见未来状态并评估潜在的行动。在自动驾驶中，这些功能可帮助车辆预测其他道路使用者的行为、执行风险意识规划、加速模拟训练并适应新场景，从而提高安全性和可靠性。当前的方法在维持稳健的 3D 几何一致性或在遮挡处理过程中积累伪影方面存在缺陷，而这对于自主导航任务中的可靠安全评估至关重要。为了解决这个问题，我们引入了 GeoDrive，它将强大的 3D 几何条件明确集成到驾驶世界模型中，以增强空间理解和动作可控性。具体来说，我们首先从输入帧中提取 3D 表示，然后根据用户指定的自我汽车轨迹获得其 2D 渲染。为了实现动态建模，我们在训练期间提出了一…
     </div>
 
     <h2 id='summary'>简单摘要</h2>
-    <p>
-      从论文摘要可以看出，这项工作的落点并不是单纯提升一个局部模块，而是围绕完整任务链路做系统设计。它通常会同时回答三个问题：任务为什么重要、现有方法卡在哪里、作者的新方案如何绕开这些瓶颈。
-      就这篇论文而言，摘要部分强调的核心是：<strong>Recent advancements in world models have revolutionized dynamic environment simulation, allowing systems to foresee future states and assess potential actions. In autonomous drivi…</strong>
-    </p>
-    <p>
-      如果把它放进更大的技术背景中理解，可以把这篇论文视作一条“问题定义 → 表示设计 → 训练优化 → 实验验证”的完整研究闭环。也就是说，作者并不是只给出一个孤立模块，而是希望通过一整套方法让系统在真实场景或关键指标上取得更稳定提升。
-    </p>
-    <figure><img class='paper-fig' src='../assets/2505_22421v2/fig_1.png' alt='Figure 1:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 1：该图来自论文原文，用于说明论文中的核心框架、可视化结果或实验现象。原始图注摘要：GeoDrive enables precise trajectory following, correct novel view synthesis, and dynamic scene editing in autonomous driving scenarios. Our method integrates robust 3D conditions into driving world models, enhancing spatial understanding and action controllability.</figcaption></figure><figure><img class='paper-fig' src='../assets/2505_22421v2/fig_2.png' alt='Figure 2:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 2：该图来自论文原文，用于说明论文中的核心框架、可视化结果或实验现象。原始图注摘要：Overview of our training pipeline. We use a pretrained dense stereo model to obtain 3D point clouds and camera trajectories. A dynamic video is rendered from the first-frame point cloud using our dynamic editing technique. The noisy latent representation and rendered video are encoded via a VAE and…</figcaption></figure>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>To enable dynamic modeling, we propose a dynamic editing module during training to enhance the renderings by editing the positions of the vehicles.</li><li>Specifically, we first extract a 3D representation from the input frame and then obtain its 2D rendering based on the user-specified ego-car trajectory.</li><li>Current approaches exhibit deficiencies in maintaining robust 3D geometric consistency or accumulating artifacts during occlusion handling, both critical for reliable safety assessment in autonomous navigation tasks.</li></ul></div>
+    <p>世界模型的最新进展彻底改变了动态环境模拟，使系统能够预见未来状态并评估潜在的行动。在自动驾驶中，这些功能可帮助车辆预测其他道路使用者的行为、执行风险意识规划、加速模拟训练并适应新场景，从而提高安全性和可靠性。当前的方法在维持稳健的 3D 几何一致性或在遮挡处理过程中积累伪影方面存在缺陷，而这对于自主导航任务中的可靠安全评估至关重要。为了解决这个问题，我们引入了 GeoDrive，它将强大的 3D 几何条件明确集成到驾驶世界模型中，以增强空间理解和动作可控性。</p>
+    <p>具体来说，我们首先从输入帧中提取 3D 表示，然后根据用户指定的自我汽车轨迹获得其 2D 渲染。为了实现动态建模，我们在训练期间提出了一个动态编辑模块，通过编辑车辆的位置来增强渲染效果。大量实验表明，我们的方法在动作准确性和 3D 空间感知方面均显着优于现有模型，从而实现更真实、适应性更强且可靠的场景建模，从而实现更安全的自动驾驶。此外，我们的模型可以推广到新颖的轨迹，并提供交互式场景编辑功能，例如对象编辑和对象轨迹控制。</p>
+    <figure><img class='paper-fig' src='../assets/2505_22421v2/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：GeoDrive 可在自动驾驶场景中实现精确的轨迹跟踪、正确的新颖视图合成以及动态场景编辑。我们的方法将强大的 3D 条件集成到驾驶世界模型中，增强空间理解和动作可控性。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2505_22421v2/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：我们的培训渠道概述。我们使用预训练的密集立体模型来获取 3D 点云和相机轨迹。使用我们的动态编辑技术从第一帧点云渲染动态视频。噪声潜在表示和渲染视频通过 VAE 进行编码，并连接作为条件编码器的输入，从而调制 DiT 模型的特征。然后，DiT 生成准确遵循指定动作条件的逼真视频。</figcaption></figure>
+    <blockquote>
+      简而言之，这篇论文关注的核心是：世界模型的最新进展彻底改变了动态环境模拟，使系统能够预见未来状态并评估潜在的行动。在自动驾驶中，这些功能可帮助车辆预测其他道路使用者的行为、执行风险意识规划、加速模拟训练并适应新场景，从而提高安全性和可靠性。当前的方法在维持稳健的 3D 几何一致性或在遮挡处理过程中积累伪影方面存在缺陷，而这对于自…
+    </blockquote>
+    <p>模拟 3D 动态环境的驾驶世界模型可实现关键功能，包括轨迹一致的视图合成、符合物理原理的运动预测以及安全感知场景重建和生成。特别是，生成视频模型已成为自我运动预测和动态场景重建的有效工具。事实证明，它们合成忠实于轨迹的视觉序列的能力对于开发预测环境相互作用同时保持物理合理性的自主系统至关重要。尽管取得了这些进步，但大多数现有方法由于依赖 2D 空间优化而缺乏足够的 3D 几何意识。这一缺点导致新颖视图和物理上令人难以置信的对象交互之间的结构不连贯，这对于密集交通中避免碰撞等安全关键任务尤其不利。</p>
+    <p>此外，现有方法通常依赖于密集注释（例如，高清地图序列和 3D 边界框轨迹）来实现可控性，这仅再现规定的运动，而不了解车辆动力学。一种更灵活的方法是从单个（或少数）图像推断动态先验，同时调节所需的自我轨迹。然而，当前对数值相机参数进行微调的方法缺乏3D几何感知，从而损害了其动作的可控性和一致性。可靠的驾驶世界模型应满足三个标准：1）静态基础设施和动态代理之间的严格时空一致性； 2) 对自我车辆轨迹的 3D 可控性；</p>
+    <p>3）非自我主体的运动学约束运动模式。我们通过混合神经几何框架来实现这些需求，该框架明确地强制生成的序列之间的 3D 几何一致性。我们首先根据单目输入构建 3D 结构先验，然后沿着用户指定的相机轨迹执行投影渲染，以生成几何接地调节信号。我们进一步采用级联视频扩散，通过 3D 注意力去噪来细化这些投影，共同优化光度质量和几何保真度。对于动态对象，我们引入了物理引导的编辑模块，该模块可以在显式运动约束下转换代理外观，以确保物理上合理的交互。</p>
+    <p>我们的实验表明，GeoDrive 显着增强了可控驾驶世界模型的性能。具体来说，我们的方法提高了自我汽车动作的可控性，减少了轨迹跟踪误差......</p>
 
     <h2 id='innovation'>核心创新</h2>
     <p>
-      对照引言与方法部分，这篇论文的创新点主要体现在“如何重新组织问题求解链路”上。相比简单替换一个 backbone 或增加一个 loss，作者更像是在重新定义系统的关键接口与约束方式。
+      综合引言与方法部分，这篇论文的核心创新可以概括为以下几方面：
     </p>
-    <h3>1）从任务设定上重新界定问题边界</h3>
+    <h3>1）问题定义与研究动机</h3>
     <p>
-      论文强调的问题并不只是已有方案做得不够好，而是很多现有方法在目标可控性、泛化范围、效率约束或结构一致性上存在天然短板。因此作者先重述了任务定义，再围绕新的目标函数和场景假设去设计整体方案。
+      模拟 3D 动态环境的驾驶世界模型可实现关键功能，包括轨迹一致的视图合成、符合物理原理的运动预测以及安全感知场景重建和生成。特别是，生成视频模型已成为自我运动预测和动态场景重建的有效工具。事实证明，它们合成忠实于轨迹的视觉序列的能力对于开发预测环境相互作用同时保持物理合理性的自主系统至关重要。尽管取得了这些进步，但大多数现有方法由于依赖 2D 空间优化而缺乏足够的 3D 几何意识。这一缺点导致新颖视图和物理上令人难以置信的对象交互之间的结构不连贯，这对于密集交通中避免碰撞等安全关键任务尤其不利。此外，现有方法通常依赖于密集注释（例如，高清地图序列和 3D 边界框轨迹）来实现可控性，这仅再现规定的运动，而不了解车辆动力学。一种更灵活的方法是从单个（或少数）图像推断动态先验，同时调节所需的自我轨迹。然而，当前对数值相机参数进行微调的方法缺乏3D几何感知，从而损害了其动作的可控性和一致性。可靠的驾驶世界模型应满足三个标准：1）静态基础设施和动态代理之间的严格时空一致性； 2) 对自我车辆轨迹的 3D 可控性； 3）非自我主体的运动学约束运动模式。我们通过混合神经几何框架来实现这些需求，该框…
     </p>
-    <h3>2）用统一框架串起表示、推理和优化</h3>
+    <h3>2）方法框架与核心模块</h3>
     <p>
-      从原文描述看，这篇论文并不是把多个模块松散拼接，而是在一个统一框架里安排表示形式、关键模块和训练信号，使它们彼此服务。这类设计往往决定了方法能否真正具备工程可落地性。
+      给定初始参考图像 \( I_0 R^H W 3 \) 和自我车辆轨迹 \( \C_t\_t=1^L \)，我们的框架合成遵循输入轨迹的现实未来帧。我们利用参考图像中的 3D 几何信息来指导世界建模。首先，我们重建 3D 表示（第 2 节），然后使用动态对象处理沿着用户指定的轨迹渲染视频序列（第 2 节）。渲染的视频为生成遵循输入轨迹的时空一致视频提供了几何指导（第 1 节）。参见图解。从参考图像中提取 3D 表示为了利用 3D 信息进行 3D 一致生成，我们首先从单个输入图像 \( I_0 \) 构建 3D 表示。我们采用 MonST3R，这是一种现成的密集立体模型，可以同时预测 3D 几何和相机姿势，与我们的训练范例保持一致。在推理过程中，我们复制参考图像以满足 MonST3R 的跨视图匹配要求。给定 RGB 帧 \(\I_t\_t=0^T\)，MonST3R 通过跨帧的跨视图特征匹配来预测每像素 3D 坐标 \(\O_t\_t=0^T\) 和置信度分数 \(\D_t\_t=0^T\)，其中 \(O_t^i,jR^3\) 表示像素 \((i,j)\) 在 \(t^th\) 中的度量…
     </p>
-    <h3>3）把实验目标直接对齐到实际痛点</h3>
+    <h3>3）实验设计与工程价值</h3>
     <p>
-      论文中的实验不仅比较常规 benchmark，也会额外关注更贴近实际系统需求的指标，例如稳定性、控制性、质量上界、对长尾场景的适应能力等。换句话说，它不是只追求单一数值，而是试图证明整套系统在真实使用方式下也成立。
+      实验设置训练配置。我们专门在 nuScenes 上进行训练，通过 MonST3R 处理每个剪辑以获得公制尺度的 3D 重建和相机轨迹。初始帧的 3D 重建通过可微分光栅器沿着估计轨迹进行投影渲染，其中动态编辑利用 2D 边界框注释来编辑车辆位置。我们策划了 25,109 个视频条件对进行训练。我们冻结基础扩散模型 (CogVideo-5B-I2V )，同时以学习率训练条件编码器 28,000 步，持续 4 天。有关训练、推理和模型配置的更多详细信息，请参阅附录。轨迹遵循wrappabler0.5 -5mm NuScenes 验证全套生成质量的定量结果。 tabularlccc 模型和数据比例 &amp; FID &amp; FVD \\ DriveGAN &amp; 160h &amp; 73.4 &amp; 502.3 \\ DriveDreamer &amp; 5h &amp; 14.9 &amp; 340.8 \\ DriveDreamer-2…
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>This shortcoming results in structural incoherence across novel views and physically implausible object interactions [75, 60], which is particularly detrimental for safety-critical tasks like collision avoidance in dense traffic.</li><li>We achieve these demands through a hybrid neural-geometric framework that explicitly enforces 3D geometry consistency across generated sequences.</li></ul></div>
 
     <h2 id='technical'>技术细节</h2>
     <p>
-      方法部分是理解论文价值的关键。结合原文可以看到，作者通常会先定义输入输出，再介绍中间表示、主干模块、损失函数或奖励机制，最后说明训练与推理时各模块如何协同。
-      对这篇论文而言，方法线索主要集中在以下几个方面：
+      下面按照论文的方法章节结构展开，重点说明模型的关键模块、公式设计和训练策略。
     </p>
-    <h3>3.1 方法主线与模块组织</h3>
+    <p>给定初始参考图像 \( I_0 R^H W 3 \) 和自我车辆轨迹 \( \C_t\_t=1^L \)，我们的框架合成遵循输入轨迹的现实未来帧。我们利用参考图像中的 3D 几何信息来指导世界建模。首先，我们重建 3D 表示（第 2 节），然后使用动态对象处理沿着用户指定的轨迹渲染视频序列（第 2 节）。渲染的视频为生成遵循输入轨迹的时空一致视频提供了几何指导（第 1 节）。参见图解。从参考图像中提取 3D 表示为了利用 3D 信息进行 3D 一致生成，我们首先从单个输入图像 \( I_0 \) 构建 3D 表示。我们采用 MonST3R，这是一种现成的密集立体模型，可以同时预测 3D 几何和相机姿势，与我们的训练范例保持一致。在推理过程中，我们复制参考图像以满足 MonST3R 的跨视图匹配要求。给定 RGB 帧 \(\I_t\_t=0^T\)，MonST3R 通过跨帧的跨视图特征匹配来预测每像素 3D 坐标 \(\O_t\_t=0^T\) 和置信度分数 \(\D_t\_t=0^T\)，其中 \(O_t^i,jR^3\) 表示像素 \((i,j)\) 在 \(t^th\) 中的度量空间位置参考系，\(D_t^i,j\) 衡量重建可靠性。通过在 \(\) 处对 \(D_0\) 进行阈值化（通常为 \(=0.65\)），\(t^th\) 参考帧的彩色点云产生为 为了抵消序列中有效和无效匹配之间的不平衡，置信图 \(D_0\) 使用焦点损失进行训练。此外，为了将静态场景几何图形与移动物体分开，MonST3R 采用了基于变压器的解耦器。该模块处理参考系的初始特征（通过跨视图上下文丰富）并将它们分为静态和动态组件。解耦器使用可学习的提示标记来分割注意力图：静态标记关注大平面，动态标记关注紧凑的、运动丰富的区域。通过排除动态对应，我们获得了鲁棒的相机姿态估计，其中 \(\) 表示透视投影算子，并且仅使用静态特征匹配。与传统的运动结构相比，该策略在动态城市场景中将姿态误差减少了 38%。得到的点云 \(P_0\) 然后作为我们的几何脚手架。</p>
+    <p>通过动态编辑渲染 3D 视频 为了实现精确的输入轨迹跟踪，我们的模型渲染了一个视频，作为生成过程的视觉指南。我们使用标准投影几何技术通过每个用户提供的相机配置来投影参考点云。每个3D点都会经过严格的变换到相机坐标系中，然后使用相机的固有矩阵进行透视投影，产生图像坐标。我们只考虑米深度范围内的有效投影，并使用z缓冲来处理遮挡，最终生成每个相机位置的渲染视图。静态渲染的局限性。由于我们仅利用第一帧点云，渲染的场景...</p>
+    <p>$$ \{O_t\}_{t=0}^T, \{D_t\}_{t=0}^T = \mathrm{MonST3R}\bigl(\{I_t\}_{t=0}^T\bigr),
+ \label{eq:monst3r_output} $$</p>
     <p>
-      根据方法章节可知，作者首先构建了一个核心表示或中间条件，再通过若干模块把它逐步转换为最终输出。这种结构的优势在于：每个模块都承担明确职责，既便于解释，也更便于在实验中做模块级消融。
-      原文中与主线最相关的描述包括：
+      现成的密集立体模型可同时预测 3D 几何和相机姿势，与我们的训练范例保持一致。在推理过程中，我们复制参考图像以满足 MonST3R 的跨视图匹配要求。给定 RGB 帧 \(\I_t\_t=0^T\)，MonST3R 预测每像素 3D 坐标 \(\O_t\_t=0^T...
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>We further employ cascaded video diffusion to refine these projections through 3D-attentive denoising, jointly optimizing photometr</li></ul></div>
-    <h3>3.2 训练目标、损失与公式信号</h3>
+    <p>$$ \mathcal{P}_t = \bigl\{(\mathbf{O}_t^{i,j},\,I_t^{i,j}) \mid \mathbf{D}_t^{i,j}&gt;\tau\bigr\}.
+ \label{eq:point_cloud} $$</p>
     <p>
-      论文里的公式通常承担两类角色：一种是定义模型的预测关系与变量约束，另一种是定义优化时真正驱动模型更新的目标函数。阅读这类论文时，关键不是死记公式外形，而是理解每个公式分别在“表达结构”还是“约束行为”上发挥作用。
+      3R(\I_t\_t=0^T)，方程其中\(O_t^i,jR^3\)表示像素\((i,j)\)在\(t^th\)参考系中的度量空间位置，\(D_t^i,j\)测量重建可靠性。通过在 \(\)（通常为 \(=0.65\)）处对 \(D_0\) 进行阈值化，\(t^th\) 参考系的彩色点云产生为反…
     </p>
-    <div class='card'><strong>公式 / 指标片段 1：</strong><pre>notable enhancements in video quality metrics, including LPIPS, PSNR, SSIM, FID, and FVD. Furthermore, our model generalizes effectively to novel view synthesis tasks, surpassing StreetGaussian</pre></div><div class='card'><strong>公式 / 指标片段 2：</strong><pre>t=1, our framework</pre></div><div class='card'><strong>公式 / 指标片段 3：</strong><pre>t=0, MonST3R predicts per-pixel 3D coordinates {Ot}T</pre></div><div class='card'><strong>公式 / 指标片段 4：</strong><pre>t=0 and confidence</pre></div>
+    <p>$$ \hat{C}_t = \arg\min_{C_t}\sum_{(i,j)\in\mathbf{F}^{\mathrm{static}}}
+ \bigl\|\pi(C_t\,\mathbf{O}_t^{i,j})-\mathbf{p}_t^{i,j}\bigr\|_2^2,
+ \label{eq:pose_estimation} $$</p>
     <p>
-      从这些公式与周边段落可以推断，作者想要的不只是局部误差最小化，而是通过更精细的目标设计，让模型在结构一致性、生成质量、时序稳定性或可控性等方面同时受约束。这也是很多新方法能真正优于 baseline 的原因。
+      ed 解耦器。该模块处理参考系的初始特征（通过跨视图上下文丰富）并将它们分为静态和动态组件。解耦器使用可学习的提示标记来分割注意力图：静态标记关注大平面，动态标记关注紧凑……
     </p>
-    <h3>3.3 把全文方法串起来理解</h3>
+    <p>$$ \delta_{\phi}(z_t, t, C)_i = \delta_{\phi}(z_t, t, C)_i + \mathcal{W} \left( \gamma_{\phi}^{enc}([z_t, z_R], t)_{i // \frac{M}{2}} \right),
+\label{eq:integration} $$</p>
     <p>
-      如果把这篇论文的方法看成一条流水线，那么它的逻辑通常是：先把输入变成一个更适合推理的中间表示，再围绕该表示施加关键模块与训练目标，最后把输出落到可评估、可可视化的结果上。
-      这种“表示—模块—目标—结果”的闭环设计，是本页所锁定模板最想强调的部分，因为它比零散摘录更能帮助后续复现与横向比较。
+      z_R E z_t t。这些渲染通过轻量级条件编码器进行处理，该编码器提取必要的背景线索，而无需复制主干架构的大量部分。将条件编码器的特征集成到冻结的 DiT 中的公式如下：其中表示条件……
+    </p>
+    <figure><img class='paper-fig' src='../assets/2505_22421v2/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：动态编辑设计的插图。与默认渲染相比，它有效地减少了静态渲染与动态现实场景之间的差异。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2505_22421v2/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：相同条件框架和动作控制下动作保真度的定性比较。我们的模型精确地遵循期望的轨迹，而 Vista 产生了错位的结果。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2505_22421v2/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：定性比较：左 - 增强了我们预测的视觉保真度；右 - 卓越的场景动态理解。</figcaption></figure>
+    <p>
+      把全文方法串起来看，这篇论文的逻辑基本都遵循同一条主线：先把输入组织成更容易处理的表示，再通过模型结构和损失函数把这个表示推向目标输出，最后用可视化与数值实验共同证明该设计有效。
     </p>
 
     <h2 id='experiment'>实验结论</h2>
     <p>
-      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，优势究竟来自哪个模块。对这篇论文来说，实验设计明显围绕“与现有方法的对比 + 对关键组件的消融”展开。
+      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，这种优势来自哪一个设计决策。
     </p>
-    <p>
-      从实验段落的关键词和结果描述看，论文最想传达的结论包括：
-    </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>Extensive experiments demonstrate that our method significantly outperforms existing models in both action accuracy and 3D spatial awareness, leading to more realistic, adaptable, and reliable scene modeling for safer autonomous driving.</li></ul></div>
-    <figure><img class='paper-fig' src='../assets/2505_22421v2/fig_3.png' alt='Figure 3:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 3：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 3 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2505_22421v2/fig_4.png' alt='Figure 4:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 4：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 4 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2505_22421v2/fig_5.png' alt='Figure 5:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 5：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 5 from the source paper.</figcaption></figure>
+    <p>实验设置训练配置。我们专门在 nuScenes 上进行训练，通过 MonST3R 处理每个剪辑以获得公制尺度的 3D 重建和相机轨迹。初始帧的 3D 重建通过可微分光栅器沿着估计轨迹进行投影渲染，其中动态编辑利用 2D 边界框注释来编辑车辆位置。我们策划了 25,109 个视频条件对进行训练。我们冻结基础扩散模型 (CogVideo-5B-I2V )，同时以学习率训练条件编码器 28,000 步，持续 4 天。有关训练、推理和模型配置的更多详细信息，请参阅附录。轨迹遵循wrappabler0.5 -5mm NuScenes 验证全套生成质量的定量结果。 tabularlccc 模型和数据比例 &amp; FID &amp; FVD \\ DriveGAN &amp; 160h &amp; 73.4 &amp; 502.3 \\ DriveDreamer &amp; 5h &amp; 14.9 &amp; 340.8 \\ DriveDreamer-2 &amp; 5h &amp; 25.0 &amp; 105.1 \\ WoVoGen &amp; 5h &amp; 27.6 &amp; 417.7 \\ Drive-WM &amp; 5h &amp; 15.8 &amp; 122.7 \\ GenAD &amp; 1740h &amp; 15.4 &amp; 184.0 \\ Vista &amp; 1740h &amp; 6.6 &amp; 167.7 \\ GEM &amp; 4000h &amp; 10.5 &amp; 158.5 \\ GeoDrive (我们的) &amp; 5h &amp; 4.1 &amp; 61.6 \\ 表格-5mm 可包裹基准和基线。我们将 GeoDrive 与两个最相关的基线（以单个图像和自我动作为条件）（Vista、Terra）以及其他几个驾驶世界模型进行比较。我们遵守 Vista 的协议，通过计算跨越 25 帧剪辑的传感器和校准数据的轨迹，作为其条件输入。我们通过在 GT 视频上运行 MonST3R 来估计我们的相机姿势。虽然我们以不同的模式为条件，但所有方法的轨迹都是从同一真实视频剪辑中提取的，确保动作条件一致。我们在 NuScenes 验证集上评估所有方法。为了评估轨迹控制精度，我们对具有平衡驾驶轨迹的 1087 个视频子集进行了采样。视觉质量通过 PSNR、SSIM、LPIPS、FID 和 FVD 进行量化。轨迹保真度指标采用平均位移误差 (ADE) 和最终位移误差 (FDE)。定量结果。 nuScenes 验证子集的定量结果列于表中。 GeoDrive 在所有指标上都优于基线。具体来说，我们的轨迹跟踪能力明显优于基线，但需要的数据减少了 99.7%，显示了我们方法的有效性。在表 中，GeoDrive 的 FID 和 FVD 结果优于所有基线。定性结果。</p>
+    <p>如图所示，与基线方法相比，我们的方法产生的代理更精确地遵循指定的路径，而基线方法通常偏离预期轨迹。此外，我们生成的视频展示了对驾驶环境的更好理解。如图所示，我们的结果明显......</p>
+    <figure><img class='paper-fig' src='../assets/2505_22421v2/figure6_full.png' alt='Figure 6:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 6：Waymo 验证子集上新颖视图合成的定性比较。我们的模型以零样本方式为偏离轨迹生成清晰的结果，而基于重建的方法 StreetGaussian 会产生明显的伪影。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2505_22421v2/figure7_full.png' alt='Figure 7:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 7：车辆操纵的定性结果。我们的方法允许通过指定不同的边界框来操纵场景内的车辆运动方向。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2505_22421v2/figure8_full.png' alt='Figure 8:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 8：场景编辑的定性结果。我们的方法可以移除或替换场景内的车辆，从而可以预测无缝的未来场景。</figcaption></figure>
     <ul>
-      <li>方法在主任务指标上不是偶然提升，而是与其结构设计和训练目标直接相关；</li>
-      <li>作者通过消融实验说明，若拿掉关键模块，性能与结果质量会明显回落；</li>
-      <li>论文不仅关注数值对比，也关注可视化质量、稳定性或可控性等更接近真实应用的信号。</li>
+      <li>方法在核心指标上的优势与结构设计和训练目标直接相关；</li>
+      <li>消融实验表明，拿掉关键模块后性能与结果质量都有明显回落；</li>
+      <li>论文不仅比较数值，也关注可视化质量、稳定性和泛化能力等更贴近真实使用的信号。</li>
     </ul>
-    <p>
-      因此，实验部分最重要的阅读方式不是死记某一列数字，而是看清：作者究竟想证明哪个机制有效、这个机制的收益是在什么设置下成立、它是否有明显的边界条件。
-    </p>
 
     <h2 id='takeaway'>理解评价</h2>
+    <p>我们提出了 GeoDrive，一种用于自动驾驶的视频扩散世界模型，通过明确的米级轨迹控制和直接视觉调节来增强动作可控性和空间精度。我们的方法重建 3D 场景，沿着所需的轨迹渲染，并通过视频扩散细化输出。评估表明，在视觉真实感和动作依从性方面优于现有模型，支持非自我视图生成和场景编辑等应用，从而树立了新的基准。然而，我们的性能取决于 MonST3R 的深度和姿态估计的准确性，并且仅依赖图像和轨迹输入进行世界预测构成了挑战。未来的工作将探索结合文本条件和 VLA 理解，以进一步提高真实性和一致性。</p>
     <p>
-      从研究定位上看，这篇论文的意义在于它没有把问题局限在某一个局部改动，而是尝试给出一套更完整的求解路径。对读者而言，最值得关注的是它如何重新组合表示、模块和训练目标，以及这些设计是否能迁移到相近任务上。
+      如果把它当成研究参考，建议重点关注三件事：第一，这套方法真正依赖的归纳偏置是什么；第二，实验中真正拉开差距的模块是哪一个；第三，它的局限究竟来自数据、算力还是监督信号本身。
     </p>
     <p>
-      如果把它当成研究参考，我会重点看三件事：
-      第一，这套方法的核心归纳偏置是什么；
-      第二，实验中真正拉开差距的模块是哪一块；
-      第三，它的限制条件是数据、算力、时序长度，还是奖励/监督信号本身。
-    </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>Abstract Recent advancements in world models have revolutionized dynamic environment simulation, allowing systems to foresee future states and assess potential actions.</li></ul></div>
-    <p>
-      进一步延伸阅读时，可以把这篇工作放到更广泛的技术脉络里：它与同类方法相比，到底是在表示层、生成层、优化层还是评估层提出了更强的方案。下面这些自动检索到的相关论文可作为继续追踪的入口：
+      以下相关论文可以作为进一步追踪的入口：
     </p>
     <ul></ul>
 
     <div class='tip'>
       <strong>一句结论：</strong>
-      这篇论文值得读的原因，不只是它给出了一组更好的结果，而是它提供了一条相对完整的问题求解思路：如何把任务定义、方法设计与实验验证真正对齐到同一条研究主线上。
+      这篇论文值得关注的地方在于，它不只给出了更好的实验结果，更提供了一条相对完整的问题求解路径，把任务定义、方法设计与实验验证真正对齐到了同一条研究主线上。
     </div>
   </article>
 </div>
+
   </div>
 </div>
 </body>
