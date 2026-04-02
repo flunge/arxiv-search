@@ -211,29 +211,41 @@
  \mathbf{I}_t, \mathbf{K}_t, \mathbf{P}_t, M_{t - 1}, S_{t - 1}
  ), $$</p>
     <p>
-      [4, 8] t f_ I_t =(I_t^1, ..., I_t^n) K_t = (K_t^1, ..., K_t^n) P_t = (P_t^1, ..., P_t^n) M_t-1 S_t-1 包含所有先前预测的 3D 高斯。模型估计：其中 是预测的局部高斯， 是预测的内部和外部相机参数， 是更新的 KV 缓存。每套…
+      公式：(\mathbf{G}_t, \hat{\mathbf{K}}_t, \hat{\mathbf{P}}_t, M_t) 
+ = 
+ f_\theta(
+ \mathbf{I}_t，\mathbf{K}_t，\mathbf{P}_t，M_{t - 1}，S_{t - 1}
+ ),
+上下文：[4, 8] t f_ I_t =(I_t^1, ..., I_t^n) K_t = (K_t^1, ..., K_t^n) P_t = (P_t^1, ..., P_t^n) M_t-1 S_t-1 包含所有先前预测的 3D 高斯。模型估计：其中 是预测的局部高斯， 是预测的内部和外部相机参数， 是更新的 KV 缓存。每套…
     </p>
     <p>$$ S_t = S_{t-1} \cup \text{Transform}(\mathbf{G}_t, \mathbf{A}_t). $$</p>
     <p>
-      。每组局部高斯函数都在 image 的相机空间中定义。为了合并到累积的场景中，我们根据输入设置使用地面实况或预测的相机姿势将其转换为世界坐标。我们将这个姿势定义为装配姿势。使用 ，我们通过合并...来更新场景
+      公式：S_t = S_{t-1} \cup \text{Transform}(\mathbf{G}_t, \mathbf{A}_t).
+上下文：.每组局部高斯函数都在 image 的相机空间中定义。为了合并到累积的场景中，我们根据输入设置使用地面实况或预测的相机姿势将其转换为世界坐标。我们将这个姿势定义为装配姿势。使用 ，我们通过合并...来更新场景
     </p>
     <p>$$ [c_t^k, E_t^k] = \text{Encoder}(I_t^k) $$</p>
     <p>
-      kbone ReCoSplat 使用基于 YoNoSplat 的自回归主干来处理图像，并通过 KV 缓存进行增强。 -2mm 编码器和解码器。给定一个图像块，使用 DINOv2 初始化的 ViT 编码器将每个图像映射到全局相机令牌和补丁令牌：通过…从相机令牌预测相机内在函数。
+      公式：[c_t^k, E_t^k] = \text{Encoder}(I_t^k)
+上下：kbone ReCoSplat 使用基于 YoNoSplat 的自回归主干处理图像，并使用 KV 缓存进行增强。 -2mm 编码器和解码器。给定一个图像块，使用 DINOv2 初始化的 ViT 编码器将每个图像映射到全局相机令牌和补丁令牌：通过…从相机令牌预测相机内在函数。
     </p>
     <p>$$ G_t^k = \Bigl[\text{Head}_\text{xyz}((F_t^k)^{2\times}, Z_t^k),\ 
 \text{Head}_\text{gs}((F_t^k)^{2\times}, Z_t^k),\ 
 \text{Head}_\text{feat}((F_t^k)^{2\times}, Z_t^k)\Bigr]. $$</p>
     <p>
-      ussian 头解码每个高斯的位置、属性和特征。姿势头根据解码器特征预测相机外在特征：。高斯头根据上采样特征预测基元，每个特征都通过交叉注意以来自渲染和比较模块（部分）的标记为条件：姿势头使用……
+      公式：G_t^k = \Bigl[\text{Head}_\text{xyz}((F_t^k)^{2\times}, Z_t^k),\ 
+\text{头}_\text{gs}((F_t^k)^{2\times}, Z_t^k),\ 
+\text{头}_\text{壮举}((F_t^k)^{2\times}, Z_t^k)\Bigr]。
+上下文：ussian 头解码每个高斯的位置、属性和特征。姿势头根据解码器特征预测相机外在特征：。高斯头根据上采样特征预测基元，每个特征都通过交叉注意以来自渲染和比较模块（部分）的标记为条件：姿势头使用……
     </p>
     <p>$$ \mathbf{F}_t, M_t = \text{Decoder}(\mathbf{E}_t, M_{t - 1}). $$</p>
     <p>
-      回归处理中，我们为 Transformer 解码器的最后一个全局注意力层维护一个 KV 缓存。在 timestep ，解码器处理当前补丁令牌以及来自先前块的缓存键和值。在全局注意力层中，每个补丁令牌都会关注当前块中的令牌以及其他......
+      公式：\mathbf{F}_t, M_t = \text{Decoder}(\mathbf{E}_t, M_{t - 1})。
+上下文：回归处理，我们为 Transformer 解码器的最后一个全局注意力层维护一个 KV 缓存。在 timestep ，解码器处理当前补丁令牌以及来自先前块的缓存键和值。在全局注意力层中，每个补丁令牌都会关注当前块中的令牌以及其他......
     </p>
     <p>$$ \hat{R}_t^k = \text{Render}(S_{t - 1}, A_t^k) $$</p>
     <p>
-      回归设置，因此预测的装配姿势有噪音并且提供弱监督（第 1 节）。为了解决姿势分布不匹配的问题，我们引入了渲染和比较模块，该模块可以从使用地面实况进行训练到使用预测的装配姿势进行推理。对于当前块中的每个图像，...
+      公式：\hat{R}_t^k = \text{Render}(S_{t - 1}, A_t^k)
+上下文：回归设置，因此预测的装配姿势有噪音并且提供弱监督（第 1 节）。为了解决姿势分布不匹配的问题，我们引入了渲染和比较模块，该模块可以从使用地面实况进行训练到使用预测的装配姿势进行推理。对于当前块中的每个图像，...
     </p>
     <figure><img class='paper-fig' src='../assets/2603_09968v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：新颖的视图合成，在未设定的设置下增加输入视图。 ReCoSplat 改进了几何形状并减少了自回归基线上的伪影。</figcaption></figure>
     <figure><img class='paper-fig' src='../assets/2603_09968v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：在完全摆好姿势和校准的设置中进行新颖的视图合成，具有 128 和 256 个输入视图。消除姿态误差后，重建质量取决于局部高斯预测精度。我们的方法模块可以纠正局部高斯错误预测，超越自回归基线并在 PSNR 中击败 YoNoSplat。</figcaption></figure>
