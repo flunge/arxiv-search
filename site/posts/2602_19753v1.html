@@ -166,7 +166,7 @@
 
     <h2 id='summary'>简单摘要</h2>
     <p>3D 高斯溅射 (3DGS) 已成为高质量 3D 场景重建的领先技术。然而，迭代细化和致密化过程导致生成大量基元，每个基元对重建的贡献程度截然不同。因此，估计原始重要性对于在重建过程中消除冗余以及实现有效的压缩和传输都是至关重要的。现有方法通常依赖于基于渲染的分析，其中每个基元通过其在多个相机视点的贡献来评估。然而，这些方法1）对视图的数量和选择敏感； 2）依赖专门的可微分光栅器； 3）计算时间长，且随着观看次数线性增长，使得它们难以集成为即插即用模块，并导致可扩展性和通用性有限。</p>
-    <p>为了解决这些问题，我们提出了 RAP——一种快速前馈的无渲染属性引导方法，用于在 3DGS 中进行有效的重要性评分预测。 RAP 直接从内在高斯属性和局部邻域统计数据推断原始重要性，避免任何基于渲染或依赖于可见性的计算。紧凑的 MLP 被训练为使用渲染损失、剪枝感知损失和显着性分布正则化损失的组合来预测每个基元的重要性分数。经过少量场景的训练后，RAP 可以有效泛化到未见过的数据，并可以无缝集成到重建、压缩和传输管道中，提供统一、高效的剪枝解决方案。</p>
+    <p>为了解决这些问题，我们提出了 RAP——一种快速前馈的无渲染属性引导方法，用于在 3DGS 中进行有效的重要性评分预测。 RAP 直接从内在高斯属性和局部邻域统计数据推断原始重要性，避免任何基于渲染或依赖于可见性的计算。 A compact MLP is trained to predict per-primitive importance scores using a combination of rendering loss, pruning-aware loss, and significance distribution regularization loss.经过少量场景的训练后，RAP 可以有效泛化到未见过的数据，并可以无缝集成到重建、压缩和传输管道中，提供统一、高效的剪枝解决方案。</p>
     <p>我们的代码公开于：https://github.com/yyyykf/RAP</p>
     <figure><img class='paper-fig' src='../assets/2602_19753v1/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：Tanks&amp;Temples 中火车场景中冗余和低重要性高斯的可视化。</figcaption></figure>
     <figure><img class='paper-fig' src='../assets/2602_19753v1/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：RAP学习框架。</figcaption></figure>
@@ -204,27 +204,34 @@
     <p>$$ \label{equ:feature}
 \mathbf{F}^{raw}_i = \{ d_i, A_i, {s_0}_i, {s_1}_i, {s_2}_i, V_i, o_i, C_i \} \in R^{1\times8}, $$</p>
     <p>
-      通过将内在几何和外观属性与归一化统计相结合，对每个高斯基元进行特征向量，包括三个步骤：特征计算、特征归一化和特征串联。特征计算。对于高斯集，每个基元都由一组原始......
+      公式：\label{equ:feature}
+\mathbf{F}^{raw}_i = \{ d_i, A_i, {s_0}_i, {s_1}_i, {s_2}_i, V_i, o_i, C_i \} \in R^{1\times8},
+上下文：将内在几何和外观属性与归一化统计相结合，得到每个高斯基元的特征向量，包括三个步骤：特征计算、特征归一化和特征级联。特征计算。对于高斯集，每个基元都由一组原始......
     </p>
     <p>$$ d_i = \frac{1}{K} \sum_{j \in \mathcal{N}_K(i)} \| \mathbf{p}_i - \mathbf{p}_j \|_2, $$</p>
     <p>
-      i, s_1_i, s_2_i, V_i, o_i, C_i \ R^18，方程 其中 是平均 -NN 距离， 是颜色各向异性， 是排序的高斯尺度， 是高斯体积， 是不透明度， 是 DC 颜色。这些量的计算如下。逐项列出平均 -NN 距离：空间隔离的测量方式为其中表示……
+      公式：d_i = \frac{1}{K} \sum_{j \in \mathcal{N}_K(i)} \| \mathbf{p}_i - \mathbf{p}_j \|_2,
+上：i, s_1_i, s_2_i, V_i, o_i, C_i \ R^18, 方程 其中 是平均-NN 距离， 是颜色各向异性， 是排序后的高斯尺度， 是高斯体积， 是不透明度， 是 DC 颜色。这些量的计算如下。逐项列出平均 -NN 距离：空间隔离的测量方式为其中表示……
     </p>
     <p>$$ A_i = \frac{1}{3} \sum_{c \in \{R,G,B\}} \sigma_m \big( c_i^c(\mathbf{v}_m) \big), $$</p>
     <p>
-      l 高斯 的位置，是其在欧几里德空间中最近邻的集合。颜色各向异性：为了捕获与视图相关的外观变化，我们随机采样方向并计算相应的 RGB 颜色。各向异性定义为跨方向的通道标准差：其中表示……
+      公式：A_i = \frac{1}{3} \sum_{c \in \{R,G,B\}} \sigma_m \big( c_i^c(\mathbf{v}_m) \big),
+上下：高斯 的 l 位置，是其在欧氏空间中最近邻的集合。颜色各向异性：为了捕获与视图相关的外观变化，我们随机采样方向并计算相应的 RGB 颜色。各向异性定义为跨方向的通道标准差：其中表示……
     </p>
     <p>$$ V_i = s_{0,i} \times s_{1,i} \times s_{2,i}. $$</p>
     <p>
-      3 _c \R,G,B\ _m ( c_i^c(v_m) )，方程 其中表示采样方向上的标准偏差。越高表示依赖于视图的颜色变化越强。比例和体积：对比例进行排序以确保旋转不变性：然后将高斯体积计算为不透明度和 DC 颜色：不透明度反映了...
+      公式：V_i = s_{0,i} \times s_{1,i} \times s_{2,i}。
+上：3 _c \R,G,B\ _m ( c_i^c(v_m) ), 方程 其中表示采样方向上的标准差。越高表示依赖于视图的颜色变化越强。比例和体积：对比例进行排序以确保旋转不变性：然后将高斯体积计算为不透明度和 DC 颜色：不透明度反映了...
     </p>
     <p>$$ f^{(G)}_i = \frac{f_i - \mu^{(G)}}{\sigma^{(G)}}, \quad f^{(L)}_i = \frac{f_i - \mu^{(L)}_i}{\sigma^{(L)}_i}, $$</p>
     <p>
-      使用全球和本地统计数据进行标准化。全局归一化应用场景范围的分数来提供整个场景的一致参考，其中 和 表示所有高斯的全局平均值和标准差。局部归一化进一步计算基于 -NN 的 -score 以强调局部 co...
+      公式：f^{(G)}_i = \frac{f_i - \mu^{(G)}}{\sigma^{(G)}}, \quad f^{(L)}_i = \frac{f_i - \mu^{(L)}_i}{\sigma^{(L)}_i},
+上下文：使用全球和本地统计数据进行标准化。全局归一化应用场景范围的分数来提供整个场景的一致参考，其中 和 表示所有高斯的全局平均值和标准差。局部归一化进一步计算基于 -NN 的 -score 以强调局部 co...
     </p>
     <p>$$ \mathbf{F}_i = \{f^{(G)}_1, \ldots, f^{(G)}_7, f^{(L)}_1, \ldots, f^{(L)}_8\}, $$</p>
     <p>
-      在单位方差为零附近，根据经验三西格玛规则，大多数值预计会落入其中。然而，在实践中，极端异常值仍然可能发生。为了增强鲁棒性，所有特征都被裁剪到固定的百分位数范围，然后线性重新缩放到。特征串联...
+      公式：\mathbf{F}_i = \{f^{(G)}_1, \ldots, f^{(G)}_7, f^{(L)}_1, \ldots, f^{(L)}_8\},
+上下：单位方差为零附近，根据经验三西格玛规则，大多数值预计落在该范围内。然而，在实践中，极端异常值仍然可能发生。为了增强鲁棒性，所有特征都被裁剪到固定的百分位数范围，然后线性重新缩放到。特征串联...
     </p>
     <figure><img class='paper-fig' src='../assets/2602_19753v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：PSNR 与保留率曲线。</figcaption></figure>
     <figure><img class='paper-fig' src='../assets/2602_19753v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：GSC GPCC</figcaption></figure>
