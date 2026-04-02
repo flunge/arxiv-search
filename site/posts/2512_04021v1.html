@@ -201,29 +201,37 @@
     <p>我们将可学习的查询标记与图像特征连接起来形成一个统一的序列： 。这种组合表示通过具有完全自注意力的转换器层进行处理，从而实现双向信息流。通过这些注意力层，每个查询标记学习：（1）聚合所有输入视图中特定区域的相关视觉信息，（2）与其他查询标记交换信息以避免冗余并确保全面覆盖，以及（3）逐步完善其对应表示哪个 3D 区域的理解。高斯参数解码。在变压器块之后，我们提取精炼的查询令牌......</p>
     <p>$$ \hat{I}_t({p}) = \sum_{i=1}^N {c}_i\sigma_i\mathbf{G}^\text{2D}_i({p}) \prod_{j=1}^{i-1}(1-\sigma_j \mathbf{G}^\text{2D}_j({p})), $$</p>
     <p>
-      整数并最小化与地面真实图像的光度差异。遵循前馈新颖的视图合成框架，我们在训练期间将 3D 高斯投影到具有已知相机姿势的目标视图。目标视图图像的每个像素都是通过高斯颜色属性的 alpha 混合根据…进行渲染的。
+      公式：\hat{I}_t({p}) = \sum_{i=1}^N {c}_i\sigma_i\mathbf{G}^\text{2D}_i({p}) \prod_{j=1}^{i-1}(1-\sigma_j \mathbf{G}^\text{2D}_j({p})),
+上下：整数并最小化与地面真实图像的光度差异。遵循前馈新颖的视图合成框架，我们在训练期间将 3D 高斯投影到具有已知相机姿势的目标视图。目标视图图像的每个像素都是通过高斯颜色属性的 alpha 混合根据…进行渲染的。
     </p>
     <p>$$ \mathcal{L}_\text{novel} = \lambda_{\text{MSE}} \mathcal{L}_{\text{MSE}}(\hat{I}_t,I_t) + \lambda_{\text{LPIPS}} \mathcal{L}_{\text{LPIPS}}(\hat{I}_t,I_t), $$</p>
     <p>
-      ^2D_j(p))，方程其中 是通过解码球谐系数获得的每个高斯的视图相关颜色属性，是投影到 2D 屏幕空间的 3D 高斯。我们的训练目标将渲染图像和真实图像之间的均方误差以及感知损失结合起来：如下……
+      公式：\mathcal{L}_\text{novel} = \lambda_{\text{MSE}} \mathcal{L}_{\text{MSE}}(\hat{I}_t,I_t) + \lambda_{\text{LPIPS}} \mathcal{L}_{\text{LPIPS}}(\hat{I}_t,I_t),
+上下：^2D_j(p)), 方程 其中 是通过解码球谐系数获得的每个高斯的视图相关颜色属性， 是投影到 2D 屏幕空间的 3D 高斯。我们的训练目标将渲染图像和真实图像之间的均方误差以及感知损失结合起来：如下……
     </p>
     <p>$$ \mathbf{G}^\text{2D}_{i}(p) = e^{-\frac{1}{2}(p-\mu_{i}^\text{2D})^T(\Sigma_{i}^\text{2D}+s\mathbf{I})^{-1}(p-\mu_{i}^\text{2D})}, $$</p>
     <p>
-      解析梯度和模式崩溃。与这些分析相一致，我们还观察到使用光度损失来训练网络会导致训练不稳定。为了解决这个问题，我们采用了 RAIN-GS 的渐进式低通滤波器。为了渲染 Gaussian ，投影的 2D Gaussian 定义如下：其中 i...
+      公式：\mathbf{G}^\text{2D}_{i}(p) = e^{-\frac{1}{2}(p-\mu_{i}^\text{2D})^T(\Sigma_{i}^\text{2D}+s\mathbf{I})^{-1}(p-\mu_{i}^\text{2D})},
+上下：解析梯度和模式崩溃。与这些分析相一致，我们还观察到使用光度损失来训练网络会导致训练不稳定。为了解决这个问题，我们采用了 RAIN-GS 的渐进式低通滤波器。为了渲染 Gaussian ，投影的 2D Gaussian 定义如下：其中 i...
     </p>
     <p>$$ \mathcal{L}_\text{feat} = 1 - \cos(\hat{\mathbf{F}}_t/\|\hat{\mathbf{F}}_t\|,
 \mathbf{F}&#x27;_t/\|\mathbf{F}&#x27;_t\|
 ) $$</p>
     <p>
-      bR^d&#x27; G_i F&#x27;&#x27;_i I_t _t as 其中 是渲染的特征图， 是groundtruth特征，表示余弦相似度操作，是L2范数操作。实验实现细节在这里，我们指定了.对于视觉编码器，我们采用预训练的VGGT作为de
+      公式：\mathcal{L}_\text{feat} = 1 - \cos(\hat{\mathbf{F}}_t/\|\hat{\mathbf{F}}_t\|,
+\mathbf{F}&#x27;_t/\|\mathbf{F}&#x27;_t\|
+）
+上：bR^d&#x27; G_i F&#x27;&#x27;_i I_t _t as 其中 是渲染的特征图， 是groundtruth特征，表示余弦相似度操作， 是L2范数操作。实验实现细节在这里，我们指定了.对于视觉编码器，我们采用预训练的VGGT作为de
     </p>
     <p>$$ [\bar{\mathbf{Q}};\bar{\mathbf{F}}] = \mathcal{T}_\mathcal{G}([\mathbf{Q};\mathbf{F}]), $$</p>
     <p>
-      通过将每个图像独立地传递给编码器来进行特征映射。然后，我们将特征图与可学习标记连接起来，这些标记是随机初始化的。这种级联表示通过转换器层进行处理，该转换器层由自注意力层和具有 ReLU 激活函数的 MLP 层组成……
+      公式：[\bar{\mathbf{Q}};\bar{\mathbf{F}}] = \mathcal{T}_\mathcal{G}([\mathbf{Q};\mathbf{F}]),
+上下文：通过将每个图像独立地传递给编码器来进行特征映射。然后，我们将特征图与可学习标记连接起来，这些标记是随机初始化的。这种级联表示通过转换器层进行处理，该转换器层由自注意力层和具有 ReLU 激活函数的 MLP 层组成……
     </p>
     <p>$$ \mathsf{Attn}(Q,K,V) = \mathsf{Softmax}(\frac{QK^\intercal}{\sqrt{d_Q}})V, $$</p>
     <p>
-      hbfQ;F]），对齐，其中分别表示查询特征，表示关键特征，表示可学习令牌和视觉编码器特征的值特征。 、 、 、 分别表示查询、键、值的投影层。然后，自注意力层的输出计算如下：其中表示…
+      公式：\mathsf{Attn}(Q,K,V) = \mathsf{Softmax}(\frac{QK^\intercal}{\sqrt{d_Q}})V,
+上面：hbfQ;F]),align，其中表示查询特征，表示关键特征，表示可学习标记的值特征和视觉编码器特征。 、 、 、 分别表示查询、键、值的投影层。然后，自注意力层的输出计算如下：其中表示…
     </p>
 
     <p>
