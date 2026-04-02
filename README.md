@@ -15,6 +15,35 @@ python -m pip install -r requirements.txt
 
 ## 常用命令
 
+## 本地可视化工具（无需命令行交互）
+
+### 1) 启动 Web 交互页面
+
+```powershell
+python web_ui.py
+```
+
+浏览器会自动打开：`http://127.0.0.1:7860`
+
+页面顶部会显示「后台模型信息」：
+
+- 若配置了 `OPENAI_API_KEY`：显示实际 LLM 模型名（如 `gpt-4o-mini`）
+- 若未配置：显示 `rule-based local planner`（本地规则回退）
+
+### 2) 创建桌面快捷方式（双击打开）
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\create_desktop_shortcut.ps1
+```
+
+执行后会在桌面生成：`Research Hub.lnk`，双击即可启动工具。
+
+### 3) 一体化命令行入口（可选）
+
+```powershell
+python research_hub.py --help
+```
+
 ### 0. Topic Hub（一体化入口）
 
 ```powershell

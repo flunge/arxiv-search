@@ -15,6 +15,7 @@ class TopicPlan:
     queries: List[str]
     tags: List[str]
     source: str
+    backend_model: str
 
 
 class TopicInterpreter:
@@ -35,6 +36,19 @@ class TopicInterpreter:
             if plan.queries:
                 return plan
         return self._fallback_plan(topic, max_queries=max_queries)
+
+    def backend_info(self) -> dict:
+        if self.api_key:
+            return {
+                "mode": "llm",
+                "model": self.model,
+                "base_url": self.base_url,
+            }
+        return {
+            "mode": "fallback",
+            "model": "rule-based local planner",
+            "base_url": "",
+        }
 
     def _interpret_with_llm(self, topic: str, max_queries: int = 8) -> TopicPlan:
         url = self.base_url.rstrip("/") + "/chat/completions"
@@ -63,9 +77,21 @@ class TopicInterpreter:
             data = self._safe_parse_json(content)
             queries = self._clean_queries(data.get("queries", []), max_queries=max_queries)
             tags = [str(x).strip() for x in data.get("tags", []) if str(x).strip()]
-            return TopicPlan(topic=topic, queries=queries, tags=tags[:12], source="llm")
+            return TopicPlan(
+                topic=topic,
+                queries=queries,
+                tags=tags[:12],
+                source="llm",
+                backend_model=self.model,
+            )
         except Exception:
-            return TopicPlan(topic=topic, queries=[], tags=[], source="llm-failed")
+            return TopicPlan(
+                topic=topic,
+                queries=[],
+                tags=[],
+                source="llm-failed",
+                backend_model=self.model,
+            )
 
     def _safe_parse_json(self, text: str) -> Dict:
         if text.startswith("```"):
@@ -114,5 +140,11 @@ class TopicInterpreter:
 
         queries = self._clean_queries(templates, max_queries=max_queries)
         tags = [t for t in tokens[:12]]
-        return TopicPlan(topic=topic, queries=queries, tags=tags, source="fallback")
+        return TopicPlan(
+            topic=topic,
+            queries=queries,
+            tags=tags,
+            source="fallback",
+            backend_model="rule-based local planner",
+        )
 
