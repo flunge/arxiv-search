@@ -202,7 +202,8 @@
     <p>请参阅补充材料，了解我们如何在不修改原始 OmniRe CUDA 代码的情况下将深度失真正则化实现到 OmniRe 主干中。几何引导的伪视图合成给定驾驶场景的 4D 重建，我们根据像素的深度（从 4D 重建得出）将光线从每个像素投射到 3D 空间中。在特定的时间戳，假设我们可以访问记录的图像，以及它们相应的相机姿势和从高斯场渲染的深度图。给定目标相机沿着新颖轨迹的姿势，我们的目标是……</p>
     <p>$$ \mathbf{x}_w = \mathbf{T}_t \begin{bmatrix} \mathbf{D}_t(u, v)\, \mathbf{K}_t^{-1} \mathbf{p}_{uv} \\ 1 \end{bmatrix}, \quad \mathbf{p}_{uv} = \begin{bmatrix} u \\ v \\ 1 \end{bmatrix} $$</p>
     <p>
-      y。我们的目标是合成一个伪视图，该视图近似于目标视点的场景外观。步骤 1：将目标视图深度取消投影到 3D 世界坐标。对于深度为目标图像中的每个像素，我们计算世界空间中相应的 3D 点 -0.25in 对所有像素重复以获得…
+      公式：\mathbf{x}_w = \mathbf{T}_t \begin{bmatrix} \mathbf{D}_t(u, v)\, \mathbf{K}_t^{-1} \mathbf{p}_{uv} \\ 1 \end{bmatrix}, \quad \mathbf{p}_{uv} = \begin{bmatrix} u \\ v \\ 1 \end{b矩阵}
+上下：y .我们的目标是合成一个伪视图，该视图近似于目标视点的场景外观。步骤 1：将目标视图深度取消投影到 3D 世界坐标。对于深度为目标图像中的每个像素，我们计算世界空间中相应的 3D 点 -0.25in 对所有像素重复以获得…
     </p>
     <p>$$ \label{eq:projection}
 \begin{split}
@@ -210,13 +211,21 @@
  \mathbf{p}^{(i)} = \mathbf{K}_i \cdot \mathbf{x}_c^{(i)}[:3], &amp;\quad \mathbf{u}^{(i)} = \left( \frac{p_x^{(i)}}{p_z^{(i)}}, \frac{p_y^{(i)}}{p_z^{(i)}} \right).
 \end{split} $$</p>
     <p>
-      1 b 矩阵方程 对所有像素重复以获得一组 3D 点。我们将 3D 点的颜色表示为 。最初，每个点都被涂成黑色；稍后我们将为它们分配特定的颜色。步骤 2：将 3D 点投影到源视图中。每个点都会投影到每个源视图：只有符合该范围的点......
+      公式：\label{eq:projection}
+\开始{分割}
+ \mathbf{x}_c^{(i)} &amp;= \mathbf{T}_i^{-1} \begin{bmatrix} \mathbf{x}_w \\ 1 \end{bmatrix}, \\
+ \mathbf{p}^{(i)} = \mathbf{K}_i \cdot \mathbf{x}_c^{(i)}[:3], &amp;\quad \mathbf{u}^{(i)} = \left( \frac{p_x^{(i)}}{p_z^{(i)}}, \frac{p_y^{(i)}}{p_z^{(i)}} \right)。
+\结束{分割}
+上：1 b矩阵方程对所有像素重复，得到一组3D点。我们将 3D 点的颜色表示为 。最初，每个点都被涂成黑色；稍后我们将为它们分配特定的颜色。步骤 2：将 3D 点投影到源视图中。每个点都会投影到每个源视图：只有符合该范围的点......
     </p>
     <p>$$ c_{\mathbf{x}_w} = \begin{cases}I_i(\mathbf{u}^{(i)}) &amp; \mbox{if} \left| \mathbf{D}_i(\mathbf{u}^{(i)}) - \mathbf{x}_c^{(i)}[2] \right| &lt; \delta. \\
  \mathbf{0} &amp; \mbox{otherwise} \end{cases}
  \label{eq:sample_color} $$</p>
     <p>
-      (i)p_z^(i), p_y^(i)p_z^(i) )。分割方程 仅考虑落在源视图的高度 (H) 和宽度 (W) 范围内的点。步骤 3 中的 -0.1：从记录的视图中采样颜色并检查可见性。我们确定一个点的可见性并使用以下方程对其相应的颜色进行采样......
+      公式：c_{\mathbf{x}_w} = \begin{cases}I_i(\mathbf{u}^{(i)}) &amp; \mbox{if} \left| \mathbf{D}_i(\mathbf{u}^{(i)}) - \mathbf{x}_c^{(i)}[2] \right| &lt; \delta。 \\
+ \mathbf{0} &amp; \mbox{其他} \end{案例}
+ \label{eq:sample_color}
+上：(i)p_z^(i), p_y^(i)p_z^(i) )。分割方程 仅考虑落在源视图的高度 (H) 和宽度 (W) 范围内的点。步骤 3 中的 -0.1：从记录的视图中采样颜色并检查可见性。我们确定一个点的可见性并使用以下方程对其相应的颜色进行采样......
     </p>
     <figure><img class='paper-fig' src='../assets/2602_20673v2/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：我们的视频传播模型的架构。我们的分段视频扩散模型生成以新颖的伪视图为条件的视频。</figcaption></figure>
     <figure><img class='paper-fig' src='../assets/2602_20673v2/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：伪视图模拟管道。我们设计这个伪视图模拟管道来模拟新颖的伪视图的特征模式。</figcaption></figure>
