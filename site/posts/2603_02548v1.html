@@ -206,7 +206,12 @@
 \mathbf{0}^\top &amp; 1
 \end{bmatrix}, $$</p>
     <p>
-      -aware注意力机制（如图所示）受到PRoPE的启发。具体来说，我们通过对 Swin Transformer 中的查询、键和标记值（即图像块嵌入）应用编码，将相机姿势（即投影变换）注入注意力过程中。形式上，相对相机投影......
+      公式：\tilde{\mathbf{P}}_{i\to j}=\tilde{\mathbf{P}}_{i}\tilde{\mathbf{P}}_{j}^{-1},\ 
+\tilde{\mathbf{P}}_{i}=\begin{bmatrix}
+\mathbf{K}_i\mathbf{R}_i &amp; \mathbf{K}_i\mathbf{t}_i\\
+\mathbf{0}^\top &amp; 1
+\结束{b矩阵}，
+上下：受PRoPE启发的-aware注意力机制（如图所示）。具体来说，我们通过对 Swin Transformer 中的查询、键和标记值（即图像块嵌入）应用编码，将相机姿势（即投影变换）注入注意力过程中。形式上，相对相机投影......
     </p>
     <p>$$ \mathbf{G}_{t}=
 \begin{bmatrix}
@@ -214,7 +219,12 @@
 0 &amp; \mathbf{G}^{\mathrm{rope}}_{t}
 \end{bmatrix}. $$</p>
     <p>
-      ndbmatrix，方程 其中 表示世界到相机的投影矩阵， 和 分别表示相机的固有矩阵、旋转和平移视图 。对于一个 token ，为了联合编码视图间关系和视图内 token 位置顺序，我们构建了一个块对角矩阵：在这个块对角矩阵中......
+      公式：\mathbf{G}_{t}=
+\开始{b矩阵}
+\mathbf{G}^{\mathrm{proj}}_{t} &amp; 0\\
+0 &amp; \mathbf{G}^{\mathrm{绳子}}_{t}
+\end{b矩阵}。
+上：ndbmatrix，方程 其中 表示世界到相机的投影矩阵， ， 分别表示相机的本征，旋转和平移视图 。对于一个 token ，为了联合编码视图间关系和视图内 token 位置顺序，我们构建了一个块对角矩阵：在这个块对角矩阵中......
     </p>
     <p>$$ \mathbf{G}^{\mathrm{rope}}_{t}=
 \begin{bmatrix}
@@ -222,22 +232,33 @@
 \mathbf{0} &amp; \mathrm{RoPE}(y_t)
 \end{bmatrix} \in \mathbb{R}^{\frac{d}{2} \times \frac{d}{2}} $$</p>
     <p>
-      矩阵：在此块对角矩阵中，对相机级信息进行编码，并通过旋转嵌入对视图内位置信息进行编码。这里， 表示 token 坐标的旋转位置嵌入。遵循 GTA 风格的注意力，然后应用于令牌的查询、键和值，如下所示：等式...
+      公式：\mathbf{G}^{\mathrm{绳子}}_{t}=
+\开始{b矩阵}
+\mathrm{RoPE}(x_t) &amp; \mathbf{0}\\
+\mathbf{0} &amp; \mathrm{RoPE}(y_t)
+\end{bmatrix} \in \mathbb{R}^{\frac{d}{2} \times \frac{d}{2}}
+上下：矩阵：在此块对角矩阵中，编码相机级信息，并通过旋转嵌入编码视图内位置信息。这里， 表示 token 坐标的旋转位置嵌入。遵循 GTA 风格的注意力，然后应用于令牌的查询、键和值，如下所示：等式...
     </p>
     <p>$$ \mathbf{Q}&#x27;_{t}=(\mathbf{G}_{t})^\top\mathbf{Q}_{t},\ 
 \mathbf{K}&#x27;_{t}=(\mathbf{G}_{t})^{-1}\mathbf{K}_{t},\ 
 \mathbf{V}&#x27;_{t}=(\mathbf{G}_{t})^{-1}\mathbf{V}_{t}. $$</p>
     <p>
-      dbmatrix R^d2 d2 方程通过旋转嵌入对视图内位置信息进行编码。这里， 表示 token 坐标的旋转位置嵌入。遵循 GTA 风格的注意力，然后将其应用于查询、键和令牌值，如下所示： 最后，注意力输出计算为： 其中索引...
+      公式：\mathbf{Q}&#x27;_{t}=(\mathbf{G}_{t})^\top\mathbf{Q}_{t},\ 
+\mathbf{K}&#x27;_{t}=(\mathbf{G}_{t})^{-1}\mathbf{K}_{t},\ 
+\mathbf{V}&#x27;_{t}=(\mathbf{G}_{t})^{-1}\mathbf{V}_{t}。
+上：dbmatrix R^d2 d2 方程通过旋转嵌入对视图内位置信息进行编码。这里， 表示 token 坐标的旋转位置嵌入。遵循 GTA 风格的注意力，然后将其应用于查询、键和令牌值，如下所示： 最后，注意力输出计算为： 其中索引...
     </p>
     <p>$$ \mathbf{O}_{t}=\sum_{u}\mathbf{A}_{t,u}\,\mathbf{V}&#x27;_{u},\ 
 \mathbf{A}_{t,u}=\mathrm{Softmax}\Big(\frac{\mathbf{Q}&#x27;_{t}(\mathbf{K}&#x27;_{u})^\top}{\sqrt{d}}\Big), $$</p>
     <p>
-      (x_t, y_t) t G_t t O_t 计算如下： 其中索引所有参与标记，表示嵌入维度。通过采用相机感知注意力，我们的模型增强了跨视图几何一致性，并增强了稀疏视图设置中的语义推理能力。多视图深度估计成本体积构建......
+      公式：\mathbf{O}_{t}=\sum_{u}\mathbf{A}_{t,u}\,\mathbf{V}&#x27;_{u},\ 
+\mathbf{A}_{t,u}=\mathrm{Softmax}\Big(\frac{\mathbf{Q}&#x27;_{t}(\mathbf{K}&#x27;_{u})^\top}{\sqrt{d}}\Big),
+上下：(x_t, y_t) t G_t t O_t 计算如下： 其中索引所有参与的标记，表示嵌入维度。通过采用相机感知注意力，我们的模型增强了跨视图几何一致性，并增强了稀疏视图设置中的语义推理能力。多视图深度估计成本体积构建......
     </p>
     <p>$$ \mathcal{L} = \lambda_{sem} \mathcal{L}_{sem} + \lambda_c \mathcal{L}_{c} + \lambda_{rs} \mathcal{L}_{rs}, $$</p>
     <p>
-      bfS_i,j^\,l\|_1,align 其中 表示属于真实语义类 的像素区域，表示类 的像素处的预测概率分布。这种区域平滑度损失促进了语义局部一致性，同时保留了清晰的类间边界。综上，最终的训练目标...
+      公式：\mathcal{L} = \lambda_{sem} \mathcal{L}_{sem} + \lambda_c \mathcal{L}_{c} + \lambda_{rs} \mathcal{L}_{rs},
+上：bfS_i,j^\,l\|_1,align 其中 表示属于真实语义类 的像素区域，表示类 的像素处的预测概率分布。这种区域平滑度损失促进了语义局部一致性，同时保留了清晰的类间边界。综上，最终的训练目标...
     </p>
     <figure><img class='paper-fig' src='../assets/2603_02548v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：Swin Transformer 具有相机感知注意力。不同的颜色表示注意力窗口，窗口移动机制使模型能够捕获跨窗口连接。将相机姿势注入注意力过程中以增强 3D 推理能力。</figcaption></figure>
     <figure><img class='paper-fig' src='../assets/2603_02548v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：ScanNet 和 ScanNet++ 数据集的定性比较。我们展示了不同方法的新颖视图语义渲染结果。与现有的工作相比，我们的方法产生更清晰的对象边界、更少的错误分类区域以及更空间一致的分割。</figcaption></figure>
