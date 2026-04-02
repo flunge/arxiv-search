@@ -202,20 +202,25 @@
     <p>道路左侧可见一辆黄色出租车，与车辆同向行驶。右侧有一个显示红色信号的交通灯，表示从该方向驶来的车辆必须停车。有道路施工标志，表明附近正在施工，右侧有一个公交车站，目前有一辆公交车停在该站。车辆正在接近一个十字路口，有一条道路向左侧分支，如 Portsdown Rd 的路标所示。后视图显示道路畅通，车辆后方没有直接交通，并且建筑物内有建筑物。</p>
     <p>$$ q(\boldsymbol{x}_t|\boldsymbol{x}) = \mathcal{N} (\alpha_t\boldsymbol{x}, \sigma^2_t \boldsymbol{I}), $$</p>
     <p>
-      s，本节我们简单介绍一下它的原理。我们采用去噪扩散概率模型（DDPM）。在 DDPM 中，前向扩散过程将通过在每个时间步添加高斯噪声来逐渐破坏样本：变量最终将达到高斯分布，可以写成...
+      公式：q(\boldsymbol{x}_t|\boldsymbol{x}) = \mathcal{N} (\alpha_t\boldsymbol{x}, \sigma^2_t \boldsymbol{I}),
+上文：s，本节我们简单介绍一下它的原理。我们采用去噪扩散概率模型（DDPM）。在 DDPM 中，前向扩散过程将通过在每个时间步添加高斯噪声来逐渐破坏样本：变量最终将达到高斯分布，可以写成...
     </p>
     <p>$$ q(\boldsymbol{x}_t|\boldsymbol{x}_s)= \mathcal{N} (\alpha_{t|s}\boldsymbol{x}_s, \sigma^2_{t|s} \boldsymbol{I}), $$</p>
     <p>
-      mathcalN (_tx, ^2_t I)，方程，其中 和 是确定噪声调度的超参数。我们遵循 -cosine 时间表，其中 , 。因此，变量从时间步到 ( ) 的中间转移过程可以表示为 其中 , 。反向扩散过程用于对…中的样品进行降噪。
+      公式：q(\boldsymbol{x}_t|\boldsymbol{x}_s)= \mathcal{N} (\alpha_{t|s}\boldsymbol{x}_s, \sigma^2_{t|s} \boldsymbol{I}),
+上：mathcalN (_tx, ^2_t I)，方程其中 和 是决定噪声调度的超参数。我们遵循 -cosine 时间表，其中 , 。因此，变量从时间步到 ( ) 的中间转移过程可以表示为 其中 , 。反向扩散过程用于对…中的样品进行降噪。
     </p>
     <p>$$ \label{eq_p_step}
  p(\boldsymbol{x}_s|\boldsymbol{x}_t) = \mathcal{N}(\boldsymbol{\mu}_t(\boldsymbol{x}, \boldsymbol{x}_t), \Sigma^2_t\boldsymbol{I}), $$</p>
     <p>
-      从时间步长到 () 的 le 可以表示为 其中 , 。反向扩散过程用于对潜在空间中的样本进行去噪，可以表示为 其中 , 。在训练期间，使用噪声样本，模型正在学习通过 eq_p_step 中的估计来估计未知数。几乎
+      公式：\label{eq_p_step}
+ p(\boldsymbol{x}_s|\boldsymbol{x}_t) = \mathcal{N}(\boldsymbol{\mu}_t(\boldsymbol{x}, \boldsymbol{x}_t), \Sigma^2_t\boldsymbol{I}),
+上下文：从时间步长到 ( ) 的 le 可以表示为 其中 , 。反向扩散过程用于对潜在空间中的样本进行去噪，可以表示为 其中 , 。在训练期间，使用噪声样本，模型正在学习通过 eq_p_step 中的估计来估计未知数。几乎
     </p>
     <p>$$ \mathcal{L} = \mathbb{E}_{\boldsymbol{x}, \boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I}, t)} \left [ \| \boldsymbol{\epsilon} - \hat{\boldsymbol{\epsilon}}(\boldsymbol{x}_t, t, \boldsymbol{c}) \| ^2 \right ], $$</p>
     <p>
-      ^2_t=^2_t|s^2_s/^2_t x_t x_s x x x_t 。损失函数表示为 where 表示条件（将在 sec_seqlidar 中描述）。模型训练完成后，我们将迭代评估 eq_p_step，最终样本预计接近数据分布。我们将去噪 p 中的迭代次数设置为 256...
+      公式：\mathcal{L} = \mathbb{E}_{\boldsymbol{x}, \boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I}, t)} \left [ \| \boldsymbol{\epsilon} - \hat{\boldsymbol{\epsilon}}(\boldsymbol{x}_t, t, \boldsymbol{c}) \| ^2 \右],
+上面：^2_t=^2_t|s^2_s/^2_t x_t x_s x x x_t 。损失函数表示为 where 表示条件（将在 sec_seqlidar 中描述）。模型训练完成后，我们将迭代评估 eq_p_step，最终样本预计接近数据分布。我们将去噪 p 中的迭代次数设置为 256...
     </p>
     <figure><img class='paper-fig' src='../assets/2511_13309v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：的管道。我们首先从给定的道路场景中导出多模态条件，包括道路草图、场景标题和对象先验（请参阅 sec_conditions）。然后，所提出的\基于多模态条件预测序列噪声，其中等矩形空间-时间卷积（EST-Conv）和等矩形空间-时间卷积（EST-Trans）强制空间和时间一致性（参见 sec_seqnet ）。</figcaption></figure>
     <figure><img class='paper-fig' src='../assets/2511_13309v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：由 nuScenes val split 上不同条件下的 \ 生成的 LiDAR 场景。</figcaption></figure>
