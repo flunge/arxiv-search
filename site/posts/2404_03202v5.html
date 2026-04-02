@@ -202,7 +202,8 @@
     <p>为了实现真实感重建并使用全向图像实现沉浸式场景漫游，360Roam [6]、360FusionNerf [12] 和 PaniGRF [4] 等多种方法探索了神经辐射场（NeRF）技术的利用[14]。与专注于精确几何重建的传统方法 [8,19,20] 不同，基于 NeRF 的方法采用多层感知器 (MLP) 来隐式建模场景。它累积每条光线的密度和与视图相关的颜色，这些颜色是从 MLP 回归的，用于图像合成。 Mean1 arXiv:2404.03202v5 [cs.CV] 2024 年 11 月 6 日同时，通过最小化渲染图像和相应训练图像之间的真实感损失来优化 MLP 参数</p>
     <p>$$ \mathbf{t} = \mathbf{T}_\text{cw}*\mathbf{m} = \mathbf{W}\mathbf{m}+\mathbf{t}_\text{cw}. $$</p>
     <p>
-      真实飞机，即 .图 相机模型是 3D 相机空间点与其在图像上的投影位置之间的数学关系。设 为该点的世界位置，为它从世界坐标系到相机空间的变换，我们有其中 是旋转矩阵， 是平移矩阵...
+      公式：\mathbf{t} = \mathbf{T}_\text{cw}*\mathbf{m} = \mathbf{W}\mathbf{m}+\mathbf{t}_\text{cw}。
+上下：真实平面，即 .图 相机模型是 3D 相机空间点与其在图像上的投影位置之间的数学关系。设 为该点的世界位置，为它从世界坐标系到相机空间的变换，我们有其中 是旋转矩阵， 是平移矩阵...
     </p>
     <p>$$ \label{equ:perspective-camera-model}
  \begin{bmatrix}
@@ -215,7 +216,17 @@
  f_y t_y/t_z + c_y
  \end{bmatrix}, $$</p>
     <p>
-      thbfm T_cw W t_cw 是翻译。最初的3DGS使用透视相机模型：其中 是焦距， 是针孔相机模型的主点。图*[t] OmniGS 优化流程的示意图。它通过最小化渲染之间的损失来优化 3D 高斯表示……
+      公式：\label{equ:perspective-camera-model}
+ \开始{b矩阵}
+ p_x\\
+ p_y
+ \end{b矩阵}
+ =
+ \开始{b矩阵}
+ f_x t_x/t_z + c_x\\
+ f_y t_y/t_z + c_y
+ \结束{b矩阵}，
+上：thbfm T_cw W t_cw 是翻译。最初的3DGS使用透视相机模型：其中 是焦距， 是针孔相机模型的主点。图*[t] OmniGS 优化流程的示意图。它通过最小化渲染之间的损失来优化 3D 高斯表示……
     </p>
     <p>$$ \label{equ:camera-to-lonlat}
  \begin{bmatrix}
@@ -228,7 +239,17 @@
  \arcsin (t_y / t_r)
  \end{bmatrix}, $$</p>
     <p>
-      ich 是全向重建中最常用的形式。如图：camera-camera所示，我们根据SLAM约定定义相机坐标系。相机X-Z平面对应于等距柱状投影的赤道平面。为了保持高保真度，我们使用原来的......
+      公式：\label{equ:camera-to-lonlat}
+ \开始{b矩阵}
+ 长\
+ 拉特
+ \end{b矩阵}
+ =
+ \开始{b矩阵}
+ \mathrm{arctan2}(t_x / t_z)\\
+ \arcsin (t_y / t_r)
+ \结束{b矩阵}，
+上下：ich是全向重建中最常用的形式。如图：camera-camera所示，我们根据SLAM约定定义相机坐标系。相机X-Z平面对应于等距柱状投影的赤道平面。为了保持高保真度，我们使用原来的......
     </p>
     <p>$$ \label{equ:lonlat-to-screen}
  \begin{bmatrix}
@@ -241,7 +262,17 @@
  2lat / \pi
  \end{bmatrix}, $$</p>
     <p>
-      n 其中 是相机空间中单位球体中心到 3D 高斯中心的距离，是 4 象限反正切，我们有 和 。然后上面的纬度和经度（fig:camera-lonlat）可以转换为统一的屏幕空间坐标（fig:camera-screen）：这样我们就有了....
+      公式：\label{equ:lonlat-to-screen}
+ \开始{b矩阵}
+ s_x\\
+ s_y
+ \end{b矩阵}
+ =
+ \开始{b矩阵}
+ 经/\pi\\
+ 2lat / \pi
+ \结束{b矩阵}，
+上下：n 其中 是摄像机空间中单位球体中心到 3D 高斯中心的距离，是 4 象限反正切，我们有 和 。然后上面的纬度和经度（fig:camera-lonlat）可以转换为统一的屏幕空间坐标（fig:camera-screen）：这样我们就有了....
     </p>
     <p>$$ \label{equ:screen-to-pixel}
  \begin{bmatrix}
@@ -254,12 +285,24 @@
  (s_y + 1) H / 2
  \end{bmatrix}, $$</p>
     <p>
-      :camera-screen): 这样我们就有了 .在投影过程结束时，统一的屏幕空间坐标被转换为图像上的像素位置（图：相机像素）：其中 、 分别是等距柱状图像的宽度和高度，以像素数测量。正向渲染如下...
+      公式：\label{equ:屏幕到像素}
+ \开始{b矩阵}
+ p_x\\
+ p_y
+ \end{b矩阵}
+ =
+ \开始{b矩阵}
+ (s_x + 1) W / 2\\
+ (s_y + 1) H / 2
+ \结束{b矩阵}，
+上下：:camera-screen): 这样我们就有 .在投影过程结束时，统一的屏幕空间坐标被转换为图像上的像素位置（图：相机像素）：其中 、 分别是等距柱状图像的宽度和高度，以像素数测量。正向渲染如下...
     </p>
     <p>$$ \label{equ:alpha-blending}
  C=\sum_{i=1}^N c_i \alpha_i \prod_{j=1}^{i-1}(1-\alpha_j), $$</p>
     <p>
-      bmatrix = bmatrix (s_x + 1) W / 2\\ (s_y + 1) H / 2 bmatrix，方程 其中 、 分别是等距柱状图像的宽度和高度，以像素数测量。正向渲染遵循 3DGS ，每个图像像素的最终颜色由混合模型决定：其中 是 3D G 的数量...
+      公式：\label{equ:alpha-blending}
+ C=\sum_{i=1}^N c_i \alpha_i \prod_{j=1}^{i-1}(1-\alpha_j),
+上：bmatrix = bmatrix (s_x + 1) W / 2\\ (s_y + 1) H / 2 bmatrix，方程 其中 、 分别是等距柱状图像的宽度和高度，以像素数为单位。正向渲染遵循 3DGS ，每个图像像素的最终颜色由混合模型决定：其中 是 3D G 的数量...
     </p>
     <figure><img class='paper-fig' src='../assets/2404_03202v5/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：OmniGS 优化流程的示意图。它通过最小化渲染全向图像和输入地面实况图像之间的损失来优化 3D 高斯表示。</figcaption></figure>
     <figure><img class='paper-fig' src='../assets/2404_03202v5/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：360Roam 数据集上小说视图合成的定性比较示例。 OmniGS 可以重建更清晰的细节结构。正如咖啡馆的结果所示，它也没有明显的漏洞或模糊。</figcaption></figure>
