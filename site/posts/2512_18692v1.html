@@ -207,14 +207,23 @@
  \label{eq:stage1_GS_params}
 \end{aligned} $$</p>
     <p>
-      )\_=1^m Z_i^() R^P C_ C_ F_ F_ 第 i 个视图分别为： 其中 、 、 、 和 分别表示第 - 个视图中第 - 个像素对应的 3D 高斯的 3D 中心、不透明度、3D 协方差和颜色。表示通过浅层 CNN 层从输入图像中提取的特征图，该浅层 CNN 层充当低级……
+      公式：\begin{对齐}
+ &amp;\{\bm{\mu}_{i,j}\}_{j=1}^{H W} = F_\mu(\{\bm{Z}_i^{(\ell)}\}_{\ell=1}^{m}), \\
+ &amp;\{[\alpha_{i,j} ;\bm{\Sigma}_{i,j} ;\bm{c}_{i,j}]\}_{j=1}^{HW} =F_\nu(\{\bm{Z}_i^{(\ell)}\}_{\ell=1}^{m},\psi(\bm{I}_i)),
+ \label{eq:stage1_GS_params}
+\结束{对齐}
+上：)\_=1^m Z_i^() R^P C_ C_ F_ F_ 第 i 个视图分别为： 其中 、 、 、 分别表示第 - 个视图中第 - 个像素对应的 3D 高斯的 3D 中心、不透明度、3D 协方差和颜色。表示通过浅层 CNN 层从输入图像中提取的特征图，该浅层 CNN 层充当低级……
     </p>
     <p>$$ \scalebox{0.9}{$
 \mathcal{L}_\text{render} = \frac{1}{N^\text{tgt}} \sum\limits_{p=1}^{N^\text{tgt}} \mathcal{L}_\text{MSE}(\bm{I}^\text{tgt}_p, \hat{\bm{I}}^\text{tgt}_p) + 0.05 \cdot\mathcal{L}_\text{LPIPS}(\bm{I}^\text{tgt}_p, \hat{\bm{I}}^\text{tgt}_p).
 $}
 \label{eq:stage1_loss} $$</p>
     <p>
-      ayer 充当低级特征编码器。使用从所有输入图像导出的预测像素对齐高斯函数，我们通过使用相应的相机进行光栅化来渲染目标新颖的视图图像。为了训练我们的模型，我们将渲染损失计算为 MSE 和 LPIPS 损失的总和，对所有 t 进行平均……
+      公式：\scalebox{0.9}{$
+\mathcal{L}_\text{渲染} = \frac{1}{N^\text{tgt}} \sum\limits_{p=1}^{N^\text{tgt}} \mathcal{L}_\text{MSE}(\bm{I}^\text{tgt}_p, \hat{\bm{I}}^\text{tgt}_p) + 0.05 \cdot\mathcal{L}_\text{LPIPS}(\bm{I}^\text{tgt}_p, \hat{\bm{I}}^\text{tgt}_p)。
+$}
+\label{eq:stage1_loss}
+上下文：充当低级特征编码器的ayer。使用从所有输入图像导出的预测像素对齐高斯函数，我们通过使用相应的相机进行光栅化来渲染目标新颖的视图图像。为了训练我们的模型，我们将渲染损失计算为 MSE 和 LPIPS 损失的总和，对所有 t 进行平均……
     </p>
     <p>$$ \scalebox{0.95}{$
 \{[\tilde{\alpha}_{i,j} ; \tilde{\bm{\Sigma}}_{i,j} ; \tilde{\bm{c}}_{i,j}]\}_{j=1}^{HW} 
@@ -222,16 +231,24 @@ $}
 $}
 \label{eq:stage2_GS_params} $$</p>
     <p>
-      \ \_i,j\ \c_i,j\ R_i R^H W C K F_ F_ 将调整后的每视图像素对齐 3D 高斯参数预测为： 其中 表示调整后的高斯参数。为了预测 ，我们计算从 as 和广播到张量的保留率，并将其输入到浅层 CNN 层。请注意，设置为统一值...
+      公式：\scalebox{0.95}{$
+\{[\tilde{\alpha}_{i,j} ; \tilde{\bm{\Sigma}}_{i,j} ; \tilde{\bm{c}}_{i,j}]\}_{j=1}^{HW} 
+= F_\nu(\{\bm{Z}_i^{(\ell)}\}_{\ell=1}^{m}, \psi(\bm{I}_i), \bm{R}_i ),
+$}
+\label{eq:stage2_GS_params}
+上面：\ \_i,j\ \c_i,j\ R_i R^H W C K F_ F_ 将调整后的每视图像素对齐 3D 高斯参数预测为： 其中表示调整后的高斯参数。为了预测 ，我们计算从 as 和广播到张量的保留率，并将其输入到浅层 CNN 层。请注意，设置为统一值...
     </p>
     <p>$$ \bm{g}_{\text{photo},i} = \sqrt{\|\nabla_x \bm{I}_i\|_2^2 + \|\nabla_y \bm{I}_i\|_2^2},
 \label{eq:photometric_variation} $$</p>
     <p>
-      掩模生成过程分为三个步骤，如下： 1）二进制变化图生成：首先，我们计算变化图，以捕获每个像素的光度和几何复杂性。光度变化图计算为 的梯度大小： 其中表示 L2 范数。为了补偿…
+      公式：\bm{g}_{\text{photo},i} = \sqrt{\|\nabla_x \bm{I}_i\|_2^2 + \|\nabla_y \bm{I}_i\|_2^2},
+\label{eq:photometric_variation}
+上下：掩模生成过程分为三个步骤，如下： 1）二进制变化图生成：首先，我们计算一个变化图，捕获每个像素的光度和几何复杂性。光度变化图计算为 的梯度大小： 其中表示 L2 范数。为了补偿…
     </p>
     <p>$$ \bm{g}_{\text{geo},i} = \sqrt{\|\nabla_x \bm{n}_i\|_2^2 + \|\nabla_y \bm{n}_i\|_2^2}. $$</p>
     <p>
-      \|_2^2，方程其中表示 L2 范数。为了计算几何变化图 ，我们从像素对齐的 3D 高斯函数的预测平均值中获得深度图 ，并计算其相应的法线图 。然后， 的计算公式为： 最终变异图是两个变异图的平均值 。然后我们二值化...
+      公式：\bm{g}_{\text{geo},i} = \sqrt{\|\nabla_x \bm{n}_i\|_2^2 + \|\nabla_y \bm{n}_i\|_2^2}。
+上面：\|_2^2, 方程 其中表示 L2-范数。为了计算几何变化图 ，我们从像素对齐的 3D 高斯函数的预测平均值中获得深度图 ，并计算其相应的法线图 。然后， 的计算公式为： 最终变异图是两个变异图的平均值 。然后我们二值化...
     </p>
     <p>$$ \scalebox{0.9}{$
 \bm{g}&#x27;_{i,j} =
@@ -243,7 +260,16 @@ $}
 \epsilon_i = Q_{\rho_i}(\{\bm{g}_{i,j}\}_{j=1}^{HW}),
 $} $$</p>
     <p>
-      i g_i g_i = (g_photo,i + g_geo,i)/2 g_i g_i,j j g&#x27;_i 为： 其中表示第 -th 分位数。这里， 表示高变化像素，否则。 2）重要高斯集合：使用获得的二元变化图，我们选择重要3D高斯集合。我们将预测的像素对齐 3D 高斯分布划分为…
+      公式：\scalebox{0.9}{$
+\bm{g}&#x27;_{i,j} =
+\开始{案例}
+1、&amp;\text{如果}\; \bm{g}_{i,j} &gt; \epsilon_i, \\
+0, &amp; \text{否则},
+\结束{案例}
+\quad \text{其中} \quad
+\epsilon_i = Q_{\rho_i}(\{\bm{g}_{i,j}\}_{j=1}^{HW}),
+$}
+上：i g_i g_i = (g_photo,i + g_geo,i)/2 g_i g_i,j j g&#x27;_i as: 其中表示第-分位数。这里， 表示高变化像素，否则。 2）重要高斯集合：使用获得的二元变化图，我们选择重要3D高斯集合。我们将预测的像素对齐 3D 高斯分布划分为…
     </p>
     <figure><img class='paper-fig' src='../assets/2512_18692v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：消融研究的视觉结果：（a）PGT阶段； (b) 重要性感知的不透明度损失； (c) PLGC 战略。</figcaption></figure>
     <figure><img class='paper-fig' src='../assets/2512_18692v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：目标基元计数 K 上的像素对齐高斯函数的不透明度分布。蓝色和橙色曲线分别显示目标基元计数设置为像素对齐高斯函数总数的 5% 和 70% 时的分布。 EcoSplat 根据原始预算自适应预测高斯不透明度并选择前 K 个高斯。</figcaption></figure>
