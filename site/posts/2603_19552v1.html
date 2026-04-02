@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>StreetForward Perceiving Dynamic Street with Feedforward Causal Attention：论文解读</title>
+  <title>StreetForward</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
@@ -44,25 +44,11 @@
 <body>
 
 <div class='layout'>
-  <aside class='sidebar'>
-    <h3>目录</h3>
-    <ul>
-      <li><a href='#intro'>1. 这篇论文在解决什么问题？</a></li>
-      <li><a href='#overview'>2. 整体方法一图看懂</a></li>
-      <li><a href='#causal'>3. 核心创新：Feedforward Causal Attention</a></li>
-      <li><a href='#velocity'>4. 速度场、动态掩码和 4D 重建</a></li>
-      <li><a href='#consistency'>5. 时空一致性与训练约束</a></li>
-      <li><a href='#figures'>6. 关键图示解读</a></li>
-      <li><a href='#related'>7. 相关工作与技术脉络</a></li>
-      <li><a href='#takeaway'>8. 我的理解与评价</a></li>
-    </ul>
-    <p class='meta' style='margin-top:14px;'>发布时间：2026-04-02<br/>arXiv：2603.19552v1</p>
-    <p><a href='../index.html'>← 返回博客首页</a></p>
-  </aside>
+  <aside class='sidebar'><h3>目录</h3><ul><li><a href='#intro'>1. 这篇论文在解决什么问题？</a></li><li><a href='#overview'>2. 整体方法一图看懂</a></li><li><a href='#causal'>3. 核心创新：Feedforward Causal Attention</a></li><li><a href='#velocity'>4. 速度场、动态掩码和 4D 重建</a></li><li><a href='#consistency'>5. 时空一致性与训练约束</a></li><li><a href='#related'>6. 相关工作与技术脉络</a></li><li><a href='#takeaway'>7. 我的理解与评价</a></li></ul><p class='meta' style='margin-top:14px;'>发布时间：2026-04-02<br/>arXiv：2603.19552v1</p><p><a href='../index.html'>← 返回博客首页</a></p></aside>
 
   <article class='article'>
-    <h1>StreetForward Perceiving Dynamic Street with Feedforward Causal Attention：精读与技术拆解</h1>
-    <p class='meta'>作者：自动生成中文技术解读 · 论文页数：10</p>
+    <h1>StreetForward</h1>
+    <p class='meta'>原论文：StreetForward Perceiving Dynamic Street with Feedforward Causal Attention · 中文精读 · 论文页数：10</p>
 
     <div class='tip'>
       <strong>一句话总结：</strong>
@@ -83,6 +69,7 @@
       <li>不要依赖分割模型，否则系统链路太长，鲁棒性差；</li>
       <li>不要依赖 LiDAR 或强监督的 4D 标注，因为现实数据里这类标注很少。</li>
     </ul>
+    <figure><img class='paper-fig' src='../assets/2603_19552v1/figure1_full.png' alt='Figure 1:' /><figcaption style='font-size:12px;'>图 1：StreetForward 展示了基于前馈式 3DGS 的动态街景时空外推新视角合成。右侧示意图展示了带精确速度的动态街景 3DGS 表示，因此模型无需依赖分割或跟踪，也能在新视角和新时刻进行运动感知渲染。<br/><span style='color:#888;'>原图注：Figure 1: StreetForward: High-fidelity spatio-temporal extrapolated view synthesis via feedforward 3DGS dynamic street reconstruction. The right pane illustrates our 3DGS representation of a dynamic street with precise velocities, enabling motion- aware rendering at novel poses and times independent of segmentation or tracking. Abstract Feedforward reconstruction is crucial for autonomous driving appli- cations, where rapid scene reconstruction enables efficient utiliza- tion of large-scale driv</span></figcaption></figure>
 
     <h2 id='overview'>2. 整体方法一图看懂</h2>
     <p>
@@ -97,6 +84,7 @@
     <blockquote>
       你可以把它理解成：先让模型学会“这条街长什么样”，再让模型学会“这条街上的东西怎么动”，最后把这两件事放在同一个 3DGS 表示里统一渲染。
     </blockquote>
+    <figure><img class='paper-fig' src='../assets/2603_19552v1/figure2_full.png' alt='Figure 2:' /><figcaption style='font-size:12px;'>图 2：StreetForward 的整体流程。输入视频先经过交替式注意力聚合得到跨帧特征，再分别解码相机位姿、深度和高斯属性；随后通过带因果掩码的注意力构造运动感知特征，进一步预测前向/后向运动以及动态掩码，最终把静态高斯与跨时间传播的动态高斯合成为完整 4D 场景。<br/><span style='color:#888;'>原图注：Figure 2: The proposed StreetForward pipeline. We illustrate two common types of dynamic scenes with rigid objects(vehicles) and deformable objects(pedestrians) in and . The input video is first encoded into per-frame patchified features and then processed by 𝐿times alternating global- and frame-attention to aggregate information across frames. These aggregated features are directly decoded by a camera head, a depth head and a Gaussian Head to obtain poses, depth and Gaussian attributes. Then ca</span></figcaption></figure>
 
     <h2 id='causal'>3. 核心创新：Feedforward Causal Attention</h2>
     <p>
@@ -162,14 +150,7 @@
       这等于是把“会不会动”升级成了“动过去之后，渲染出来还能不能对得上”。
     </p>
 
-    <h2 id='figures'>6. 关键图示解读</h2>
-    <p>
-      下面这些图是从原论文 PDF 中直接抽出来的。建议重点关注两类信息：
-      一类是 pipeline 图，看每个模块的输入输出；另一类是可视化结果图，看 novel pose / novel time 下是否还能保持细节与稳定性。
-    </p>
-    <figure><img class='paper-fig' src='../assets/2603_19552v1/fig_1.png' alt='StreetForward figure 1' /><figcaption>图 1：来自论文原图，建议结合正文一起看。</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_19552v1/fig_2.png' alt='StreetForward figure 2' /><figcaption>图 2：来自论文原图，建议结合正文一起看。</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_19552v1/fig_3.png' alt='StreetForward figure 3' /><figcaption>图 3：来自论文原图，建议结合正文一起看。</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_19552v1/fig_4.png' alt='StreetForward figure 4' /><figcaption>图 4：来自论文原图，建议结合正文一起看。</figcaption></figure>
-
-    <h2 id='related'>7. 相关工作与技术脉络</h2>
+    <h2 id='related'>6. 相关工作与技术脉络</h2>
     <p>
       StreetForward 所处的位置很明确：它站在 VGGT 这一类大视觉几何模型之上，但不满足于静态场景，而是希望进一步走到<strong>动态街景的 4D feedforward 重建</strong>。
       它与传统 per-scene optimization 方法最大的差异，是把大量场景优化成本前置到了大规模数据训练阶段。
@@ -179,7 +160,7 @@
     </p>
     <ul><li><strong>2603.19552v1</strong>（2026-03-20）— <a href='http://arxiv.org/abs/2603.19552v1' target='_blank'>StreetForward: Perceiving Dynamic Street with Feedforward Causal Attention</a></li></ul>
 
-    <h2 id='takeaway'>8. 我的理解与评价</h2>
+    <h2 id='takeaway'>7. 我的理解与评价</h2>
     <p>
       我觉得这篇论文最有价值的不是“又做了一个动态 3DGS”，而是它把自动驾驶场景里的几个工程痛点真正串起来了：
       <strong>速度要快、链路要短、依赖要少、还要支持新视角和新时刻渲染</strong>。

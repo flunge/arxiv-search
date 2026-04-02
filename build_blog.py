@@ -173,6 +173,14 @@ def _slug_from_id(arxiv_id: str) -> str:
     return arxiv_id.replace(".", "_").replace("/", "_")
 
 
+def _paper_alias(title: str) -> str:
+    title = title.strip()
+    if not title:
+        return "Paper"
+    first = title.split()[0].strip("：:- ")
+    return first or title
+
+
 def _infer_tags(title: str, text: str) -> List[str]:
     hay = (title + "\n" + text).lower()
     rules = [
@@ -188,6 +196,58 @@ def _infer_tags(title: str, text: str) -> List[str]:
         if any(kw in hay for kw in kws):
             tags.append(tag)
     return tags or ["论文解读"]
+
+
+def _extract_caption_text(pdf_path: Path, label: str, max_chars: int = 500) -> str:
+    try:
+        doc = fitz.open(pdf_path)
+    except Exception:
+        return ""
+    for page in doc:
+        txt = page.get_text("text")
+        pos = txt.find(label)
+        if pos != -1:
+            snippet = txt[pos : pos + max_chars].replace("\n", " ")
+            doc.close()
+            return " ".join(snippet.split())
+    doc.close()
+    return ""
+
+
+def _extract_figure_region_by_caption(
+    pdf_path: Path,
+    caption_label: str,
+    out_dir: Path,
+    output_name: str,
+    top_margin: float = 72,
+) -> Optional[str]:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        doc = fitz.open(pdf_path)
+    except Exception:
+        return None
+
+    for page in doc:
+        rects = page.search_for(caption_label)
+        if not rects:
+            continue
+        cap_rect = rects[0]
+        clip = fitz.Rect(page.rect.x0 + 12, top_margin, page.rect.x1 - 12, cap_rect.y1 + 10)
+        pix = page.get_pixmap(matrix=fitz.Matrix(2, 2), clip=clip, alpha=False)
+        save_path = out_dir / output_name
+        pix.save(save_path)
+        doc.close()
+        return output_name
+    doc.close()
+    return None
+
+
+def _streetforward_caption_translation(label: str, raw_caption: str) -> str:
+    translations = {
+        "Figure 1:": "图 1：StreetForward 展示了基于前馈式 3DGS 的动态街景时空外推新视角合成。右侧示意图展示了带精确速度的动态街景 3DGS 表示，因此模型无需依赖分割或跟踪，也能在新视角和新时刻进行运动感知渲染。",
+        "Figure 2:": "图 2：StreetForward 的整体流程。输入视频先经过交替式注意力聚合得到跨帧特征，再分别解码相机位姿、深度和高斯属性；随后通过带因果掩码的注意力构造运动感知特征，进一步预测前向/后向运动以及动态掩码，最终把静态高斯与跨时间传播的动态高斯合成为完整 4D 场景。",
+    }
+    return translations.get(label, raw_caption)
 
 
 def _post_sidebar_html(date_str: str, arxiv_id: str, items: List[tuple]) -> str:
@@ -206,13 +266,22 @@ def _post_sidebar_html(date_str: str, arxiv_id: str, items: List[tuple]) -> str:
 
 
 def _streetforward_post_body(doc, date_str: str, figures: List[str], related: List[Dict], slug: str, text: str) -> str:
-    fig_blocks = []
-    for idx, name in enumerate(figures[:4], 1):
-        fig_blocks.append(
-            f"<figure><img class='paper-fig' src='../assets/{slug}/{name}' alt='StreetForward figure {idx}' />"
-            f"<figcaption>图 {idx}：来自论文原图，建议结合正文一起看。</figcaption></figure>"
+    figure_map = {item.get('label'): item for item in figures}
+
+    def render_figure(label: str) -> str:
+        item = figure_map.get(label)
+        if not item or not item.get("path"):
+            return ""
+        return (
+            f"<figure><img class='paper-fig' src='../assets/{slug}/{html.escape(item['path'])}' alt='{html.escape(label)}' />"
+            f"<figcaption style='font-size:12px;'>"
+            f"{html.escape(item.get('caption_cn', ''))}<br/>"
+            f"<span style='color:#888;'>原图注：{html.escape(item.get('caption_en', ''))}</span>"
+            f"</figcaption></figure>"
         )
-    fig_html = "".join(fig_blocks) if fig_blocks else "<p>未抽取到可用图片。</p>"
+
+    fig1_html = render_figure("Figure 1:")
+    fig2_html = render_figure("Figure 2:")
 
     related_html = "".join(
         [
@@ -231,9 +300,8 @@ def _streetforward_post_body(doc, date_str: str, figures: List[str], related: Li
             ("causal", "3. 核心创新：Feedforward Causal Attention"),
             ("velocity", "4. 速度场、动态掩码和 4D 重建"),
             ("consistency", "5. 时空一致性与训练约束"),
-            ("figures", "6. 关键图示解读"),
-            ("related", "7. 相关工作与技术脉络"),
-            ("takeaway", "8. 我的理解与评价"),
+            ("related", "6. 相关工作与技术脉络"),
+            ("takeaway", "7. 我的理解与评价"),
         ],
     )
 
@@ -242,8 +310,8 @@ def _streetforward_post_body(doc, date_str: str, figures: List[str], related: Li
   {sidebar}
 
   <article class='article'>
-    <h1>{html.escape(doc.title)}：精读与技术拆解</h1>
-    <p class='meta'>作者：自动生成中文技术解读 · 论文页数：{doc.page_count}</p>
+    <h1>StreetForward</h1>
+    <p class='meta'>原论文：{html.escape(doc.title)} · 中文精读 · 论文页数：{doc.page_count}</p>
 
     <div class='tip'>
       <strong>一句话总结：</strong>
@@ -264,6 +332,7 @@ def _streetforward_post_body(doc, date_str: str, figures: List[str], related: Li
       <li>不要依赖分割模型，否则系统链路太长，鲁棒性差；</li>
       <li>不要依赖 LiDAR 或强监督的 4D 标注，因为现实数据里这类标注很少。</li>
     </ul>
+    {fig1_html}
 
     <h2 id='overview'>2. 整体方法一图看懂</h2>
     <p>
@@ -278,6 +347,7 @@ def _streetforward_post_body(doc, date_str: str, figures: List[str], related: Li
     <blockquote>
       你可以把它理解成：先让模型学会“这条街长什么样”，再让模型学会“这条街上的东西怎么动”，最后把这两件事放在同一个 3DGS 表示里统一渲染。
     </blockquote>
+    {fig2_html}
 
     <h2 id='causal'>3. 核心创新：Feedforward Causal Attention</h2>
     <p>
@@ -343,14 +413,7 @@ def _streetforward_post_body(doc, date_str: str, figures: List[str], related: Li
       这等于是把“会不会动”升级成了“动过去之后，渲染出来还能不能对得上”。
     </p>
 
-    <h2 id='figures'>6. 关键图示解读</h2>
-    <p>
-      下面这些图是从原论文 PDF 中直接抽出来的。建议重点关注两类信息：
-      一类是 pipeline 图，看每个模块的输入输出；另一类是可视化结果图，看 novel pose / novel time 下是否还能保持细节与稳定性。
-    </p>
-    {fig_html}
-
-    <h2 id='related'>7. 相关工作与技术脉络</h2>
+    <h2 id='related'>6. 相关工作与技术脉络</h2>
     <p>
       StreetForward 所处的位置很明确：它站在 VGGT 这一类大视觉几何模型之上，但不满足于静态场景，而是希望进一步走到<strong>动态街景的 4D feedforward 重建</strong>。
       它与传统 per-scene optimization 方法最大的差异，是把大量场景优化成本前置到了大规模数据训练阶段。
@@ -360,7 +423,7 @@ def _streetforward_post_body(doc, date_str: str, figures: List[str], related: Li
     </p>
     <ul>{related_html}</ul>
 
-    <h2 id='takeaway'>8. 我的理解与评价</h2>
+    <h2 id='takeaway'>7. 我的理解与评价</h2>
     <p>
       我觉得这篇论文最有价值的不是“又做了一个动态 3DGS”，而是它把自动驾驶场景里的几个工程痛点真正串起来了：
       <strong>速度要快、链路要短、依赖要少、还要支持新视角和新时刻渲染</strong>。
@@ -408,11 +471,32 @@ def build_post_from_pdf(
 
     arxiv_id = doc.arxiv_id
     slug = _slug_from_id(arxiv_id)
-    post_title = title_override.strip() if title_override else f"{doc.title}：论文解读"
+    alias = _paper_alias(doc.title)
+    post_title = title_override.strip() if title_override else alias
     date_str = datetime.now().strftime("%Y-%m-%d")
 
     fig_folder = assets_dir / slug
-    figure_files = _extract_figures(Path(doc.path), fig_folder, max_images=6)
+    if fig_folder.exists():
+        shutil.rmtree(fig_folder)
+    pdf_path = Path(doc.path)
+    figure_files: List[str] = []
+    if alias.lower() != "streetforward":
+        figure_files = _extract_figures(pdf_path, fig_folder, max_images=6)
+
+    figure_entries = []
+    if alias.lower() == "streetforward":
+        for label, name in [("Figure 1:", "figure1_full.png"), ("Figure 2:", "figure2_full.png")]:
+            saved = _extract_figure_region_by_caption(pdf_path, label, fig_folder, name)
+            if saved:
+                raw_caption = _extract_caption_text(pdf_path, label)
+                figure_entries.append(
+                    {
+                        "label": label,
+                        "path": saved,
+                        "caption_en": raw_caption,
+                        "caption_cn": _streetforward_caption_translation(label, raw_caption),
+                    }
+                )
 
     snippets = _keyword_snippets(text, max_items=8)
     related = _related_work(doc.title, max_results=6)
@@ -428,7 +512,7 @@ def build_post_from_pdf(
         fig_html = "<p>未抽取到可用图片（该 PDF 可能主要为矢量图或编码不兼容）。</p>"
 
     if "streetforward" in doc.title.lower():
-        body = _streetforward_post_body(doc, date_str, figure_files, related, slug, text)
+        body = _streetforward_post_body(doc, date_str, figure_entries, related, slug, text)
     else:
         snippets_html = "".join([f"<li>{html.escape(s)}</li>" for s in snippets])
         related_html = "".join(
@@ -494,7 +578,11 @@ def build_post_from_pdf(
         f.write(_render_page(post_title, body))
 
     tags = _infer_tags(doc.title, text)
-    thumbnail_path = f"assets/{slug}/{figure_files[0]}" if figure_files else ""
+    thumbnail_rel = ""
+    if figure_entries:
+        thumbnail_rel = f"assets/{slug}/{figure_entries[0]['path']}"
+    elif figure_files:
+        thumbnail_rel = f"assets/{slug}/{figure_files[0]}"
     manifest = _load_manifest(site)
     manifest = [m for m in manifest if m.get("slug") != slug]
     manifest.append(
@@ -505,9 +593,10 @@ def build_post_from_pdf(
             "arxiv_id": arxiv_id,
             "path": f"posts/{slug}.html",
             "summary": text[:220].replace("\n", " "),
-            "thumbnail_path": thumbnail_path,
+            "thumbnail_path": thumbnail_rel,
             "tags": tags,
             "featured": len(manifest) == 0,
+            "full_title": doc.title,
         }
     )
     _save_manifest(site, manifest)
@@ -544,13 +633,16 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
             if featured.get("thumbnail_path")
             else ""
         )
+        featured_display_title = featured.get("title", "")
+        featured_full_title = featured.get("full_title", featured_display_title)
         latest_html = (
             "<section class='card' style='padding:18px 20px;'>"
             "<div class='meta'>推荐阅读 / Featured</div>"
             f"<div style='display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:18px;align-items:start;'>"
             f"<div>"
-            f"<h2 style='border-left:none;padding-left:0;margin-top:8px;'><a href='{html.escape(featured['path'])}'>{html.escape(featured['title'])}</a></h2>"
+            f"<h2 style='border-left:none;padding-left:0;margin-top:8px;'><a href='{html.escape(featured['path'])}'>{html.escape(featured_display_title)}</a></h2>"
             f"<p class='meta'>{html.escape(featured['date'])} · arXiv: {html.escape(featured['arxiv_id'])}</p>"
+            f"<p class='meta' style='margin-top:4px;'>{html.escape(featured_full_title)}</p>"
             f"<div style='margin:10px 0'>{render_tag_chips(featured.get('tags', []))}</div>"
             f"<p>{html.escape(featured.get('summary', ''))}</p>"
             f"<p><a href='{html.escape(featured['path'])}'>开始阅读 →</a></p>"
@@ -567,6 +659,8 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
 
     card_grid = ""
     for item in manifest:
+        display_title = item.get("title", "")
+        full_title = item.get("full_title", display_title)
         thumb = (
             f"<img src='{html.escape(item['thumbnail_path'])}' alt='thumb' style='width:100%;height:160px;object-fit:cover;border-radius:10px;border:1px solid #e5e5e5;' />"
             if item.get("thumbnail_path")
@@ -576,7 +670,8 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
             f"<article class='card' style='padding:12px;display:flex;flex-direction:column;gap:10px;'>"
             f"{thumb}"
             f"<div class='meta'>{html.escape(item['date'])} · arXiv: {html.escape(item['arxiv_id'])}</div>"
-            f"<a href='{html.escape(item['path'])}' style='font-size:18px;font-weight:700;color:#1f1f1f;'>{html.escape(item['title'])}</a>"
+            f"<a href='{html.escape(item['path'])}' style='font-size:18px;font-weight:700;color:#1f1f1f;'>{html.escape(display_title)}</a>"
+            f"<div class='meta' style='margin-top:2px;'>{html.escape(full_title)}</div>"
             f"<div>{render_tag_chips(item.get('tags', []))}</div>"
             f"<div style='color:#333;'>{html.escape(item.get('summary', ''))}</div>"
             f"<div><a href='{html.escape(item['path'])}'>阅读全文 →</a></div>"
