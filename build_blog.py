@@ -53,7 +53,7 @@ def _render_page(title: str, body_html: str) -> str:
     figcaption {{ color: #666; font-size: 13px; }}
     img.paper-fig {{ width: 100%; border: 1px solid #ddd; border-radius: 8px; }}
     .post-item {{ border:1px solid #e5e5e5; border-radius:8px; padding:10px 12px; margin:10px 0; }}
-    .layout {{ display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 28px; align-items: start; }}
+    .layout {{ display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 28px; align-items: start; justify-content: center; }}
     .sidebar {{ position: sticky; top: 18px; align-self: start; border-right: 1px solid #eee; padding-right: 16px; transition: width .2s ease, min-width .2s ease, padding .2s ease, border-color .2s ease; }}
     .sidebar h3 {{ margin-top: 0; font-size: 16px; }}
     .sidebar ul {{ list-style: none; padding-left: 0; margin: 0; }}
@@ -69,7 +69,9 @@ def _render_page(title: str, body_html: str) -> str:
     .sidebar.collapsed ul {{ display:none; }}
     .sidebar.collapsed .sidebar-controls {{ justify-content:center; }}
     .sidebar.collapsed .sidebar-toggle {{ margin:0; }}
-    .article {{ min-width: 0; }}
+    .layout.sidebar-collapsed {{ grid-template-columns: 36px minmax(0, 1fr); }}
+    .article {{ min-width: 0; width: 100%; }}
+    .layout.sidebar-collapsed .article {{ max-width: 760px; justify-self: center; }}
     blockquote {{ margin: 16px 0; padding: 8px 16px; border-left: 4px solid #d8e7ff; background: #f8fbff; color: #333; }}
     .tip {{ background: #f7f9fc; border: 1px solid #e8eef6; border-radius: 10px; padding: 12px; }}
   </style>
@@ -85,7 +87,11 @@ def _render_page(title: str, body_html: str) -> str:
     function toggleSidebar(button) {{
       var sidebar = button.closest('.sidebar');
       if (!sidebar) return;
+      var layout = sidebar.closest('.layout');
       var collapsed = sidebar.classList.toggle('collapsed');
+      if (layout) {{
+        layout.classList.toggle('sidebar-collapsed', collapsed);
+      }}
       button.setAttribute('aria-expanded', String(!collapsed));
       button.setAttribute('title', collapsed ? '展开目录' : '隐藏目录');
       button.innerHTML = collapsed ? '&#8250;' : '&#8249;';
@@ -1000,14 +1006,6 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
             f"</article>"
         )
 
-    stats = (
-        f"<div class='card' style='display:grid;grid-template-columns:repeat(3,1fr);gap:12px;'>"
-        f"<div><div class='meta'>文章数</div><div style='font-size:28px;font-weight:700'>{len(manifest)}</div></div>"
-        f"<div><div class='meta'>最新发布日期</div><div style='font-size:20px;font-weight:700'>{html.escape(latest['date']) if latest else '-'}</div></div>"
-        f"<div><div class='meta'>主题</div><div style='font-size:20px;font-weight:700'>动态重建 / World Model</div></div>"
-        f"</div>"
-    )
-
     body = f"""
 <section class='card' style='padding:26px 24px;background:linear-gradient(135deg,#f8fbff 0%,#ffffff 100%);'>
   <h1 style='margin-top:6px;'>Raymond's Blogs</h1>
@@ -1015,8 +1013,6 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
     聚焦自动驾驶、世界模型与动态重建等前沿方向，持续输出主流论文的结构化解析、技术拆解与研究观察。
   </p>
 </section>
-
-{stats}
 
 {latest_html}
 
@@ -1028,6 +1024,10 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
   <div class='card'>
     <div class='meta'>推荐阅读</div>
     <p style='margin-top:10px;'>如果你是第一次来，建议直接点击上方推荐文章标题，快速了解这个博客的写作风格与技术深度。</p>
+    <div style='display:grid;grid-template-columns:1fr;gap:10px;margin-top:12px;'>
+      <div><div class='meta'>文章数</div><div style='font-size:24px;font-weight:700'>{len(manifest)}</div></div>
+      <div><div class='meta'>最新发布</div><div style='font-size:18px;font-weight:700'>{html.escape(latest['date']) if latest else '-'}</div></div>
+    </div>
   </div>
   <div class='card'>
     <div class='meta'>分类标签</div>

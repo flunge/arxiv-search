@@ -52,9 +52,12 @@ def test_build_blog_outputs_files(tmp_path: Path) -> None:
     blog_pages = list((site_dir / "posts").glob("*.html"))
     assert len(blog_pages) == 1
     post_html = post.read_text(encoding="utf-8")
+    home_html = out.read_text(encoding="utf-8")
     assert "../index.html" in post_html
     assert "目录" in post_html
     assert "sidebar-toggle" in post_html
+    assert "最新发布" in home_html
+    assert "最新发布日期" not in home_html
 
 
 def test_figure_band_bounds_uses_previous_caption() -> None:
