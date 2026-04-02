@@ -203,11 +203,13 @@
     <p>对于每个输入视图，网络生成直接对应于图像像素的高斯基元，每个基元由几何和颜色特征组成，如等式1中所述。 。这些特征共同形成每个视图的特征图。与原始图像相比，这种 3D 高斯表示的大小增加了两个数量级以上。然而，根据信息论原理，应用确定性变换并不会本质上放大源数据的信息内容。因此，生成的 3D 高斯模型包含大量冗余，而现有的依赖于优化的 3DGS 压缩方法与 feedf 不兼容……</p>
     <p>$$ \mathcal{G}(\boldsymbol{x}) = \frac{1}{(2\pi)^\frac{3}{2}|\boldsymbol{\Sigma}|^{\frac{1}{2}}}exp(-\frac{1}{2}(\boldsymbol{x}-\boldsymbol{\mu})^T\boldsymbol{\Sigma}^{-1}(\boldsymbol{x}-\boldsymbol{\mu})), $$</p>
     <p>
-      p-transfigure 方法初步广泛认可的 3D 高斯分布采用高斯基元的集合来对 3D 场景进行建模。每个基元都由定义其形状和辐射度的几何参数和 SH 参数组成。具体来说，高斯基元的几何属性的特点是……
+      公式：\mathcal{G}(\boldsymbol{x}) = \frac{1}{(2\pi)^\frac{3}{2}|\boldsymbol{\Sigma}|^{\frac{1}{2}}}exp(-\frac{1}{2}(\boldsymbol{x}-\boldsymbol{\mu})^T\boldsymbol{\Sigma}^{-1}(\boldsymbol{x}-\boldsymbol{\mu})),
+上下文：p-transfigure方法初步广泛认可的3D高斯分布采用高斯基元的集合来对3D场景进行建模。每个基元都由定义其形状和辐射度的几何参数和 SH 参数组成。具体来说，高斯基元的几何属性的特点是……
     </p>
     <p>$$ \boldsymbol{\Sigma} = \boldsymbol{RSS}^T\boldsymbol{R}^T, $$</p>
     <p>
-      x-))，方程其中 和 分别表示高斯中心和样本点的笛卡尔坐标。是 3D 协方差矩阵并表示其行列式。在普通 3DGS 中，协方差矩阵进一步分解为旋转矩阵和缩放矩阵 ，其中对角缩放矩阵为 s…
+      公式：\boldsymbol{\Sigma} = \boldsymbol{RSS}^T\boldsymbol{R}^T,
+上面：x-))，式中 和 分别表示高斯中心和样本点的笛卡尔坐标。是 3D 协方差矩阵并表示其行列式。在普通 3DGS 中，协方差矩阵进一步分解为旋转矩阵和缩放矩阵 ，其中对角缩放矩阵为 s…
     </p>
     <p>$$ \label{feedforward gaussian manner}
  \begin{aligned}
@@ -215,19 +217,27 @@
  &amp;\{\cup(\sigma_i^v, \boldsymbol{\mu}_i^v, \boldsymbol{q}_i^v, \boldsymbol{s}_i^v, \boldsymbol{SH}_i^v)\}_{i=1,...,H\times W}^{v=1,...,V},
 \end{aligned} $$</p>
     <p>
-      。这些在广泛的多视图数据集上训练的网络可以通过前馈推理直接生成准确的 3D 场景表示。为了促进神经网络处理，这种方法通常会生成与输入图像分辨率相同的高斯特征图，其中每个位置存储所有几何和c…
+      公式：\label{前馈高斯方式}
+ \开始{对齐}
+ \mathcal{F}: \{( \boldsymbol{I}^v, \boldsymbol{K}^v,&amp; \boldsymbol{E}^v)\}_{v=1}^V \Rightarrow \\
+ &amp;\{\cup(\sigma_i^v, \boldsymbol{\mu}_i^v, \boldsymbol{q}_i^v, \boldsymbol{s}_i^v, \boldsymbol{SH}_i^v)\}_{i=1,...,H\times W}^{v=1,...,V},
+\结束{对齐}
+上下文：.这些在广泛的多视图数据集上训练的网络可以通过前馈推理直接生成准确的 3D 场景表示。为了促进神经网络处理，这种方法通常会生成与输入图像分辨率相同的高斯特征图，其中每个位置存储所有几何和c…
     </p>
     <p>$$ z_{i,j}^v(x_{i,j}^v,y_{i,j}^v,1)^T = \boldsymbol{K}^v\cdot(\boldsymbol{R}^v\cdot \boldsymbol{\mu}_{i,j}^v + \boldsymbol{T}^v), $$</p>
     <p>
-      g 模式。基于上述分析，我们建议将 VPT 应用于高斯基元的几何参数，以输入相机参数为条件。 VPT 的概念图如图 1 所示，其中我们将高斯几何参数变换到相应的相机空间。具体来说…
+      公式：z_{i,j}^v(x_{i,j}^v,y_{i,j}^v,1)^T = \boldsymbol{K}^v\cdot(\boldsymbol{R}^v\cdot \boldsymbol{\mu}_{i,j}^v + \boldsymbol{T}^v),
+上下：g图案。基于上述分析，我们建议将 VPT 应用于高斯基元的几何参数，以输入相机参数为条件。 VPT 的概念图如图 1 所示，其中我们将高斯几何参数变换到相应的相机空间。具体来说…
     </p>
     <p>$$ \hat{\boldsymbol{q}}_{i,j}^{v}=Quat(\boldsymbol{R}^v)\cdot \boldsymbol{q}_{i,j}^v, $$</p>
     <p>
-      ng 分别是输入图像的高度和宽度。利用这种规律，我们仅对相对于像素中心的偏移进行编码，以提高压缩效率。将中心位置变换到相机空间后，我们近似高斯形状参数的变换。由于椭球体不主要...
+      公式：\hat{\boldsymbol{q}}_{i,j}^{v}=Quat(\boldsymbol{R}^v)\cdot \boldsymbol{q}_{i,j}^v,
+上下：ng分别为输入图像的高度和宽度。利用这种规律，我们仅对相对于像素中心的偏移进行编码，以提高压缩效率。将中心位置变换到相机空间后，我们近似高斯形状参数的变换。由于椭球体不主要...
     </p>
     <p>$$ \hat{\boldsymbol{s}}_{i,j}^{v}=f\frac{\boldsymbol{s}_{i,j}^{v}}{z_{i,j}^{v}}, $$</p>
     <p>
-      o 像素中心以提高压缩效率。将中心位置变换到相机空间后，我们近似高斯形状参数的变换。由于椭球体在透视投影下不能保持精确的几何形状，因此我们执行以下近似，其中 和 表示...
+      公式：\hat{\boldsymbol{s}}_{i,j}^{v}=f\frac{\boldsymbol{s}_{i,j}^{v}}{z_{i,j}^{v}},
+上下：o像素中心，提高压缩效率。将中心位置变换到相机空间后，我们近似高斯形状参数的变换。由于椭球体在透视投影下不能保持精确的几何形状，因此我们执行以下近似，其中 和 表示...
     </p>
     <figure><img class='paper-fig' src='../assets/2506_09479v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：VPT 前后位置和比例因子的统计分布。应用VPT后，大部分位置能量集中在深度通道（顶行），并且缩放因子的分布变得更加紧凑。</figcaption></figure>
     <figure><img class='paper-fig' src='../assets/2506_09479v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：SH 基函数值随观察方向的变化。在特定方向上，绝对值越大，说明对应的SH系数对最终渲染结果的影响越大。图中的Y_l^m表示l次的SH基函数，其中m的范围为-l到l，代表2l+1个不同的空间方向。</figcaption></figure>
