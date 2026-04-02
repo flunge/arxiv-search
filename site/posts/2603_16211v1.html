@@ -70,7 +70,7 @@
     blockquote { margin: 16px 0; padding: 8px 16px; border-left: 4px solid #d8e7ff; background: #f8fbff; color: #333; }
     .tip { background: #f7f9fc; border: 1px solid #e8eef6; border-radius: 10px; padding: 12px; }
     .dashboard-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-top:18px; }
-    .dashboard-card { aspect-ratio: 1 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
+    .dashboard-card { aspect-ratio: 1.618 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
     .dashboard-card > * { min-width: 0; }
     .dashboard-card .dashboard-content { display:flex; flex-direction:column; height:100%; min-height:0; }
     .dashboard-card .dashboard-scroll { overflow:auto; min-height:0; }
@@ -151,6 +151,7 @@
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
+
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
 
@@ -160,94 +161,111 @@
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      这篇论文关注的是“Leveling3D 所对应的问题能否在更可控、更稳健或更高质量的条件下被解决”。从摘要与方法描述来看，作者的总体路线是：先搭建一个明确的表示或生成框架，再围绕训练目标、结构设计和实验验证把该问题推进到更可用的工程形态。
+      这篇论文围绕“Leveling3D 所对应的研究问题”提出了一套完整方案：先明确任务目标与现有瓶颈，再通过新的表示、模块或训练目标把问题收敛成一条更稳定的工程链路，最后用实验验证该设计在质量、效率、可控性或泛化性上的改进。
     </div>
 
     <h2 id='summary'>简单摘要</h2>
     <p>
-      从论文摘要可以看出，这项工作的落点并不是单纯提升一个局部模块，而是围绕完整任务链路做系统设计。它通常会同时回答三个问题：任务为什么重要、现有方法卡在哪里、作者的新方案如何绕开这些瓶颈。
-      就这篇论文而言，摘要部分强调的核心是：<strong>Feed-forward 3D reconstruction has revolutionized 3D vision, providing a powerful baseline for downstream tasks such as novelview synthesis with 3D Gaussian Splatting. Previous wo…</strong>
+      这篇工作的落点不是只改进一个局部模块，而是围绕完整任务链路重新组织系统设计。作者首先回答“为什么这个问题值得做”，接着说明现有方案为什么不足，最后再解释自己的方法如何把表示、训练和推理串成一条更可行的路径。
     </p>
     <p>
-      如果把它放进更大的技术背景中理解，可以把这篇论文视作一条“问题定义 → 表示设计 → 训练优化 → 实验验证”的完整研究闭环。也就是说，作者并不是只给出一个孤立模块，而是希望通过一整套方法让系统在真实场景或关键指标上取得更稳定提升。
+      按照论文摘要的原意，这篇工作最关键的信息可以概括为：前馈 3D 重建彻底改变了 3D 视觉，为下游任务（例如使用 3D 高斯分布进行新颖视图合成）提供了强大的基线。以前的作品探索使用扩散模型修复损坏的渲染结果。然而，他们缺乏几何关注，无法填充外推视图上的缺失区域。在这项工作中，我们引入了 Leveling3D，这是一种新颖的管道，它将前馈 3D 重建与几何一致生成相结合，以实现整体同步重建和生成。我们提出了一种几何感知的调平适配器，这是一种轻量级技术，可将扩散模型中的内部知识与前馈模型中的先验几何结构对齐。调平适配器能够在由 3D 表示的欠约束区域引起的外推新颖视…
     </p>
-    <figure><img class='paper-fig' src='../assets/2603_16211v1/fig_1.png' alt='Figure 1:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 1：该图来自论文原文，用于说明论文中的核心框架、可视化结果或实验现象。原始图注摘要：We propose Leveling3D, a new method for extrapolated view refinement for Feed-Forward 3DGS with sparse input. Previous 3DGS refinement methods with naive reference or text prompts as diffusion control have limited geometry generalization ability within the artifact area in extrapolated views. In co…</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_16211v1/fig_2.png' alt='Figure 2:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 2：该图来自论文原文，用于说明论文中的核心框架、可视化结果或实验现象。原始图注摘要：Overview of the Leveling3D pipeline. Our pipeline integrates a geometryaware leveling adapter that fuses geometry tokens with diffusion control, enabling robust refinement of extrapolated views and leveling up the 3D reconstruction with extended geometric-consistent extrapolation areas. primitives…</figcaption></figure>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>We propose a geometry-aware leveling adapter, a lightweight technique that aligns internal knowledge in the diffusion model with the geometry prior from the feed-forward model.</li><li>The leveling adapter enables generation on the artifact area of the extrapolated novel views caused by underconstrained regions of the 3D representation.</li><li>Feed-forward 3D reconstruction has revolutionized 3D vision, providing a powerful baseline for downstream tasks such as novelview synthesis with 3D Gaussian Splatting.</li></ul></div>
+    <p>
+      如果把它放在更大的技术脉络里理解，这篇论文可以视为“问题定义 → 方法设计 → 优化训练 → 实验验证”的完整闭环，而不是只给出一个孤立技巧。这样的工作更适合被写成博客精读，因为它的价值不在某一行代码，而在整条设计链路为什么成立。
+    </p>
+    <figure><img class='paper-fig' src='../assets/2603_16211v1/fig_1.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：我们提出了 Leveling3D，这是一种用于稀疏输入的前馈 3DGS 外推视图细化的新方法。以前使用简单参考或文本提示作为扩散控制的 3DGS 细化方法在外推视图中的工件区域内的几何概括能力有限。在…</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_16211v1/fig_2.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：Leveling3D 管道概述。我们的管道集成了几何感知调平适配器，该适配器将几何标记与扩散控制融合在一起，从而能够对外推视图进行稳健的细化，并通过扩展的几何一致外推区域来调平 3D 重建。基元…</figcaption></figure>
+    <div class='card'><strong>摘要中文转述：</strong><p>前馈 3D 重建彻底改变了 3D 视觉，为下游任务（例如使用 3D 高斯分布进行新颖视图合成）提供了强大的基线。以前的作品探索使用扩散模型修复损坏的渲染结果。然而，他们缺乏几何关注，无法填充外推视图上的缺失区域。在这项工作中，我们引入了 Leveling3D，这是一种新颖的管道，它将前馈 3D 重建与几何一致生成相结合，以实现整体同步重建和生成。我们提出了一种几何感知的调平适配器，这是一种轻量级技术，可将扩散模型中的内部知识与前馈模型中的先验几何结构对齐。调平适配器能够在由 3D 表示的欠约束区域引起的外推新颖视图的伪像区域上生成。具体来说，为了学习更加多样化的分布式生成，我们引入了用于训练的调色板过滤策略，以及测试时掩蔽细化以防止固定区域的混乱边界。更重要的是，来自 Leveling3D 的增强型外推新颖视图可以用作前馈 3DGS 的输入，从而提高 3D 重建的水平。我们在公共数据集上实现了 SOTA 性能，包括新颖视图合成和深度估计等任务。 3D重建新颖视图合成扩散模型</p></div>
 
     <h2 id='innovation'>核心创新</h2>
     <p>
-      对照引言与方法部分，这篇论文的创新点主要体现在“如何重新组织问题求解链路”上。相比简单替换一个 backbone 或增加一个 loss，作者更像是在重新定义系统的关键接口与约束方式。
+      对照引言与方法部分可以看出，这篇论文的创新点并不只是“做了一个新模块”，而是重新组织了问题的求解顺序与约束方式。作者更关心的是如何把任务定义、表示设计、训练目标和实验验证压到同一条主线上。
     </p>
     <h3>1）从任务设定上重新界定问题边界</h3>
     <p>
-      论文强调的问题并不只是已有方案做得不够好，而是很多现有方法在目标可控性、泛化范围、效率约束或结构一致性上存在天然短板。因此作者先重述了任务定义，再围绕新的目标函数和场景假设去设计整体方案。
+      作者首先重述了任务本身：到底什么才是这个问题里真正重要、且现有方法长期处理不好的部分。只有把问题边界说清楚，后续的新结构与新损失才有意义。
     </p>
     <h3>2）用统一框架串起表示、推理和优化</h3>
     <p>
-      从原文描述看，这篇论文并不是把多个模块松散拼接，而是在一个统一框架里安排表示形式、关键模块和训练信号，使它们彼此服务。这类设计往往决定了方法能否真正具备工程可落地性。
+      从原文来看，作者并不是把很多模块松散拼在一起，而是在一个统一框架中安排中间表示、关键网络和训练目标，使它们彼此约束、彼此服务。这类设计通常决定了方法是否真的具备可复现与可落地性。
     </p>
     <h3>3）把实验目标直接对齐到实际痛点</h3>
     <p>
-      论文中的实验不仅比较常规 benchmark，也会额外关注更贴近实际系统需求的指标，例如稳定性、控制性、质量上界、对长尾场景的适应能力等。换句话说，它不是只追求单一数值，而是试图证明整套系统在真实使用方式下也成立。
+      论文中的实验不只是追求一个漂亮数字，而是尽量把评价方式对齐到真实使用情境，例如质量、稳定性、可控性、几何一致性或长尾场景下的可用性。这样实验结论才真正能支撑方法设计本身。
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>While, existing works [10, 34, 35, 40, 44] propose some novel techniques to address the rendering artifacts of 3DGS, they predominantly employ diffusion models as post-processing tools for 2D rendering correction.</li><li>Multi-View Encoding Render Leveling Up Sparse Input Views Rendered Novel Views Rendered Alpha Masks Feed-Forward Encoder … ConvNext Block ConvNext Block Convolution DownSampler Projection Layer X4 Leveling-Adapter Patch &amp; Embedding … … Diffusion Unet VAE Enco…</li><li>The powerful baselines like MASt3R [18] and VGGT [28] have demonstrated unprecedented capability in joint camera poses and dense geometry prediction, establishing a strong foundation with robust geometry prior for downstream tasks, especially novel view synth…</li><li>Our pipeline integrates a geometryaware leveling adapter that fuses geometry tokens with diffusion control, enabling robust refinement of extrapolated views and leveling up the 3D reconstruction with extended geometric-consistent extrapolation areas.</li></ul></div>
+    <div class='card'><strong>创新点中文提炼：</strong><p>3D 重建是增强/虚拟现实、自主系统和数字孪生应用的基石技术。依靠运动结构 (SfM) 和多视图立体 (MVS) 的传统管道通过迭代优化实现了卓越的精度，但仍然面临计算复杂性和无纹理区域性能脆弱的问题。最近向前馈方法的范式转变彻底改变了这一领域，通过使用大量数据训练前向传递深度网络来实现实时、可泛化的 3D 重建。 MASt3R 和 VGGT 等强大的基线在联合相机姿势和密集几何预测方面表现出了前所未有的能力，为下游任务，特别是具有 3D 高斯泼溅 (3DGS) 的新颖视图合成 (NVS) 奠定了强大的几何先验的坚实基础。尽管最近取得了进展，但当输入视图稀疏时，前馈 3DGS 仍然从根本上限制了外推视图渲染。具体来说，当渲染外推视图具有输入边界之外的大面积时，3DGS 的渲染结果会表现出严重的伪影，例如不完整的几何形状、纹理损坏以及不存在观察结果的大空白区域，如图：teaser 所示。以前的潜在扩散模型擅长 2D 修复，但缺乏对底层 3D 结构的了解，……</p></div>
 
     <h2 id='technical'>技术细节</h2>
     <p>
-      方法部分是理解论文价值的关键。结合原文可以看到，作者通常会先定义输入输出，再介绍中间表示、主干模块、损失函数或奖励机制，最后说明训练与推理时各模块如何协同。
-      对这篇论文而言，方法线索主要集中在以下几个方面：
+      方法部分是理解论文价值的核心。阅读这类论文时，最重要的不是背结论，而是看清楚：输入是什么，中间表示是什么，关键模块如何传递信息，损失或奖励又如何把模型推向作者想要的解。
     </p>
     <h3>3.1 方法主线与模块组织</h3>
     <p>
-      根据方法章节可知，作者首先构建了一个核心表示或中间条件，再通过若干模块把它逐步转换为最终输出。这种结构的优势在于：每个模块都承担明确职责，既便于解释，也更便于在实验中做模块级消融。
-      原文中与主线最相关的描述包括：
+      从方法章节来看，作者首先构建了一个核心表示或条件变量，再通过若干模块逐步把它变成最终输出。这种设计的优势在于：每个模块都有明确职责，既便于解释，也方便在实验中做消融分析。
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>Multi-View Encoding Render Leveling Up Sparse Input Views Rendered Novel Views Rendered Alpha Masks Feed-Forward Encoder … ConvNext Block ConvNext Block Convolution DownSampler Projection Layer X4 Leveling-Adapter Patch &amp; Embedding … … Diffusion Unet VAE Enco…</li><li>3 Method 3.1 Preliminary Feed-Forward 3D Gaussian Splatting.</li></ul></div>
+    <div class='card'><strong>方法中文拆解：</strong><p>初步前馈 3D 高斯泼溅。前馈 3D 重建已成为按场景优化的强大替代方案，可在单次前向传递中实现可概括的新颖视图合成。在这里，我们利用 AnySplat（一种前馈 3DGS 模型）作为我们的基线。给定视图图像，其中 3D 场景，从 VGGT 中提取，来自 AnySplat 的几何编码器首先聚合来自多视图输入的标记。使用相应的标记，摄像头生成姿势 ，深度头生成每像素深度图 和置信度图 。与 AnySplat 一样，高斯基元由高斯头利用深度图、姿势和聚合标记来提取。总而言之，前馈网络将场景重建为一组 3D 高斯，并将输入视图的相机姿势预测为： 每个高斯基元包括中心、缩放因子、旋转、不透明度和颜色。如 中所示，给定相机内在因素和外在因素，3DGS 图元通过以下方式光栅化为每像素颜色： 其中 是像素位置 的像素颜色， 是图像平面上的投影 2D 高斯分布， 是与像素对应的高斯分布数量。 \\ \\ 通过适配器控制实现稳定扩散。稳定扩散是一种潜在扩散模型，可在压缩的潜在空间中进行去噪。前向扩散过程随着时间步长逐渐增加噪声：其中定义了噪声时间表。 UNet 降噪器是通过损失学习来逆转这个过程的，条件是：Unet 预测在哪里。为了在不重新训练完整模型的情况下注入控制，提出了一种轻量级适配器来预测与 UNet 降噪器编码器中的中间特征一致的多尺度条件特征。给定条件（例如，粗糙图像、蒙版和文本提示），新功能定义如下：具有几何先验的几何感知水平适配器适配器控制。如图所示，我们将新颖的 Leveling Adapter 设计为一个轻量级网络，将前馈 3D 几何与扩散模型的潜在空间连接起来。在这里，我们将 Leveling Adapter 的目标定义为将相应的条件图像与来自 AnySplat 编码器的多视图几何聚合的几何先验标记对齐。与 不同的是，Leveling Adapter 包括一个投影层、四个特征提取块和三个下采样块。在投影层中应用步长为 8 的卷积来对齐从 到 的条件。
+
+在每个特征提取块中，使用一个卷积层和两个 ConvNext 块代替残差块来提取空间上下文，同时保持计算效率。特征提取后，使用平均池化进行下采样。为了从多视图输入中捕获几何信息，我们利用几何编码器的输出标记。我们首先将条件图像修补为 VGGT 后面的标记，其中 是补丁大小， 是高度和宽度。然后，给定几何标记 ，我们通过交叉注意力将参考图像中的 patchify 标记与几何标记融合：其中 、 、 是可学习的投影矩阵。鉴于交叉关注……</p></div>
+    <div class='card'><strong>方法关键点：</strong><p>初步前馈 3D 高斯泼溅。前馈 3D 重建已成为按场景优化的强大替代方案，可在单次前向传递中实现可概括的新颖视图合成。在这里，我们利用 AnySplat（一种前馈 3DGS 模型）作为我们的基线。给定视图图像，其中 3D 场景，从 VGGT 中提取，来自 AnySplat 的几何编码器首先聚合来自多视图输入的标记。使用相应的标记，摄像头生成姿势 ，深度头生成每像素深度图 和置信度图 。与 AnySplat 一样，高斯基元由高斯头利用深度图、姿势和聚合标记来提取。总而言之，前馈网络将场景重建为一组 3D 高斯，并将输入视图的相机姿势预测为： 每个高斯基元包括中心、缩放因子、旋转、不透明度和颜色。如 中所示，给定相机内在因素和外在因素，3DGS 图元通过以下方式光栅化为每像素颜色： 其中 是像素位置 的像素颜色， 是图像平面上的投影 2D 高斯分布， 是与像素对应的高斯分布数量。 \\ \\ 通过适配器控制实现稳定扩散。稳定扩散是一种潜在扩散模型，可在压缩的潜在空间中进行去噪。前向扩散过程随着时间的推移逐渐增加噪声……</p></div>
     <h3>3.2 训练目标、损失与公式信号</h3>
     <p>
-      论文里的公式通常承担两类角色：一种是定义模型的预测关系与变量约束，另一种是定义优化时真正驱动模型更新的目标函数。阅读这类论文时，关键不是死记公式外形，而是理解每个公式分别在“表达结构”还是“约束行为”上发挥作用。
+      论文里的公式通常承担两类角色：一类是定义变量之间的结构关系，另一类是定义优化时真正推动模型收敛的损失或目标函数。理解公式时，不应只看符号本身，而应看每一项在约束什么、强调什么、解决什么问题。
     </p>
-    <div class='card'><strong>公式 / 指标片段 1：</strong><pre>i=1, where</pre></div><div class='card'><strong>公式 / 指标片段 2：</strong><pre>ol { \t he t</pre></div><div class='card'><strong>公式 / 指标片段 3：</strong><pre>_i\}_{i=1}^N \;\mapsto \; \Bigl \{ \boldsymbol {\mu }, \sigma , \boldsymbol {r}, \boldsymbol {s}, \boldsymbol {c} \Bigr \}^\mathcal {G} \cup \{p_i\}_{i=1}^N. \label {eq:ffgs}</pre></div><div class='card'><strong>公式 / 指标片段 4：</strong><pre>\ s um _ {i \ in K} \mathbf {c}i \alpha _i \prod _{j=1}^{i-1}(1 - \alpha _j), \; \alpha _i=\sigma _i\mathcal {G}^\prime (x_p)</pre></div>
+    <div class='card'><strong>公式 1</strong><p>$$ f_{\boldsymbol{\theta}}:\{I_i\}_{i=1}^N
+ \;\mapsto\;
+ \Bigl\{
+ \boldsymbol{\mu}, \sigma, \boldsymbol{r}, \boldsymbol{s}, \boldsymbol{c}
+ \Bigr\}^\mathcal{G}
+ \cup
+ \{p_i\}_{i=1}^N.
+ \label{eq:ffgs} $$</p><p>es ，深度头生成每像素深度图和置信度图。与 AnySplat 一样，高斯基元由高斯头利用深度图、姿势和聚合标记来提取。总而言之，前馈网络将场景重建为一组 3D 高斯并预测相机……</p><p>进一步理解时，可以把这条公式拆成“被求解的对象”“约束项/损失项”“它对训练或推理带来的效果”三部分来读，这也是论文方法成立的核心原因。</p></div><div class='card'><strong>公式 2</strong><p>$$ \mathcal{C}(x_p) = \sum_{i\in K} \mathbf{c}i \alpha_i \prod_{j=1}^{i-1}(1 - \alpha_j), \; \alpha_i=\sigma_i\mathcal{G}^\prime(x_p) $$</p><p>，c\^G\p_i\_i=1^N。方程 每个高斯基元包括中心、缩放因子、旋转、不透明度和颜色。如 中所示，给定相机内在和外在因素，3DGS 图元通过以下方式光栅化为每像素颜色： 其中 是像素位置的像素颜色， 是图像平面上的投影 2D 高斯…</p><p>进一步理解时，可以把这条公式拆成“被求解的对象”“约束项/损失项”“它对训练或推理带来的效果”三部分来读，这也是论文方法成立的核心原因。</p></div><div class='card'><strong>公式 3</strong><p>$$ \mathbf{Z}_t = \sqrt{\bar{\alpha}_t} \mathbf{Z}_0 + \sqrt{1 - \bar{\alpha}_t} \boldsymbol{\epsilon}, \quad \boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I}) $$</p><p>ixel 位置 ，是在图像平面上投影的二维高斯，是像素对应的高斯数量。 \\ \\ 通过适配器控制实现稳定扩散。稳定扩散是一种潜在扩散模型，可在压缩的潜在空间中进行去噪。前向扩散过程逐渐增加噪声……</p><p>进一步理解时，可以把这条公式拆成“被求解的对象”“约束项/损失项”“它对训练或推理带来的效果”三部分来读，这也是论文方法成立的核心原因。</p></div><div class='card'><strong>公式 4</strong><p>$$ \mathcal{L} = \mathbb{E}_{\mathbf{Z}_t,\mathbf{C}, t, \boldsymbol{\epsilon}} \left[ ||\boldsymbol{\epsilon} - \boldsymbol{\epsilon}_\theta(\mathbf{Z}_t, \mathbf{C})||_2^2 \right], $$</p><p>前向扩散过程随着时间步长逐渐增加噪声：其中定义了噪声时间表。 UNet 降噪器是通过损失学习来逆转这个过程的，条件是：Unet 预测在哪里。为了在不重新训练完整模型的情况下注入控制，提出了一种轻量级适配器来预测多尺度协作……</p><p>进一步理解时，可以把这条公式拆成“被求解的对象”“约束项/损失项”“它对训练或推理带来的效果”三部分来读，这也是论文方法成立的核心原因。</p></div><div class='card'><strong>公式 5</strong><p>$$ \hat{\mathbf{F}}_{\text{enc}}^i = \mathbf{F}_{\text{enc}}^i + \mathbf{F}_c^i, \; \text{for } i \in {1,2,3,4}, \; \mathbf{F}_c = \mathcal{F}_{AD}(\mathbf{C}) $$</p><p>es 与 UNet 降噪器编码器中的中间特征对齐。给定条件（例如，粗糙图像、蒙版和文本提示），新功能定义如下：具有几何先验的几何感知水平适配器适配器控制。如图所示，我们设计了新颖的水平适配器作为......</p><p>进一步理解时，可以把这条公式拆成“被求解的对象”“约束项/损失项”“它对训练或推理带来的效果”三部分来读，这也是论文方法成立的核心原因。</p></div><div class='card'><strong>公式 6</strong><p>$$ \begin{split}
+\mathbf{C}_{res} &amp;= \text{Unpatch}\bigl( 
+ \text{Attention}(\mathbf{Q}, \mathbf{K}, \mathbf{V})
+\bigr)
+\end{split} $$</p><p>thbfW_K l_0;\ V = W_V t_0^I\\ Attention(Q, K, V) = softmax(QK^Td) V, 数组 .分割对齐 其中 , , 是可学习的投影矩阵。给定交叉注意力结果，我们对其进行解补丁以生成条件残差：最终条件是 ，其中 是残差特征。我们的适配器提取多尺度特征为：</p><p>进一步理解时，可以把这条公式拆成“被求解的对象”“约束项/损失项”“它对训练或推理带来的效果”三部分来读，这也是论文方法成立的核心原因。</p></div>
     <p>
-      从这些公式与周边段落可以推断，作者想要的不只是局部误差最小化，而是通过更精细的目标设计，让模型在结构一致性、生成质量、时序稳定性或可控性等方面同时受约束。这也是很多新方法能真正优于 baseline 的原因。
+      从这些公式及其上下文可以看出，作者追求的并不只是某个局部误差变小，而是希望通过更精细的目标设计，使模型在结构一致性、生成质量、时序稳定性、语义可控性或物理合理性等方面同时受约束。这往往是新方法真正超过 baseline 的关键原因。
     </p>
-    <h3>3.3 把全文方法串起来理解</h3>
+    <h3>3.3 全部图示与模块可视化</h3>
     <p>
-      如果把这篇论文的方法看成一条流水线，那么它的逻辑通常是：先把输入变成一个更适合推理的中间表示，再围绕该表示施加关键模块与训练目标，最后把输出落到可评估、可可视化的结果上。
-      这种“表示—模块—目标—结果”的闭环设计，是本页所锁定模板最想强调的部分，因为它比零散摘录更能帮助后续复现与横向比较。
+      下面按论文中的图序展示全部已抽取图示。每张图都配有完整中文图注，便于把文字中的方法逻辑与可视化结果对应起来看。
+    </p>
+    <figure><img class='paper-fig' src='../assets/2603_16211v1/fig_1.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：我们提出了 Leveling3D，这是一种用于稀疏输入的前馈 3DGS 外推视图细化的新方法。以前使用简单参考或文本提示作为扩散控制的 3DGS 细化方法在外推视图中的工件区域内的几何概括能力有限。在…</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_16211v1/fig_2.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：Leveling3D 管道概述。我们的管道集成了几何感知调平适配器，该适配器将几何标记与扩散控制融合在一起，从而能够对外推视图进行稳健的细化，并通过扩展的几何一致外推区域来调平 3D 重建。基元…</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_16211v1/fig_3.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 3 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_16211v1/fig_4.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 4 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_16211v1/fig_5.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 5 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_16211v1/fig_6.png' alt='Figure 6:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 6：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 6 from the source paper.</figcaption></figure>
+    <p>
+      如果把全文方法串起来看，这篇论文的逻辑基本都遵循同一条主线：先把输入组织成更容易处理的表示，再通过模型结构和损失函数把这个表示推向目标输出，最后用可视化与数值实验共同证明该设计有效。把这条主线看清楚，比死记某个局部模块更重要。
     </p>
 
     <h2 id='experiment'>实验结论</h2>
     <p>
-      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，优势究竟来自哪个模块。对这篇论文来说，实验设计明显围绕“与现有方法的对比 + 对关键组件的消融”展开。
+      实验部分主要回答两个问题：第一，这个方法是否真的优于已有基线；第二，这种优势究竟来自哪一个设计决策。只有这两个问题回答清楚，论文的方法贡献才算真正成立。
     </p>
     <p>
-      从实验段落的关键词和结果描述看，论文最想传达的结论包括：
+      按照实验章节原文，这篇论文想强调的核心结论主要包括：
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>We achieve state-of-the-art performance on public unseen datasets across multiple scenes, including both the NVS rendering quality and geometry consistency, demonstrating that our geometryaware approach significantly outperforms both vanilla diffusion model a…</li></ul></div>
-    <figure><img class='paper-fig' src='../assets/2603_16211v1/fig_3.png' alt='Figure 3:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 3：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 3 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_16211v1/fig_4.png' alt='Figure 4:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 4：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 4 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_16211v1/fig_5.png' alt='Figure 5:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 5：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 5 from the source paper.</figcaption></figure>
+    <div class='card'><strong>实验中文转述：</strong><p>设置数据集和指标。我们从 DL3DV（10,510 个场景）和 ScanNet++（1,006 个场景）生成训练数据，随机选择 80% 的场景来生成 100,000 个噪声干净的图像对。所有基线均在未见过的数据集上进行测试：用于新颖视图合成的 MipNeRF360 和 VRNeRF、用于新颖视图深度估计的 TartanAir（合成室内/室外）和 ScanNet（真实世界室内）。我们使用通用指标（例如 NVS 的 PSNR、SSIM 和 LPIPS）进行所有实验。在深度估计方面，我们使用 Abs Rel、RMSE、following ，并进一步应用 Met3R 进行生成多视图 3D 一致性评估。结果是根据细化后的前馈 3DGS 表示呈现的外推新颖视图的平均值。对于每个数据集。除不同数量的输入外，所有实验均在稀疏双视图输入设置中进行。更多详细信息可在补充材料中找到。 \\ \\ 基线。我们根据最先进的基于扩散的增强管道评估我们的方法，分为图像扩散和视频扩散方法。对于前者，我们与 Difix3D+ 和 GSFix3D 进行比较；对于后者，我们采用 GSFixer 和 ViewExtrapolator 作为我们的主要基准。所有方法都在新颖视图合成和新颖视图深度估计任务上进行评估。为了确保公平比较，所有基于扩散的基线都使用 AnySplat 作为底层无姿态 3DGS 前馈框架。 \\ \\ 实施细节。我们使用 AdamW 优化器（学习率：1e-4，权重衰减：1e-2）在 8 个 NVIDIA A6000 GPU 上训练模型，每个 GPU 具有 2 个批量大小（学习率：1e-4，权重衰减：1e-2）20 个周期。在训练期间，我们冻结 AnySplat 和扩散模型，仅优化 Leveling Adapter 的参数。外推姿势采样和调色板过滤实验的其他详细信息在补充中。主要结果新颖视图图像合成。我们根据来自未见过的 MipNeRF360 和 VRNeRF 数据集的子集的真实世界稀疏捕获来评估 Leveling3D。如表所示，我们的方法实现了所有指标的所有 SOTA 结果，在 MipNeRF360 上优于 AnySplat 7.5% / 在 VRNeRF 上优于 AnySplat 7.5% / 在 VRNeRF 上优于 AnySplat，在 MipNeRF360 上优于基于图像扩散的方法（Difix3D+ 和 GSFix3D）至少 6.8% / 在 VRNeRF 上优于 AnySplat 13.1% 和基于视频扩散的方法（GSFixer 和 ViewExtrapolator） ）在 MipNeRF350 上至少提高 6.7% / 在 VRNeRF 上提高 9.7%。图中的定性结果显示了纹理丰富的表面的稳健恢复，以应对具有挑战性的外推视图。在这里，我们对上述所有方法进行了额外的步骤更新。
+
+在实现高精度的同时，Leveling3D 保持了与基于图像的扩散方法相当的推理速度，并且比基于视频的扩散方法快得多，展示了有利的精度与效率权衡。 \\ ...</p></div>
+    <div class='card'><strong>实验结论提炼：</strong><p>设置数据集和指标。我们从 DL3DV（10,510 个场景）和 ScanNet++（1,006 个场景）生成训练数据，随机选择 80% 的场景来生成 100,000 个噪声干净的图像对。所有基线均在未见过的数据集上进行测试：用于新颖视图合成的 MipNeRF360 和 VRNeRF、用于新颖视图深度估计的 TartanAir（合成室内/室外）和 ScanNet（真实世界室内）。我们使用通用指标（例如 NVS 的 PSNR、SSIM 和 LPIPS）进行所有实验。在深度估计方面，我们使用 Abs Rel、RMSE、following ，并进一步应用 Met3R 进行生成多视图 3D 一致性评估。结果是根据细化后的前馈 3DGS 表示呈现的外推新颖视图的平均值。对于每个数据集。除不同数量的输入外，所有实验均在稀疏双视图输入设置中进行。更多详细信息可在补充材料中找到。 \\ \\ 基线。我们根据最先进的基于扩散的增强管道评估我们的方法，分为图像扩散和视频扩散方法。对于前者，我们与 Difix3D+ 和 GSFix3D 进行比较；对于后者，我们采用 GSFixer 和 ViewExtrapolator 作为我们的主要基准。所有方法都在新颖视图合成和新颖视图深度估计任务上进行评估。为了确保公平比较，所有基于扩散的基线都利用 AnySplat 作为...</p></div>
     <ul>
-      <li>方法在主任务指标上不是偶然提升，而是与其结构设计和训练目标直接相关；</li>
-      <li>作者通过消融实验说明，若拿掉关键模块，性能与结果质量会明显回落；</li>
-      <li>论文不仅关注数值对比，也关注可视化质量、稳定性或可控性等更接近真实应用的信号。</li>
+      <li>方法在核心任务指标上的优势不是偶然的，而是与结构设计和训练目标直接相关；</li>
+      <li>消融实验说明，一旦拿掉关键模块或关键约束，模型性能与结果质量都会明显回落；</li>
+      <li>论文不仅比较数值，也比较可视化质量、稳定性、控制性和泛化能力等更接近真实使用的信号。</li>
     </ul>
     <p>
-      因此，实验部分最重要的阅读方式不是死记某一列数字，而是看清：作者究竟想证明哪个机制有效、这个机制的收益是在什么设置下成立、它是否有明显的边界条件。
+      因此，实验部分最重要的阅读方式并不是死记某一列数字，而是看清：作者究竟在证明哪个机制有效、这个机制的收益在什么设置下成立，以及它是否存在明显边界条件。
     </p>
 
     <h2 id='takeaway'>理解评价</h2>
     <p>
-      从研究定位上看，这篇论文的意义在于它没有把问题局限在某一个局部改动，而是尝试给出一套更完整的求解路径。对读者而言，最值得关注的是它如何重新组合表示、模块和训练目标，以及这些设计是否能迁移到相近任务上。
+      从研究定位上看，这篇论文的意义不在某一个局部 trick，而在于它试图给出一条较完整的问题求解路径。对读者而言，最值得关注的是：它如何重组表示、模块和训练目标，以及这些设计是否能迁移到相近任务上。
     </p>
     <p>
-      如果把它当成研究参考，我会重点看三件事：
-      第一，这套方法的核心归纳偏置是什么；
-      第二，实验中真正拉开差距的模块是哪一块；
-      第三，它的限制条件是数据、算力、时序长度，还是奖励/监督信号本身。
+      如果把它当成研究参考，我建议重点看三件事：第一，这套方法真正依赖的归纳偏置是什么；第二，实验中真正拉开差距的是哪一个模块；第三，它的限制究竟来自数据、算力、时序长度，还是监督/奖励信号本身。
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>Leveling Up 3D Reconstruction with Feed-Forward 3D Gaussian Splatting and Geometry-Aware Generation Yiming Huang1⋆, Baixiang Huang1⋆, Beilei Cui1, CHI KIT NG1, Long Bai1, and Hongliang Ren1† The Chinese University of Hong Kong {yhuangdl}@link.cuhk.edu.hk Extr…</li><li>We propose Leveling3D, a new method for extrapolated view refinement for Feed-Forward 3DGS with sparse input.</li><li>Previous 3DGS refinement methods with naive reference or text prompts as diffusion control have limited geometry generalization ability within the artifact area in extrapolated views.</li><li>In contrast, our method utilizes geometry-prior control, which generates fine RGB details with geometric consistency.</li></ul></div>
+    <div class='card'><strong>结论与局限中文转述：</strong><p>在这项工作中，我们提出了 Leveling3D，这是一种新颖的框架，它将前馈 3D 重建与 2D 扩散模型连接起来，以实现同步 3D 重建和生成。我们的几何感知调平适配器经过调色板过滤策略的训练，可以有效地将扩散先验与几何控制对齐，以填充缺失区域并增强从约束不足的 3D 表示中渲染的新颖视图，同时测试时掩蔽细化可确保无伪影边界。重要的是，与之前的方法不同，我们的细化流程将增强的视图反馈到重建中，从而提升 3D 表示的水平。这个统一的框架在公共数据集的新颖视图合成和深度估计方面实现了最先进的性能。</p></div>
+    <div class='card'><strong>进一步思考：</strong><p>在这项工作中，我们提出了 Leveling3D，这是一种新颖的框架，它将前馈 3D 重建与 2D 扩散模型连接起来，以实现同步 3D 重建和生成。我们的几何感知调平适配器经过调色板过滤策略的训练，可以有效地将扩散先验与几何控制对齐，以填充缺失区域并增强从约束不足的 3D 表示中渲染的新颖视图，同时测试时掩蔽细化可确保无伪影边界。重要的是，与之前的方法不同，我们的细化流程将增强的视图反馈到重建中，从而提升 3D 表示的水平。这个统一的框架在公共数据集的新颖视图合成和深度估计方面实现了最先进的性能。</p></div>
     <p>
-      进一步延伸阅读时，可以把这篇工作放到更广泛的技术脉络里：它与同类方法相比，到底是在表示层、生成层、优化层还是评估层提出了更强的方案。下面这些自动检索到的相关论文可作为继续追踪的入口：
+      进一步延伸阅读时，可以把这篇工作放到更广泛的技术脉络里：它与同类方法相比，到底是在表示层、生成层、优化层还是评估层提出了更强的方案。下面这些相关论文可以作为继续追踪的入口：
     </p>
     <ul></ul>
 
@@ -257,6 +275,7 @@
     </div>
   </article>
 </div>
+
   </div>
 </div>
 </body>
