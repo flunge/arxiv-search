@@ -70,7 +70,7 @@
     blockquote { margin: 16px 0; padding: 8px 16px; border-left: 4px solid #d8e7ff; background: #f8fbff; color: #333; }
     .tip { background: #f7f9fc; border: 1px solid #e8eef6; border-radius: 10px; padding: 12px; }
     .dashboard-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-top:18px; }
-    .dashboard-card { aspect-ratio: 1 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
+    .dashboard-card { aspect-ratio: 1.618 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
     .dashboard-card > * { min-width: 0; }
     .dashboard-card .dashboard-content { display:flex; flex-direction:column; height:100%; min-height:0; }
     .dashboard-card .dashboard-scroll { overflow:auto; min-height:0; }
@@ -130,10 +130,28 @@
     });
   </script>
 
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\(', '\)']],
+        displayMath: [['$$', '$$'], ['\[', '\]']]
+      },
+      svg: { fontCache: 'global' },
+      startup: {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady().then(() => {
+            requestAnimationFrame(applyPageScale);
+          });
+        }
+      }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
+
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
 
@@ -143,94 +161,112 @@
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      这篇论文关注的是“FreeArtGS 所对应的问题能否在更可控、更稳健或更高质量的条件下被解决”。从摘要与方法描述来看，作者的总体路线是：先搭建一个明确的表示或生成框架，再围绕训练目标、结构设计和实验验证把该问题推进到更可用的工程形态。
+      这篇论文围绕“FreeArtGS 所对应的研究问题”提出了一套完整方案：先明确任务目标与现有瓶颈，再通过新的表示、模块或训练目标把问题收敛成一条更稳定的工程链路，最后用实验验证该设计在质量、效率、可控性或泛化性上的改进。
     </div>
 
     <h2 id='summary'>简单摘要</h2>
     <p>
-      从论文摘要可以看出，这项工作的落点并不是单纯提升一个局部模块，而是围绕完整任务链路做系统设计。它通常会同时回答三个问题：任务为什么重要、现有方法卡在哪里、作者的新方案如何绕开这些瓶颈。
-      就这篇论文而言，摘要部分强调的核心是：<strong>The increasing demand for augmented reality and robotics is driving the need for articulated object reconstruction with high scalability. However, existing settings for reconstruc…</strong>
+      这篇工作的落点不是只改进一个局部模块，而是围绕完整任务链路重新组织系统设计。作者首先回答“为什么这个问题值得做”，接着说明现有方案为什么不足，最后再解释自己的方法如何把表示、训练和推理串成一条更可行的路径。
     </p>
     <p>
-      如果把它放进更大的技术背景中理解，可以把这篇论文视作一条“问题定义 → 表示设计 → 训练优化 → 实验验证”的完整研究闭环。也就是说，作者并不是只给出一个孤立模块，而是希望通过一整套方法让系统在真实场景或关键指标上取得更稳定提升。
+      按照论文摘要的原意，这篇工作最关键的信息可以概括为：对增强现实和机器人技术日益增长的需求正在推动对具有高可扩展性的铰接式对象重建的需求。然而，从离散关节状态或休闲单眼视频重建的现有设置需要非平凡的轴对齐或覆盖范围不足，限制了它们的适用性。在本文中，我们介绍了 FreeArtGS，这是一种在自由移动场景下重建关节对象的新方法，是一种设置简单且可扩展性高的新设置。 FreeArtGS 将自由移动部分分割与联合估计和端到端优化相结合，仅将单目 RGB-D 视频作为输入。 By optimizing with the priors from off-the-shelf p…
     </p>
-    <figure><img class='paper-fig' src='../assets/2603_22102v1/fig_1.png' alt='Figure 1:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 1：该图来自论文原文，用于说明论文中的核心框架、可视化结果或实验现象。原始图注摘要：FreeArtGS reconstructs articulated object under the freemoving scenario, in which both joint and object pose move in an unconstrained manner. ready assets, the reconstruction system for articulated objects should achieve high scalability in a simple setup. Regarding the scalability and simplicity o…</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_22102v1/fig_2.png' alt='Figure 2:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 2：该图来自论文原文，用于说明论文中的核心框架、可视化结果或实验现象。原始图注摘要：Overview of FreeArtGS. It consists of three modules: (1) Part Segmentation from free-moving video; (2) Joint Estimation with estimated part transforms; (3) End-to-end Optimization for articulated Gaussian Splatting. eters J . Thus, the object can be represented as G = Gc ◦J . As shown in Fig. 2, ou…</figcaption></figure>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>The increasing demand for augmented reality and robotics is driving the need for articulated object reconstruction with high scalability.</li><li>However, existing settings for reconstructing from discrete articulation states or casual monocular videos require non-trivial axis alignment or suffer from insufficient coverage, limiting their applicability.</li><li>In this paper, we introduce FreeArtGS, a novel method for reconstructing articulated objects under free-moving scenario, a new setting with a simple setup and high scalability.</li></ul></div>
+    <p>
+      如果把它放在更大的技术脉络里理解，这篇论文可以视为“问题定义 → 方法设计 → 优化训练 → 实验验证”的完整闭环，而不是只给出一个孤立技巧。这样的工作更适合被写成博客精读，因为它的价值不在某一行代码，而在整条设计链路为什么成立。
+    </p>
+    <figure><img class='paper-fig' src='../assets/2603_22102v1/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：FreeArtGS 在自由移动场景下重建铰接式物体，其中关节和物体姿势都以不受约束的方式移动。</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_22102v1/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：FreeArtGS 概述。它由三个模块组成：（1）自由移动视频的部分分割； (2) 联合估计与估计部分变换； (3) 关节式高斯泼溅的端到端优化。</figcaption></figure>
+    <div class='card'><strong>摘要中文转述：</strong><p>对增强现实和机器人技术日益增长的需求正在推动对具有高可扩展性的铰接式对象重建的需求。然而，从离散关节状态或休闲单眼视频重建的现有设置需要非平凡的轴对齐或覆盖范围不足，限制了它们的适用性。在本文中，我们介绍了 FreeArtGS，这是一种在自由移动场景下重建关节对象的新方法，是一种设置简单且可扩展性高的新设置。 FreeArtGS 将自由移动部分分割与联合估计和端到端优化相结合，仅将单目 RGB-D 视频作为输入。 By optimizing with the priors from off-the-shelf point-tracking and feature models, the free-moving part segmentation module identifies rigid parts from relative motion under unconstrained capture.关节估计模块校准统一的物体到相机的姿态，并从零件分割中稳健地恢复关节类型和轴。最后，实现基于 3DGS 的端到端优化，以联合重建关节对象的视觉纹理、几何形状和关节角度。我们在两个基准和现实世界中自由移动的铰接物体上进行了实验。实验结果表明，FreeArtGS 在重建自由移动的铰接对象方面始终表现出色，并且在以前的重建设置中保持高度竞争力，证明自己是现实资产生成的实用且有效的解决方案。项目页面位于：https://freeartgs.github.io/</p></div>
 
     <h2 id='innovation'>核心创新</h2>
     <p>
-      对照引言与方法部分，这篇论文的创新点主要体现在“如何重新组织问题求解链路”上。相比简单替换一个 backbone 或增加一个 loss，作者更像是在重新定义系统的关键接口与约束方式。
+      对照引言与方法部分可以看出，这篇论文的创新点并不只是“做了一个新模块”，而是重新组织了问题的求解顺序与约束方式。作者更关心的是如何把任务定义、表示设计、训练目标和实验验证压到同一条主线上。
     </p>
     <h3>1）从任务设定上重新界定问题边界</h3>
     <p>
-      论文强调的问题并不只是已有方案做得不够好，而是很多现有方法在目标可控性、泛化范围、效率约束或结构一致性上存在天然短板。因此作者先重述了任务定义，再围绕新的目标函数和场景假设去设计整体方案。
+      作者首先重述了任务本身：到底什么才是这个问题里真正重要、且现有方法长期处理不好的部分。只有把问题边界说清楚，后续的新结构与新损失才有意义。
     </p>
     <h3>2）用统一框架串起表示、推理和优化</h3>
     <p>
-      从原文描述看，这篇论文并不是把多个模块松散拼接，而是在一个统一框架里安排表示形式、关键模块和训练信号，使它们彼此服务。这类设计往往决定了方法能否真正具备工程可落地性。
+      从原文来看，作者并不是把很多模块松散拼在一起，而是在一个统一框架中安排中间表示、关键网络和训练目标，使它们彼此约束、彼此服务。这类设计通常决定了方法是否真的具备可复现与可落地性。
     </p>
     <h3>3）把实验目标直接对齐到实际痛点</h3>
     <p>
-      论文中的实验不仅比较常规 benchmark，也会额外关注更贴近实际系统需求的指标，例如稳定性、控制性、质量上界、对长尾场景的适应能力等。换句话说，它不是只追求单一数值，而是试图证明整套系统在真实使用方式下也成立。
+      论文中的实验不只是追求一个漂亮数字，而是尽量把评价方式对齐到真实使用情境，例如质量、稳定性、可控性、几何一致性或长尾场景下的可用性。这样实验结论才真正能支撑方法设计本身。
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>In this paper, we introduce FreeArtGS, a novel method for reconstructing articulated objects under free-moving scenario, a new setting with a simple setup and high scalability.</li><li>The joint estimation module calibrates the unified object-to-camera poses and recovers joint type and axis robustly from part segmentation.</li><li>To efficiently expa FreeArtGS:</li></ul></div>
+    <div class='card'><strong>创新点中文提炼：</strong><p>铰接物体广泛存在，并且在我们的日常生活中经常与之互动。构建可交互关节对象的数字复制品不仅可以增强增强现实中的人类体验，还可以缩小机器人学习的模拟与真实之间的差距。为了有效扩展图形和模拟就绪资产的范围，铰接对象的重建系统应该在简单的设置中实现高可扩展性。关于重建铰接物体的可扩展性和简单性，最近的工作可以分为三类。第一行工作直接从具有基础模型的单视图图像生成铰接对象资产。由于缺乏后期优化，这些方法无法推广到未见过的场景。第二行作品假设使用固定多视图相机在两种关节状态（例如，打开-关闭、拉-推）下捕获物体。然而，这些方法需要两种状态之间的轴对齐，限制了现实世界的使用。第三行作品从休闲的单眼视频中重建物体，具有静态的基础部分和移动的动态部分。这些作品暴露了两个缺点。首先，在现实世界的随意捕捉过程中，许多铰接物体（例如剪刀和钳子）的姿势可能会无意中改变，从而违反了静态基础参数的假设……</p></div>
 
     <h2 id='technical'>技术细节</h2>
     <p>
-      方法部分是理解论文价值的关键。结合原文可以看到，作者通常会先定义输入输出，再介绍中间表示、主干模块、损失函数或奖励机制，最后说明训练与推理时各模块如何协同。
-      对这篇论文而言，方法线索主要集中在以下几个方面：
+      方法部分是理解论文价值的核心。阅读这类论文时，最重要的不是背结论，而是看清楚：输入是什么，中间表示是什么，关键模块如何传递信息，损失或奖励又如何把模型推向作者想要的解。
     </p>
     <h3>3.1 方法主线与模块组织</h3>
     <p>
-      根据方法章节可知，作者首先构建了一个核心表示或中间条件，再通过若干模块把它逐步转换为最终输出。这种结构的优势在于：每个模块都承担明确职责，既便于解释，也更便于在实验中做模块级消融。
-      原文中与主线最相关的描述包括：
+      从方法章节来看，作者首先构建了一个核心表示或条件变量，再通过若干模块逐步把它变成最终输出。这种设计的优势在于：每个模块都有明确职责，既便于解释，也方便在实验中做消融分析。
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>By optimizing with the priors from off-the-shelf point-tracking and feature models, the free-moving part segmentation module identifies rigid parts from relative motion under unconstrained capture.</li><li>Articulated Gaussian Splatting Under Free-moving Scenario Hang Dai1,3∗ Hongwei Fan1,3∗ Han Zhang2,3∗ Duojin Wu1,3 Jiyao Zhang1,3 Hao Dong1,3† 1CFCS, School of Computer Science, Peking University 2College of Computer Science and Technology, Zhejiang University…</li></ul></div>
+    <div class='card'><strong>方法中文拆解：</strong><p>概述 给定使用分段任意模型获得的具有两个刚性部件和前景蒙版的自由移动铰接物体的单目 RGB-D 视频，我们的目标是重建其两个部件和关节参数的规范高斯分布。因此，该对象可以表示为 。如图所示，我们的框架包括三个模块：零件分割、联合估计和端到端优化。在秒。 ，我们的方法利用两个部分的点跟踪结果来获得它们在前景蒙版内的 2D 部分分割。在秒。 ，我们分别重建两部分的高斯 和 ，粗略估计关节参数 ，并将 和 校准到规范高斯 。在秒。 ，我们执行混合渲染并通过端到端优化来微调高斯和联合参数。自由移动零件分割设置。我们首先的目标是纯粹通过运动将铰接物体分割成两个刚性部分。我们的关键假设是，在很短的时间窗口内，每个部分的运动都可以通过独立的刚性变换很好地近似。具体来说，对于窗口中的帧对和具有有效深度的跟踪像素，我们获得相应的 3D 点 和 。我们寻求两个刚性变换 和 每个点的软部件权重，其中 和 表示两个不同的部件。我们通过使用 DINOv3 的特征图进行聚类来初始化零件权重，其中语义相似的点被分配相同的零件标签。零件解算器。我们使用大小为 的滑动窗口处理 RGB-D 视频。对于每个窗口，假设对于窗口的第一帧，AllTracker 通过 帧 提供像素级 2D 轨迹，其中 是窗口第一帧中跟踪点的像素索引，表示其在窗口中帧处的 2D 位置。然后我们将它们提升到具有深度和相机内在特性的 3D 轨迹。通过这些轨迹，我们进一步优化每个零件的刚性变换和零件重量：其中 是 Huber 损失， 是一个小常数，以避免被零除。正则化。联合优化变换和零件权重可能会落入次优解决方案。为此，我们将其规范化以保持自信和空间连贯。首先，熵惩罚鼓励近二元分配，其次，为了防止模型拟合不稳定的点跟踪结果，我们通过采样跟踪点的每像素图像特征并将基于半径的邻居与权重连接来构建特征空间邻居图。
+
+平滑项强制局部一致性，最后，我们不鼓励零件权重与 BCE 损失的初始权重相差太大，我们每个窗口的目标是零件分割。我们跨窗口传播优化的零件权重，通过特征空间邻居填充未观察到的像素，并通过对零件权重进行阈值化来获得二进制零件掩模。详情请参阅补充材料。联合估计部分级重建。通过 、 和 ，其中 和 是帧和部件索引，我们利用现成的姿态估计器来校准每个部件的每个帧的部件到相机的转换。我们注意到，尽管我们已经获得了……</p></div>
+    <div class='card'><strong>方法关键点：</strong><p>概述 给定使用分段任意模型获得的具有两个刚性部件和前景蒙版的自由移动铰接物体的单目 RGB-D 视频，我们的目标是重建其两个部件和关节参数的规范高斯分布。因此，该对象可以表示为 。如图所示，我们的框架包括三个模块：零件分割、联合估计和端到端优化。在秒。 ，我们的方法利用两个部分的点跟踪结果来获得它们在前景蒙版内的 2D 部分分割。在秒。 ，我们分别重建两部分的高斯 和 ，粗略估计关节参数 ，并将 和 校准到规范高斯 。在秒。 ，我们执行混合渲染并通过端到端优化来微调高斯和联合参数。自由移动零件分割设置。我们首先的目标是纯粹通过运动将铰接物体分割成两个刚性部分。我们的关键假设是，在很短的时间窗口内，每个部分的运动都可以通过独立的刚性变换很好地近似。具体来说，对于窗口中的帧对和具有有效深度的跟踪像素，我们获得相应的 3D 点 和 。我们寻求两个刚性变换 和 每个点的软部件权重，其中 和 表示两个不同的部件。我们通过使用特征进行聚类来初始化零件权重......</p></div>
     <h3>3.2 训练目标、损失与公式信号</h3>
     <p>
-      论文里的公式通常承担两类角色：一种是定义模型的预测关系与变量约束，另一种是定义优化时真正驱动模型更新的目标函数。阅读这类论文时，关键不是死记公式外形，而是理解每个公式分别在“表达结构”还是“约束行为”上发挥作用。
+      论文里的公式通常承担两类角色：一类是定义变量之间的结构关系，另一类是定义优化时真正推动模型收敛的损失或目标函数。理解公式时，不应只看符号本身，而应看每一项在约束什么、强调什么、解决什么问题。
     </p>
-    <div class='card'><strong>公式 / 指标片段 1：</strong><pre>Given a monocular RGB-D video of a free-moving articulated object with two rigid parts V = {Ii, Di}N</pre></div><div class='card'><strong>公式 / 指标片段 2：</strong><pre>i=1 and foreground masks {Mfg</pre></div><div class='card'><strong>公式 / 指标片段 3：</strong><pre>i=1, obtained using Segment Anything Model [28], our goal is to reconstruct its canonical</pre></div><div class='card'><strong>公式 / 指标片段 4：</strong><pre>Gaussians Gc = {G0</pre></div>
+    <div class='card'><strong>公式 1</strong><p>$$ \begin{aligned}
+\mathcal{L}_{\mathrm{main}} &amp;= \sum_{p} (1-w_{t,p})\rho\left(\frac{\big\|T^0_{0\to t}X_{0,p}-X_{t,p}\big\|}{\big\|X_{0,p}-X_{t,p}\big\|+\epsilon}\right) \\
+&amp;\quad+ w_{t,p}\rho\left(\frac{\big\|T^1_{0\to t}X_{0,p}-X_{t,p}\big\|}{\big\|X_{0,p}-X_{t,p}\big\|+\epsilon}\right),
+\end{aligned} $$</p><p>_t,p\_t R^2 pZ^2 u_t,p t \X_t,p\ R^3 w_t,p 对于每个部分：其中 是 Huber 损失，是避免被零除的小常数。正则化。联合优化变换和零件权重可能会落入次优解决方案。为此，我们将其规范化以保持自信和空间连贯。首先，熵...</p><p>进一步理解时，可以把这条公式拆成“被求解的对象”“约束项/损失项”“它对训练或推理带来的效果”三部分来读，这也是论文方法成立的核心原因。</p></div><div class='card'><strong>公式 2</strong><p>$$ \mathcal{L}_{\mathrm{ent}}=-\sum_{p}\Big[w_{t,p}\log w_{t,p}+(1-w_{t,p})\log(1-w_{t,p})\Big]. $$</p><p>\|X_0,p-X_t,p\|+)，对齐 \] 其中 是 Huber 损失，是一个避免被零除的小常数。正则化。联合优化变换和零件权重可能会落入次优解决方案。为此，我们将其规范化以保持自信和空间连贯。首先，熵惩罚鼓励近二元……</p><p>进一步理解时，可以把这条公式拆成“被求解的对象”“约束项/损失项”“它对训练或推理带来的效果”三部分来读，这也是论文方法成立的核心原因。</p></div><div class='card'><strong>公式 3</strong><p>$$ \mathcal{L}_{\mathrm{smooth}}=\sum_{p}\sum_{q\in\mathcal{N}(p)}\alpha_{pq}\,\big|w_{t,p}-w_{t,q}\big|. $$</p><p>其次，为了防止模型拟合不稳定的点跟踪结果，我们通过采样跟踪点的每像素图像特征并将基于半径的邻居与权重连接来构建特征空间邻居图。平滑项强制局部一致性，最后，我们不鼓励部分 w...</p><p>进一步理解时，可以把这条公式拆成“被求解的对象”“约束项/损失项”“它对训练或推理带来的效果”三部分来读，这也是论文方法成立的核心原因。</p></div><div class='card'><strong>公式 4</strong><p>$$ \mathcal{L}_{\mathrm{init}}=\sum_{p}\mathrm{BCE}\!\left(w_{t,p},\,w_{0,p}\right). $$</p><p>) _pq w_0,p L_init，我们每个窗口的目标是零件分割。我们跨窗口传播优化后的部分权重，通过特征空间邻居填充未观察到的像素，并获得 t</p><p>进一步理解时，可以把这条公式拆成“被求解的对象”“约束项/损失项”“它对训练或推理带来的效果”三部分来读，这也是论文方法成立的核心原因。</p></div><div class='card'><strong>公式 5</strong><p>$$ \mathcal{L}=\lambda_m\mathcal{L}_{\mathrm{main}}
++\lambda_s\mathcal{L}_{\mathrm{smooth}}
++\lambda_e\mathcal{L}_{\mathrm{ent}}
++\lambda_{\mathrm{init}}\mathcal{L}_{\mathrm{init}}. $$</p><p>_pq w_0,p L_init，我们每个窗口的目标是零件分割。我们跨窗口传播优化的零件权重，通过特征空间邻居填充未观察到的像素，并通过对零件权重进行阈值化来获得二进制零件掩模。详情请参阅补充材料。</p><p>进一步理解时，可以把这条公式拆成“被求解的对象”“约束项/损失项”“它对训练或推理带来的效果”三部分来读，这也是论文方法成立的核心原因。</p></div><div class='card'><strong>公式 6</strong><p>$$ T_i=
+\begin{cases}
+T(\theta_i;u,o)
+= \big[R(u,\theta_i)\mid(I-R(u,\theta_i))o\big],\\[6pt]
+T(d_i;u)
+= \big[I\mid d_i u\big].
+\end{cases} $$</p><p>从 中详细介绍的规范姿势的估计关节开始，我们执行轴感知的端到端优化，共同细化外观、几何结构、相机和关节。表示为单位矩阵，我们通过具有单位轴、枢轴和每帧的旋转关节来参数化目标部分......</p><p>进一步理解时，可以把这条公式拆成“被求解的对象”“约束项/损失项”“它对训练或推理带来的效果”三部分来读，这也是论文方法成立的核心原因。</p></div>
     <p>
-      从这些公式与周边段落可以推断，作者想要的不只是局部误差最小化，而是通过更精细的目标设计，让模型在结构一致性、生成质量、时序稳定性或可控性等方面同时受约束。这也是很多新方法能真正优于 baseline 的原因。
+      从这些公式及其上下文可以看出，作者追求的并不只是某个局部误差变小，而是希望通过更精细的目标设计，使模型在结构一致性、生成质量、时序稳定性、语义可控性或物理合理性等方面同时受约束。这往往是新方法真正超过 baseline 的关键原因。
     </p>
-    <h3>3.3 把全文方法串起来理解</h3>
+    <h3>3.3 全部图示与模块可视化</h3>
     <p>
-      如果把这篇论文的方法看成一条流水线，那么它的逻辑通常是：先把输入变成一个更适合推理的中间表示，再围绕该表示施加关键模块与训练目标，最后把输出落到可评估、可可视化的结果上。
-      这种“表示—模块—目标—结果”的闭环设计，是本页所锁定模板最想强调的部分，因为它比零散摘录更能帮助后续复现与横向比较。
+      下面按论文中的图序展示全部已抽取图示。每张图都配有完整中文图注，便于把文字中的方法逻辑与可视化结果对应起来看。
+    </p>
+    <figure><img class='paper-fig' src='../assets/2603_22102v1/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：FreeArtGS 在自由移动场景下重建铰接式物体，其中关节和物体姿势都以不受约束的方式移动。</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_22102v1/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：FreeArtGS 概述。它由三个模块组成：（1）自由移动视频的部分分割； (2) 联合估计与估计部分变换； (3) 关节式高斯泼溅的端到端优化。</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_22102v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：FreeArt-21 的定性结果。我们可视化我们方法的清晰度和渲染结果。红色部分和蓝色部分是我们的方法识别出的部分。</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_22102v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：真实世界物体的定性结果。我们的方法成功地重建了具有正确关节、几何形​​状和纹理的所有对象。</figcaption></figure>
+    <p>
+      如果把全文方法串起来看，这篇论文的逻辑基本都遵循同一条主线：先把输入组织成更容易处理的表示，再通过模型结构和损失函数把这个表示推向目标输出，最后用可视化与数值实验共同证明该设计有效。把这条主线看清楚，比死记某个局部模块更重要。
     </p>
 
     <h2 id='experiment'>实验结论</h2>
     <p>
-      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，优势究竟来自哪个模块。对这篇论文来说，实验设计明显围绕“与现有方法的对比 + 对关键组件的消融”展开。
+      实验部分主要回答两个问题：第一，这个方法是否真的优于已有基线；第二，这种优势究竟来自哪一个设计决策。只有这两个问题回答清楚，论文的方法贡献才算真正成立。
     </p>
     <p>
-      从实验段落的关键词和结果描述看，论文最想传达的结论包括：
+      按照实验章节原文，这篇论文想强调的核心结论主要包括：
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>We conduct experiments on two benchmarks and real-world free-moving articulated objects.</li><li>Experimental results demonstrate that FreeArtGS consistently excels in reconstructing free-moving articulated objects and remains highly competitive in previous reconstruction settings, proving itself a practical and effective solution for realistic asset gen…</li></ul></div>
-    <figure><img class='paper-fig' src='../assets/2603_22102v1/fig_3.png' alt='Figure 3:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 3：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 3 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_22102v1/fig_4.png' alt='Figure 4:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 4：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 4 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_22102v1/fig_5.png' alt='Figure 5:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 5：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 5 from the source paper.</figcaption></figure>
+    <div class='card'><strong>实验中文转述：</strong><p>实验设置数据集。我们在以下数据集上评估我们的方法的重建性能：（1）新基准：FreeArt-21。由于没有现有的自由移动关节对象重建基准，为了评估我们的方法，我们提出了 FreeArt-21，这是一个新基准，包含来自 PartNet-Mobility 数据集的 7 个不同类别（5 个旋转和 2 个棱柱）的 21 个对象。为了模拟自由移动的环境，我们部署了广泛用于增强现实和机器人技术的 VR 系统，将物体放置在固定的 RGB-D 摄像机前，并远程操作物体。有关我们基准测试的详细信息，请参阅补充材料。 (2)Video2Articulation-S。 Video2Articulation-S 是 Video2Articulation 提出的两部分铰接对象的合成数据集。它由来自 PartNet-Mobility 数据集的 11 类合成对象的 73 个测试视频组成，其中每个对象都有一个静态基础部分。由于静态基础捕获可以被视为自由移动设置的特殊情况，因此我们的方法也与其兼容。 (3) 现实世界的铰接物体。我们在六个日常铰接物体上评估我们的方法，包括五个旋转关节物体和一个棱柱关节物体。自由移动的视频是在用手握住物体时拍摄的。我们固定一台Orbbec Femto Bolt RGB-D相机，物体支架距离相机30-50cm。我们报告定性和定量结果。评估指标。我们报告以下核心指标：\\（1）关节轴误差（度）：对于旋转关节和棱柱关节，预测的单位轴与地面真实值之间的角度，（2）关节位置误差（厘米）：仅对于旋转关节，预测枢轴和地面真实枢轴之间的欧几里德距离，（3）状态（度/厘米）：对于旋转关节和棱柱关节，预测关节状态与地面真实关节状态之间的绝对差。 (4) 倒角距离（cm）：重建表面与地面实况表面之间的对称倒角距离。我们报告整个对象 (CD-w) 上的 CD，并分别报告移动部分 (CD-m) 和参考部分 (CD-s) 上的 CD。所有距离均在规范状态下计算并以厘米为单位报告。 (5) PSNR：在我们的 FreeArt-21 数据集上，我们还报告了在前景掩模内测量的新视图和联合状态的 PSNR。基线。我们选择 Video2Articulation 、 Robot-See-Robot-Do (RSRD) 和 Articulate-Anything 作为我们的基准方法。
+
+Articulate-Anything 是一种基于模型的基础方法，仅根据单个图像输入即可预测整个 URDF。由于它还使用 PartNet-Mobility 作为检索的 URDF 模板，因此减少了域差距。对于 Articulate-Anything，我们使用 GPT-4o 模型作为视觉语言……</p></div>
+    <div class='card'><strong>实验结论提炼：</strong><p>实验设置数据集。我们在以下数据集上评估我们的方法的重建性能：（1）新基准：FreeArt-21。由于没有现有的自由移动关节对象重建基准，为了评估我们的方法，我们提出了 FreeArt-21，这是一个新基准，包含来自 PartNet-Mobility 数据集的 7 个不同类别（5 个旋转和 2 个棱柱）的 21 个对象。为了模拟自由移动的环境，我们部署了广泛用于增强现实和机器人技术的 VR 系统，将物体放置在固定的 RGB-D 摄像机前，并远程操作物体。有关我们基准测试的详细信息，请参阅补充材料。 (2)Video2Articulation-S。 Video2Articulation-S 是 Video2Articulation 提出的两部分铰接对象的合成数据集。它由来自 PartNet-Mobility 数据集的 11 类合成对象的 73 个测试视频组成，其中每个对象都有一个静态基础部分。由于静态基础捕获可以被视为自由移动设置的特殊情况，因此我们的方法也与其兼容。 (3) 现实世界的铰接物体。我们在六个日常铰接物体上评估我们的方法，包括五个旋转关节物体和一个棱柱关节物体。自由移动的视频是在用手握住物体时拍摄的。我们修复了 Orbbec Femto Bolt RGB-D 相机，物体支架站立着……</p></div>
     <ul>
-      <li>方法在主任务指标上不是偶然提升，而是与其结构设计和训练目标直接相关；</li>
-      <li>作者通过消融实验说明，若拿掉关键模块，性能与结果质量会明显回落；</li>
-      <li>论文不仅关注数值对比，也关注可视化质量、稳定性或可控性等更接近真实应用的信号。</li>
+      <li>方法在核心任务指标上的优势不是偶然的，而是与结构设计和训练目标直接相关；</li>
+      <li>消融实验说明，一旦拿掉关键模块或关键约束，模型性能与结果质量都会明显回落；</li>
+      <li>论文不仅比较数值，也比较可视化质量、稳定性、控制性和泛化能力等更接近真实使用的信号。</li>
     </ul>
     <p>
-      因此，实验部分最重要的阅读方式不是死记某一列数字，而是看清：作者究竟想证明哪个机制有效、这个机制的收益是在什么设置下成立、它是否有明显的边界条件。
+      因此，实验部分最重要的阅读方式并不是死记某一列数字，而是看清：作者究竟在证明哪个机制有效、这个机制的收益在什么设置下成立，以及它是否存在明显边界条件。
     </p>
 
     <h2 id='takeaway'>理解评价</h2>
     <p>
-      从研究定位上看，这篇论文的意义在于它没有把问题局限在某一个局部改动，而是尝试给出一套更完整的求解路径。对读者而言，最值得关注的是它如何重新组合表示、模块和训练目标，以及这些设计是否能迁移到相近任务上。
+      从研究定位上看，这篇论文的意义不在某一个局部 trick，而在于它试图给出一条较完整的问题求解路径。对读者而言，最值得关注的是：它如何重组表示、模块和训练目标，以及这些设计是否能迁移到相近任务上。
     </p>
     <p>
-      如果把它当成研究参考，我会重点看三件事：
-      第一，这套方法的核心归纳偏置是什么；
-      第二，实验中真正拉开差距的模块是哪一块；
-      第三，它的限制条件是数据、算力、时序长度，还是奖励/监督信号本身。
+      如果把它当成研究参考，我建议重点看三件事：第一，这套方法真正依赖的归纳偏置是什么；第二，实验中真正拉开差距的是哪一个模块；第三，它的限制究竟来自数据、算力、时序长度，还是监督/奖励信号本身。
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>limitations and improve generalization, recently, a new line of methods [15, 24, 40, 49] reconstruct articulated objects from monocular RGB or RGB-D video sequences under the assumption that one part remains stationary relative to the background.</li></ul></div>
+    <div class='card'><strong>结论与局限中文转述：</strong><p>在本文中，我们提出了 FreeArtGS，这是一种从单目 RGB-D 视频重建自由移动铰接物体的新方法。我们的方法首先通过将基于优化的方法与点跟踪先验相结合来分割自由移动的部分。基于估计的零件分段和变换，然后通过拟合零件之间的相对运动来推断关节类型和轴。最后，基于 3DGS 的端到端优化共同细化关节参数、几何形状和外观。实验证明了我们的方法在模拟和现实环境中的稳健性和有效性。随着增强现实和机器人技术快速扩展铰接式数字孪生的需求不断增长，我们的方法提供了一种有前途的解决方案，限制更少，可扩展性更高。 FreeArtGS 仍然有一些局限性。首先，我们的方法目前假设一个由两部分组成的铰接对象；通过顺序捕获每个移动部件将其扩展到多部件结构仍然是一个重要的方向。其次，依赖多个现成的先验可能会导致级联错误累积。一个潜在的解决方案在于开发一个统一的前馈模型来同时预测关节、姿势、几何形状和纹理。第三，我们的框架需要单目 RGB-D 输入。 While extending it to RGB-only sequences by predicting continuous video depth is a natural progression, it currently faces challenges regarding depth accuracy.我们将这些留作未来的工作。</p></div>
+    <div class='card'><strong>进一步思考：</strong><p>在本文中，我们提出了 FreeArtGS，这是一种从单目 RGB-D 视频重建自由移动铰接物体的新方法。我们的方法首先通过将基于优化的方法与点跟踪先验相结合来分割自由移动的部分。基于估计的零件分段和变换，然后通过拟合零件之间的相对运动来推断关节类型和轴。最后，基于 3DGS 的端到端优化共同细化关节参数、几何形状和外观。实验证明了我们的方法在模拟和现实环境中的稳健性和有效性。随着增强现实和机器人技术快速扩展铰接式数字孪生的需求不断增长，我们的方法提供了一种有前途的解决方案，限制更少，可扩展性更高。 FreeArtGS 仍然有一些局限性。首先，我们的方法目前假设一个由两部分组成的铰接对象；通过顺序捕获每个移动部件将其扩展到多部件结构仍然是一个重要的方向。其次，依赖多个现成的先验可能会导致级联错误累积。一个潜在的解决方案在于开发一个统一的前馈模型来同时……</p></div>
     <p>
-      进一步延伸阅读时，可以把这篇工作放到更广泛的技术脉络里：它与同类方法相比，到底是在表示层、生成层、优化层还是评估层提出了更强的方案。下面这些自动检索到的相关论文可作为继续追踪的入口：
+      进一步延伸阅读时，可以把这篇工作放到更广泛的技术脉络里：它与同类方法相比，到底是在表示层、生成层、优化层还是评估层提出了更强的方案。下面这些相关论文可以作为继续追踪的入口：
     </p>
     <ul></ul>
 
@@ -240,6 +276,7 @@
     </div>
   </article>
 </div>
+
   </div>
 </div>
 </body>
