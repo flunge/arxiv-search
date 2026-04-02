@@ -205,30 +205,42 @@
  (\sigma_g, \boldsymbol{r}_g, \boldsymbol{s}_g, \boldsymbol{c}_g) = H_\text{G}(F_{\text{DPT}}(\boldsymbol{h}_i) + F_{\text{RGB}}(I_i)).
 \end{cases} $$</p>
     <p>
-      使用变压器 (DPT) 头\(H_G\)。该头将深度等变标记 \(F_DPT(h_i)\) 与高分辨率浅层特征 \(F_RGB(I_i)\) 集成，以回归不透明度 \(_g\)、四元数旋转 \(r_g\)、各向异性尺度 \(s_g\) 和球谐系数 \(c_g\)。公式化为：姿势-...
+      公式：\begin{cases}
+ (\boldsymbol{P}_i, \boldsymbol{C}_i) = D_{\text{p}}(\boldsymbol{h}_i),\; \boldsymbol{\mu}_g = \text{trans}(\boldsymbol{P}_i, \boldsymbol{p}_i), \\
+ (\sigma_g, \boldsymbol{r}_g, \boldsymbol{s}_g, \boldsymbol{c}_g) = H_\text{G}(F_{\text{DPT}}(\boldsymbol{h}_i) + F_{\text{RGB}}(I_i))。
+\结束{案例}
+上下文：利用变压器（DPT）头\(H_G\)。该头将深度等变标记 \(F_DPT(h_i)\) 与高分辨率浅层特征 \(F_RGB(I_i)\) 集成，以回归不透明度 \(_g\)、四元数旋转 \(r_g\)、各向异性尺度 \(s_g\) 和球谐系数 \(c_g\)。公式化为：姿势-...
     </p>
     <p>$$ \mathcal{L}_{\text{3D}} = \frac{1}{HW} \sum_{u,v} \left\| \hat{\boldsymbol{P}}(u,v) - \boldsymbol{P}(u,v) \right\|_2^2, $$</p>
     <p>
-      或无姿势新颖视图合成。具体来说，为了参数化这些空间先验，我们使用基础模型中的伪地面实况来回归相机帧中的每像素 3D 坐标，如图所示：管道。然后将点图损失计算为预测之间的均方欧几里德距离......
+      公式：\mathcal{L}_{\text{3D}} = \frac{1}{HW} \sum_{u,v} \left\| \hat{\boldsymbol{P}}(u,v) - \boldsymbol{P}(u,v) \right\|_2^2,
+上下文：或无姿势新颖视图合成。具体来说，为了参数化这些空间先验，我们使用基础模型中的伪地面实况来回归相机帧中的每像素 3D 坐标，如图所示：管道。然后将点图损失计算为预测之间的均方欧几里德距离......
     </p>
     <p>$$ \mathcal{L}_{\text{cam}} \!=\! \sum_{i \neq j} \Big( \ell_{\text{rot}}(\boldsymbol{\hat{R}}_{i\leftarrow j}, \boldsymbol{R}_{i\leftarrow j}) + \mathcal{H}_{\delta}(\boldsymbol{\hat{T}}_{i\leftarrow j} - \boldsymbol{T}_{i\leftarrow j})\Big).
 \label{eq:cam_loss} $$</p>
     <p>
-      通过数据处理，我们提取相机姿态先验以获得相对仿射不变变换。对于视图 和 之间的相对位姿，通过流形 上的测地距离来监督旋转对齐，并且使用应用于相对平移的鲁棒 Huber 损失来约束平移对齐...
+      公式：\mathcal{L}_{\text{cam}} \!=\! \sum_{i \neq j} \Big( \ell_{\text{rot}}(\boldsymbol{\hat{R}}_{i\leftarrow j}, \boldsymbol{R}_{i\leftarrow j}) + \mathcal{H}_{\delta}(\boldsymbol{\hat{T}}_{i\leftarrow j} - \boldsymbol{T}_{i\leftarrow j})\大)。
+\label{eq:cam_loss}
+上下文：根据数据，我们提取相机位姿先验以获得相对仿射不变变换。对于视图 和 之间的相对位姿，通过流形 上的测地距离来监督旋转对齐，并且使用应用于相对平移的鲁棒 Huber 损失来约束平移对齐...
     </p>
     <p>$$ \mathcal{L}_{\text{3D-prior}} = \lambda_{\text{3D}} \mathcal{L}_{\text{3D}} + \lambda_{\text{cam}} \mathcal{L}_{\text{cam}}.
 \label{eq:prior_loss} $$</p>
     <p>
-      abeleq:cam_loss 方程 这种仿射不变姿态监督利用了现实世界相机轨迹固有的低维流形，正则化几何形状，抑制漂移和简并，并稳定来自稀疏输入的新颖视图合成。完整损失 \(L_3D-prior\) 定义为权重...
+      公式：\mathcal{L}_{\text{3D-prior}} = \lambda_{\text{3D}} \mathcal{L}_{\text{3D}} + \lambda_{\text{cam}} \mathcal{L}_{\text{cam}}。
+\label{eq:prior_loss}
+上下：abeleq:cam_lossequation 这种仿射不变姿态监督利用了现实世界相机轨迹固有的低维流形，正则化几何形状，抑制漂移和简并，并稳定来自稀疏输入的新颖视图合成。完整损失 \(L_3D-prior\) 定义为权重...
     </p>
     <p>$$ \max_{\theta}\sum_{(\boldsymbol{o},\,\boldsymbol{a}) \in \mathcal{D}_{\text{train}}} \log \pi_{\theta}(\boldsymbol{a}\mid \boldsymbol{o}), $$</p>
     <p>
-      呃，扩展的观测流形。形式上，该策略处理视觉观察以及机器人的本体感受状态，以预测未来的一系列运动动作。学习目标遵循标准的行为克隆范式，最大化专家演示的对数似然......
+      公式：\max_{\theta}\sum_{(\boldsymbol{o},\,\boldsymbol{a}) \in \mathcal{D}_{\text{train}}} \log \pi_{\theta}(\boldsymbol{a}\mid \boldsymbol{o}),
+上下文：呃扩展观测流形。形式上，该策略处理视觉观察以及机器人的本体感受状态，以预测未来的一系列运动动作。学习目标遵循标准的行为克隆范式，最大化专家演示的对数似然......
     </p>
     <p>$$ \mathcal{L} = \mathcal{L}_{\text{rgb}} + \lambda_{\text{depth}} \mathcal{L}_{\text{depth}} + \mathcal{L}_{\text{3D-prior}}.
 \label{eq:total_loss} $$</p>
     <p>
-      ymbolo），方程其中表示策略网络的可学习参数。全面的训练配置和架构细节请参见附录 redA.1。培训设置 培训目标。 GenSplat 通过最小化光度、几何和二元的协同组合进行端到端优化。
+      公式：\mathcal{L} = \mathcal{L}_{\text{rgb}} + \lambda_{\text{深度}} \mathcal{L}_{\text{深度}} + \mathcal{L}_{\text{3D 优先}}。
+\label{eq:total_loss}
+上：ymbolo)，方程其中表示策略网络的可学习参数。 Comprehensive training configurations and architectural details are deferred to Appendix redA.1.培训设置 培训目标。 GenSplat 通过最小化光度、几何和二元的协同组合进行端到端优化。
     </p>
     <figure><img class='paper-fig' src='../assets/2603_29192v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：实验设置和任务概述。我们设计了六个用于现实世界评估的操作任务。</figcaption></figure>
     <figure><img class='paper-fig' src='../assets/2603_29192v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：政策对相机的稳健性造成了扰动。我们在不断增加的摄像机扰动下对 6 个现实世界任务的每个任务 30 个片段进行评估，并报告平均成功率（以 % 为单位）。对于 \(_0\) 和扩散策略，使用 GenSplat 增强新颖视图数据训练的策略始终优于仅在源视图上训练的策略。</figcaption></figure>
