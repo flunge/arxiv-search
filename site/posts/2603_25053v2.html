@@ -70,7 +70,7 @@
     blockquote { margin: 16px 0; padding: 8px 16px; border-left: 4px solid #d8e7ff; background: #f8fbff; color: #333; }
     .tip { background: #f7f9fc; border: 1px solid #e8eef6; border-radius: 10px; padding: 12px; }
     .dashboard-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-top:18px; }
-    .dashboard-card { aspect-ratio: 1 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
+    .dashboard-card { aspect-ratio: 1.618 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
     .dashboard-card > * { min-width: 0; }
     .dashboard-card .dashboard-content { display:flex; flex-direction:column; height:100%; min-height:0; }
     .dashboard-card .dashboard-scroll { overflow:auto; min-height:0; }
@@ -130,10 +130,28 @@
     });
   </script>
 
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\(', '\)']],
+        displayMath: [['$$', '$$'], ['\[', '\]']]
+      },
+      svg: { fontCache: 'global' },
+      startup: {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady().then(() => {
+            requestAnimationFrame(applyPageScale);
+          });
+        }
+      }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
+
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
 
@@ -143,94 +161,104 @@
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      这篇论文关注的是“GaussFusion 所对应的问题能否在更可控、更稳健或更高质量的条件下被解决”。从摘要与方法描述来看，作者的总体路线是：先搭建一个明确的表示或生成框架，再围绕训练目标、结构设计和实验验证把该问题推进到更可用的工程形态。
+      这篇论文围绕“GaussFusion 所对应的研究问题”提出了一套完整方案：先明确任务目标与现有瓶颈，再通过新的表示、模块或训练目标把问题收敛成一条更稳定的工程链路，最后用实验验证该设计在质量、效率、可控性或泛化性上的改进。
     </div>
 
     <h2 id='summary'>简单摘要</h2>
     <p>
-      从论文摘要可以看出，这项工作的落点并不是单纯提升一个局部模块，而是围绕完整任务链路做系统设计。它通常会同时回答三个问题：任务为什么重要、现有方法卡在哪里、作者的新方案如何绕开这些瓶颈。
-      就这篇论文而言，摘要部分强调的核心是：<strong>We present GaussFusion, a novel approach for improving 3D Gaussian splatting (3DGS) reconstructions in the wild through geometry-informed video generation. GaussFusion mitigates c…</strong>
+      这篇工作的落点不是只改进一个局部模块，而是围绕完整任务链路重新组织系统设计。作者首先回答“为什么这个问题值得做”，接着说明现有方案为什么不足，最后再解释自己的方法如何把表示、训练和推理串成一条更可行的路径。
     </p>
     <p>
-      如果把它放进更大的技术背景中理解，可以把这篇论文视作一条“问题定义 → 表示设计 → 训练优化 → 实验验证”的完整研究闭环。也就是说，作者并不是只给出一个孤立模块，而是希望通过一整套方法让系统在真实场景或关键指标上取得更稳定提升。
+      按照论文摘要的原意，这篇工作最关键的信息可以概括为：我们提出了一种通过几何信息视频生成来改进野外 3D 高斯泼溅 (3DGS) 重建的新方法。减轻常见的 3DGS 伪像，包括由相机姿势错误、不完整的覆盖和嘈杂的几何初始化引起的漂浮物、闪烁和模糊。与之前仅限于单个重建管道的基于 RGB 的方法不同，我们的方法引入了几何信息视频到视频生成器，该生成器可以跨基于优化的方法和前馈方法细化 3DGS 渲染。给定现有的重建，我们渲染一个编码深度、法线、不透明度和协方差的高斯基元视频缓冲区，生成器对其进行细化以产生时间连贯的、无伪影的帧。我们进一步引入了一个工件合成管道，可以模…
     </p>
-    <figure><img class='paper-fig' src='../assets/2603_25053v2/fig_1.png' alt='Figure 1:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 1：该图来自论文原文，用于说明论文中的核心框架、可视化结果或实验现象。原始图注摘要：GaussFusion Overview. Given multi-view images as input, we first obtain an initial 3D Gaussian splatting (3DGS) [25] reconstruction using either per-scene optimization or a feed-forward reconstruction model [20, 60]. The reconstruction often exhibits visual noise and geometric artifacts (PSNR = 17.…</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_25053v2/fig_2.png' alt='Figure 2:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 2：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 2 from the source paper.</figcaption></figure>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>FlowR [13] proposes a multi-view flow matching model that directly flows from corrupt views to cleaned views.</li><li>We present GaussFusion, a novel approach for improving 3D Gaussian splatting (3DGS) reconstructions in the wild through geometry-informed video generation.</li><li>More recently, VACE [21] unifies diverse video-to-video translation tasks under a single framework.</li></ul></div>
+    <p>
+      如果把它放在更大的技术脉络里理解，这篇论文可以视为“问题定义 → 方法设计 → 优化训练 → 实验验证”的完整闭环，而不是只给出一个孤立技巧。这样的工作更适合被写成博客精读，因为它的价值不在某一行代码，而在整条设计链路为什么成立。
+    </p>
+    <figure><img class='paper-fig' src='../assets/2603_25053v2/fig_1.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：GaussFusion 概述。给定多视图图像作为输入，我们首先使用每场景优化或前馈重建模型 [20, 60] 获得初始 3D 高斯泼溅 (3DGS) [25] 重建。重建经常表现出视觉噪声和几何伪影（PSNR = 17</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_25053v2/fig_2.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 2 from the source paper.</figcaption></figure>
+    <div class='card'><strong>摘要中文转述：</strong><p>我们提出了一种通过几何信息视频生成来改进野外 3D 高斯泼溅 (3DGS) 重建的新方法。减轻常见的 3DGS 伪像，包括由相机姿势错误、不完整的覆盖和嘈杂的几何初始化引起的漂浮物、闪烁和模糊。与之前仅限于单个重建管道的基于 RGB 的方法不同，我们的方法引入了几何信息视频到视频生成器，该生成器可以跨基于优化的方法和前馈方法细化 3DGS 渲染。给定现有的重建，我们渲染一个编码深度、法线、不透明度和协方差的高斯基元视频缓冲区，生成器对其进行细化以产生时间连贯的、无伪影的帧。我们进一步引入了一个工件合成管道，可以模拟不同的退化模式，确保鲁棒性和泛化性。在新颖的视图合成基准上实现了最先进的性能，并且高效的变体以 16 FPS 实时运行，同时保持类似的性能，从而支持交互式 3D 应用程序。 [http://research.zhuliyuan.net/projects/GaussFusion/项目页面]</p></div>
 
     <h2 id='innovation'>核心创新</h2>
     <p>
-      对照引言与方法部分，这篇论文的创新点主要体现在“如何重新组织问题求解链路”上。相比简单替换一个 backbone 或增加一个 loss，作者更像是在重新定义系统的关键接口与约束方式。
+      对照引言与方法部分可以看出，这篇论文的创新点并不只是“做了一个新模块”，而是重新组织了问题的求解顺序与约束方式。作者更关心的是如何把任务定义、表示设计、训练目标和实验验证压到同一条主线上。
     </p>
     <h3>1）从任务设定上重新界定问题边界</h3>
     <p>
-      论文强调的问题并不只是已有方案做得不够好，而是很多现有方法在目标可控性、泛化范围、效率约束或结构一致性上存在天然短板。因此作者先重述了任务定义，再围绕新的目标函数和场景假设去设计整体方案。
+      作者首先重述了任务本身：到底什么才是这个问题里真正重要、且现有方法长期处理不好的部分。只有把问题边界说清楚，后续的新结构与新损失才有意义。
     </p>
     <h3>2）用统一框架串起表示、推理和优化</h3>
     <p>
-      从原文描述看，这篇论文并不是把多个模块松散拼接，而是在一个统一框架里安排表示形式、关键模块和训练信号，使它们彼此服务。这类设计往往决定了方法能否真正具备工程可落地性。
+      从原文来看，作者并不是把很多模块松散拼在一起，而是在一个统一框架中安排中间表示、关键网络和训练目标，使它们彼此约束、彼此服务。这类设计通常决定了方法是否真的具备可复现与可落地性。
     </p>
     <h3>3）把实验目标直接对齐到实际痛点</h3>
     <p>
-      论文中的实验不仅比较常规 benchmark，也会额外关注更贴近实际系统需求的指标，例如稳定性、控制性、质量上界、对长尾场景的适应能力等。换句话说，它不是只追求单一数值，而是试图证明整套系统在真实使用方式下也成立。
+      论文中的实验不只是追求一个漂亮数字，而是尽量把评价方式对齐到真实使用情境，例如质量、稳定性、可控性、几何一致性或长尾场景下的可用性。这样实验结论才真正能支撑方法设计本身。
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>Our method GaussFusion, first rasterizes a Gaussian Primitives Buffer (GP-Buffer) encoding color, depth, normals, opacity, and covariance, and then employs a novel GP-Buffer-to-RGB video generation framework to obtain clean, artifact-free novel-view rendering…</li><li>Abstract We present GaussFusion, a novel approach for improving 3D Gaussian splatting (3DGS) reconstructions in the wild through geometry-informed video generation.</li><li>GaussFusion achieves state-of-the-art performance on novel view synthesis benchmarks, and an efficien framework to obtain clean, artifact-free novel-view renderings and enhance the underlying 3D representation.</li><li>GaussFusion achieves state-of-the-art performance on novel view synthesis benchmarks, and an efficient variant runs in real time at 16 FPS while maintaining similar performance, enabling interactive 3D applications.</li></ul></div>
+    <div class='card'><strong>创新点中文提炼：</strong><p>真实感 3D 重建和新颖视图合成是计算机视觉中的基本问题，在虚拟现实、自动驾驶和机器人技术中都有应用。 3D 高斯泼溅已成为高质量重建和渲染的流行表示。最近，前馈方法直接在单个网络通道中预测 3D 高斯参数，与传统的基于优化的管道相比，可以实现更快、更稳健的重建。然而，尽管取得了这些进步，当前的方法仍然受到稀疏视图和捕获不足的场景中的伪影的影响，并且在远离训练视图的新视图中显着降低（图：预告片，嘈杂）。为了解决这些限制，有几种方法探索了利用生成先验通过生成密集的新颖视图图像来增强 3D 重建。最近的方法（例如 Difix3D 、 GenFusion 和 ExploreGS ）使用仅以 RGB(D) 渲染为条件的生成模型执行事后伪影校正。在实践中，这种有限的条件使得这些方法主要有效地纠正轻微的模糊或颜色偏移，但它们无法解决更具挑战性的伪像，例如大飞蚊、缺失区域和几何错误，在这些情况下，仅依赖颜色会导致严重的模糊性。此外，我们发现针对基于优化的 3DGS 管道进行训练的方法……</p></div>
 
     <h2 id='technical'>技术细节</h2>
     <p>
-      方法部分是理解论文价值的关键。结合原文可以看到，作者通常会先定义输入输出，再介绍中间表示、主干模块、损失函数或奖励机制，最后说明训练与推理时各模块如何协同。
-      对这篇论文而言，方法线索主要集中在以下几个方面：
+      方法部分是理解论文价值的核心。阅读这类论文时，最重要的不是背结论，而是看清楚：输入是什么，中间表示是什么，关键模块如何传递信息，损失或奖励又如何把模型推向作者想要的解。
     </p>
     <h3>3.1 方法主线与模块组织</h3>
     <p>
-      根据方法章节可知，作者首先构建了一个核心表示或中间条件，再通过若干模块把它逐步转换为最终输出。这种结构的优势在于：每个模块都承担明确职责，既便于解释，也更便于在实验中做模块级消融。
-      原文中与主线最相关的描述包括：
+      从方法章节来看，作者首先构建了一个核心表示或条件变量，再通过若干模块逐步把它变成最终输出。这种设计的优势在于：每个模块都有明确职责，既便于解释，也方便在实验中做消融分析。
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>Abstract We present GaussFusion, a novel approach for improving 3D Gaussian splatting (3DGS) reconstructions in the wild through geometry-informed video generation.</li><li>However, despite these advances, current methods still suffer from artifacts in sparseview and under-captured scenarios, and degrade significantly at novel views far from training views (Fig.</li></ul></div>
+    <div class='card'><strong>方法中文拆解：</strong><p>框架以获得干净、无伪影的新颖视图渲染并增强底层 3D 表示。由此产生的重建显着提高了渲染质量和一致性（PSNR = 21.53，SSIM = 0.862）。摘要：我们提出了 GaussFusion，这是一种通过几何信息视频生成来改进 3D 高斯泼溅 (3DGS) 重建的新方法。 GaussFusion 可减轻常见的 3DGS 伪影，包括由相机姿势错误、不完整的覆盖范围和嘈杂的几何初始化引起的漂浮物、闪烁和模糊。与之前仅限于单个重建管道的基于 RGB 的方法不同，我们的方法引入了几何信息视频到视频生成器，该生成器可以跨基于优化的方法和前馈方法细化 3DGS 渲染。给定现有的重建，我们渲染一个编码深度、法线、不透明度和协方差的高斯基元视频缓冲区，生成器对其进行细化以产生时间连贯的、无伪影的帧。我们进一步引入了一个工件合成管道，可以模拟不同的退化模式，确保鲁棒性和泛化性。 GaussFusion 在新颖的视图合成基准上实现了最先进的性能，并且高效的变体以 16 FPS 实时运行，同时保持类似的性能，从而支持交互式 3D 应用程序。 [项目页面] 1. 简介 真实感 3D 重建和新颖视图合成是计算机视觉中的基本问题，在虚拟现实、自动驾驶和机器人技术中都有应用。 3D 高斯泼溅 [25] 已成为高质量重建和渲染的流行表示。最近，前馈方法 [24,52,53,71] 直接在单个网络通道中预测 3D 高斯参数 [5,7,8,20,46,60,70,76]，与传统的基于优化的管道相比，可以实现更快、更稳健的重建。然而，尽管取得了这些进步，当前的方法仍然受到稀疏视图和捕获不足的场景中的伪影的影响，并且在远离训练视图的新视图中显着退化（图 1，有噪声）。为了解决这些限制，几种方法 [4, 34, 36, 43, 48, 51, 58, 68, 72] 探索了利用生成先验通过生成密集的新颖视图图像来增强 3D 重建。最近的方法，例如 Difix3D [57]、GenFusion [59] 和 ExploreGS [27]，使用仅以 RGB(D) 渲染为条件的生成模型执行事后伪影校正。
+
+在实践中，这种有限的调节使得这些方法主要有效地纠正轻微的模糊或颜色偏移，但它们 arXiv:2603.25053v2 [cs.CV] 27 Mar 2026 无法解决更具挑战性的伪像，例如大飞蚊、缺失区域和几何错误，在这些伪像中，仅依赖颜色会导致明显的模糊性。此外，我们发现针对基于优化的 3DGS 流程训练的方法无法推广到前馈重建，前馈重建表现出明显的退化模式，通常会引入额外的伪影并降低重建质量（参见表 2 和图 3）。类似地，MVSplat360 [8] 改进了前馈重建，但失败</p></div>
+    <div class='card'><strong>方法关键点：</strong><p>框架以获得干净、无伪影的新颖视图渲染并增强底层 3D 表示。由此产生的重建显着提高了渲染质量和一致性（PSNR = 21.53，SSIM = 0.862）。摘要：我们提出了 GaussFusion，这是一种通过几何信息视频生成来改进 3D 高斯泼溅 (3DGS) 重建的新方法。 GaussFusion 可减轻常见的 3DGS 伪影，包括由相机姿势错误、不完整的覆盖范围和嘈杂的几何初始化引起的漂浮物、闪烁和模糊。与之前仅限于单个重建管道的基于 RGB 的方法不同，我们的方法引入了几何信息视频到视频生成器，该生成器可以跨基于优化的方法和前馈方法细化 3DGS 渲染。给定现有的重建，我们渲染一个编码深度、法线、不透明度和协方差的高斯基元视频缓冲区，生成器对其进行细化以产生时间连贯的、无伪影的帧。我们进一步引入了一个工件合成管道，可以模拟不同的退化模式，确保鲁棒性和泛化性。 GaussFusion 在新颖的视图合成基准上实现了最先进的性能，并且高效的变体以 16 FPS 实时运行，同时保持类似的性能，从而支持交互式 3D 应用程序。 [项目页面] 1. 博士论文简介</p></div>
     <h3>3.2 训练目标、损失与公式信号</h3>
     <p>
-      论文里的公式通常承担两类角色：一种是定义模型的预测关系与变量约束，另一种是定义优化时真正驱动模型更新的目标函数。阅读这类论文时，关键不是死记公式外形，而是理解每个公式分别在“表达结构”还是“约束行为”上发挥作用。
+      论文里的公式通常承担两类角色：一类是定义变量之间的结构关系，另一类是定义优化时真正推动模型收敛的损失或目标函数。理解公式时，不应只看符号本身，而应看每一项在约束什么、强调什么、解决什么问题。
     </p>
-    <div class='card'><strong>公式 / 指标片段 1：</strong><pre>visual noise and geometric artifacts (PSNR = 17.27, SSIM = 0.693). Our method GaussFusion, first rasterizes a Gaussian Primitives</pre></div><div class='card'><strong>公式 / 指标片段 2：</strong><pre>achieves significantly improved rendering quality and consistency (PSNR = 21.53, SSIM = 0.862).</pre></div><div class='card'><strong>公式 / 指标片段 3：</strong><pre>v=1 with known camera parameters {(Tv ∈SE(3), Kv ∈R3×3)}V</pre></div><div class='card'><strong>公式 / 指标片段 4：</strong><pre>v=1, V being the</pre></div>
+    <div class='card'><strong>公式 1</strong><p>$$ \mathbf{C}(\mathbf{u}) = \sum_{i=1}^{N} \mathbf{c}_i&#x27; \gamma_i \prod_{j=1}^{i-1} (1 - \gamma_j)
+ \label{eq:alphablending} $$</p><p>透视投影的仿射近似的 cobian，将 3D 协方差投影为 2D 协方差： 。像素的最终颜色是通过混合所有与像素重叠的高斯（按深度排序）来计算的：其中 是根据 SH 系数计算的与视图相关的颜色。贡献...</p><p>进一步理解时，可以把这条公式拆成“被求解的对象”“约束项/损失项”“它对训练或推理带来的效果”三部分来读，这也是论文方法成立的核心原因。</p></div><div class='card'><strong>公式 2</strong><p>$$ \mathcal{L} = (1 - \lambda) \mathcal{L}_{L_1}(\mathbf{C}, \mathbf{C}_{\text{gt}}) + \lambda \mathcal{L}_{\text{D-SSIM}}(\mathbf{C}, \mathbf{C}_{\text{gt}}).
+ \label{eq:loss} $$</p><p>d 位于像素中心，具有投影平均值 。高斯参数从稀疏的运动结构点云中初始化，然后通过随机梯度下降进行优化，以最小化渲染图像和地面实况图像之间的损失函数。它通常是 和 D-SSIM 术语的组合：Feed…</p><p>进一步理解时，可以把这条公式拆成“被求解的对象”“约束项/损失项”“它对训练或推理带来的效果”三部分来读，这也是论文方法成立的核心原因。</p></div><div class='card'><strong>公式 3</strong><p>$$ x_t = t x_1 + (1-t)x_0, $$</p><p>oss（方程）。基于流的视频生成。流匹配为学习生成过程提供了连续时间框架，形成了现代生成模型的基础。给定目标样本（图像或视频）、随机噪声和时间步长，中间潜在变量的定义为：其地面实况速度为……</p><p>进一步理解时，可以把这条公式拆成“被求解的对象”“约束项/损失项”“它对训练或推理带来的效果”三部分来读，这也是论文方法成立的核心原因。</p></div><div class='card'><strong>公式 4</strong><p>$$ \mathcal{L} = \mathbb{E}_{x_0, x_1, c, t} \left[\|u_\theta(x_t, c, t) - v_t\|^2\right],
+\label{eq:fm} $$</p><p>24缩放。给定目标样本（图像或视频）、随机噪声和时间步长，中间潜在变量定义为： 其真实速度为 训练流网络以使用均方误差目标进行预测： 其中表示条件信号（文本、图像或视频）。视频被编码成...</p><p>进一步理解时，可以把这条公式拆成“被求解的对象”“约束项/损失项”“它对训练或推理带来的效果”三部分来读，这也是论文方法成立的核心原因。</p></div><div class='card'><strong>公式 5</strong><p>$$ \mathcal{G} = \{\mathbf{C}, A, D, \mathbf{N}, \mathbf{U}\},
+ \label{eq:gbuffer} $$</p><p>RGB 外观之外的合法几何线索。尽管直接调节 3D 主干已经为 3D 重建带来了希望，但这些方法很难扩展到图元数量大幅增长的大型复杂场景。为了解决这个问题，我们将基本的 3D 高斯属性提取到像素中......</p><p>进一步理解时，可以把这条公式拆成“被求解的对象”“约束项/损失项”“它对训练或推理带来的效果”三部分来读，这也是论文方法成立的核心原因。</p></div><div class='card'><strong>公式 6</strong><p>$$ \mathbf{N}(\mathbf{u}) = \operatorname{normalize}\!\left(\partial_u \mathbf{P}_{\text{cam}} \times \partial_v \mathbf{P}_{\text{cam}}\right), $$</p><p>r贴图和不透明度贴图直接从标准3DGS光栅化过程中获得。深度使用渲染器的 ED（预期深度）模式进行渲染，该模式计算所有贡献的 splats 的加权平均深度。法线。屏幕空间法线是通过有限度从相机空间位置图估计的……</p><p>进一步理解时，可以把这条公式拆成“被求解的对象”“约束项/损失项”“它对训练或推理带来的效果”三部分来读，这也是论文方法成立的核心原因。</p></div>
     <p>
-      从这些公式与周边段落可以推断，作者想要的不只是局部误差最小化，而是通过更精细的目标设计，让模型在结构一致性、生成质量、时序稳定性或可控性等方面同时受约束。这也是很多新方法能真正优于 baseline 的原因。
+      从这些公式及其上下文可以看出，作者追求的并不只是某个局部误差变小，而是希望通过更精细的目标设计，使模型在结构一致性、生成质量、时序稳定性、语义可控性或物理合理性等方面同时受约束。这往往是新方法真正超过 baseline 的关键原因。
     </p>
-    <h3>3.3 把全文方法串起来理解</h3>
+    <h3>3.3 全部图示与模块可视化</h3>
     <p>
-      如果把这篇论文的方法看成一条流水线，那么它的逻辑通常是：先把输入变成一个更适合推理的中间表示，再围绕该表示施加关键模块与训练目标，最后把输出落到可评估、可可视化的结果上。
-      这种“表示—模块—目标—结果”的闭环设计，是本页所锁定模板最想强调的部分，因为它比零散摘录更能帮助后续复现与横向比较。
+      下面按论文中的图序展示全部已抽取图示。每张图都配有完整中文图注，便于把文字中的方法逻辑与可视化结果对应起来看。
+    </p>
+    <figure><img class='paper-fig' src='../assets/2603_25053v2/fig_1.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：GaussFusion 概述。给定多视图图像作为输入，我们首先使用每场景优化或前馈重建模型 [20, 60] 获得初始 3D 高斯泼溅 (3DGS) [25] 重建。重建经常表现出视觉噪声和几何伪影（PSNR = 17</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_25053v2/fig_2.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 2 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_25053v2/fig_3.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 3 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_25053v2/fig_4.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 4 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_25053v2/fig_5.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 5 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_25053v2/fig_6.png' alt='Figure 6:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 6：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 6 from the source paper.</figcaption></figure>
+    <p>
+      如果把全文方法串起来看，这篇论文的逻辑基本都遵循同一条主线：先把输入组织成更容易处理的表示，再通过模型结构和损失函数把这个表示推向目标输出，最后用可视化与数值实验共同证明该设计有效。把这条主线看清楚，比死记某个局部模块更重要。
     </p>
 
     <h2 id='experiment'>实验结论</h2>
     <p>
-      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，优势究竟来自哪个模块。对这篇论文来说，实验设计明显围绕“与现有方法的对比 + 对关键组件的消融”展开。
+      实验部分主要回答两个问题：第一，这个方法是否真的优于已有基线；第二，这种优势究竟来自哪一个设计决策。只有这两个问题回答清楚，论文的方法贡献才算真正成立。
     </p>
     <p>
-      从实验段落的关键词和结果描述看，论文最想传达的结论包括：
+      按照实验章节原文，这篇论文想强调的核心结论主要包括：
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>The resulting reconstruction achieves significantly improved rendering quality and consistency (PSNR = 21.53, SSIM = 0.862).</li><li>GaussFusion achieves state-of-the-art performance on novel view synthesis benchmarks, and an efficient variant runs in real time at 16 FPS while maintaining similar performance, enabling interactive 3D applications.</li></ul></div>
-    <figure><img class='paper-fig' src='../assets/2603_25053v2/fig_3.png' alt='Figure 3:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 3：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 3 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_25053v2/fig_4.png' alt='Figure 4:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 4：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 4 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_25053v2/fig_5.png' alt='Figure 5:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 5：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 5 from the source paper.</figcaption></figure>
+    <div class='card'><strong>实验中文转述：</strong><p>实施细节。我们采用 Wan-2.1-1.3B 作为我们的基础模型。它包含 1.3B 个参数，我们的 GA 引入了额外的 0.6B 个参数。我们提出的数据管理管道从 DL3DV 和 RE10K 的训练分割中生成了 75K+ 配对视频样本，每个样本有 81 帧。我们保留他们的测试部分进行评估。我们使用 Gemini-Flash-2.5 生成每个视频的文本描述。我们在 8 个 H200 GPU 上训练模型，执行 100K 步骤，批量大小为 8，帧分辨率为 480 832。训练使用 AdamW 优化器，在前 1K 步骤中进行线性学习率 (LR) 预热，然后将 LR 保持为 1 10 。我们在训练期间随机丢弃几何模式和文本输入。实验设置。我们在常见的小说视图综合基准：DL3DV 和 RE10K 上评估我们的方法。测试场景是从每个数据集的官方测试分割中提取的，这些场景在训练期间仍然不可见。对于 DL3DV 和 RE10K，我们随机对 5% 的原始视频帧进行下采样作为训练视图，并按照标准 Splatfacto 设置优化高斯 splats 进行 7K 次迭代。其余意见留待评估。所有方法都在其原始操作分辨率下进行测试，并将大小调整为 480 832 以进行比较。基线和指标。我们将我们的方法与开源、最先进的方法进行比较，包括 DiFiX3D+ 、 GenFusion 和 ExploreGS 。我们还与 MVSplat360 的前馈视图合成（与 MVSplat 结合的模型）进行比较。每个基线都采用略有不同的相机采样策略和重建启发式方法，因此很难将模型设计带来的改进与优化选择带来的改进区分开来。为了确保公平比较，我们在相同的渲染上运行所有基线，并应用 subsec:refining_3d 中描述的相同重建更新策略。所有基线均使用其官方实施和公开发布的权重进行评估。我们使用标准图像和感知质量指标来评估性能：PSNR、SSIM、LPIPS 和 FID。在下文中，最佳结果突出显示为第一颜色Fst、第二颜色Snd 和第三颜色Trd。结果改进了新颖视图合成。我们首先评估纯渲染细化、新颖视图合成的性能，如表所示。我们比较了模型的三个变体：我们的（单一），仅在 DL3DV 上使用基于优化的数据进行训练；我们的（联合），使用完整的工件数据对所有数据集进行联合训练；我们的（蒸馏），我们的蒸馏 4 步模型。
+
+专门在 DL3DV 上训练的模型在图像质量方面明显优于在同一数据集上训练的所有基线。 Difix3D+基于图像扩散模型，独立处理帧，因此缺乏多视图控制...</p></div>
+    <div class='card'><strong>实验结论提炼：</strong><p>实施细节。我们采用 Wan-2.1-1.3B 作为我们的基础模型。它包含 1.3B 个参数，我们的 GA 引入了额外的 0.6B 个参数。我们提出的数据管理管道从 DL3DV 和 RE10K 的训练分割中生成了 75K+ 配对视频样本，每个样本有 81 帧。我们保留他们的测试部分进行评估。我们使用 Gemini-Flash-2.5 生成每个视频的文本描述。我们在 8 个 H200 GPU 上训练模型，执行 100K 步骤，批量大小为 8，帧分辨率为 480 832。训练使用 AdamW 优化器，在前 1K 步骤中进行线性学习率 (LR) 预热，然后将 LR 保持为 1 10 。我们在训练期间随机丢弃几何模式和文本输入。实验设置。我们在常见的小说视图综合基准：DL3DV 和 RE10K 上评估我们的方法。测试场景是从每个数据集的官方测试分割中提取的，这些场景在训练期间仍然不可见。对于 DL3DV 和 RE10K，我们随机对 5% 的原始视频帧进行下采样作为训练视图，并按照标准 Splatfacto 设置优化高斯 splats 进行 7K 次迭代。其余意见留待评估。所有方法都在其原始操作分辨率下进行测试，并将大小调整为 480 832 以进行比较。基线和指标。我们将我们的方法与开源、最先进的方法进行比较，包括 DiFiX3D+、GenFusion 和 ExploreG……</p></div>
     <ul>
-      <li>方法在主任务指标上不是偶然提升，而是与其结构设计和训练目标直接相关；</li>
-      <li>作者通过消融实验说明，若拿掉关键模块，性能与结果质量会明显回落；</li>
-      <li>论文不仅关注数值对比，也关注可视化质量、稳定性或可控性等更接近真实应用的信号。</li>
+      <li>方法在核心任务指标上的优势不是偶然的，而是与结构设计和训练目标直接相关；</li>
+      <li>消融实验说明，一旦拿掉关键模块或关键约束，模型性能与结果质量都会明显回落；</li>
+      <li>论文不仅比较数值，也比较可视化质量、稳定性、控制性和泛化能力等更接近真实使用的信号。</li>
     </ul>
     <p>
-      因此，实验部分最重要的阅读方式不是死记某一列数字，而是看清：作者究竟想证明哪个机制有效、这个机制的收益是在什么设置下成立、它是否有明显的边界条件。
+      因此，实验部分最重要的阅读方式并不是死记某一列数字，而是看清：作者究竟在证明哪个机制有效、这个机制的收益在什么设置下成立，以及它是否存在明显边界条件。
     </p>
 
     <h2 id='takeaway'>理解评价</h2>
     <p>
-      从研究定位上看，这篇论文的意义在于它没有把问题局限在某一个局部改动，而是尝试给出一套更完整的求解路径。对读者而言，最值得关注的是它如何重新组合表示、模块和训练目标，以及这些设计是否能迁移到相近任务上。
+      从研究定位上看，这篇论文的意义不在某一个局部 trick，而在于它试图给出一条较完整的问题求解路径。对读者而言，最值得关注的是：它如何重组表示、模块和训练目标，以及这些设计是否能迁移到相近任务上。
     </p>
     <p>
-      如果把它当成研究参考，我会重点看三件事：
-      第一，这套方法的核心归纳偏置是什么；
-      第二，实验中真正拉开差距的模块是哪一块；
-      第三，它的限制条件是数据、算力、时序长度，还是奖励/监督信号本身。
+      如果把它当成研究参考，我建议重点看三件事：第一，这套方法真正依赖的归纳偏置是什么；第二，实验中真正拉开差距的是哪一个模块；第三，它的限制究竟来自数据、算力、时序长度，还是监督/奖励信号本身。
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>To address these limitations, several methods [4, 34, 36, 43, 48, 51, 58, 68, 72] have explored leveraging generative priors to enhance 3D reconstruction by generating dense novel-view images.</li><li>• A comprehensive artifact simulation strategy that synthesizes a novel dataset of 75K+ videos including a wide range of realistic reconstruction degradations, enabling robust and generalizable refinement across both optimization and feed-forward settings.</li><li>3D Gaussian splatting [25] has emerged as the dominant representation for 3D reconstruction, offering explicit scene modeling and real-time rendering efficiency.</li></ul></div>
+    <div class='card'><strong>结论与局限中文转述：</strong><p>我们提出了一种基于几何的视频生成模型，该模型通过利用深度、法线和不确定性线索来增强 3DGS 重建。它可以有效去除飞蚊症、闪烁和模糊，同时保留精细的细节。使用多样化的工件合成管道进行训练，实现了最先进的性能，其精炼的几个步骤变体可以实现实时推理。我们在 Supp 中讨论我们的局限性和未来的工作。致谢。我们感谢 Lambert Wixson 和 Yin Wang 进行了富有成效的讨论。</p></div>
+    <div class='card'><strong>进一步思考：</strong><p>我们提出了一种基于几何的视频生成模型，该模型通过利用深度、法线和不确定性线索来增强 3DGS 重建。它可以有效去除飞蚊症、闪烁和模糊，同时保留精细的细节。使用多样化的工件合成管道进行训练，实现了最先进的性能，其精炼的几个步骤变体可以实现实时推理。我们在 Supp 中讨论我们的局限性和未来的工作。致谢。我们感谢 Lambert Wixson 和 Yin Wang 进行了富有成效的讨论。</p></div>
     <p>
-      进一步延伸阅读时，可以把这篇工作放到更广泛的技术脉络里：它与同类方法相比，到底是在表示层、生成层、优化层还是评估层提出了更强的方案。下面这些自动检索到的相关论文可作为继续追踪的入口：
+      进一步延伸阅读时，可以把这篇工作放到更广泛的技术脉络里：它与同类方法相比，到底是在表示层、生成层、优化层还是评估层提出了更强的方案。下面这些相关论文可以作为继续追踪的入口：
     </p>
     <ul></ul>
 
@@ -240,6 +268,7 @@
     </div>
   </article>
 </div>
+
   </div>
 </div>
 </body>
