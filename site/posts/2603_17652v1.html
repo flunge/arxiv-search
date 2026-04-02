@@ -172,7 +172,7 @@
     <blockquote>
       简而言之，这篇论文关注的核心是：自动驾驶策略的闭环评估需要日志重播之外的交互式模拟。然而，现有的生成世界模型经常在闭环中退化，原因是（i）与策略输入不匹配的无历史初始化，（ii）违反实时预算的多步采样延迟，以及（iii）在长期范围内复合运动学不可行性。我们提出了 VectorWorld，这是一种流世界模型，可在推出期间增量生成以…
     </blockquote>
-    <p>自动驾驶策略的闭环评估和训练需要超越记录日志的交互式模拟。一旦记录的上下文结束，日志重放既不能回答反事实查询，也不能扩展范围。尽管生成世界模型可以合成不同的车道代理场景，但将它们部署为在线模拟器后端会引入标准开环指标无法捕获的约束（初始化、延迟和长期稳定性）。我们确定了主导闭环仿真但在标准开环指标中反映较弱的三个部署约束。首先，无历史初始化：许多生成器在 \(t=0\) 处输出静态快照，而反应策略则以短运动历史为条件，从而引发冷启动瞬态（例如，冲击尖峰）和不稳定的早期交互。</p>
+    <p>自动驾驶策略的闭环评估和训练需要超越记录日志的交互式模拟。一旦记录的上下文结束，日志重放既不能回答反事实查询，也不能扩展范围。尽管生成世界模型可以合成不同的车道代理场景，但将它们部署为在线模拟器后端会引入标准开环指标无法捕获的约束（初始化、延迟和长期稳定性）。 We identify three deployment constraints that dominate closed-loop simulation but are weakly reflected by standard open-loop metrics.首先，无历史初始化：许多生成器在 \(t=0\) 处输出静态快照，而反应策略则以短运动历史为条件，从而引发冷启动瞬态（例如，冲击尖峰）和不稳定的早期交互。</p>
     <p>其次，采样延迟：基于扩散的求解器需要许多去噪步骤来生成结构化车道代理图，这与实时预算下的流式绘制不兼容。第三，长期可行性：微小的每步运动学违规虽然在短期指标中可以忽略不计，但通过复合漂移累积超过公里级的推出。为了解决这些限制，我们提出了 \（图），一个基于矢量图表示的流世界模型。对于初始化，我们引入了一个 \ ，它通过 a 学习的紧凑运动历史代码来增强每个代理，从而为历史条件策略启用热启动输入。对于实时绘制，我们提出了一种使用间隔条件训练的\和基于 JVP 的大步目标，实现无求解器（没有迭代扩散/ODE 求解器）一步潜在采样，同时保留车道连接性和代理-车道关系。</p>
     <p>总的来说，我们的贡献如下： -3mm itemize 用于车道代理世界模型的 \ ，由选择性编码运动历史以进行热启动初始化的 \ 实现。 -2mm An \ 用于异构矢量图生成，具有边缘条件注意偏差和值门控，以保留车道拓扑和交叉类型关系。 -2mm 间隔调节 \ 具有基于 JVP 的大步监督，可实现流式外涂的高保真无解算器一步完成。 -2mm 一种符合物理的 NPC 策略，通过混合动作和可微的运动学塑造来稳定长期多智能体的推出。</p>
     <p>-2mm 在 Waymo Open Motion 和 nuPlan 上的实验表明，\ 提高了地图结构保真度和初始化有效性，支持稳定 \(1\,km+\) 闭环…</p>
@@ -183,7 +183,7 @@
     </p>
     <h3>1）问题定义与研究动机</h3>
     <p>
-      自动驾驶策略的闭环评估和训练需要超越记录日志的交互式模拟。一旦记录的上下文结束，日志重放既不能回答反事实查询，也不能扩展范围。尽管生成世界模型可以合成不同的车道代理场景，但将它们部署为在线模拟器后端会引入标准开环指标无法捕获的约束（初始化、延迟和长期稳定性）。我们确定了主导闭环仿真但在标准开环指标中反映较弱的三个部署约束。首先，无历史初始化：许多生成器在 \(t=0\) 处输出静态快照，而反应策略则以短运动历史为条件，从而引发冷启动瞬态（例如，冲击尖峰）和不稳定的早期交互。其次，采样延迟：基于扩散的求解器需要许多去噪步骤来生成结构化车道代理图，这与实时预算下的流式绘制不兼容。第三，长期可行性：微小的每步运动学违规虽然在短期指标中可以忽略不计，但通过复合漂移累积超过公里级的推出。为了解决这些限制，我们提出了 \（图），一个基于矢量图表示的流世界模型。对于初始化，我们引入了一个 \ ，它通过 a 学习的紧凑运动历史代码来增强每个代理，从而为历史条件策略启用热启动输入。对于实时绘制，我们提出了一种使用间隔条件训练的\和基于 JVP 的大步目标，实现无求解器（没有迭代扩散/ODE 求解器）一…
+      自动驾驶策略的闭环评估和训练需要超越记录日志的交互式模拟。一旦记录的上下文结束，日志重放既不能回答反事实查询，也不能扩展范围。尽管生成世界模型可以合成不同的车道代理场景，但将它们部署为在线模拟器后端会引入标准开环指标无法捕获的约束（初始化、延迟和长期稳定性）。 We identify three deployment constraints that dominate closed-loop simulation but are weakly reflected by standard open-loop metrics.首先，无历史初始化：许多生成器在 \(t=0\) 处输出静态快照，而反应策略则以短运动历史为条件，从而引发冷启动瞬态（例如，冲击尖峰）和不稳定的早期交互。其次，采样延迟：基于扩散的求解器需要许多去噪步骤来生成结构化车道代理图，这与实时预算下的流式绘制不兼容。第三，长期可行性：微小的每步运动学违规虽然在短期指标中可以忽略不计，但通过复合漂移累积超过公里级的推出。为了解决这些限制，我们提出了 \（图），一个基于矢量图表示的流世界模型。对于初始化，我们引入了一个 \ ，它…
     </p>
     <h3>2）方法框架与核心模块</h3>
     <p>
@@ -207,7 +207,13 @@ h_i = (1-g_i)\odot f_{\mathrm{st}}\big([s_i,\tau_i]\big)\;+\;g_i\odot f_{\mathrm
 q_\phi(z_i \mid s_i, m_i, \tau_i) = \mathcal{N}\!\Big(\mu_\phi(h_i),\ \mathrm{diag}\!\big(\sigma_\phi(h_i)^2\big)\Big),
 \end{gathered} $$</p>
     <p>
-      关于编码。运动历史表现出信息内容的稀疏性：对于停放的智能体，积极地重建\(m_i\)会将噪声注入到潜在的界面中。我们采用Fig:ae中的运动感知门控机制，并凭经验观察到门激活与运动幅度相关（附录图），r…
+      公式：\label{eq:vae_core}
+\开始{聚集}
+g_i = \sigma\!\Big(f_{\mathrm{gate}}\big([s_i, m_i, \tau_i]\big)\Big), \\
+h_i = (1-g_i)\odot f_{\mathrm{st}}\big([s_i,\tau_i]\big)\;+\;g_i\odot f_{\mathrm{mot}}\big([m_i,\tau_i]\big), \\
+q_\phi(z_i \mid s_i, m_i, \tau_i) = \mathcal{N}\!\Big(\mu_\phi(h_i),\ \mathrm{diag}\!\big(\sigma_\phi(h_i)^2\big)\Big),
+\end{聚集}
+上下文：关于编码。运动历史表现出信息内容的稀疏性：对于停放的智能体，积极地重建\(m_i\)会将噪声注入到潜在的界面中。我们采用Fig:ae中的运动感知门控机制，并凭经验观察到门激活与运动幅度相关（附录图），r…
     </p>
     <p>$$ \label{eq:rel_attn}
 \begin{gathered}
@@ -219,19 +225,34 @@ y_i^{(h)} = \sum_{j}\alpha_{ij}^{(h)}
 \Big(G^{(h)}\!\big(\edgeemb_{ij}\big)\odot v_j^{(h)}\Big),
 \end{gathered} $$</p>
     <p>
-      erentiable 运动 logit 整形和 DKAL 正则化。该设计减少了公里级闭环仿真下复合的可行性违规。图* 边缘条件偏差和值门控。对于每个类型边缘 \((i,j)\)，我们计算相对边缘嵌入 \(_ij\) 并通过…
+      公式：\label{eq:rel_attn}
+\开始{聚集}
+\alpha_{ij}^{(h)} = \operatorname{softmax}_{j}\!\left(
+\frac{\langle q_i^{(h)}, k_j^{(h)}\rangle}{\sqrt{d_h}}
+\;+\; B^{(h)}\!\big(\edgeemb_{ij}\big)
+\右），\\
+y_i^{(h)} = \sum_{j}\alpha_{ij}^{(h)}
+\Big(G^{(h)}\!\big(\edgeemb_{ij}\big)\odot v_j^{(h)}\Big),
+\end{聚集}
+上下文：erentiable kinematic logit 整形和 DKAL 正则化。该设计减少了公里级闭环仿真下复合的可行性违规。图* 边缘条件偏差和值门控。对于每个类型边缘 \((i,j)\)，我们计算相对边缘嵌入 \(_ij\) 并通过…
     </p>
     <p>$$ \begin{gathered}
 V_\theta(z_t;\,t,\Delta,c) = u_\theta(z_t;\,t,\Delta,c) + \\
 \Delta\,\frac{\mathrm{d}}{\mathrm{d}t}u_\theta(z_t;\,t,\Delta,c),
 \end{gathered} $$</p>
     <p>
-      fapp：符号）。基于JVP的大步校准。标准整流流匹配监督瞬时速度场，该速度场在小求解器步长下是准确的，但不直接约束单个大步长传输。 \ 相反，预测间隔平均速度 \(u_(z_t;\,t,,c)\)。为了提高一步...
+      公式：\begin{聚集}
+V_\theta(z_t;\,t,\Delta,c) = u_\theta(z_t;\,t,\Delta,c) + \\
+\Delta\,\frac{\mathrm{d}}{\mathrm{d}t}u_\theta(z_t;\,t,\Delta,c),
+\end{聚集}
+上下文：fapp:notation)。基于JVP的大步校准。标准整流流匹配监督瞬时速度场，该速度场在小求解器步长下是准确的，但不直接约束单个大步长传输。 \ 相反，预测间隔平均速度 \(u_(z_t;\,t,,c)\)。为了提高一步...
     </p>
     <p>$$ \label{eq:mf_path}
 z_t = (1-t)\,z + t\,\boldsymbol{\epsilon},\qquad t\in[0,1]. $$</p>
     <p>
-      完全通过雅可比向量积（JVP）（附录）。这里，全导数通过显式时间输入和沿校正路径对 \(z_t\) 的隐式依赖进行区分。带有掩模钳位的修正路径。我们使用数据潜伏 \(z\) 和高斯 n 之间的直线概率路径...
+      公式：\label{eq:mf_path}
+z_t = (1-t)\,z + t\,\boldsymbol{\epsilon},\qquad t\in[0,1]。
+上下：最终通过雅可比向量积（JVP）（附录）。这里，全导数通过显式时间输入和沿校正路径对 \(z_t\) 的隐式依赖进行区分。带有掩模钳位的修正路径。我们使用数据潜伏 \(z\) 和高斯 n 之间的直线概率路径...
     </p>
     <p>$$ \label{eq:mf_improved}
 \begin{gathered}
@@ -241,7 +262,14 @@ V_\theta(z_t;\, t,r,c) = u_\theta(z_t;\, t,\Delta,c) \\
 \mathcal{L}_{\mathrm{mf}} = \mathbb{E}\!\left[\left\lVert V_\theta(z_t;\, t,r,c)-v^\star\right\rVert_2^2\right],
 \end{gathered} $$</p>
     <p>
-      ked 标记为 \(v^ = - z\)。区间条件平均速度和 JVP。令 \(u_(z_t;\, t,,c)\) 为长度区间 \(=t-r\)（其中 \(r t\)）内的预测平均速度，以场景上下文 \(c\) 为条件。我们用两个时间通道 \((t,)\) 参数化模型，并使用 eq:mf_imp… 中的校正目标进行训练
+      公式：\label{eq:mf_improved}
+\开始{聚集}
+\Delta = t-r, \\
+V_\theta(z_t;\, t,r,c) = u_\theta(z_t;\, t,\Delta,c) \\
++ \Delta\, \frac{\mathrm{d}}{\mathrm{d}t}\,u_\theta(z_t;\, t,\Delta,c), \\
+\mathcal{L}_{\mathrm{mf}} = \mathbb{E}\!\left[\left\lVert V_\theta(z_t;\, t,r,c)-v^\star\right\rVert_2^2\right],
+\end{聚集}
+上下文：ked tokens 为 \(v^ = - z\)。区间条件平均速度和 JVP。令 \(u_(z_t;\, t,,c)\) 为长度区间 \(=t-r\)（其中 \(r t\)）内的预测平均速度，以场景上下文 \(c\) 为条件。我们用两个时间通道 \((t,)\) 参数化模型，并使用 eq:mf_imp… 中的校正目标进行训练
     </p>
     <p>$$ \label{eq:mf_cfg}
 \begin{gathered}
@@ -250,7 +278,13 @@ u_{\theta}^{\mathrm{cfg}} = u_\theta(z_t;\, t,\Delta,c_{\varnothing})
 s\Big(u_\theta(z_t;\, t,\Delta,c)-u_\theta(z_t;\, t,\Delta,c_{\varnothing})\Big),
 \end{gathered} $$</p>
     <p>
-      L_mf = E\!，聚集方程，其中 \(ddtu_\) 表示全导数，并作为 JVP 有效实现（附录）。引导式无求解器更新。对于条件生成，我们在平均速度场上应用无分类器引导（CFG）：其中 \(c_\) 是场景级实现的无条件条件......
+      公式：\label{eq:mf_cfg}
+\开始{聚集}
+u_{\theta}^{\mathrm{cfg}} = u_\theta(z_t;\, t,\Delta,c_{\varnothing})
+\;+\; \\
+s\Big(u_\theta(z_t;\, t,\Delta,c)-u_\theta(z_t;\, t,\Delta,c_{\varnothing})\Big),
+\end{聚集}
+上面：L_mf = E\!，聚集方程，其中 \(ddtu_\) 表示全导数，并作为 JVP 有效实现（附录）。引导式无求解器更新。对于条件生成，我们在平均速度场上应用无分类器引导（CFG）：其中 \(c_\) 是场景级实现的无条件条件......
     </p>
     <figure><img class='paper-fig' src='../assets/2603_17652v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：用于矢量图潜在生成的边缘门控关系 DiT。该框架通过分解的变压器主干生成矢量图潜伏。为了捕获复杂的图依赖关系，我们引入了关系注意模块（右）。与标准注意力不同，该模块通过以下方式调节边缘特征 \(_ij\) 上的消息传递： 1) 将附加偏差 B_ij 应用于注意力分数以调节连接性； 2) 乘法门 G_ij 应用于值向量以调制特征聚合。这种设计可以实现跨异构代理和地图元素的精确结构控制，并与各种生成动力学（DDPM、Flow 或 MeanFlow）兼容。</figcaption></figure>
     <figure><img class='paper-fig' src='../assets/2603_17652v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：\(\)Sim：符合物理的 NPC 政策。单通道返程 (RTG) 控制嵌入通过 FiLM \((,)\) 调制解码器。动作使用具有可微分运动 Logit 整形和 DKAL 正则化的混合头（离散 k 盘标记加上连续残差）。该设计减少了公里级闭环仿真下复合的可行性违规。</figcaption></figure>
