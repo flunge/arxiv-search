@@ -70,7 +70,7 @@
     blockquote { margin: 16px 0; padding: 8px 16px; border-left: 4px solid #d8e7ff; background: #f8fbff; color: #333; }
     .tip { background: #f7f9fc; border: 1px solid #e8eef6; border-radius: 10px; padding: 12px; }
     .dashboard-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-top:18px; }
-    .dashboard-card { aspect-ratio: 1 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
+    .dashboard-card { aspect-ratio: 1.618 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }
     .dashboard-card > * { min-width: 0; }
     .dashboard-card .dashboard-content { display:flex; flex-direction:column; height:100%; min-height:0; }
     .dashboard-card .dashboard-scroll { overflow:auto; min-height:0; }
@@ -130,10 +130,28 @@
     });
   </script>
 
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\(', '\)']],
+        displayMath: [['$$', '$$'], ['\[', '\]']]
+      },
+      svg: { fontCache: 'global' },
+      startup: {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady().then(() => {
+            requestAnimationFrame(applyPageScale);
+          });
+        }
+      }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
+
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
 
@@ -143,103 +161,132 @@
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      这篇论文关注的是“HeroGS 所对应的问题能否在更可控、更稳健或更高质量的条件下被解决”。从摘要与方法描述来看，作者的总体路线是：先搭建一个明确的表示或生成框架，再围绕训练目标、结构设计和实验验证把该问题推进到更可用的工程形态。
+      3D 高斯溅射 (3DGS) 最近成为新颖视图合成中一种很有前景的方法，将照片级真实感渲染与实时效率相结合。然而，它的成功在很大程度上依赖于密集的摄像头覆盖范围；在稀疏视图条件下，监督不足会导致不规则的高斯分布，其特点是全局覆盖稀疏、背景模糊和高频区域扭曲。为了解决这个问题，我们提出了 HeroGS——鲁棒 3D 高斯分布的分层指导——一个统一的框架，可以跨图像、特征和参数级别建立分层指导。在图像层面，稀疏监督转化为伪密集指导，全局正则化高斯分布，为后续优化奠定一致的基础。在此基础上，特征级别的特征自适应致密化和修剪（FADP）利用低级特征来细化高频细节并自适应地致密背景区域中的高斯。然后，…
     </div>
 
     <h2 id='summary'>简单摘要</h2>
-    <p>
-      从论文摘要可以看出，这项工作的落点并不是单纯提升一个局部模块，而是围绕完整任务链路做系统设计。它通常会同时回答三个问题：任务为什么重要、现有方法卡在哪里、作者的新方案如何绕开这些瓶颈。
-      就这篇论文而言，摘要部分强调的核心是：<strong>3D Gaussian Splatting (3DGS) has recently emerged as a promising approach in novel view synthesis, combining photorealistic rendering with real-time efficiency. However, its succe…</strong>
-    </p>
-    <p>
-      如果把它放进更大的技术背景中理解，可以把这篇论文视作一条“问题定义 → 表示设计 → 训练优化 → 实验验证”的完整研究闭环。也就是说，作者并不是只给出一个孤立模块，而是希望通过一整套方法让系统在真实场景或关键指标上取得更稳定提升。
-    </p>
-    <figure><img class='paper-fig' src='../assets/2603_01099v2/fig_1.png' alt='Figure 1:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 1：该图来自论文原文，用于说明论文中的核心框架、可视化结果或实验现象。原始图注摘要：Motivation of HeroGS. (Left) Image-level pseudolabels bridge the gap between sparse and dense supervision, yielding a more complete Gaussian distributions. (Right) FADP and CPG refine inaccurate Gaussians by enhancing distributions closer to ground-truth geometry and pruning inconsistencies. Adapti…</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_01099v2/fig_2.png' alt='Figure 2:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 2：该图来自论文原文，用于说明论文中的核心框架、可视化结果或实验现象。原始图注摘要：HeroGS Overview. Initialized from SfM, our framework operates across three levels. (1) Image-level Guidance: A set of intermediate RGB frames is synthesized from sparse inputs, offering pseudo-dense guidance that globally regularizes the Gaussian distributions and, at the feature level, manifests a…</figcaption></figure>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>To address this, we propose HeroGS—Hierarchical Guidance for Robust 3D Gaussian Splatting—a unified framework that establishes hierarchical guidance across the image, feature, and parameter levels.</li><li>and its variants [2, 3, 5] achieve remarkable visual quality, their implicit representation incurs slow rendering.</li><li>This motivates us to introduce a multi-level framework that globallyto-locally coherent guidance to more comprehensively direct the formation of accurate Gaussian distributions.</li></ul></div>
+    <p>3D 高斯溅射 (3DGS) 最近成为新颖视图合成中一种很有前景的方法，将照片级真实感渲染与实时效率相结合。然而，它的成功在很大程度上依赖于密集的摄像头覆盖范围；在稀疏视图条件下，监督不足会导致不规则的高斯分布，其特点是全局覆盖稀疏、背景模糊和高频区域扭曲。为了解决这个问题，我们提出了 HeroGS——鲁棒 3D 高斯分布的分层指导——一个统一的框架，可以跨图像、特征和参数级别建立分层指导。在图像层面，稀疏监督转化为伪密集指导，全局正则化高斯分布，为后续优化奠定一致的基础。</p>
+    <p>在此基础上，特征级别的特征自适应致密化和修剪（FADP）利用低级特征来细化高频细节并自适应地致密背景区域中的高斯。然后，优化后的分布在参数级别支持共同修剪几何一致性（CPG），它通过参数冻结和共同修剪来指导几何一致性，从而有效地消除不一致的splats。分层引导策略有效地约束和优化整体高斯分布，从而提高结构保真度和渲染质量。大量实验表明，HeroGS 实现了高保真度重建，并在稀疏视图条件下始终超越最先进的基线。</p>
+    <figure><img class='paper-fig' src='../assets/2603_01099v2/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：HeroGS 的动机。 
+ （左）图像级伪标签弥合了稀疏监督和密集监督之间的差距，产生更完整的高斯分布。 
+ （右）FADP 和 CPG 通过增强更接近真实几何的分布和修剪不一致来细化不准确的高斯分布。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2603_01099v2/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：HeroGS 概述。我们的框架始于 SfM，跨三个层面运行。
+(1) 图像级指导：从稀疏输入合成一组中间 RGB 帧，提供伪密集指导，全局正则化高斯分布，并在特征级别表现为基于块的高斯数 C。
+
+(2) 特征级细化：特征自适应致密化和修剪（FADP）利用训练视图中的边缘和补丁感知特征来增强高频和背景区域，同时抑制冗余高斯并为下一个级别提供更精细的细节。
+(3)参数级一致性：联合剪枝几何一致性(CPG)采用具有部分冻结参数的辅助高斯场进行联合剪枝，消除几何不一致的splats。
+这些级别形成具有互连（虚线）的分层指导，共同约束和优化高斯场以提高结构保真度。</figcaption></figure>
+    <blockquote>
+      简而言之，这篇论文关注的核心是：3D 高斯溅射 (3DGS) 最近成为新颖视图合成中一种很有前景的方法，将照片级真实感渲染与实时效率相结合。然而，它的成功在很大程度上依赖于密集的摄像头覆盖范围；在稀疏视图条件下，监督不足会导致不规则的高斯分布，其特点是全局覆盖稀疏、背景模糊和高频区域扭曲。为了解决这个问题，我们提出了 HeroG…
+    </blockquote>
+    <p>重建高保真 3D 场景以实现逼真的新颖视图合成仍然是计算机视觉领域的核心挑战。虽然神经辐射场 (NeRF) 及其变体实现了卓越的视觉质量，但它们的隐式表示导致渲染速度缓慢。最近，3D 高斯分布 (3DGS) 引入了一种显式且高效的替代方案，可提供 NeRF 级保真度和实时性能，其一系列扩展迅速为高质量、高效的场景重建建立了新的最先进技术。随着这些方法在密集视图场景中的成功，研究前沿现在正在转向更具挑战性的稀疏输入设置。</p>
+    <p>在这种情况下，视点的稀缺通常会导致不规则的高斯分布，从而导致几何模糊和严重的渲染伪影。 FSGS 加速早期致密化以补偿初始高斯分布的不足，而 DropGaussian 采用基于 dropout 的策略来正则化遮挡区域的高斯分布。然而，缺乏全面的指导仍然导致高斯场优化不完善，导致分布不准确和不均匀——背景区域高斯分布不足导致模糊，对高频细节监督不充分导致高斯分布错位或错位。这促使我们引入一个多层次的框架，从全局到局部的一致指导，以更全面地指导准确高斯分布的形成。</p>
+    <p>稀疏视图设置通常会导致高斯落在视野之外，接收有限的梯度反馈并过度拟合一些训练图像。如图所示，添加更多视图可以改善梯度覆盖并缓解此问题。受此启发，我们合成了伪标签，与真实视图一起提供密集的图像级监督来正则化高斯分布。这种增强的监督丰富了整个场景的梯度传播，导致更均匀的高斯分布并提高了稀疏输入下的重建保真度，同时为特征级别的细粒度指导提供了更丰富的空间结构线索。为了进一步细化和规范高频区域的高斯分布，我们在特征级别引入了特征自适应致密化和修剪（FADP）。</p>
+    <p>FADP 沿着边缘感知区域增加高斯密度以捕获高频细节，修剪同质斑块内的冗余斑点以避免过度饱和，并添加新的高斯......</p>
 
     <h2 id='innovation'>核心创新</h2>
     <p>
-      对照引言与方法部分，这篇论文的创新点主要体现在“如何重新组织问题求解链路”上。相比简单替换一个 backbone 或增加一个 loss，作者更像是在重新定义系统的关键接口与约束方式。
+      综合引言与方法部分，这篇论文的核心创新可以概括为以下几方面：
     </p>
-    <h3>1）从任务设定上重新界定问题边界</h3>
+    <h3>1）问题定义与研究动机</h3>
     <p>
-      论文强调的问题并不只是已有方案做得不够好，而是很多现有方法在目标可控性、泛化范围、效率约束或结构一致性上存在天然短板。因此作者先重述了任务定义，再围绕新的目标函数和场景假设去设计整体方案。
+      重建高保真 3D 场景以实现逼真的新颖视图合成仍然是计算机视觉领域的核心挑战。虽然神经辐射场 (NeRF) 及其变体实现了卓越的视觉质量，但它们的隐式表示导致渲染速度缓慢。最近，3D 高斯分布 (3DGS) 引入了一种显式且高效的替代方案，可提供 NeRF 级保真度和实时性能，其一系列扩展迅速为高质量、高效的场景重建建立了新的最先进技术。随着这些方法在密集视图场景中的成功，研究前沿现在正在转向更具挑战性的稀疏输入设置。在这种情况下，视点的稀缺通常会导致不规则的高斯分布，从而导致几何模糊和严重的渲染伪影。 FSGS 加速早期致密化以补偿初始高斯分布的不足，而 DropGaussian 采用基于 dropout 的策略来正则化遮挡区域的高斯分布。然而，缺乏全面的指导仍然导致高斯场优化不完善，导致分布不准确和不均匀——背景区域高斯分布不足导致模糊，对高频细节监督不充分导致高斯分布错位或错位。这促使我们引入一个多层次的框架，从全局到局部的一致指导，以更全面地指导准确高斯分布的形成。稀疏视图设置通常会导致高斯落在视野之外，接收有限的梯度反馈并过度拟合一些训练图像。如图所示，添加更多视图可以改善…
     </p>
-    <h3>2）用统一框架串起表示、推理和优化</h3>
+    <h3>2）方法框架与核心模块</h3>
     <p>
-      从原文描述看，这篇论文并不是把多个模块松散拼接，而是在一个统一框架里安排表示形式、关键模块和训练信号，使它们彼此服务。这类设计往往决定了方法能否真正具备工程可落地性。
+      现有的高斯分布方法经常会因稀疏视图条件下的不规则高斯分布而导致过度拟合。为了缓解这一限制，我们提出了 HeroGS，这是一个统一的多级（图像、特征和参数）指导框架，它提供多样化和互补的监督信号，以在整个训练过程中细化和规范高斯场。在图像层面，HeroGS引入了伪监督，为不同地区的高斯人提供全面的指导。这种增强的监督丰富了梯度传播，导致更加全局一致和结构​​良好的高斯场，相机外参通过插值初始化并在训练期间联合优化。在此基础上，在特征层面，特征自适应致密和修剪（FADP）利用从训练视图中提取的边缘感知和基于补丁的特征来增强高频结构，同时消除冗余高斯分布，从而获得更准确和紧凑的表示。最后，在参数层面，联合剪枝几何一致性（CPG）对参数差异较大的高斯剪枝，有效抑制几何畸变，增强整个场景的全局一致性。这种三级监督形成了一个连贯的框架（如图所示），不仅提高了监督质量，而且在稀疏视图条件下保持了结构保真度。图像级别 由于观察到更密集的输入会产生更好的重建，我们建议在相邻训练视图之间生成中间视点，并使用帧插值模型将其相应的 RGB 图像合成为伪标签。两个连续的训练图像定义为 和 ，以及相应的相机姿态…
     </p>
-    <h3>3）把实验目标直接对齐到实际痛点</h3>
+    <h3>3）实验设计与工程价值</h3>
     <p>
-      论文中的实验不仅比较常规 benchmark，也会额外关注更贴近实际系统需求的指标，例如稳定性、控制性、质量上界、对长尾场景的适应能力等。换句话说，它不是只追求单一数值，而是试图证明整套系统在真实使用方式下也成立。
+      设置 HeroGS 是基于 FSGS 实现的，并在 LLFF 和 Tanks&amp;Temples 数据集上进行评估。在 LLFF 上，我们使用 2、3 和 6 个训练视图，分辨率下采样 8 。 3 和 6 个训练视图的设置遵循之前的工作。对于 2 视图情况，由于 FSGS 需要基于 COLMAP 的多视图立体，但在 3 个场景上失败，因此我们对其余 5 个场景进行评估。在这里，随机选择两个视图进行训练，其余视图进行测试。在 Tanks&amp;Temples 上，使用 3 和 6 个训练视图而不进行下采样。在我们的实验中，对训练视图的子集进行统一采样，其余视图用于测试。继之前的工作之后，采用 PSNR、SSIM 和 LPIPS 作为评估指标。比较 LLFF。定量结果显示在表中。 ，定性比较如图所示。 HeroGS 在多个指标上实现了卓越的性能。值得注意的是，在具有挑战性的 2 视图训练设置下，Her…
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>To address this, we propose HeroGS—Hierarchical Guidance for Robust 3D Gaussian Splatting—a unified framework that establishes hierarchical guidance across the image, feature, and parameter levels.</li><li>and its variants [2, 3, 5] achieve remarkable visual quality, their implicit representation incurs slow rendering.</li><li>Hierarchical Guidance for Robust 3D Gaussian Splatting under Sparse Views Jiashu Li† Xumeng Han† Zhaoyang Wei† Zipeng Wang Kuiran Wang Guorong Li Zhenjun Han∗ Jianbin Jiao University of the Chinese Academy of Sciences lijiashu24@mails.ucas.ac.cn Abstract 3D G…</li><li>Recently, 3D Gaussian Splatting (3DGS) [13] introduces an explicit and efficient alternative, delivering NeRF-level fidelity with real-time performance, and a series of its extensions [25, 27, 34] rapidly establishing a new state-of-the-art for high-quality,…</li></ul></div>
 
     <h2 id='technical'>技术细节</h2>
     <p>
-      方法部分是理解论文价值的关键。结合原文可以看到，作者通常会先定义输入输出，再介绍中间表示、主干模块、损失函数或奖励机制，最后说明训练与推理时各模块如何协同。
-      对这篇论文而言，方法线索主要集中在以下几个方面：
+      下面按照论文的方法章节结构展开，重点说明模型的关键模块、公式设计和训练策略。
     </p>
-    <h3>3.1 方法主线与模块组织</h3>
+    <p>现有的高斯分布方法经常会因稀疏视图条件下的不规则高斯分布而导致过度拟合。为了缓解这一限制，我们提出了 HeroGS，这是一个统一的多级（图像、特征和参数）指导框架，它提供多样化和互补的监督信号，以在整个训练过程中细化和规范高斯场。在图像层面，HeroGS引入了伪监督，为不同地区的高斯人提供全面的指导。这种增强的监督丰富了梯度传播，导致更加全局一致和结构​​良好的高斯场，相机外参通过插值初始化并在训练期间联合优化。在此基础上，在特征层面，特征自适应致密和修剪（FADP）利用从训练视图中提取的边缘感知和基于补丁的特征来增强高频结构，同时消除冗余高斯分布，从而获得更准确和紧凑的表示。最后，在参数层面，联合剪枝几何一致性（CPG）对参数差异较大的高斯剪枝，有效抑制几何畸变，增强整个场景的全局一致性。这种三级监督形成了一个连贯的框架（如图所示），不仅提高了监督质量，而且在稀疏视图条件下保持了结构保真度。图像级别 由于观察到更密集的输入会产生更好的重建，我们建议在相邻训练视图之间生成中间视点，并使用帧插值模型将其相应的 RGB 图像合成为伪标签。两个连续的训练图像定义为 和 ，以及相应的相机姿态 和 。为了简化符号，我们假设在连续的训练视图和 之间生成单个中间帧，表示为 ，其中 是插值权重。然而，在我们的实验中，生成了多个中间帧（详细信息请参见第 2 节）。在本文中，VFI（一种最先进的帧插值模型）用于生成中间图像，即，鉴于我们的伪标记图像缺乏真实的外部参数，我们通过插值初始化每个生成图像的相机姿态。具体来说，旋转采用球面线性插值（slerp），平移采用线性插值：</p>
+    <p>在训练阶段，从生成的视点渲染场景，并通过将结果与伪标记图像进行比较来应用监督。让 为从第 - 个生成的视点渲染的图像。生成图像的估计深度表示为 ，从同一视点渲染的深度图为 ，它是通过体积渲染计算得出的：总和是在与像素重叠的有序 3D 高斯上得出的。对于第 -th 高斯，是其深度，是其习得的不透明度。与 类似，我们的训练目标集成了对生成图像的光度监督（通过 L1 和 D-SSIM 损失测量）以及对渲染深度图的几何监督（使用 Pearson 相关系数进行评估）……</p>
+    <p>$$ \small
+\mathbf{I}^{(\alpha)}_{n} = \mathrm{VFI}\big(\mathbf{I}_{n}, \mathbf{I}_{n+1},\alpha \big). $$</p>
     <p>
-      根据方法章节可知，作者首先构建了一个核心表示或中间条件，再通过若干模块把它逐步转换为最终输出。这种结构的优势在于：每个模块都承担明确职责，既便于解释，也更便于在实验中做模块级消融。
-      原文中与主线最相关的描述包括：
+      )_n I_n I_n+1 (0,1) 是插值权重。然而，在我们的实验中，生成了多个中间帧（详细信息请参见第 2 节）。在本文中，VFI（一种最先进的帧插值模型）用于生成中间图像，即，鉴于我们的伪标记图像缺乏真实的…
     </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>Hierarchical Guidance for Robust 3D Gaussian Splatting under Sparse Views Jiashu Li† Xumeng Han† Zhaoyang Wei† Zipeng Wang Kuiran Wang Guorong Li Zhenjun Han∗ Jianbin Jiao University of the Chinese Academy of Sciences lijiashu24@mails.ucas.ac.cn Abstract 3D G…</li></ul></div>
-    <h3>3.2 训练目标、损失与公式信号</h3>
+    <p>$$ \small
+\begin{split}
+\mathbf{R}^{(\alpha)}_n &amp; = \mathrm{slerp}(\mathbf{R}_{n}, \mathbf{R}_{n+1}, \alpha), \\
+\mathbf{T}^{(\alpha)}_n &amp; = (1 - \alpha) \mathbf{T}_{n} + \alpha \mathbf{T}_{n+1}.
+\end{split}
+\label{Eq(alpha)} $$</p>
     <p>
-      论文里的公式通常承担两类角色：一种是定义模型的预测关系与变量约束，另一种是定义优化时真正驱动模型更新的目标函数。阅读这类论文时，关键不是死记公式外形，而是理解每个公式分别在“表达结构”还是“约束行为”上发挥作用。
+      es，即，鉴于我们的伪标记图像缺乏真实的外部参数，我们通过插值初始化每个生成图像的相机姿势。具体来说，旋转采用球面线性插值（slerp），平移采用线性插值：在训练阶段，场景重新...
     </p>
-    <div class='card'><strong>公式 / 指标片段 1：</strong><pre>frame interpolation model. Two consecutive training images are defined as In and In+1, with corresponding camera poses Pn = (Rn, Tn) and Pn+1 = (Rn+1, Tn+1).</pre></div><div class='card'><strong>公式 / 指标片段 2：</strong><pre>= slerp(Rn, Rn+1, α),</pre></div><div class='card'><strong>公式 / 指标片段 3：</strong><pre>= (1 −α)Tn + αTn+1.</pre></div>
+    <p>$$ \small
+\hat{\mathbf{D}}_{n}^{(\alpha)} = \sum_{i=1}^{L} d_i o_i \prod_{j=1}^{i-1}(1-o_j). $$</p>
     <p>
-      从这些公式与周边段落可以推断，作者想要的不只是局部误差最小化，而是通过更精细的目标设计，让模型在结构一致性、生成质量、时序稳定性或可控性等方面同时受约束。这也是很多新方法能真正优于 baseline 的原因。
+      通过将结果与伪标记图像进行比较来应用 ision。让 为从第 - 个生成的视点渲染的图像。生成图像的估计深度表示为 ，从同一视点渲染的深度图为 ，通过体积渲染计算得出：总和超过阶数...
     </p>
-    <h3>3.3 把全文方法串起来理解</h3>
+    <p>$$ \small
+\hat{\mathbf{A}} = \frac{\sum_{k=1}^{K} w_{k} \cdot \mathbf{A}_{k}}{\sum_{k=1}^{K} w_{k}}, \quad w_{k} = \frac{1}{d_{k} + \epsilon}, $$</p>
     <p>
-      如果把这篇论文的方法看成一条流水线，那么它的逻辑通常是：先把输入变成一个更适合推理的中间表示，再围绕该表示施加关键模块与训练目标，最后把输出落到可评估、可可视化的结果上。
-      这种“表示—模块—目标—结果”的闭环设计，是本页所锁定模板最想强调的部分，因为它比零散摘录更能帮助后续复现与横向比较。
+      每个新的 Gaussian ，即颜色、不透明度和形状，都是根据其邻居进行初始化的。具体来说，我们从现有的高斯中识别出它的最近邻（默认情况下） 。新高斯的每个属性都是通过反距离加权插值计算的：其中是第-个近邻的属性...
+    </p>
+    <p>$$ \small
+c_i&#x27; =
+\begin{cases}
+c_{\mathrm{min}}, &amp; \text{if } c \leq \tau_{\mathrm{sparse}} \\
+c_i \cdot \lambda_{\mathrm{low}}, &amp; \text{if } \tau_{\mathrm{sparse}} &lt; c &lt; \tau_{\mathrm{low}} \\
+c_i, &amp; \text{if } \tau_{\mathrm{low}} \leq c \leq \tau_{\mathrm{high}} \\
+c_i \cdot \lambda_{\mathrm{high}}, &amp; \text{if } c &gt; \tau_{\mathrm{high}}
+\end{cases} $$</p>
+    <p>
+      实际上，每个训练图像被划分为补丁网格（默认情况下），并将高斯投影到图像平面上。让 表示每个补丁中投影高斯的数量。我们使用以下分段函数重新加权这些计数以获得：其中 是密度阈值， 是缩放因子……
+    </p>
+    <p>$$ \small
+\mathcal{C&#x27;} \leftarrow \text{round}\left( \mathcal{C&#x27;} \cdot \frac{\sum_i c_i}{\sum_i c_i&#x27;} \right). $$</p>
+    <p>
+      稀疏，_low，_high _low &gt; 1 _high &lt; 1 c_min在稀疏补丁中强制执行以保证覆盖范围。为了维持全局高斯数量，我们应用归一化：应用残差校正步骤来通过调整 中的条目来确保。本质上，从 p 获得的全局细化高斯分布......
+    </p>
+    <figure><img class='paper-fig' src='../assets/2603_01099v2/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：删除不一致的高斯。
+
+第 3 列和第 4 列：分别是原始训练视图和帧插值伪标签。虽然伪标签提供了整体的监督信号，但它们可能缺乏细节的准确性，并且无法为高频几何结构提供精确的指导。第 1 列和第 2 列：由完整管道生成的新颖视图渲染与没有 CPG 的渲染。它可以抑制漂移，产生更锐利的边缘、连贯的表面并显着提高空间保真度。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2603_01099v2/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：LLFF 的定性比较（3 个训练视图）。在极端视图稀疏的情况下，3DGS 会崩溃成严重的伪影和模糊的几何形状。 DRGS 和 FSGS 恢复了粗糙结构，但仍然表现出过度平滑的纹理和嘈杂的背景。相比之下，HeroGS 从互补级别引导模型提供明显更清晰的对象边界、更丰富的高频纹理和明显更清晰的远处区域，展示了我们完整流程的功效。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2603_01099v2/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：有和没有图像和特征级别指导的比较。第 1 列和第 2 列：由基线与带有伪标签和 FADP 的基线生成的新颖视图渲染。第 3 列和第 4 列：它们对应的高斯函数。</figcaption></figure>
+    <p>
+      把全文方法串起来看，这篇论文的逻辑基本都遵循同一条主线：先把输入组织成更容易处理的表示，再通过模型结构和损失函数把这个表示推向目标输出，最后用可视化与数值实验共同证明该设计有效。
     </p>
 
     <h2 id='experiment'>实验结论</h2>
     <p>
-      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，优势究竟来自哪个模块。对这篇论文来说，实验设计明显围绕“与现有方法的对比 + 对关键组件的消融”展开。
+      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，这种优势来自哪一个设计决策。
     </p>
-    <p>
-      从实验段落的关键词和结果描述看，论文最想传达的结论包括：
-    </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>Extensive experiments demonstrate that HeroGS achieves high-fidelity reconstructions and consistently surpasses state-of-the-art baselines under sparse-view conditions.</li><li>The hierarchical guidance strategy effectively constrains and optimizes the overall Gaussian distributions, thereby enhancing both structural fidelity and rendering quality.</li><li>and its variants [2, 3, 5] achieve remarkable visual quality, their implicit representation incurs slow rendering.</li></ul></div>
-    <figure><img class='paper-fig' src='../assets/2603_01099v2/fig_3.png' alt='Figure 3:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 3：该图来自论文原文，用于说明论文中的核心框架、可视化结果或实验现象。原始图注摘要：Removing inconsistent Gaussians. Columns 3 and 4: original training views and frame-interpolated pseudo-labels, respectively. Although pseudo-labels provide overall supervisory signals, they may lack accuracy in fine details and fail to offer precise guidance for high-frequency geometric structures…</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_01099v2/fig_4.png' alt='Figure 4:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 4：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 4 from the source paper.</figcaption></figure><figure><img class='paper-fig' src='../assets/2603_01099v2/fig_5.png' alt='Figure 5:' / loading='lazy' decoding='async'><figcaption style='font-size:12px;'>图 5：该图摘自论文原文，用于补充展示方法流程、实验设置或可视化结果。原始图注摘要：Figure 5 from the source paper.</figcaption></figure>
+    <p>设置 HeroGS 是基于 FSGS 实现的，并在 LLFF 和 Tanks&amp;Temples 数据集上进行评估。在 LLFF 上，我们使用 2、3 和 6 个训练视图，分辨率下采样 8 。 3 和 6 个训练视图的设置遵循之前的工作。对于 2 视图情况，由于 FSGS 需要基于 COLMAP 的多视图立体，但在 3 个场景上失败，因此我们对其余 5 个场景进行评估。在这里，随机选择两个视图进行训练，其余视图进行测试。在 Tanks&amp;Temples 上，使用 3 和 6 个训练视图而不进行下采样。在我们的实验中，对训练视图的子集进行统一采样，其余视图用于测试。继之前的工作之后，采用 PSNR、SSIM 和 LPIPS 作为评估指标。比较 LLFF。定量结果显示在表中。 ，定性比较如图所示。 HeroGS 在多个指标上实现了卓越的性能。值得注意的是，在具有挑战性的 2 视图训练设置下，HeroGS 表现出了比现有基线显着的性能优势。这种巨大的收益主要是由分层指导的战略引入推动的，有效地弥补了极其稀疏的输入视图中可靠监督的稀缺性。此外，如图所示，与 FSGS 和 HeroGS 相比，3DGS 难以恢复某些对象的结构，而 DRGS 倾向于合成缺乏高频细节的平滑视图。尽管 FSGS 可以恢复大部分结构细节，但它通常无法生成准确的局部纹理图案。相比之下，HeroGS 渲染更准确和更详细的纹理，在堡垒和 Trex 的复杂图案中可见，并产生更清晰的背景区域，例如蕨类植物中的远处结构。这种视觉保真度很大程度上源于我们的范式通过在多个级别引导高斯分布来减轻过度拟合的能力。坦克和寺庙。对 Tanks&amp;Temples 数据集进行了广泛的评估，以评估 HeroGS 在复杂和大规模环境中的有效性。如图（附录）和表所示。 , HeroGS 与几个基于 3DGS 的基线进行了比较。基本的 3DGS 很难在有限的监督下保持几何和纹理保真度，而先前的方法引入了稀疏或噪声正则化，通常会导致几何形状过度平滑和明显的伪影。由于高频区域的高斯分布不准确，DropGaussian 进一步表现出重影效应。</p>
+    <p>相比之下，所提出的 HeroGS 框架在图像级别注入伪密集监督，有效地弥合了稀疏到密集的差距。此外，FADP 和 CPG 协作细化高斯分布，从而对细粒度结构和高频纹理进行更准确的重建。值得注意的是，HeroGS 始终如一……</p>
+    <figure><img class='paper-fig' src='../assets/2603_01099v2/figure6_full.png' alt='Figure 6:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 6：训练动态分析。
+ 训练期间我们的 HeroGS 与基线之间的 PSNR（左）和高斯数（右）的比较。</figcaption></figure>
     <ul>
-      <li>方法在主任务指标上不是偶然提升，而是与其结构设计和训练目标直接相关；</li>
-      <li>作者通过消融实验说明，若拿掉关键模块，性能与结果质量会明显回落；</li>
-      <li>论文不仅关注数值对比，也关注可视化质量、稳定性或可控性等更接近真实应用的信号。</li>
+      <li>方法在核心指标上的优势与结构设计和训练目标直接相关；</li>
+      <li>消融实验表明，拿掉关键模块后性能与结果质量都有明显回落；</li>
+      <li>论文不仅比较数值，也关注可视化质量、稳定性和泛化能力等更贴近真实使用的信号。</li>
     </ul>
-    <p>
-      因此，实验部分最重要的阅读方式不是死记某一列数字，而是看清：作者究竟想证明哪个机制有效、这个机制的收益是在什么设置下成立、它是否有明显的边界条件。
-    </p>
 
     <h2 id='takeaway'>理解评价</h2>
+    <p>在这项工作中，我们提出了 HeroGS，这是一个紧密耦合的分层指导框架，它克服了稀疏视图 3D 重建的不适定挑战。在图像级别，伪标签将稀疏监督转化为伪密集指导，为特征级别提供全局正则化和丰富的结构线索。在此基础上，FADP 在特征层面通过注入纹理感知高频特征线索来细化局部几何形状。参数级别的 CPG 通过自监督共同剪枝进一步强化几何一致性。这三个层次形成了一个分层指导框架，优化了整体高斯分布。对不同基准的大量实验表明，HeroGS 为稀疏视图重建设定了新的技术水平。</p>
     <p>
-      从研究定位上看，这篇论文的意义在于它没有把问题局限在某一个局部改动，而是尝试给出一套更完整的求解路径。对读者而言，最值得关注的是它如何重新组合表示、模块和训练目标，以及这些设计是否能迁移到相近任务上。
+      如果把它当成研究参考，建议重点关注三件事：第一，这套方法真正依赖的归纳偏置是什么；第二，实验中真正拉开差距的模块是哪一个；第三，它的局限究竟来自数据、算力还是监督信号本身。
     </p>
     <p>
-      如果把它当成研究参考，我会重点看三件事：
-      第一，这套方法的核心归纳偏置是什么；
-      第二，实验中真正拉开差距的模块是哪一块；
-      第三，它的限制条件是数据、算力、时序长度，还是奖励/监督信号本身。
-    </p>
-    <div class='card'><strong>原文要点摘录：</strong><ul><li>To mitigate this limitation, we propose HeroGS, a unified multi-level (image, feature and Figure 2.</li><li>Introduction Reconstructing high-fidelity 3D scenes for photorealistic novel view synthesis remains a core challenge in computer vision.</li><li>Hierarchical Guidance for Robust 3D Gaussian Splatting under Sparse Views Jiashu Li† Xumeng Han† Zhaoyang Wei† Zipeng Wang Kuiran Wang Guorong Li Zhenjun Han∗ Jianbin Jiao University of the Chinese Academy of Sciences lijiashu24@mails.ucas.ac.cn Abstract 3D G…</li></ul></div>
-    <p>
-      进一步延伸阅读时，可以把这篇工作放到更广泛的技术脉络里：它与同类方法相比，到底是在表示层、生成层、优化层还是评估层提出了更强的方案。下面这些自动检索到的相关论文可作为继续追踪的入口：
+      以下相关论文可以作为进一步追踪的入口：
     </p>
     <ul></ul>
 
     <div class='tip'>
       <strong>一句结论：</strong>
-      这篇论文值得读的原因，不只是它给出了一组更好的结果，而是它提供了一条相对完整的问题求解思路：如何把任务定义、方法设计与实验验证真正对齐到同一条研究主线上。
+      这篇论文值得关注的地方在于，它不只给出了更好的实验结果，更提供了一条相对完整的问题求解路径，把任务定义、方法设计与实验验证真正对齐到了同一条研究主线上。
     </div>
   </article>
 </div>
+
   </div>
 </div>
 </body>
