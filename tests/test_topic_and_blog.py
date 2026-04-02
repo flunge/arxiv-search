@@ -46,4 +46,7 @@ def test_build_blog_outputs_files(tmp_path: Path) -> None:
     assert (site_dir / "index.html").exists()
     blog_pages = list((site_dir / "posts").glob("*.html"))
     assert len(blog_pages) == 1
+    post_html = post.read_text(encoding="utf-8")
+    assert "../index.html" in post_html
+    assert "目录" in post_html
 

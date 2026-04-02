@@ -190,6 +190,21 @@ def _infer_tags(title: str, text: str) -> List[str]:
     return tags or ["论文解读"]
 
 
+def _post_sidebar_html(date_str: str, arxiv_id: str, items: List[tuple]) -> str:
+    links = "".join(
+        f"<li><a href='#{html.escape(anchor)}'>{html.escape(label)}</a></li>"
+        for anchor, label in items
+    )
+    return (
+        "<aside class='sidebar'>"
+        "<h3>目录</h3>"
+        f"<ul>{links}</ul>"
+        f"<p class='meta' style='margin-top:14px;'>发布时间：{html.escape(date_str)}<br/>arXiv：{html.escape(arxiv_id)}</p>"
+        "<p><a href='../index.html'>← 返回博客首页</a></p>"
+        "</aside>"
+    )
+
+
 def _streetforward_post_body(doc, date_str: str, figures: List[str], related: List[Dict], slug: str, text: str) -> str:
     fig_blocks = []
     for idx, name in enumerate(figures[:4], 1):
@@ -207,23 +222,24 @@ def _streetforward_post_body(doc, date_str: str, figures: List[str], related: Li
         ]
     )
 
+    sidebar = _post_sidebar_html(
+        date_str,
+        doc.arxiv_id,
+        [
+            ("intro", "1. 这篇论文在解决什么问题？"),
+            ("overview", "2. 整体方法一图看懂"),
+            ("causal", "3. 核心创新：Feedforward Causal Attention"),
+            ("velocity", "4. 速度场、动态掩码和 4D 重建"),
+            ("consistency", "5. 时空一致性与训练约束"),
+            ("figures", "6. 关键图示解读"),
+            ("related", "7. 相关工作与技术脉络"),
+            ("takeaway", "8. 我的理解与评价"),
+        ],
+    )
+
     return f"""
 <div class='layout'>
-  <aside class='sidebar'>
-    <h3>目录</h3>
-    <ul>
-      <li><a href='#intro'>1. 这篇论文在解决什么问题？</a></li>
-      <li><a href='#overview'>2. 整体方法一图看懂</a></li>
-      <li><a href='#causal'>3. 核心创新：Feedforward Causal Attention</a></li>
-      <li><a href='#velocity'>4. 速度场、动态掩码和 4D 重建</a></li>
-      <li><a href='#consistency'>5. 时空一致性与训练约束</a></li>
-      <li><a href='#figures'>6. 关键图示解读</a></li>
-      <li><a href='#related'>7. 相关工作与技术脉络</a></li>
-      <li><a href='#takeaway'>8. 我的理解与评价</a></li>
-    </ul>
-    <p class='meta' style='margin-top:14px;'>发布时间：{html.escape(date_str)}<br/>arXiv：{html.escape(doc.arxiv_id)}</p>
-    <p><a href='../index.html'>← 返回博客首页</a></p>
-  </aside>
+  {sidebar}
 
   <article class='article'>
     <h1>{html.escape(doc.title)}：精读与技术拆解</h1>
@@ -427,44 +443,50 @@ def build_post_from_pdf(
 
         abstract_like = html.escape(text[:1200].strip())
 
+        sidebar = _post_sidebar_html(
+            date_str,
+            arxiv_id,
+            [
+                ("summary", "1. 摘要与问题定义"),
+                ("method", "2. 方法与技术细节"),
+                ("figures", "3. 关键图示"),
+                ("related", "4. 相关工作与技术脉络"),
+                ("notes", "5. 解读与思考"),
+            ],
+        )
+
         body = f"""
-<p><a href=\"../index.html\">返回博客首页</a></p>
-<h1>{html.escape(post_title)}</h1>
-<p class=\"meta\">{html.escape(date_str)} · arXiv: {html.escape(arxiv_id)} · pages: {doc.page_count}</p>
+<div class='layout'>
+  {sidebar}
 
-<div class=\"toc\">
-<strong>目录</strong>
-<ul>
-  <li><a href=\"#summary\">1. 摘要与问题定义</a></li>
-  <li><a href=\"#method\">2. 方法与技术细节</a></li>
-  <li><a href=\"#figures\">3. 关键图示</a></li>
-  <li><a href=\"#related\">4. 相关工作与技术脉络</a></li>
-  <li><a href=\"#notes\">5. 解读与思考</a></li>
-</ul>
+  <article class='article'>
+    <h1>{html.escape(post_title)}</h1>
+    <p class=\"meta\">{html.escape(date_str)} · arXiv: {html.escape(arxiv_id)} · pages: {doc.page_count}</p>
+
+    <h2 id=\"summary\">1. 摘要与问题定义</h2>
+    <p>{abstract_like}</p>
+
+    <h2 id=\"method\">2. 方法与技术细节</h2>
+    <p>下面内容为论文中的关键技术句段抽取，并结合关键词（method / architecture / loss / ablation / experiment 等）组织，目标是帮助快速把握方法与实验逻辑，而不是仅做翻译。</p>
+    <ul>{snippets_html}</ul>
+
+    <h2 id=\"figures\">3. 关键图示</h2>
+    {fig_html}
+
+    <h2 id=\"related\">4. 相关工作与技术脉络</h2>
+    <p>基于标题关键词在 arXiv 自动检索到的相关论文（用于补充技术上下文）：</p>
+    <ul>{related_html}</ul>
+
+    <h2 id=\"notes\">5. 解读与思考</h2>
+    <p>
+    这篇论文的核心价值在于：
+    (1) 把 feedforward / 场景建模问题转化为可扩展的工程路径；
+    (2) 通过训练目标与表示设计平衡质量和效率；
+    (3) 为自动驾驶仿真或可控 world model 提供可连接的上层接口。
+    建议后续重点对照 ablation 与 error case，判断其泛化边界。
+    </p>
+  </article>
 </div>
-
-<h2 id=\"summary\">1. 摘要与问题定义</h2>
-<p>{abstract_like}</p>
-
-<h2 id=\"method\">2. 方法与技术细节</h2>
-<p>下面内容为论文中的关键技术句段抽取，并结合关键词（method / architecture / loss / ablation / experiment 等）组织，目标是帮助快速把握方法与实验逻辑，而不是仅做翻译。</p>
-<ul>{snippets_html}</ul>
-
-<h2 id=\"figures\">3. 关键图示</h2>
-{fig_html}
-
-<h2 id=\"related\">4. 相关工作与技术脉络</h2>
-<p>基于标题关键词在 arXiv 自动检索到的相关论文（用于补充技术上下文）：</p>
-<ul>{related_html}</ul>
-
-<h2 id=\"notes\">5. 解读与思考</h2>
-<p>
-这篇论文的核心价值在于：
-(1) 把 feedforward / 场景建模问题转化为可扩展的工程路径；
-(2) 通过训练目标与表示设计平衡质量和效率；
-(3) 为自动驾驶仿真或可控 world model 提供可连接的上层接口。
-建议后续重点对照 ablation 与 error case，判断其泛化边界。
-</p>
 """
 
     page_path = posts_dir / f"{slug}.html"
@@ -577,6 +599,10 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
     这里不是论文列表页，而是一个<strong>论文解读博客</strong>：每篇文章围绕一篇已下载论文展开，重点讲清楚问题背景、方法设计、技术细节、图示和我的理解。
   </p>
   <p class='meta'>当前地址即博客首页，后续新增文章会继续出现在这里。</p>
+  <div style='margin-top:14px;'>
+    <a href='{html.escape(featured['path']) if featured else '#'}' style='display:inline-block;padding:9px 14px;border-radius:10px;background:#1769c2;color:#fff;margin-right:10px;'>开始阅读</a>
+    <a href='#all-posts' style='display:inline-block;padding:9px 14px;border-radius:10px;border:1px solid #d7e3f0;color:#1769c2;'>浏览全部文章</a>
+  </div>
 </section>
 
 {stats}
@@ -599,7 +625,7 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
   </div>
 </section>
 
-<section>
+<section id='all-posts'>
   <h2 style='margin-top:26px;'>全部文章</h2>
   <div class='meta'>按时间倒序展示，支持缩略图与摘要预览</div>
   <div style='display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-top:14px;'>
