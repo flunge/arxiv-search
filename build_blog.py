@@ -121,7 +121,7 @@ def _render_page(title: str, body_html: str, include_mathjax: bool = False) -> s
     blockquote {{ margin: 16px 0; padding: 8px 16px; border-left: 4px solid #d8e7ff; background: #f8fbff; color: #333; }}
     .tip {{ background: #f7f9fc; border: 1px solid #e8eef6; border-radius: 10px; padding: 12px; }}
     .dashboard-grid {{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin-top:18px; }}
-    .dashboard-card {{ aspect-ratio: 1 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }}
+    .dashboard-card {{ aspect-ratio: 1.618 / 1; min-height: 0; overflow: hidden; display:flex; flex-direction:column; }}
     .dashboard-card > * {{ min-width: 0; }}
     .dashboard-card .dashboard-content {{ display:flex; flex-direction:column; height:100%; min-height:0; }}
     .dashboard-card .dashboard-scroll {{ overflow:auto; min-height:0; }}

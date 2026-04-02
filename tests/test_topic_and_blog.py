@@ -70,6 +70,7 @@ def test_build_blog_outputs_files(tmp_path: Path) -> None:
     assert "站点概览" in home_html
     assert "world model" in home_html
     assert "分类目录" in home_html
+    assert ".dashboard-card { aspect-ratio: 1.618 / 1;" in home_html
     assert "文章数</span><span" in home_html
     assert "点击标签进入独立目录页" not in home_html
     assert "这里汇总当前站点规模与已覆盖的研究主题" not in home_html
