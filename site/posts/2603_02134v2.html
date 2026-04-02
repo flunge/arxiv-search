@@ -202,7 +202,8 @@
     <p>然后，输出逐渐集成到全局 3DGS 表示中，作为观测环境的累积重建结果。相对几何提取器在本节中，我们介绍框架的相对几何提取器阶段，它主要负责基于前一帧回归当前帧的详细相对几何和高斯参数。这个阶段不仅减轻了全局锚状态存储高频活动细节的表征负担，而且还将密集的局部信息提炼成信息丰富的结构化信号，从而有效……</p>
     <p>$$ G_t = \left\{ \left( \mathbf{\mu}_t^i, \mathbf{r}_t^i, \mathbf{s}_t^i, \mathbf{\alpha}_t^i, \mathbf{c}_t^i, \mathbf{l}_t^i \right) \right\}_{i=1}^{N_t}, $$</p>
     <p>
-      第 3 节中整个框架的目标和策略。问题表述高斯原语表示。给定无姿势 RGB 帧的流序列作为输入和第 -th 帧，我们的模型将同时预测相应的 3D 高斯表示 ，定义为：其中 是…的数量。
+      公式：G_t = \left\{ \left( \mathbf{\mu}_t^i, \mathbf{r}_t^i, \mathbf{s}_t^i, \mathbf{\alpha}_t^i, \mathbf{c}_t^i, \mathbf{l}_t^i \right) \right\}_{i=1}^{N_t},
+上下文：第4节整个框架的目标和策略。问题表述高斯原语表示。给定无姿势 RGB 帧的流序列作为输入和第 -th 帧，我们的模型将同时预测相应的 3D 高斯表示 ，定义为：其中 是…的数量。
     </p>
     <p>$$ \left\{
  \begin{aligned}
@@ -211,24 +212,35 @@
  \end{aligned}
  \right. $$</p>
     <p>
-      e 低维空间的语义特征，特征维度 ，其中表示从 CLIP 中提取的二维语义特征的原始维度，我们默认设置为 16。渲染过程。 3D 高斯集随后用于渲染新颖视图 RGB 图像和语言图作为……
+      公式：\左\{
+ \开始{对齐}
+ \mathrm{C}(v) &amp;= \sum_{i\in N} \mathbf{c}_i \mathbf{\alpha}_i \prod_{j=1}^{i-1} (1-\mathbf{\alpha}_j), \\
+ \mathrm{L}(v) &amp;= \sum_{i\in N} \mathbf{l}_i \mathbf{\alpha}_i \prod_{j=1}^{i-1} (1-\mathbf{\alpha}_j),
+ \结束{对齐}
+ \对。
+上下：低维空间的语义特征，特征维度 ，其中表示从 CLIP 中提取的二维语义特征的原始维度，我们默认设置为 16。渲染过程。 3D 高斯集随后用于渲染新颖视图 RGB 图像和语言图作为……
     </p>
     <p>$$ f(\{I_t\}_{t=1}^{T};\mathbf{\theta}) = G, $$</p>
     <p>
-      签署。方程 其中 和 表示新视图图像中像素处渲染的颜色和语言特征，并且 是光线穿过的高斯数。可推广的在线重建。传统的前馈 3DGS 方法通常将整个帧序列作为输入进行处理，以推断完整的…
+      公式：f(\{I_t\}_{t=1}^{T};\mathbf{\theta}) = G,
+上下文：有符号。方程 其中 和 表示新视图图像中像素处渲染的颜色和语言特征，并且 是光线穿过的高斯数。可推广的在线重建。传统的前馈 3DGS 方法通常将整个帧序列作为输入进行处理，以推断完整的…
     </p>
     <p>$$ \mathbf{p}^{g}_t, \mathbf{s}_t= \text{Decoder}_{g}([\mathbf{\bar{f}}_t, \mathbf{\bar{f}}^r_t, \mathbf{p}^r_t], \mathbf{s}_{t-1}). $$</p>
     <p>
-      g 三个组成部分：相对姿态特征、相对阶段的全局池化特征和初始编码器的全局池化特征。然后，这两个组件（紧凑特征向量和锚定状态）被联合输入到一对互连的 Transformer 解码器中。这个经常性的你…
+      公式：\mathbf{p}^{g}_t, \mathbf{s}_t= \text{Decoder}_{g}([\mathbf{\bar{f}}_t, \mathbf{\bar{f}}^r_t, \mathbf{p}^r_t], \mathbf{s}_{t-1})。
+上图：g 三个组成部分：相对位姿特征、相对阶段的全局池化特征和初始编码器的全局池化特征。然后，这两个组件（紧凑特征向量和锚定状态）被联合输入到一对互连的 Transformer 解码器中。这个经常性的你…
     </p>
     <p>$$ \mathbf{x}&#x27;_t = \frac{c_t \mathbf{x}_t + \sum_{i \in \mathcal{N}_t} c_i \mathbf{x}_i}{c_t + \sum_{i \in \mathcal{N}_t} c_i},
  \label{eq:center_fusion} $$</p>
     <p>
-      g 潜在空间中的附近基元。对于每个新的高斯（具有中心和置信度），我们首先通过查找同一空间体素内的所有现有高斯来识别其邻域。然后融合过程细化几何位置和潜在属性。新中心被视为一个可靠的……
+      公式：\mathbf{x}&#x27;_t = \frac{c_t \mathbf{x}_t + \sum_{i \in \mathcal{N}_t} c_i \mathbf{x}_i}{c_t + \sum_{i \in \mathcal{N}_t} c_i},
+ \label{eq:center_fusion}
+上下文：g 潜在空间中的附近基元。对于每个新的高斯（具有中心和置信度），我们首先通过查找同一空间体素内的所有现有高斯来识别其邻域。然后融合过程细化几何位置和潜在属性。新中心被视为一个可靠的……
     </p>
     <p>$$ f(I_t, \mathbf{h}_{t-1}; \mathbf{\theta}) = G_t, \mathbf{h}_t, \quad t = 1, \dots, T, $$</p>
     <p>
-      etwork 并表示其可学习参数。虽然简单，但这种设计需要完整的视频序列，这阻碍了其连续 3D 重建的能力。为了解决这些限制，我们提出了一种增量 3DGS 重建框架，能够不断对每个……进行高斯回归。
+      公式：f(I_t, \mathbf{h}_{t-1}; \mathbf{\theta}) = G_t, \mathbf{h}_t, \quad t = 1, \dots, T,
+上下：网络，表示其可学习的参数。虽然简单，但这种设计需要完整的视频序列，这阻碍了其连续 3D 重建的能力。为了解决这些限制，我们提出了一种增量 3DGS 重建框架，能够不断对每个……进行高斯回归。
     </p>
     <figure><img class='paper-fig' src='../assets/2603_02134v2/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：RE10K（顶部两行）和 ScanNet（底部两行）上新颖视图合成的定性比较。 RE10K 采用 4 视图设置，ScanNet 采用 15 视图设置。</figcaption></figure>
     <figure><img class='paper-fig' src='../assets/2603_02134v2/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：ScanNet 上语义分割的定性比较。在这里，我们展示了一个具有 15 个输入视图的场景。我们预测的掩模比其他方法包含更完整的区域，例如“Wall”提示，它也超过了 GT 掩模。</figcaption></figure>
