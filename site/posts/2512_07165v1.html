@@ -205,27 +205,35 @@
  \;\mathrm{G}_{n}=(\boldsymbol\mu_{n},\alpha_{n},
  \boldsymbol\Sigma_{n},\mathbf{sh}_{n}) , $$</p>
     <p>
-      w 特定的质量估计器和边界检测器，如第 3.4 节所述。然后，融合后的特征由轻量级 ViT 解码器进行解码，并传递给点头和高斯头，以生成用于渲染的 3D 高斯基元参数。图* 为未摆设的 RGB 图像。我们的 MuSASplat 预测……
+      公式：\mathcal{G}=\{\mathrm{G}_{n}\}_{n=1}^{N},
+ \;\mathrm{G}_{n}=(\boldsymbol\mu_{n},\alpha_{n},
+ \boldsymbol\Sigma_{n},\mathbf{sh}_{n}) ,
+上下文：w-特定质量估计器和边界检测器，如第 3.4 节所述。然后，融合后的特征由轻量级 ViT 解码器进行解码，并传递给点头和高斯头，以生成用于渲染的 3D 高斯基元参数。图* 为未摆设的 RGB 图像。我们的 MuSASplat 预测……
     </p>
     <p>$$ \mathbf{Y}^{v} = \mathrm{reshape}(\mathbf{X}^{v} \mathbf{W}_{\!\downarrow}) \in \mathbb{R}^{C&#x27; \times h \times w}, $$</p>
     <p>
-      通过这种方式，MuSA 使模型能够推理局部和全局的空间关系，而 LoRA 本身无法捕获这些关系。具体来说，对于每个输入图像 ，冻结编码器生成一个令牌序列 ，其中 是补丁数和通道维度。我们首先通过……将代币投影到缩小的维度。
+      公式：\mathbf{Y}^{v} = \mathrm{reshape}(\mathbf{X}^{v} \mathbf{W}_{\!\downarrow}) \in \mathbb{R}^{C&#x27; \times h \times w},
+上下文：MuSA 使模型能够推理局部和全局空间关系，而 LoRA 本身无法捕获这些关系。具体来说，对于每个输入图像 ，冻结编码器生成一个令牌序列 ，其中 是补丁数和通道维度。我们首先通过……将代币投影到缩小的维度。
     </p>
     <p>$$ \mathbf{Z}^{v} = \tfrac{1}{3} \sum_{k \in \{3, 5, 7\}} \mathrm{DWConv}_{k}(\mathbf{Y}^{v}). $$</p>
     <p>
-      n 通过线性投影：其中 具有缩小率 ， 且 对应于斑块的空间网格。然后，我们应用三个深度方向的卷积，其内核大小为 、 、 和 ，并对它们的输出进行平均以获得： 这种多尺度聚合捕获了补丁网格内的精细和粗略的空间依赖性。这…
+      公式：\mathbf{Z}^{v} = \tfrac{1}{3} \sum_{k \in \{3, 5, 7\}} \mathrm{DWConv}_{k}(\mathbf{Y}^{v})。
+上下：n 通过线性投影： 其中 具有缩小率 ， 对应于斑块的空间网格。然后，我们应用三个深度方向的卷积，其内核大小为 、 、 和 ，并对它们的输出进行平均以获得： 这种多尺度聚合捕获了补丁网格内的精细和粗略的空间依赖性。这…
     </p>
     <p>$$ \widehat{\mathbf{X}}^{v} = \left(\mathrm{GELU}\left(\mathrm{PWConv}(\mathbf{Z}^{v}) \right) \right) \mathbf{W}_{\!\uparrow}. $$</p>
     <p>
-      核大小 、 、 和 ，并对它们的输出进行平均以获得： 这种多尺度聚合捕获了补丁网格内的精细和粗略的空间依赖性。结果通过逐点卷积和 GELU 激活，然后投影回原始维度：我们最终将残差添加到 t...
+      公式：\widehat{\mathbf{X}}^{v} = \left(\mathrm{GELU}\left(\mathrm{PWConv}(\mathbf{Z}^{v}) \right) \right) \mathbf{W}_{\!\uparrow}.
+上下：核大小 、 、 和 ，并对它们的输出进行平均以获得： 这种多尺度聚合捕获了补丁网格内的精细和粗略的空间依赖性。结果通过逐点卷积和 GELU 激活，然后投影回原始维度：我们最终将残差添加到 t...
     </p>
     <p>$$ \mathbf{X}^{v}_{\text{out}} = \mathbf{X}^{v} + \widehat{\mathbf{X}}^{v}. $$</p>
     <p>
-      regation 捕获补丁网格内精细和粗略的空间依赖性。结果通过逐点卷积和 GELU 激活传递，然后投影回原始维度：我们最终将残差添加到冻结的令牌流中：所有可学习参数都初始化为零，以便......
+      公式：\mathbf{X}^{v}_{\text{out}} = \mathbf{X}^{v} + \widehat{\mathbf{X}}^{v}。
+上下：regation 捕获块网格内精细和粗略的空间依赖性。结果通过逐点卷积和 GELU 激活传递，然后投影回原始维度：我们最终将残差添加到冻结的令牌流中：所有可学习参数都初始化为零，以便......
     </p>
     <p>$$ q^{v}_{\ell} = \sigma(\mathbf{w}_q^\top \mathbf{f}^{v}_{\ell}). $$</p>
     <p>
-      从每个视图中读取数据，都会导致 GPU 内存膨胀。我们不是迭代内存更新，而是在每个批次中同时处理所有输入视图。所有视图的编码特征堆叠为 ，其中 是视图数量。为了评估每个令牌的质量，轻量级 MLP（质量估计器）会估计置信度分数……
+      公式：q^{v}_{\ell} = \sigma(\mathbf{w}_q^\top \mathbf{f}^{v}_{\ell})。
+上下文：从各个角度看，GPU 内存膨胀。我们不是迭代内存更新，而是在每个批次中同时处理所有输入视图。所有视图的编码特征堆叠为 ，其中 是视图数量。为了评估每个令牌的质量，轻量级 MLP（质量估计器）会估计置信度分数……
     </p>
     <figure><img class='paper-fig' src='../assets/2512_07165v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：LoRA 和我们提出的 MuSA 层之间的比较。 
  上图：LoRA 通过两个线性层将低秩残差更新注入到冻结的预训练模型中，纯粹在令牌空间中运行，无需空间感知。 
