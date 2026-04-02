@@ -205,11 +205,13 @@
     <p>利用高清地图和文本描述作为条件输入来生成道路和背景元素。在此过程中，交通对象占据的区域被明确排除在考虑范围之外，从而使模型能够专注于学习道路基础设施和环境背景的独特特征。这种有针对性的方法可确保在引入动态元素之前正确建立基本场景组件。对象生成：在道路学习过程之后，模型过渡到对象生成，其中 3D 边界框和文本描述作为条件输入来生成与交通相关的对象。在此过程中，注册...</p>
     <p>$$ L_{\text{diff}} = \mathbb{E}_{Z_{t},C,\epsilon,t}\left[\left\|\epsilon - \epsilon_{\theta}(Z_t,C)\right\|_2^2\right] $$</p>
     <p>
-      xtbf3) 用于改善结构细节的频率引导结构损失，以及 4) 统一这些组件的总体训练目标。初步稳定扩散。我们基于稳定扩散（SD）实现我们的方法，这是一种文本到图像的 LDM，通过 UNet 降噪器在潜在空间中执行降噪。特…
+      公式：L_{\text{diff}} = \mathbb{E}_{Z_{t},C,\epsilon,t}\left[\left\|\epsilon - \epsilon_{\theta}(Z_t,C)\right\|_2^2\right]
+上下：xtbf3）用于改善结构细节的频率引导结构损失，以及4）统一这些组件的总体训练目标。初步稳定扩散。我们基于稳定扩散（SD）实现我们的方法，这是一种文本到图像的 LDM，通过 UNet 降噪器在潜在空间中执行降噪。特…
     </p>
     <p>$$ {L}_{\text{MI}} = \mathbb{E}_{(f_m, f_b^+)} \left[ \log \frac{\exp(\text{sim}(f_m, f_b^+))}{\sum\limits_{j=1}^{N} \exp(\text{sim}(f_m, f_{b,j}))} \right], $$</p>
     <p>
-      输入，同时减轻跨视图交互期间可能出现的条件间依赖性。此外，采用互信息（MI）约束来减少这两个几何特征之间的条件间依赖性，鼓励每个条件分支独立地关注其各自的语义...
+      公式：{L}_{\text{MI}} = \mathbb{E}_{(f_m, f_b^+)} \left[ \log \frac{\exp(\text{sim}(f_m, f_b^+))}{\sum\limits_{j=1}^{N} \exp(\text{sim}(f_m, f_{b,j}))} \right],
+上下文：输入同时减轻跨视图交互期间可能出现的条件间依赖性。此外，采用互信息（MI）约束来减少这两个几何特征之间的条件间依赖性，鼓励每个条件分支独立地关注其各自的语义...
     </p>
     <p>$$ \begin{aligned}
  \mathcal{H}(x) &amp;= \mathcal{F}^{-1}(M(\omega) \cdot \mathcal{F}(x)), \\
@@ -220,19 +222,30 @@
  \end{cases}
  \end{aligned} $$</p>
     <p>
-      组件。为了解决这个限制，我们引入了频率引导结构损失，强调前景中的高频细节，包括道路和物体区域。此增强功能提高了生成图像的结构保真度和视觉清晰度。具体来说，我们利用傅里叶变换来...
+      公式：\begin{对齐}
+ \mathcal{H}(x) &amp;= \mathcal{F}^{-1}(M(\omega) \cdot \mathcal{F}(x)), \\
+ M(\omega) &amp;= 
+ \开始{案例}
+ 0, &amp; \|\欧米茄\| \le \tau, \\
+ 1、&amp;\|\欧米茄\| &gt; \tau,
+ \结束{案例}
+ \结束{对齐}
+上下文：组件。为了解决这个限制，我们引入了频率引导结构损失，强调前景中的高频细节，包括道路和物体区域。此增强功能提高了生成图像的结构保真度和视觉清晰度。具体来说，我们利用傅里叶变换来...
     </p>
     <p>$$ L_{\text{freq}} = \left\| \mathcal{H}(x_{\text{pred}}) - \mathcal{H}(x_{\text{target}}) \right\|_2^2. $$</p>
     <p>
-      分别为 rm 及其倒数。表示选择性保留高于阈值的频率分量的高通滤波器。另外，指的是频率坐标，表示频率幅度，决定高频保留的截止频率，经验上设置为0.5。频率控制…
+      公式：L_{\text{freq}} = \left\| \mathcal{H}(x_{\text{pred}}) - \mathcal{H}(x_{\text{target}}) \right\|_2^2.
+上下：分别为rm及其逆。表示选择性保留高于阈值的频率分量的高通滤波器。另外，指的是频率坐标，表示频率幅度，决定高频保留的截止频率，经验上设置为0.5。频率控制…
     </p>
     <p>$$ L_{\text{road}} = L_{\text{diff}} \odot (M_{\text{map}} + M_{\text{bg}}) + \lambda_{\text{freq}} \cdot L_{\text{freq}} \odot M_{\text{map}}, $$</p>
     <p>
-      H(x_target) \|_2^2。方程 总体训练目标 总体训练目标整合了多个损失部分，以在我们的渐进式学习策略中实现不同的目标。第 1 阶段：在此阶段，通过交替训练策略分别学习道路和物体生成。损失...
+      公式：L_{\text{road}} = L_{\text{diff}} \odot (M_{\text{map}} + M_{\text{bg}}) + \lambda_{\text{freq}} \cdot L_{\text{freq}} \odot M_{\text{map}},
+上下：H(x_target) \|_2^2.方程 总体训练目标 总体训练目标整合了多个损失部分，以在我们的渐进式学习策略中实现不同的目标。第 1 阶段：在此阶段，通过交替训练策略分别学习道路和物体生成。损失...
     </p>
     <p>$$ L_{\text{object}} = L_{\text{diff}} \odot M_{\text{box}} + \lambda_{\text{freq}} \cdot L_{\text{freq}} \odot M_{\text{box}}, $$</p>
     <p>
-      lambda_freq L_freq M_map，方程其中 和 分别表示地图和背景区域的二进制掩模，表示区域特定损失的逐元素乘法，并且是频率引导结构损失的加权系数。对象生成的损失函数由下式给出： 其中表示 bi…
+      公式：L_{\text{object}} = L_{\text{diff}} \odot M_{\text{box}} + \lambda_{\text{freq}} \cdot L_{\text{freq}} \odot M_{\text{box}},
+上下：lambda_freq L_freq M_map，方程其中 和 分别表示地图和背景区域的二进制掩模，表示区域特定损失的逐元素乘法，并且是频率引导结构损失的加权系数。对象生成的损失函数由下式给出： 其中表示 bi…
     </p>
     <figure><img class='paper-fig' src='../assets/2602_22549v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：不同迭代步骤对生成图像的 FID 和几何可控性的影响。</figcaption></figure>
     <figure><img class='paper-fig' src='../assets/2602_22549v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：通过高清地图编辑生成可控道路布局的示例。每行显示了修改地图以引入新的道路结构的情况，生成的图像准确地反映了这些变化。</figcaption></figure>
