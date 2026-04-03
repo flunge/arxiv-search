@@ -157,233 +157,67 @@
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
-<div class='layout'>
-  <aside class='sidebar'>
-    <div class='sidebar-controls'>
-      <h3 class='sidebar-title'>目录</h3>
-      <a href='../index.html' class='sidebar-home-link'>首页</a>
-      <button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button>
-    </div>
-    <ul>
-      <li><a href='#summary'>简单摘要</a></li>
-      <li><a href='#innovation'>核心创新</a></li>
-      <li><a href='#technical'>技术细节</a></li>
-      <li><a href='#experiment'>实验结论</a></li>
-      <li><a href='#takeaway'>理解评价</a></li>
-    </ul>
-  </aside>
 
+<div class='layout'>
+  <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
   <article class='article'>
     <h1>GaussFusion</h1>
-    <p class='meta'>原论文：<a href='https://arxiv.org/abs/2603.25053v2' target='_blank'>GaussFusion: Improving 3D Reconstruction in the Wild with A Geometry-Informed Video Generator</a> · 中文精读</p>
+    <p class='meta'>原论文：<a href='https://arxiv.org/abs/2603.25053v2' target='_blank'>GaussFusion Improving 3D Reconstruction in the Wild with A Geometry-Informed Vid</a> · 中文精读</p>
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      GaussFusion 把五路几何线索（颜色、透明度、深度、法线、逆协方差）组织成 GP-Buffer，通过轻量 Geometry Adapter 显式注入 Wan-2.1 视频生成骨干，让"去伪影"不再只靠 RGB 猜测；配合跨管线伪影合成数据（75K+ 对），同一模型可同时处理优化式和前馈式两类 3DGS 管线，蒸馏后变体在单 H200 上达到 <strong>16 FPS 实时推理</strong>。
+      真实感 3D 重建和新颖视图合成是计算机视觉中的基本问题，在虚拟现实、自动驾驶和机器人技术中都有应用。作者的主线做法是：3D 高斯泼溅已成为高质量重建和渲染的流行表示。 更关键的是，为了解决这些限制，有几种方法探索了利用生成先验通过生成密集的新颖视图图像来增强 3D 重建。从结果上看，在实践中，这种有限的条件使得这些方法主要有效地纠正轻微的模糊或颜色变化，但它们无法解决更具挑战性的伪影，例如大飞蚊症、缺失区域和几何错误，这些伪影依赖于。
     </div>
 
     <h2 id='summary'>简单摘要</h2>
-    <p>3DGS 在真实采集场景中普遍存在三类伪影：<strong>漂浮体（floaters）、闪烁（flickering）和模糊（blur）</strong>，根源分别是相机位姿误差、视角覆盖不足和几何初始化噪声。</p>
-    <p>现有仅靠 RGB 条件的生成修复方法（Difix3D+、GenFusion、ExploreGS）有两类根本局限：第一，对大型漂浮体、缺失区域、几何误差等严重伪影几乎无能为力；第二，专为优化式 3DGS 训练的修复模型无法泛化到前馈式重建（DepthSplat、MVSplat），反而引入新退化，反之亦然——论文实验中 Difix3D+ 和 ExploreGS 在 MVSplat 输出上 PSNR 均<em>下降</em>。</p>
-    <p>GaussFusion 在已有 3DGS 重建基础上做后融合增强：先从 Gaussian 图元属性中提取五路像素对齐信号组成 <strong>GP-Buffer</strong>（颜色 C、透明度 A、深度 D、法线 N、逆协方差 U），送进以 Wan-2.1-1.3B 为骨干的视频生成模型进行时序一致细化，再将生成的新视角帧反哺 3DGS 参数优化。</p>
-    <figure><img class='paper-fig' src='../assets/2603_25053v2/figure1_focus.png' alt='Figure 1' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：GaussFusion 总体流程。输入为任意来源的 3DGS（优化式 Splatfacto 或前馈式 DepthSplat / MVSplat 均可），先渲染 GP-Buffer，经视频生成器细化后输出无伪影帧，并可将生成帧反哺 3DGS 参数优化。</figcaption></figure>
-    <p>关键量化证据：DL3DV 数据集上 GaussFusion (Full) PSNR 达 22.55（基础 Splatfacto 为 17.42，<strong>+5 dB</strong>）；RE10K 上从 19.23 提升至 28.65（<strong>+9.4 dB</strong>）；4 步蒸馏变体仍达 22.49 PSNR、0.842 SSIM，速度为 <strong>15.11 FPS</strong>。</p>
-    <figure><img class='paper-fig' src='../assets/2603_25053v2/figure2_full.png' alt='Figure 2' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：Geometry Adapter 架构。GP-Buffer 各模态经冻结 Wan VAE 独立编码，拼接后通过 3D 卷积、Self-Attention 和 Cross-Attention（结合文本描述）处理，以门控残差方式注入 Wan DiT 骨干，不修改原始 DiT 权重。Wan DiT 共 30 块，每 2 块后插 1 个 GA 块 = 共 15 个 GA 块，引入 0.6B 参数。</figcaption></figure>
-    <blockquote>"几何约束的视频修复器"：目标不是让结果好看，而是让结果在 3D 上同样合理——且以接近实时（16 FPS）的速度做到。</blockquote>
+
+<figure><img class='paper-fig' src='../assets/2603_25053v2/fig_1.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：图 1：GaussFusion 概述。给定多视图图像作为输入，我们首先使用每场景优化或前馈重建模型 [20, 60] 获得初始 3D 高斯泼溅 (3DGS) [25] 重建。重建经常表现出视觉噪声和几何伪影（PSNR = 17.2。</figcaption></figure>
+<figure><img class='paper-fig' src='../assets/2603_25053v2/fig_2.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：图 2：该图展示了论文中的关键模块、实验设置或可视化效果。</figcaption></figure>
+    <p>真实感 3D 重建和新颖视图合成是计算机视觉中的基本问题，在虚拟现实、自动驾驶和机器人技术中都有应用。作者的主线做法是：3D 高斯泼溅已成为高质量重建和渲染的流行表示。</p>
+    <p>更关键的是，为了解决这些限制，有几种方法探索了利用生成先验通过生成密集的新颖视图图像来增强 3D 重建。从结果上看，在实践中，这种有限的条件使得这些方法主要有效地纠正轻微的模糊或颜色变化，但它们无法解决更具挑战性的伪影，例如大飞蚊症、缺失区域和几何错误，这些伪影依赖于。</p>
 
     <h2 id='innovation'>核心创新</h2>
-    <h3>1）问题定义与研究动机</h3>
-    <p>作者的核心论断：现有方法根本局限是"条件信息不够"——仅靠 RGB 渲染作为条件，当伪影严重时生成模型本质上在猜颜色，而非理解几何。</p>
-    <p>另一个被忽视的问题是<strong>跨管线泛化失败</strong>。优化式 3DGS 主要产生高频漂浮体和"针状"过拉伸 Gaussian（根源：过拟合/高方差）；前馈式方法产生低频模糊和全局深度扭曲（根源：回归均值/不确定性）。两类失效模式截然不同，导致专为一类管线训练的修复模型在另一类上有害。论文实验验证了这一点，Difix3D+/ExploreGS 在 RE10K 的前馈设置上 PSNR 均下降。</p>
-    <p>由此提炼出两个关键洞察：(i) 引入完整 3DGS 几何属性（深度、法线、透明度、协方差）而非仅 RGB；(ii) 构建覆盖两类退化的综合数据合成管线是泛化能力的关键来源。</p>
-
-    <h3>2）GP-Buffer：统一几何信息接口</h3>
-    <p>GP-Buffer 直接从已有 Gaussian 图元属性中提取五路像素对齐信号，无需额外 3D 重建步骤：</p>
-    <ul>
-      <li><strong>颜色 C</strong>：标准 alpha-blending 渲染图，携带纹理外观及颜色漂移/模糊等伪影特征；</li>
-      <li><strong>透明度 A</strong>：每像素累积不透明度，低值区域通常是空洞，高覆盖下仍有大量 Gaussian 叠加则预示漂浮体；</li>
-      <li><strong>深度 D</strong>：Expected Depth 模式（ED），暴露深度出血和表面不连续；</li>
-      <li><strong>法线 N</strong>：相机坐标系位置图有限差分叉积归一化，提供表面朝向，仅在不透明度 $A > \tau$ 处计算以防轮廓混叠；</li>
-      <li><strong>逆协方差 U</strong>：三通道各向异性/不确定性图——高频重建区域值大，低纹理/大 Gaussian 区域值小，作为"结构可信度指示器"，消融中带来最大单步 PSNR 增益（+0.79 dB）。</li>
-    </ul>
-
-    <h3>3）Geometry Adapter：高效几何注入</h3>
-    <p>GA 以并行侧网络形式附着 Wan DiT 主干，每两个 DiT block 后插入一个 GA block，共 15 个 GA block，引入约 0.6B 参数（主干 1.3B，GA 占总参数 31%）。训练时主干全程冻结，仅更新 GA 层。相比全量微调 DiT，GA 方案收敛快约 2 倍（全 DiT 需 2× 训练时长才能追平），且消融实验中去掉 GA 改用简单卷积 PSNR 从 22.55 降至 20.90。</p>
-
-    <h3>4）跨范式适配定量验证</h3>
-    <p>RE10K 前馈修复实验：DepthSplat + GaussFusion PSNR 21.77→22.80；MVSplat + GaussFusion PSNR 18.74→19.76（与专为 MVSplat 定制的 MVSplat360 的 19.82 接近，但无需绑定特定架构）。联合训练（优化式 + 前馈式混合数据）比单数据集训练进一步提升，说明跨管线数据相互增益。</p>
-
-    <h3>5）75K+ 伪影合成数据与 DMD 高效蒸馏</h3>
-    <p>训练数据：75K+ 配对视频（DL3DV + RE10K），每视频 81 帧、480×832，文本描述由 Gemini-Flash-2.5 自动生成。四类退化：随机稀疏视角（5% 帧，非均匀）、多样化初始化（SfM / 随机点云 / MapAnything）、不同优化步数（3K/7K/30K）、前馈式退化（DepthSplat/MVSplat 三视角输入）。高效推理：DMD 蒸馏 → 4 步生成器 → 冻结主干仅微调 GA 层，最终达到 15.11 FPS。</p>
+    <p>这篇工作的创新不是简单堆模块，而是把问题重新定义为：摘要我们提出了 GaussFusion，这是一种通过几何信息视频生成来改进 3D 高斯泼溅 (3DGS) 重建的新颖方法。</p>
+    <p>第二个关键新意在于：与之前仅限于单个重建管道的基于 RGB 的方法不同，我们的方法引入了几何信息视频到视频生成器，该生成器可以跨基于优化的方法和前馈方法细化 3DGS 渲染。这使方法不只是能生成结果，更能解释为什么会有效。</p>
+    <p>再往后看，我们进一步引入了一个工件合成管道，可以模拟不同的退化模式，确保鲁棒性和泛化性。这也是它和纯工程拼装方案拉开差距的地方。</p>
 
     <h2 id='technical'>技术细节</h2>
-    <p>完整方法链路：初始 3DGS → 渲染 GP-Buffer 五路 → VAE 编码拼接 → Geometry Adapter 注入 Wan DiT → Flow Matching 视频细化 → B 样条轨迹采样新视角 → 反哺 3DGS 优化。</p>
-
-    <h3>3DGS 基础表示与渲染</h3>
-    <p>场景由 $N$ 个各向异性 3D Gaussian 图元组成：$\mathcal{G} = \{(\mathbf{p}_i, \alpha_i, \mathbf{c}_i, \mathbf{q}_i, \mathbf{s}_i)\}_{i=1}^N$，3D 协方差 $\mathbf{\Sigma}_i = \mathbf{R}_i\mathbf{S}_i\mathbf{S}_i^\top\mathbf{R}_i^\top$ 投影为 2D $\mathbf{\Sigma}_i' = \mathbf{J}\mathbf{W}\mathbf{\Sigma}_i\mathbf{W}^\top\mathbf{J}^\top$。像素颜色由深度排序 $\alpha$-合成：</p>
-    <p>$$ \mathbf{C}(\mathbf{u}) = \sum_{i=1}^{N} \mathbf{c}_i' \gamma_i \prod_{j=1}^{i-1}(1-\gamma_j) $$</p>
-    <p>其中 $\mathbf{c}_i'$ 是视角相关颜色，$\gamma_i$ 是学习透明度 $\alpha_i$ 与 2D Gaussian 评估值的乘积。这条式子揭示了伪影的累积机制：任一 Gaussian 的位置/尺度/透明度不准都会以递推方式污染整个像素颜色，这也是仅从最终 RGB 反推错误来源如此困难的根因。</p>
-    <p>3DGS 训练损失：</p>
-    <p>$$ \mathcal{L} = (1-\lambda)\mathcal{L}_{L_1}(\mathbf{C},\mathbf{C}_{\text{gt}})+\lambda\mathcal{L}_{\text{D-SSIM}}(\mathbf{C},\mathbf{C}_{\text{gt}}) $$</p>
-    <p>$L_1$ 约束像素误差，D-SSIM 约束结构感知；前馈式方法（DepthSplat、MVSplat 等）同样使用此损失监督，通过网络 $f_\theta$ 从少量输入图像直接预测完整 Gaussian 参数。</p>
-
-    <h3>Flow Matching 视频生成基础</h3>
-    <p>骨干模型为 Wan-2.1-1.3B（30 个 DiT block，隐层维度 1536）。给定目标 $x_1$（干净视频 latent）和噪声 $x_0 \sim \mathcal{N}(0,I)$，中间状态线性插值，真实速度场 $v_t = x_1 - x_0$：</p>
-    <p>$$ x_t = t x_1 + (1-t)x_0 $$</p>
-    <p>速度网络 $u_\theta$ 通过均方误差学习，条件 $c = \mathbf{z}_{\mathcal{G}}$（GP-Buffer latent）：</p>
-    <p>$$ \mathcal{L}=\mathbb{E}_{x_0,x_1,c,t}\left[\|u_\theta(x_t,c,t)-v_t\|^2\right] $$</p>
-    <p>视频由 Wan-2.1 VAE 压缩到 latent 空间（空间 ×1/8，时间 ×1/4：81 帧 → 21 latent 帧，480×832 → 60×104 latent 分辨率）。推理时从 $t=0$ 积分至 $t=1$；完整模型 30–50 步，蒸馏后仅需 4 步。</p>
-
-    <h3>GP-Buffer 五路信号详细构造</h3>
-    <p>$$ \mathcal{G}=\{\mathbf{C},A,D,\mathbf{N},\mathbf{U}\} $$</p>
-    <p>每路尺寸 $\mathbb{R}^{W \times H \times \{1,3\} \times T}$：</p>
-    <h4>颜色 C 与透明度 A</h4>
-    <p>直接来自标准 3DGS 光栅化。透明度 $A$ 揭示覆盖质量：$A \approx 0$ 区域通常是空洞，高透明度下多 Gaussian 叠加则预示漂浮体。</p>
-    <h4>深度 D</h4>
-    <p>采用 Expected Depth（ED）模式：对所有贡献 Gaussian 计算 alpha 加权平均深度。相比 Median Depth，ED 对噪声 Gaussian 更鲁棒，可靠地暴露深度出血和表面不连续区域。</p>
-    <h4>法线 N</h4>
-    <p>由相机坐标系位置图 $\mathbf{P}_{\text{cam}}$ 的有限差分叉积归一化得到：</p>
-    <p>$$ \mathbf{N}(\mathbf{u})=\operatorname{normalize}\!\left(\partial_u\mathbf{P}_{\text{cam}}\times\partial_v\mathbf{P}_{\text{cam}}\right) $$</p>
-    <p>仅在 $A(\mathbf{u}) > \tau$ 的像素处计算（防止前景/背景轮廓处混叠，其余置零）。向生成器提供局部表面朝向，对边界连续性和薄结构区域尤关键。</p>
-    <h4>逆协方差 / 不确定性 U</h4>
-    <p>对每个 Gaussian 将投影 2D 协方差的逆 $(\mathbf{\Sigma}_i')^{-1}$ 分解为三个唯一元素 $\mathbf{u}_i = [a_i, b_i, c_i]$，再通过 alpha-blending 累积：$\mathbf{U}(\mathbf{u}) \in \mathbb{R}^3$。低纹理区域少数大 Gaussian，逆协方差值小；高频高质量区域 Gaussian 小而密，逆协方差值大。该通道让模型感知"哪里重建可信，哪里是稀疏猜测"，单步带来最大 PSNR 增益（+0.79 dB，FID 从 8.61 降至 6.72）。</p>
-    <p>实测 Wan VAE 对深度/alpha 的重建相对误差仅 0.4%~0.75%，法线和协方差稍大（~13%~15%），但在可接受范围内，可通过进一步微调 VAE 改善。</p>
-
-    <h3>Geometry Adapter 详细架构</h3>
-    <p>五路 latent（各 $\mathbb{R}^{\frac{W}{8}\times\frac{H}{8}\times C\times\frac{T}{4}}$）拼接：</p>
-    <p>$$ \operatorname{concat}(\mathbf{z}_\mathbf{C}, \mathbf{z}_A, \mathbf{z}_D, \mathbf{z}_\mathbf{N}, \mathbf{z}_\mathbf{U}) \in \mathbb{R}^{\frac{W}{8}\times\frac{H}{8}\times 5C\times\frac{T}{4}} $$</p>
-    <p>GA block 计算流程：</p>
-    <p>$$ \mathbf{z}_{\mathcal{G}}' = \operatorname{Conv3D}(\mathbf{z}_{\mathcal{G}}) $$</p>
-    <p>$$ \tilde{\mathbf{z}}_{\mathcal{G}} = \operatorname{SelfAttn}(\operatorname{LayerNorm}(\mathbf{z}_{\mathcal{G}}')) $$</p>
-    <p>$$ \mathbf{x}_g = \operatorname{FFN}\!\Big(\operatorname{CrossAttn}(\tilde{\mathbf{z}}_{\mathcal{G}}, \mathbf{x}_{\text{text}})\Big), \quad \mathbf{x} \leftarrow \mathbf{x} + \mathbf{x}_g $$</p>
-    <p>3D 卷积负责空间-时间维度对齐；Self-Attention 在几何 token 内部建立上下文；Cross-Attention 将文本描述（Gemini-Flash-2.5 自动生成的场景描述）注入几何特征；门控残差加回 DiT 流，保护主干不被干扰。训练时 DiT 主干全程冻结，仅 GA 层参与梯度更新。</p>
-
-    <h3>3D 重建更新：B 样条轨迹采样</h3>
-    <p>修复结果反哺 3DGS 参数优化的流程：在输入相机位姿间用 B 样条插值生成密集 novel view 轨迹，对位置、look-at 和 up 向量分别建立控制点，保证轨迹平滑且物理合理；沿轨迹光栅化 GP-Buffer → 视频生成器细化 → 将生成帧与原始输入合并 → 用标准光度损失（式 2）重新优化 3DGS，同步提升几何一致性与纹理保真度。</p>
-
-    <h3>两阶段高效微调（DMD 蒸馏）</h3>
-    <p><strong>阶段一：Base Model 蒸馏。</strong>对预训练文本到视频模型应用 DMD（分布匹配蒸馏），通过最小化 teacher 数据分布与 student 生成分布的反向 KL 散度，结合分布匹配损失与标准 flow 损失联合训练，将 30~50 步压缩为 4 步生成器。</p>
-    <p><strong>阶段二：Adapter 微调。</strong>冻结蒸馏 DiT 全部参数，仅微调 GA 层，此阶段只用 flow matching 损失。蒸馏变体 PSNR 22.49（Full 22.55），RE10K SSIM 0.952 甚至略优于 Full（0.944），仅 FID 略高（DL3DV: 7.38 vs 3.93），代价是减少去噪步数后的高频细节损失。</p>
-
-    <figure><img class='paper-fig' src='../assets/2603_25053v2/figure3_full.png' alt='Figure 3' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：跨重建范式定性对比。GaussFusion 对优化式（上行）与前馈式（下行）初始重建均提供稳定增益；Difix3D+、ExploreGS 在前馈式输入上出现额外退化，与定量结果一致。</figcaption></figure>
-    <figure><img class='paper-fig' src='../assets/2603_25053v2/figure4_full.png' alt='Figure 4' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：四类高难任务定性对比（inpainting、outpainting、去模糊、错误几何修正）。几何条件注入后漂浮点和边界噪声明显减少，细节更锐利且跨视角结构一致。</figcaption></figure>
-    <figure><img class='paper-fig' src='../assets/2603_25053v2/figure5_full.png' alt='Figure 5' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：GP-Buffer 输入模态消融可视化。仅 RGB 时有明显残留伪影；逐步加入 Depth、Normal、Alpha、Covariance 后效果持续改善，完整 GP-Buffer 输入下结果最清晰，与定量消融数据吻合。</figcaption></figure>
+    <p>方法主线可以概括为：摘要我们提出了 GaussFusion，这是一种通过几何信息视频生成来改进 3D 高斯泼溅 (3DGS) 重建的新颖方法。</p>
+    <p>其中最关键的一环是：与之前仅限于单个重建管道的基于 RGB 的方法不同，我们的方法引入了几何信息视频到视频生成器，该生成器可以跨基于优化的方法和前馈方法细化 3DGS 渲染。这样设计直接带来的作用是：给定现有的重建，我们渲染一个编码深度、法线、不透明度和协方差的高斯基元视频缓冲区，生成器对其进行细化以产生时间连贯的、无伪影的帧。</p>
+    <p>从训练和推理角度看，作者还特别处理了：3D 高斯泼溅 [25] 已成为高质量重建和渲染的流行表示。</p>
+    <p>$$ \mathbf{C}(\mathbf{u}) = \sum_{i=1}^{N} \mathbf{c}_i' \gamma_i \prod_{j=1}^{i-1} (1 - \gamma_j) $$</p>
+    <p>这组公式用于定义模型中的变量关系和训练目标。建议先看左侧要预测的对象，再看右侧每一项如何约束优化方向。</p>
+    <p>$$ \mathcal{L} = (1 - \lambda) \mathcal{L}_{L_1}(\mathbf{C}, \mathbf{C}_{\text{gt}}) + \lambda \mathcal{L}_{\text{D-SSIM}}(\mathbf{C}, \mathbf{C}_{\text{gt}}). $$</p>
+    <p>该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 L、L、L_1、C 等变量构成的约束和聚合方式。</p>
+    <p>$$ x_t = t x_1 + (1-t)x_0, $$</p>
+    <p>该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 x_t、t、x_1、t 等变量构成的约束和聚合方式。</p>
+    <p>$$ \mathcal{L} = \mathbb{E}_{x_0, x_1, c, t} \left[\|u_\theta(x_t, c, t) - v_t\|^2\right], $$</p>
+    <p>该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 L、E、x_0、x_1 等变量构成的约束和聚合方式。</p>
+    <p>$$ \mathcal{G} = \{\mathbf{C}, A, D, \mathbf{N}, \mathbf{U}\}, $$</p>
+    <p>这组公式用于定义模型中的变量关系和训练目标。建议先看左侧要预测的对象，再看右侧每一项如何约束优化方向。</p>
+    <p>$$ \mathbf{N}(\mathbf{u}) = \operatorname{normalize}\!\left(\partial_u \mathbf{P}_{\text{cam}} \times \partial_v \mathbf{P}_{\text{cam}}\right), $$</p>
+    <p>该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 N、u、P、P 等变量构成的约束和聚合方式。</p>
+    <p>$$ \operatorname{concat}(\mathbf{z}_{\mathbf{C}}, \mathbf{z}_{A}, \mathbf{z}_{D}, \mathbf{z}_{\mathbf{N}}, \mathbf{z}_{\mathbf{U}}) \in \mathbb{R}^{\frac{W}{8} \times \frac{H}{8} \times 5C \times \frac{T}{4}}. $$</p>
+    <p>该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 z、C、z、A 等变量构成的约束和聚合方式。</p>
+<figure><img class='paper-fig' src='../assets/2603_25053v2/fig_3.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：图 3：该图展示了论文中的关键模块、实验设置或可视化效果。</figcaption></figure>
+<figure><img class='paper-fig' src='../assets/2603_25053v2/fig_4.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：图 4：该图展示了论文中的关键模块、实验设置或可视化效果。</figcaption></figure>
+<figure><img class='paper-fig' src='../assets/2603_25053v2/fig_5.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：图 5：该图展示了论文中的关键模块、实验设置或可视化效果。</figcaption></figure>
+<figure><img class='paper-fig' src='../assets/2603_25053v2/fig_6.png' alt='Figure 6:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 6：图 6：该图展示了论文中的关键模块、实验设置或可视化效果。</figcaption></figure>
 
     <h2 id='experiment'>实验结论</h2>
-    <h3>主实验：渲染细化性能（DL3DV + RE10K，稀疏 5% 视角）</h3>
-    <div class='card' style='overflow-x:auto;'>
-      <table class='dtable'>
-        <thead><tr>
-          <th>方法</th>
-          <th>DL3DV PSNR&uarr;</th><th>SSIM&uarr;</th><th>LPIPS&darr;</th>
-          <th>RE10K PSNR&uarr;</th><th>SSIM&uarr;</th><th>LPIPS&darr;</th>
-          <th>速度</th>
-        </tr></thead>
-        <tbody>
-          <tr><td>Splatfacto（无修复）</td><td>17.42</td><td>0.605</td><td>0.412</td><td>19.23</td><td>0.708</td><td>0.457</td><td>118.3 FPS</td></tr>
-          <tr><td>GenFusion (CVPR 2025)</td><td>18.36</td><td>0.690</td><td>0.391</td><td>20.62</td><td>0.796</td><td>0.344</td><td>1.1 FPS</td></tr>
-          <tr><td>Difix3D+ (CVPR 2025)</td><td>20.10</td><td>0.765</td><td>0.302</td><td>24.35</td><td>0.868</td><td>0.275</td><td>12.8 FPS</td></tr>
-          <tr><td>ExploreGS (ICCV 2025)</td><td>20.69</td><td>0.760</td><td>0.345</td><td>24.03</td><td>0.874</td><td>0.272</td><td>1.2 FPS</td></tr>
-          <tr class='hl'><td><strong>GaussFusion (Full)</strong></td><td><strong>22.55</strong></td><td><strong>0.832</strong></td><td><strong>0.278</strong></td><td><strong>28.65</strong></td><td><strong>0.944</strong></td><td><strong>0.180</strong></td><td>4.3 FPS</td></tr>
-          <tr class='hl'><td><strong>GaussFusion (Few-step, 4步蒸馏)</strong></td><td>22.49</td><td>0.842</td><td>0.288</td><td>28.25</td><td>0.952</td><td>0.184</td><td><strong>15.11 FPS</strong></td></tr>
-        </tbody>
-      </table>
-    </div>
-    <p style='font-size:13px;color:#666;margin-top:6px;'>GaussFusion (Single)（仅 DL3DV 单数据集训练）已超越所有基线；联合训练（Full）进一步提升，说明跨数据集、跨管线多样退化训练有额外增益。Few-step 变体 SSIM 在 RE10K 上略优于 Full（0.952 vs 0.944），仅 FID 因减少去噪步数略高（7.38 vs 3.93）。</p>
+    <p>实验主要围绕一个核心问题展开：我们在常见的小说视图综合基准上评估我们的方法。</p>
+    <p>从主要对比结果看，我们将我们的方法与开源、最先进的方法进行比较，包括 DiFiX3D+ 、 GenFusion 和 ExploreGS。定性结果和消融实验进一步说明：我们还与 MVSplat360 的前馈视图合成（与 MVSplat 结合的模型）进行比较。</p>
 
-    <h3>前馈式重建修复（RE10K，5% 稀疏视角）</h3>
-    <p>最具说服力的跨管线泛化实验：GaussFusion 从未在 MVSplat 数据上训练，却接近专门定制的 MVSplat360。</p>
-    <div class='card' style='overflow-x:auto;'>
-      <table class='dtable'>
-        <thead><tr><th>前馈方法 + 修复策略</th><th>PSNR&uarr;</th><th>SSIM&uarr;</th><th>LPIPS&darr;</th><th>FID&darr;</th></tr></thead>
-        <tbody>
-          <tr><td>DepthSplat（无修复）</td><td>21.77</td><td>0.842</td><td>0.278</td><td>28.90</td></tr>
-          <tr><td>&nbsp;+ Difix3D+</td><td>21.42 ↓</td><td>0.837</td><td>0.303</td><td>17.97</td></tr>
-          <tr><td>&nbsp;+ ExploreGS</td><td>21.20 ↓</td><td>0.816</td><td>0.317</td><td>35.48</td></tr>
-          <tr class='hl'><td><strong>&nbsp;+ GaussFusion (Ours)</strong></td><td><strong>22.80</strong></td><td><strong>0.848</strong></td><td><strong>0.258</strong></td><td><strong>15.13</strong></td></tr>
-          <tr><td>MVSplat（无修复）</td><td>18.74</td><td>0.706</td><td>0.375</td><td>44.48</td></tr>
-          <tr><td>&nbsp;+ Difix3D+</td><td>18.26 ↓</td><td>0.702</td><td>0.385</td><td>23.95</td></tr>
-          <tr><td>&nbsp;+ MVSplat360（专门定制）</td><td>19.82</td><td>0.747</td><td>0.354</td><td>36.82</td></tr>
-          <tr class='hl'><td><strong>&nbsp;+ GaussFusion（零样本泛化）</strong></td><td><strong>19.76</strong></td><td><strong>0.744</strong></td><td><strong>0.338</strong></td><td><strong>23.82</strong></td></tr>
-        </tbody>
-      </table>
-    </div>
-    <p style='font-size:13px;color:#666;margin-top:6px;'>Difix3D+ 和 ExploreGS 在两种前馈式输入上 PSNR 均下降（↓），印证了跨管线泛化失败的真实存在。GaussFusion 未见 MVSplat 数据，PSNR 和 LPIPS 仍与 MVSplat360 接近或更优，FID 大幅更低（23.82 vs 36.82）。</p>
-
-    <h3>消融实验：输入模态逐步累加（DL3DV，1/3 数据）</h3>
-    <div class='card' style='overflow-x:auto;'>
-      <table class='dtable'>
-        <thead><tr><th>输入模态组合</th><th>PSNR&uarr;</th><th>SSIM&uarr;</th><th>LPIPS&darr;</th><th>FID&darr;</th></tr></thead>
-        <tbody>
-          <tr><td>RGB 仅</td><td>19.15</td><td>0.719</td><td>0.385</td><td>15.45</td></tr>
-          <tr><td>RGB + Depth</td><td>19.29</td><td>0.726</td><td>0.361</td><td>10.54</td></tr>
-          <tr><td>RGB + Depth + Normal</td><td>19.74</td><td>0.738</td><td>0.355</td><td>10.29</td></tr>
-          <tr><td>RGB + Depth + Normal + Alpha</td><td>19.96</td><td>0.748</td><td>0.344</td><td>8.61</td></tr>
-          <tr class='hl'><td><strong>完整 GP-Buffer（+ Covariance）</strong></td><td><strong>20.75</strong></td><td><strong>0.773</strong></td><td><strong>0.329</strong></td><td><strong>6.72</strong></td></tr>
-        </tbody>
-      </table>
-    </div>
-    <p style='font-size:13px;color:#666;margin-top:6px;'>Depth 加入后 FID 从 15.45 骤降至 10.54（对跨视角几何一致性帮助最大）。Covariance 单步带来最大 PSNR 增益（+0.79 dB），FID 从 8.61 降至 6.72，证实逆协方差作为"结构可信度指示器"的独特价值。</p>
-
-    <h3>消融实验：数据策略 × 架构设计</h3>
-    <div class='card' style='overflow-x:auto;'>
-      <table class='dtable'>
-        <thead><tr><th>数据合成策略</th><th>架构</th><th>PSNR&uarr;</th><th>SSIM&uarr;</th><th>LPIPS&darr;</th><th>FID&darr;</th></tr></thead>
-        <tbody>
-          <tr><td>Baseline（均匀下采样）</td><td>w/ GA</td><td>21.09</td><td>0.789</td><td>0.303</td><td>5.72</td></tr>
-          <tr><td>Ours（多样化合成）</td><td>w/o GA（简单卷积）</td><td>20.90</td><td>0.794</td><td>0.308</td><td>5.30</td></tr>
-          <tr class='hl'><td><strong>Ours（多样化合成）</strong></td><td><strong>w/ GA</strong></td><td><strong>22.55</strong></td><td><strong>0.832</strong></td><td><strong>0.278</strong></td><td><strong>3.93</strong></td></tr>
-        </tbody>
-      </table>
-    </div>
-    <p style='font-size:13px;color:#666;margin-top:6px;'>数据多样性和 GA 架构贡献量级相当，缺一不可：优质数据合成约贡献 +1.46 dB，GA 架构层级注入约贡献 +1.65 dB，两者叠加才达到最优（vs baseline+GA 差距约 1.46 dB，vs 我们数据+简单卷积差距约 1.65 dB）。</p>
-
-    <h3>对比直接生成基线</h3>
-    <p>以 Matrix3D 为代表的直接生成基线在 DL3DV 上 PSNR 仅 11.30，LPIPS 为 0.639；GaussFusion 达到 19.36 PSNR / 0.279 LPIPS，差距超过 8 dB。原因：直接生成缺乏显式 3D 投影约束，存在严重跨视角漂移；GaussFusion 通过光栅化解耦相机模型，数学上保证了投影正确性。</p>
 
     <h2 id='takeaway'>理解评价</h2>
-    <p>这篇论文最值得借鉴的是<strong>"信息接口设计"思路</strong>：不是盲目增大生成模型，而是先把几何信息组织成高信噪比的条件信号（GP-Buffer），再用轻量适配器（GA，仅增加 31% 参数）注入已有大型视频模型。"冻结主干、只动适配器"的哲学让方法保留了生成先验，同时注入几何约束，收敛速度也更快。</p>
-    <p>从研究闭环看，论文覆盖了问题定义（跨管线统一修复）、模块设计（GP-Buffer + GA）、数据构建（75K+ 多样退化）、逐组件消融、跨管线零样本验证和效率分析（DMD 蒸馏至 16 FPS），证据链相当完整。</p>
-
-    <h3>两类 3DGS 伪影的本质区别</h3>
-    <p>论文补充材料整理的伪影对比，是理解"为何同一模型可以处理两类管线"的关键：</p>
-    <div class='card' style='overflow-x:auto;'>
-      <table class='dtable'>
-        <thead><tr><th>维度</th><th>优化式 3DGS</th><th>前馈式 3DGS</th></tr></thead>
-        <tbody>
-          <tr><td>主要视觉缺陷</td><td>高频噪声（漂浮体）</td><td>低频模糊（过平滑）</td></tr>
-          <tr><td>几何伪影</td><td>"针状"过拉伸协方差</td><td>全局深度扭曲 / 尺度歧义</td></tr>
-          <tr><td>未见区域</td><td>空洞 / Hole</td><td>模糊但合理（依赖学习先验）</td></tr>
-          <tr><td>误差来源</td><td>过拟合（高方差）</td><td>回归均值（不确定性导致）</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <p style='font-size:13px;color:#666;margin-top:6px;'>关键洞察：逆协方差通道（U）对两类伪影有可区分的特征响应——优化式过拟合产生大型针状漂浮体（逆协方差极大），前馈式过平滑 Gaussian 协方差均匀平稳（逆协方差值小）。这是 U 通道带来最大单步增益的深层原因。</p>
-
-    <h3>局限性与未来方向</h3>
-    <p>作者诚实列出的当前局限：</p>
-    <ul>
-      <li><strong>快速运动 / 运动模糊</strong>：VAE 对含严重运动模糊视频的 latent 编码质量较差，导致生成质量下降；</li>
-      <li><strong>长视频一致性</strong>：上下文窗口为 81 帧；更长视频采用双向滑动窗口策略，无法完全保证跨窗口长期相干性；</li>
-      <li><strong>上游几何误差上限</strong>：若上游重建几何误差过大（如极端稀疏视角下连场景轮廓都错误），后融合修复无法凭空"发明"未见结构。</li>
-    </ul>
-    <p>作者提出的未来方向：引入 self-forcing 等更好的蒸馏技术支持因果流式推理（KV cache 滚动）；开发可在线直接更新 3DGS 参数的生成机制，实现动态场景流式细化；对法线和协方差通道微调 VAE 以减少重建误差。</p>
-
-    <p>以下相关论文可以作为进一步追踪的入口：</p>
-    <ul>
-      <li><strong>2603.25053v2</strong>（2026-03-26）— <a href='http://arxiv.org/abs/2603.25053v2' target='_blank'>GaussFusion：使用几何信息视频生成器改进野外 3D 重建</a>（含项目主页视频演示）</li>
-      <li><strong>Difix3D+</strong>（CVPR 2025）— 基于图像扩散模型的逐帧 3DGS 修复，缺乏多视角一致性，是本文主要对比基线；</li>
-      <li><strong>GenFusion</strong>（CVPR 2025）— 视频扩散修复，仅 RGB 条件，时序一致性弱；</li>
-      <li><strong>Wan-2.1-1.3B</strong>（2025）— GaussFusion 所基于的文本到视频生成基础模型；</li>
-      <li><strong>DepthSplat / MVSplat</strong>（2024）— 代表性前馈式 3DGS 方法，本文跨管线零样本验证的主要评估对象。</li>
-    </ul>
-
-    <div class='tip'>
-      <strong>一句结论：</strong>
-      GaussFusion 通过 GP-Buffer 接口设计 + Geometry Adapter 注入 + 75K+ 多样退化合成三板斧，把"后处理修图"升级成"几何约束的视频级重建增强"，在不重写上游系统的情况下实现了跨优化式与前馈式管线的统一修复，并以 16 FPS 达到实时推理，工程可用性与方法创新结合得相当好。
-    </div>
+    <p>从整篇论文看，它的真正贡献是：我们提出了一种通过几何信息视频生成来改进野外 3D 高斯泼溅 (3DGS) 重建的新方法，而不是单纯把扩散模型继续微调。作者把问题落在“分布外驾驶场景如何稳定生成”这个更关键的缺口上。</p>
+    <p>它最有说服力的地方在于：减轻常见的 3DGS 伪影，包括由相机姿势错误、不完整的覆盖范围和嘈杂的几何初始化引起的漂浮物、闪烁和模糊。这说明论文的方法链路——3D 点云编辑、车辆补全、再到 RL 后训练——是前后闭合的，而不是各模块各自堆叠。</p>
+    <p>主要局限在于：我们在 Supp 中讨论我们的局限性和未来的工作。如果继续往前推进，一个自然方向是把更长时序、更低成本训练和更广泛的 OOD 场景覆盖一起纳入统一评估。</p>
+    <p>以下相关论文可作为延伸阅读：</p>
+    <ul></ul>
   </article>
 </div>
+
   </div>
 </div>
 </body>
