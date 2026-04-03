@@ -168,7 +168,7 @@
     <p>本文关注一个常见但棘手的问题：3DGS 在真实采集场景中往往会出现漂浮伪影、闪烁和模糊，尤其在稀疏视角或相机位姿不够准时更明显。很多后处理方法能修一点外观，但经常把几何结构也“修坏”。</p>
     <p>GaussFusion 的策略不是替换现有重建器，而是在已有 3DGS 的基础上做后融合增强。它先渲染多模态 GP-Buffer（颜色、深度、法线、透明度、协方差/不确定性），再把这些信号送进视频生成模型进行时序一致的细化。</p>
     <p>相比只看 RGB，这种几何感知输入让模型更容易判断“哪里是真结构、哪里是伪影”，因此在复杂区域和跨视角渲染下更稳定。</p>
-    <figure><img class='paper-fig' src='../assets/2603_25053v2/figure1_full.png' alt='Figure 1' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：GaussFusion 总体流程。先得到初始 3DGS（可来自优化式或前馈式管线），再构造 GP-Buffer 并进行视频级细化，最终输出更干净且时序一致的新视角结果。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2603_25053v2/figure1_focus.png' alt='Figure 1' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：GaussFusion 总体流程。先得到初始 3DGS（可来自优化式或前馈式管线），再构造 GP-Buffer 并进行视频级细化，最终输出更干净且时序一致的新视角结果。</figcaption></figure>
     <figure><img class='paper-fig' src='../assets/2603_25053v2/figure2_full.png' alt='Figure 2' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：几何条件注入细节。重点不是“单纯增强图像”，而是把几何潜变量以适配器形式注入生成主干，提升结构可控性。</figcaption></figure>
     <blockquote>可以把它理解成“几何约束的视频修复器”：不是只让结果更好看，而是尽量让结果在 3D 上也更合理。</blockquote>
 
@@ -182,7 +182,8 @@
     <p>这套设计的含义很明确：模型决策不再只依赖纹理外观，而是能够利用表面朝向、深度关系和不确定性进行结构级修复。</p>
 
     <h3>3）跨范式适配能力</h3>
-    <p>论文强调其“上游无关性”：不论初始重建来自 per-scene optimization 还是 feed-forward 预测，都可以接到同一个修复头。这一点对实际部署价值很高，因为真实项目里的重建来源往往并不统一。</p>
+    <p>这部分作者想表达得很实际：不管你的上游系统是哪一种（传统逐场景优化，或一次前向预测的前馈模型），都可以直接接这个修复模块，不需要重写前面的重建系统。</p>
+    <p>换句话说，它解决的是“兼容性”问题：同一套修复头可以服务不同来源的 3DGS 结果，这对真实工程里多来源数据混用非常关键。</p>
 
     <h3>4）训练数据与退化模拟</h3>
     <p>作者构建了专门的伪影合成流程，模拟真实场景中的漂浮、模糊和抖动退化，并配合视频级训练提升时间一致性。这部分不是锦上添花，而是模型泛化能力的关键来源。</p>
@@ -216,7 +217,7 @@
     <p>实验部分核心结论有三条：第一，GaussFusion 在常见重建指标和视觉质量上均有提升；第二，提升主要来自几何条件而非单纯模型规模；第三，这种提升在跨管线设置下依旧成立。</p>
     <p>消融实验显示，如果去掉关键几何通道，模型在噪声区域的恢复能力明显下降，说明“几何可见性”是方法有效性的根因。</p>
     <p>作者还给出了高效变体，说明该方案不仅适合离线高质量重建，也具备向交互式应用迁移的潜力。</p>
-    <figure><img class='paper-fig' src='../assets/2603_25053v2/fig_6.png' alt='Figure 6' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 6：综合实验对比汇总。GaussFusion 在质量与一致性维度相较基线都有明显优势。</figcaption></figure>
+    <p>这篇论文正文主要公开了前 5 幅图；实验节这里不再硬插不对应截图，避免“图和注释不一致”的问题。</p>
 
     <h2 id='takeaway'>理解评价</h2>
     <p>我认为这篇论文最值得借鉴的是“信息接口设计”思路：先把几何信息组织好，再交给生成器做修复，而不是盲目堆大模型。</p>
