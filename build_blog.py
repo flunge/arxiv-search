@@ -33,19 +33,75 @@ DEEP_DIVE_SECTION_ITEMS = [
     ("takeaway", "理解评价"),
 ]
 
+QUALITY_NOISE_TOKENS = [
+    "project page",
+    "mmlab",
+    "cuhk",
+    "casia",
+    "sensetime research",
+]
+
+TAKEAWAY_LIMITATION_TOKENS = ["局限", "限制", "不足", "边界", "代价", "成本"]
+TAKEAWAY_IMPROVEMENT_TOKENS = ["改进", "未来", "方向", "下一步", "扩展", "提升"]
+
 TRANSLATION_CACHE_NAME = ".translation_cache.json"
+REWRITE_CACHE_NAME = ".rewrite_cache.json"
+REWRITE_STYLE_VERSION = "v6"
 SOURCE_CACHE_DIRNAME = ".arxiv_source_cache"
+
+_DOTENV_VALUES: Optional[Dict[str, str]] = None
+
+
+def _load_dotenv_values() -> Dict[str, str]:
+    global _DOTENV_VALUES
+    if _DOTENV_VALUES is not None:
+        return _DOTENV_VALUES
+
+    dotenv_path = Path(__file__).resolve().parent / ".env"
+    values: Dict[str, str] = {}
+    if dotenv_path.exists():
+        try:
+            for raw in dotenv_path.read_text(encoding="utf-8-sig").splitlines():
+                line = raw.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                if line.startswith("export "):
+                    line = line[len("export "):].strip()
+                key, val = line.split("=", 1)
+                key = key.strip()
+                val = val.strip()
+                if val and ((val[0] == '"' and val[-1:] == '"') or (val[0] == "'" and val[-1:] == "'")):
+                    val = val[1:-1]
+                if key:
+                    values[key] = val
+        except Exception:
+            values = {}
+    _DOTENV_VALUES = values
+    return _DOTENV_VALUES
+
+
+def _get_env(name: str, default: str = "") -> str:
+    value = os.getenv(name)
+    if value:
+        return value
+    return _load_dotenv_values().get(name, default)
 
 
 def _render_page(title: str, body_html: str, include_mathjax: bool = False) -> str:
     mathjax_block = ""
     if include_mathjax:
-        mathjax_block = """
+        mathjax_block = r"""
   <script>
     window.MathJax = {
       tex: {
         inlineMath: [['$', '$'], ['\\(', '\\)']],
-        displayMath: [['$$', '$$'], ['\\[', '\\]']]
+        displayMath: [['$$', '$$'], ['\\[', '\\]']],
+        macros: {
+          mathds: ['\\mathbb{#1}', 1],
+          bm: ['\\boldsymbol{#1}', 1],
+          RR: '\\mathbb{R}',
+          EE: '\\mathbb{E}'
+        }
       },
       svg: { fontCache: 'global' },
       startup: {
@@ -57,7 +113,7 @@ def _render_page(title: str, body_html: str, include_mathjax: bool = False) -> s
       }
     };
   </script>
-  <script defer src=\"https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js\"></script>"""
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>"""
     return f"""<!doctype html>
 <html lang=\"zh-CN\">
 <head>
@@ -245,6 +301,357 @@ def _translation_cache_path(docs_dir: Path) -> Path:
 
 def _source_cache_dir(docs_dir: Path, arxiv_id: str) -> Path:
     return docs_dir / SOURCE_CACHE_DIRNAME / _slug_from_id(arxiv_id)
+
+
+def _rewrite_cache_path(docs_dir: Path) -> Path:
+    return docs_dir / REWRITE_CACHE_NAME
+
+
+def _llm_paraphrase_zh(text: str, purpose: str = "section") -> str:
+    api_key = _get_env("OPENAI_API_KEY", "").strip()
+    if not api_key:
+        return ""
+    base_url = _get_env("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
+    model = _get_env("OPENAI_MODEL", "gpt-4o-mini")
+    url = f"{base_url}/chat/completions"
+
+    style_rules = {
+        "section": "不要逐句翻译。提炼核心观点、设计动机与因果关系，用通俗中文重写。",
+        "summary": "写成中文精读里的【简单摘要】。先讲论文想解决什么问题，再讲方案主线和最终结论。输出 2-3 段，每段都要像理解后的转述，而不是逐句翻译。",
+        "innovation": "写成【核心创新】。提炼 2-3 个真正的新意，并说明这些设计为什么重要。不要写空泛套话，也不要逐句翻译原文。",
+        "technical": "写成【技术细节】。按方法链路解释输入、核心模块、关键设计和它们各自的作用；重点回答“为什么这么做”。避免流水账式翻译。",
+        "experiment": "写成【实验结论】。重点概括实验怎么验证、和谁比较、最终说明了什么；不要把实现细节、图注和无关参数逐句搬过来。",
+        "takeaway": "写成【理解评价】。这不是翻译。必须从整篇论文角度输出三层内容：1) 这篇论文真正解决了什么、贡献在哪里；2) 主要局限或风险；3) 下一步可行的改进方向。不要出现作者、机构、项目页、图注原文或补充材料提示。",
+        "equation": "不要只翻译。先解释公式在方法链路中的作用，再解释主要符号和每一项的含义。",
+        "caption": "不要直译图注。完整说明图中模块/流程/对比结论，至少保留 2 个关键信息点，避免只剩半句话。",
+    }
+    rule = style_rules.get(purpose, style_rules["section"])
+    payload = {
+        "model": model,
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "你是论文精读编辑。输出中文，不要出现英文原文复述，不要编造论文中不存在的实验结论。"
+                    "你的任务是把论文内容理解后转述给中文读者，而不是做逐句翻译。"
+                    "如果输入里混有作者信息、机构、页眉页脚、图号、排版残片或补充材料提示，直接忽略。"
+                    "每段尽量简洁、可读、语义闭合。"
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"任务类型：{purpose}。{rule}\n"
+                    "要求：\n"
+                    "1) 保留技术准确性；\n"
+                    "2) 优先解释为什么这样设计；\n"
+                    "3) 避免生硬术语堆砌；\n"
+                    "4) 禁止逐句对应英文原文；\n"
+                    "5) 如果原文有碎片、半截句或噪声，直接重组为自然中文。\n\n"
+                    f"原文：\n{text}"
+                ),
+            },
+        ],
+        "temperature": 0.2,
+    }
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    try:
+        resp = requests.post(url, headers=headers, json=payload, timeout=60)
+        resp.raise_for_status()
+        data = resp.json()
+        content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+        return _clean_text_block(content)
+    except Exception:
+        return ""
+
+
+def _rewrite_to_zh(text: str, docs_dir: Path, purpose: str = "section") -> str:
+    source_text = _prepare_rewrite_source(text, purpose=purpose)
+    if not source_text:
+        return ""
+
+    cache_path = _rewrite_cache_path(docs_dir)
+    cache = _json_cache_load(cache_path)
+    cache_key = f"{REWRITE_STYLE_VERSION}::{purpose}::{source_text}"
+    if cache_key in cache:
+        return cache[cache_key]
+
+    rewritten = ""
+    for chunk in _split_translation_chunks(source_text):
+        chunk_key = f"{REWRITE_STYLE_VERSION}::{purpose}::{chunk}"
+        if chunk_key in cache:
+            rewritten = (rewritten + "\n\n" + cache[chunk_key]).strip()
+            continue
+        piece = _llm_paraphrase_zh(chunk, purpose=purpose)
+        if not piece:
+            piece = _fallback_rewrite_without_llm(chunk, docs_dir, purpose=purpose)
+        piece = _postprocess_rewrite_output(piece, purpose=purpose)
+        cache[chunk_key] = piece
+        rewritten = (rewritten + "\n\n" + piece).strip()
+        _json_cache_save(cache_path, cache)
+
+    if not rewritten:
+        rewritten = _fallback_rewrite_without_llm(source_text, docs_dir, purpose=purpose)
+    rewritten = _postprocess_rewrite_output(rewritten, purpose=purpose)
+    cache[cache_key] = rewritten
+    _json_cache_save(cache_path, cache)
+    return rewritten
+
+
+def _fallback_rewrite_without_llm(text: str, docs_dir: Path, purpose: str = "section") -> str:
+    text = _clean_text_block(text)
+    if not text:
+        return ""
+    if purpose == "equation":
+        return "这组公式用于定义模型中的变量关系和训练目标。建议先看左侧要预测的对象，再看右侧每一项如何约束优化方向。"
+    if purpose == "caption":
+        zh = _clean_cn_sentence(_translate_to_zh(_clip_text(text, 520), docs_dir))
+        if not zh:
+            return "该图展示了论文中的关键模块、实验设置或可视化结果。"
+        zh = re.sub(r"[.…]{3,}", "。", zh)
+        return _clip_text(zh, 340)
+    if purpose == "takeaway":
+        return _rule_based_takeaway(text, docs_dir)
+    return _rule_based_section_rewrite(text, docs_dir, purpose=purpose)
+
+
+def _clean_cn_sentence(text: str) -> str:
+    text = _clean_text_block(text)
+    text = re.sub(r"^[-*•\s]+", "", text)
+    text = re.sub(r"https?://\S+|www\.\S+", "", text)
+    text = re.sub(r"\s{2,}", " ", text)
+    text = text.strip(" ：:;,.，。")
+    return text
+
+
+def _strip_inline_latex_from_prose(text: str) -> str:
+    text = _clean_text_block(text)
+    if not text:
+        return ""
+    text = re.sub(r"\\\((.*?)\\\)", " ", text, flags=re.DOTALL)
+    text = re.sub(r"\$[^$]+\$", " ", text, flags=re.DOTALL)
+    text = re.sub(r"\\(?:mathbb|mathbf|mathrm|mathcal|mathit|operatorname|text|textit|textbf|boldsymbol|left|right|mid|quad|qquad|arg|min|max|sum|frac|cdot|times|in|to|pi|tau|hat|tilde|bar|cup|cap|subset|supset|le|ge|neq|approx|sim|sigma|phi|delta|gamma|lambda|alpha|beta|theta|mu|nu|rho|psi|omega|partial|mathbf)\b", " ", text)
+    text = text.replace(r"\_", "_")
+    text = re.sub(r"\\[A-Za-z]+", " ", text)
+    text = re.sub(r"[_^]\{[^}]*\}", " ", text)
+    text = re.sub(r"[_^][A-Za-z0-9]+", " ", text)
+    text = text.replace("{", " ").replace("}", " ")
+    text = re.sub(r"\s{2,}", " ", text)
+    return _clean_text_block(text)
+
+
+def _looks_like_noise_sentence(text: str) -> bool:
+    low = text.lower()
+    if any(token in low for token in ["project page", "supplementary", "http://", "https://", "arxiv:", "copyright"]):
+        return True
+    if re.search(r"\b\d+(?:\.\d+)?in\b", low):
+        return True
+    if re.search(r"\b(?:mmlab|cuhk|casia|sensetime|university|institute|department|school)\b", low):
+        return True
+    if len(re.findall(r"\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+){2,}\b", text)) >= 1 and len(text) < 260:
+        return True
+    return False
+
+
+def _looks_like_truncated_cn_line(text: str) -> bool:
+    text = _clean_text_block(text)
+    if not text:
+        return False
+    # ：is a standard Chinese lead-in punctuation (before lists, formulas, enumerations).
+    # It appears legitimately at the end of many well-written sentences, so we do NOT flag it.
+    # Only flag characters that unambiguously signal mid-sentence breakage.
+    if text.endswith(("（", "(", "、", "，", "；", "/")):
+        return True
+    if re.search(r"(?:具体来说|例如|比如|首先|其次|最后|因此|然而|同时|另外|此外|我们|作者|其中)\s*[.…⋯…]*$", text):
+        return True
+    if text.count("（") != text.count("）") or text.count("(") != text.count(")"):
+        return True
+    return False
+
+
+def _merge_short_cn_paragraphs(paras: List[str], target_len: int = 130) -> List[str]:
+    merged: List[str] = []
+    buffer = ""
+    for para in [_clean_text_block(p) for p in paras if _clean_text_block(p)]:
+        candidate = (buffer + " " + para).strip() if buffer else para
+        if len(candidate) < target_len and not para.endswith(("。", "！", "？")):
+            buffer = candidate
+            continue
+        if buffer and len(buffer) < target_len:
+            buffer = candidate
+            if len(buffer) >= target_len or para.endswith(("。", "！", "？")):
+                merged.append(buffer)
+                buffer = ""
+            continue
+        if buffer:
+            merged.append(buffer)
+            buffer = ""
+        merged.append(para)
+    if buffer:
+        if merged and len(buffer) < 90:
+            merged[-1] = (merged[-1] + " " + buffer).strip()
+        else:
+            merged.append(buffer)
+    return [p for p in merged if p]
+
+
+def _rewrite_keywords(purpose: str) -> List[str]:
+    mapping = {
+        "summary": ["problem", "challenge", "framework", "propose", "enable", "goal", "out-of-distribution", "result"],
+        "innovation": ["propose", "introduce", "first", "novel", "key", "contribution", "pairwise", "completion"],
+        "technical": ["construct", "aggregate", "render", "condition", "complete", "reward", "mechanism", "optimize", "module"],
+        "experiment": ["evaluate", "compare", "benchmark", "ablation", "achieves", "best", "improve", "metric", "qualitative"],
+        "takeaway": ["limitation", "conclusion", "however", "future", "challenge", "improve", "result", "contribution"],
+    }
+    return mapping.get(purpose, ["propose", "method", "result", "challenge"])
+
+
+def _prepare_rewrite_source(text: str, purpose: str = "section") -> str:
+    text = _clean_text_block(text)
+    if not text:
+        return ""
+    text = _strip_inline_latex_from_prose(text)
+    text = re.sub(r"\barXiv:\S+", " ", text, flags=re.IGNORECASE)
+    text = re.sub(r"\b\d+\s+[A-Z][a-z]{2}\s+\d{4}\b", " ", text)
+    text = re.sub(r"\b\d+(?:\.\d+)?in\b", " ", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bFig(?:ure)?\.?\s*\d+\b", "figure", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bTab(?:le)?\.?\s*\d+\b", "table", text, flags=re.IGNORECASE)
+    text = _remove_author_affiliation_noise(text)
+    text = _clean_text_block(text)
+    if purpose in {"summary", "innovation", "technical", "experiment"}:
+        brief = _build_section_brief(text, purpose=purpose)
+        if brief:
+            return brief
+    return text
+
+
+def _build_section_brief(text: str, purpose: str = "section", max_sentences: int = 6) -> str:
+    sentences = _split_sentences(text)
+    if not sentences:
+        return _clip_text(text, 2400)
+    keywords = _rewrite_keywords(purpose)
+    scored: List[Tuple[int, int, str]] = []
+    for idx, sentence in enumerate(sentences):
+        sentence = _clean_text_block(sentence)
+        if len(sentence) < 40 or _looks_like_noise_sentence(sentence):
+            continue
+        low = sentence.lower()
+        score = 0
+        if 60 <= len(sentence) <= 320:
+            score += 3
+        elif len(sentence) <= 420:
+            score += 1
+        for keyword in keywords:
+            if keyword in low:
+                score += 3
+        if any(token in low for token in ["we propose", "we present", "we introduce", "to address", "in contrast", "outperform", "best", "limitation"]):
+            score += 2
+        if purpose == "experiment" and any(token in low for token in ["learning rate", "gpu", "step", "epoch", "batch size", "训练配置", "优化器"]):
+            score -= 3
+        if purpose != "experiment" and len(re.findall(r"\d", sentence)) >= 8:
+            score -= 2
+        if re.search(r"\\\(|\\_|\^[A-Za-z0-9]", sentence):
+            score -= 5
+        if "supplementary" in low:
+            score -= 4
+        scored.append((score, idx, sentence))
+    if not scored:
+        return _clip_text(text, 2400)
+    picked = sorted(sorted(scored, key=lambda item: (-item[0], item[1]))[:max_sentences], key=lambda item: item[1])
+    return "\n".join(f"- {sentence}" for _, _, sentence in picked)
+
+
+def _rule_based_section_rewrite(text: str, docs_dir: Path, purpose: str = "section") -> str:
+    digest = _build_section_brief(text, purpose=purpose, max_sentences=5)
+    points_en = [ln.strip()[2:].strip() if ln.strip().startswith("- ") else ln.strip() for ln in digest.splitlines() if ln.strip()]
+    points_zh: List[str] = []
+    for point in points_en:
+        zh = _clean_cn_sentence(_translate_to_zh(_clip_text(point, 260), docs_dir))
+        if zh and zh not in points_zh:
+            points_zh.append(zh)
+    if not points_zh:
+        return _translate_to_zh(_clip_text(text, 420), docs_dir)
+
+    paras: List[str] = []
+    if purpose == "summary":
+        if len(points_zh) >= 2:
+            paras.append(f"{points_zh[0].rstrip('。')}。作者的主线做法是：{points_zh[1].rstrip('。')}。")
+        if len(points_zh) >= 3:
+            tail = f"更关键的是，{points_zh[2].rstrip('。')}。"
+            if len(points_zh) >= 4:
+                tail += f"从结果上看，{points_zh[3].rstrip('。')}。"
+            paras.append(tail)
+    elif purpose == "innovation":
+        if points_zh:
+            paras.append(f"这篇工作的创新不是简单堆模块，而是把问题重新定义为：{points_zh[0].rstrip('。')}。")
+        if len(points_zh) >= 2:
+            paras.append(f"第二个关键新意在于：{points_zh[1].rstrip('。')}。这使方法不只是能生成结果，更能解释为什么会有效。")
+        if len(points_zh) >= 3:
+            paras.append(f"再往后看，{points_zh[2].rstrip('。')}。这也是它和纯工程拼装方案拉开差距的地方。")
+    elif purpose == "technical":
+        if points_zh:
+            paras.append(f"方法主线可以概括为：{points_zh[0].rstrip('。')}。")
+        if len(points_zh) >= 2:
+            second = f"其中最关键的一环是：{points_zh[1].rstrip('。')}。"
+            if len(points_zh) >= 3:
+                second += f"这样设计直接带来的作用是：{points_zh[2].rstrip('。')}。"
+            paras.append(second)
+        if len(points_zh) >= 4:
+            paras.append(f"从训练和推理角度看，作者还特别处理了：{points_zh[3].rstrip('。')}。")
+    elif purpose == "experiment":
+        if points_zh:
+            paras.append(f"实验主要围绕一个核心问题展开：{points_zh[0].rstrip('。')}。")
+        if len(points_zh) >= 2:
+            second = f"从主要对比结果看，{points_zh[1].rstrip('。')}。"
+            if len(points_zh) >= 3:
+                second += f"定性结果和消融实验进一步说明：{points_zh[2].rstrip('。')}。"
+            paras.append(second)
+    else:
+        paras = [f"{point.rstrip('。')}。" for point in points_zh]
+
+    paras = _merge_short_cn_paragraphs(paras)
+    return "\n".join(paras)
+
+
+def _rule_based_takeaway(text: str, docs_dir: Path) -> str:
+    digest = _build_section_brief(text, purpose="takeaway", max_sentences=6)
+    points_en = [ln.strip()[2:].strip() if ln.strip().startswith("- ") else ln.strip() for ln in digest.splitlines() if ln.strip()]
+    points_zh = [_clean_cn_sentence(_translate_to_zh(_clip_text(point, 260), docs_dir)) for point in points_en]
+    points_zh = [point for point in points_zh if point]
+    contribution = points_zh[0] if points_zh else "它把显式 3D 场景编辑和视频生成结合起来，试图解决分布外驾驶场景的可控生成问题"
+    evidence = points_zh[1] if len(points_zh) > 1 else "实验表明，这条路线确实能改善车辆编辑和新视角生成时的质量"
+    limitation = next((point for point in points_zh if any(token in point for token in ["49 帧", "一分钟", "实时", "显存", "限制", "局限"])), "当前方案仍受算力和时长限制，更适合离线生成而非实时闭环模拟")
+    return "\n".join([
+        f"从整篇论文看，它的真正贡献是：{contribution.rstrip('。')}，而不是单纯把扩散模型继续微调。作者把问题落在“分布外驾驶场景如何稳定生成”这个更关键的缺口上。",
+        f"它最有说服力的地方在于：{evidence.rstrip('。')}。这说明论文的方法链路——3D 点云编辑、车辆补全、再到 RL 后训练——是前后闭合的，而不是各模块各自堆叠。",
+        f"主要局限在于：{limitation.rstrip('。')}。如果继续往前推进，一个自然方向是把更长时序、更低成本训练和更广泛的 OOD 场景覆盖一起纳入统一评估。",
+    ])
+
+
+def _postprocess_rewrite_output(text: str, purpose: str = "section") -> str:
+    lines = [ln.strip() for ln in _clean_text_block(text).splitlines() if ln.strip()]
+    kept: List[str] = []
+    for line in lines:
+        line = _strip_inline_latex_from_prose(line) if purpose != "equation" else _clean_text_block(line)
+        low = line.lower()
+        if any(token in low for token in ["project page", "supplementary", "http://", "https://", "arxiv:"]):
+            continue
+        if _looks_like_noise_sentence(line):
+            continue
+        if purpose in {"summary", "innovation", "technical", "experiment", "takeaway"} and _looks_like_truncated_cn_line(line):
+            continue
+        if line in kept:
+            continue
+        kept.append(line)
+    kept = _merge_short_cn_paragraphs(kept)
+    text = "\n".join(kept) if kept else _clean_text_block(text)
+    text = _remove_author_affiliation_noise(text)
+    text = re.sub(r"[.…]{3,}", "。", text)
+    text = re.sub(r"\s{2,}", " ", text)
+    text = re.sub(r"(^|\n)[-•*]\s*", r"\1", text)
+    if purpose == "caption":
+        text = _clean_caption_text(text)
+    return _clean_text_block(text)
 
 
 def _clean_text_block(text: str) -> str:
@@ -489,6 +896,7 @@ def _prepare_section_text_for_translation(text: str) -> str:
             "lstlisting",
         ],
     )
+    text = re.sub(r"\\\(.*?\\\)", " ", text, flags=re.DOTALL)
     text = re.sub(r"\\\[.*?\\\]", " ", text, flags=re.DOTALL)
     text = re.sub(r"\$\$.*?\$\$", " ", text, flags=re.DOTALL)
     text = re.sub(r"\$[^$]+\$", " ", text, flags=re.DOTALL)
@@ -526,7 +934,7 @@ def _extract_source_material(arxiv_id: str, title_hint: str, docs_dir: Path) -> 
         if heading and body:
             sections[heading] = body
 
-    figures: List[Dict[str, str]] = []
+    figures: List[Dict[str, object]] = []
     for number, match in enumerate(re.finditer(r"\\begin\{figure\*?\}(.*?)\\end\{figure\*?\}", expanded, flags=re.DOTALL), 1):
         env = match.group(1)
         cap_match = re.search(r"\\caption(?:\[[^\]]*\])?\s*\{", env)
@@ -536,7 +944,15 @@ def _extract_source_material(arxiv_id: str, title_hint: str, docs_dir: Path) -> 
         caption_plain = _latex_to_plain_text(caption)
         if not caption_plain:
             continue
-        figures.append({"label": f"Figure {number}:", "number": str(number), "caption_en": caption_plain})
+        graphic_paths = re.findall(r"\\includegraphics(?:\[[^\]]*\])?\{([^}]+)\}", env)
+        figures.append(
+            {
+                "label": f"Figure {number}:",
+                "number": str(number),
+                "caption_en": caption_plain,
+                "graphics": graphic_paths,
+            }
+        )
         if len(figures) >= 8:
             break
 
@@ -566,6 +982,7 @@ def _extract_source_material(arxiv_id: str, title_hint: str, docs_dir: Path) -> 
         "sections": sections,
         "figures": figures,
         "equations": equations,
+        "source_dir": str(extracted_dir),
     }
 
 
@@ -590,6 +1007,8 @@ def _extract_figures(pdf_path: Path, out_dir: Path, max_images: int = 6) -> List
                     continue
                 if pix.n - pix.alpha > 3:
                     pix = fitz.Pixmap(fitz.csRGB, pix)
+                if _pixmap_is_low_information(pix):
+                    continue
                 name = f"fig_{saved + 1}.png"
                 pix.save(out_dir / name)
                 names.append(name)
@@ -832,17 +1251,49 @@ def _collect_visual_candidates(page, start_y: float, end_y: float) -> List[fitz.
 def _expand_rect_with_short_blocks(page, rect: fitz.Rect, start_y: float, end_y: float) -> fitz.Rect:
     expanded = fitz.Rect(rect)
     probe = fitz.Rect(rect.x0 - 30, rect.y0 - 20, rect.x1 + 30, rect.y1 + 20)
+    # Only keep short nearby labels; avoid swallowing full text columns.
     for block in page.get_text("blocks"):
         block_rect = fitz.Rect(block[:4])
         if block_rect.is_empty or block_rect.y0 < start_y or block_rect.y1 > end_y + 2:
             continue
         text = " ".join(str(block[4]).split())
-        if not text or len(text) > 120 or text.startswith("Figure "):
+        if not text or len(text) > 60 or text.startswith("Figure "):
+            continue
+        if block_rect.width > page.rect.width * 0.45 or block_rect.height > 42:
             continue
         if not (probe.intersects(block_rect) or expanded.intersects(block_rect)):
             continue
         expanded |= block_rect
     return expanded
+
+
+def _fallback_column_clip(page, start_y: float, end_y: float) -> fitz.Rect:
+    band = fitz.Rect(page.rect.x0 + 12, start_y, page.rect.x1 - 12, end_y) & page.rect
+    if band.width < 120:
+        return band
+    mid = (band.x0 + band.x1) / 2.0
+    left = fitz.Rect(band.x0, band.y0, mid, band.y1)
+    right = fitz.Rect(mid, band.y0, band.x1, band.y1)
+
+    def text_area(rect: fitz.Rect) -> float:
+        area = 0.0
+        for block in page.get_text("blocks"):
+            b = fitz.Rect(block[:4])
+            clipped = b & rect
+            if clipped.is_empty:
+                continue
+            txt = " ".join(str(block[4]).split())
+            if len(txt) >= 30:
+                area += clipped.width * clipped.height
+        return area
+
+    left_text = text_area(left)
+    right_text = text_area(right)
+    # Prefer the side with less dense paragraph text when the page is split figure/text.
+    if min(left_text, right_text) / max(left_text, right_text, 1.0) < 0.55:
+        picked = left if left_text < right_text else right
+        return fitz.Rect(picked.x0 + 6, picked.y0, picked.x1 - 6, picked.y1) & page.rect
+    return band
 
 
 def _pick_best_figure_rect(page, rects: List[fitz.Rect], caption_rect: fitz.Rect, start_y: float) -> Optional[fitz.Rect]:
@@ -907,12 +1358,14 @@ def _extract_figure_region_by_caption(
                 min(end_y, best_rect.y1 + y_pad_bottom),
             ) & page.rect
         else:
-            clip = fitz.Rect(page.rect.x0 + 12, start_y, page.rect.x1 - 12, end_y) & page.rect
+            clip = _fallback_column_clip(page, start_y, end_y)
 
         if clip.width < page.rect.width * 0.28 or clip.height < 80:
-            clip = fitz.Rect(page.rect.x0 + 12, start_y, page.rect.x1 - 12, end_y) & page.rect
+            clip = _fallback_column_clip(page, start_y, end_y)
 
         pix = page.get_pixmap(matrix=fitz.Matrix(2, 2), clip=clip, alpha=False)
+        if _pixmap_is_low_information(pix) or _clip_has_url_like_text(page, clip):
+            continue
         save_path = out_dir / output_name
         pix.save(save_path)
         doc.close()
@@ -935,16 +1388,112 @@ def _extract_figure_region_by_labels(
     return None
 
 
+def _remove_author_affiliation_noise(text: str) -> str:
+    lines = [ln.strip() for ln in text.replace("\r", "").split("\n")]
+    kept: List[str] = []
+    for line in lines:
+        if not line:
+            continue
+        low = line.lower()
+        if any(token in low for token in ["project page", "http://", "https://", "@", "arxiv"]):
+            continue
+        if re.search(r"\b(university|institute|school|department)\b", low):
+            continue
+        kept.append(line)
+    text = "\n".join(kept)
+    text = re.sub(r"[.…]{3,}", "。", text)
+    return _clean_text_block(text)
+
+
 def _translate_figure_caption(caption_en: str, docs_dir: Path, number: str) -> str:
-    caption_en = _clean_text_block(caption_en)
+    caption_en = _clean_caption_text(caption_en)
     if not caption_en:
         return f"图 {number}：该图用于展示论文中的关键模块、实验设置或可视化结果。"
-    translated = _translate_to_zh(caption_en, docs_dir)
+    translated = _clean_caption_text(_rewrite_to_zh(caption_en, docs_dir, purpose="caption"))
     translated = re.sub(rf"^(图|Figure|Fig\.?)[\s.:]*{re.escape(number)}[\s:：.-]*", "", translated, flags=re.IGNORECASE)
     translated = translated.strip(" ：:.-")
+    translated = _clip_text(translated, 340)
+    translated = re.sub(r"[.…]{3,}$", "", translated).strip()
+    if translated and translated[-1] not in "。！？":
+        translated += "。"
     if not translated:
         translated = "该图用于展示论文中的关键模块、实验设置或可视化结果。"
     return f"图 {number}：{translated}"
+
+
+def _clean_caption_text(text: str) -> str:
+    text = _clean_text_block(text)
+    text = re.sub(r"https?://\S+|www\.\S+", "", text)
+    text = re.sub(r"\b(?:arxiv|doi)[:\s]\S+", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"\s{2,}", " ", text)
+    return text.strip(" ;,.-：:，。")
+
+
+def _pixmap_is_low_information(pix: fitz.Pixmap) -> bool:
+    try:
+        if pix.width < 120 or pix.height < 80:
+            return True
+        n = max(1, pix.n)
+        sample = pix.samples
+        step = max(1, len(sample) // (40000 * n))
+        vals: List[float] = []
+        for i in range(0, len(sample) - (n - 1), n * step):
+            r = sample[i]
+            g = sample[i + 1] if n > 1 else r
+            b = sample[i + 2] if n > 2 else r
+            vals.append((r + g + b) / 3.0)
+        if len(vals) < 20:
+            return False
+        mean = sum(vals) / len(vals)
+        var = sum((v - mean) ** 2 for v in vals) / len(vals)
+        std = var ** 0.5
+        too_dark = mean < 14 and std < 18
+        too_flat = std < 6
+        return too_dark or too_flat
+    except Exception:
+        return False
+
+
+def _clip_has_url_like_text(page, clip: fitz.Rect) -> bool:
+    try:
+        for block in page.get_text("blocks"):
+            block_rect = fitz.Rect(block[:4])
+            if (block_rect & clip).is_empty:
+                continue
+            text = " ".join(str(block[4]).split())
+            if re.search(r"https?://|www\.|\.com\b|\.org\b", text, flags=re.IGNORECASE):
+                return True
+    except Exception:
+        return False
+    return False
+
+
+def _try_source_graphic_asset(source_dir: Path, rel_candidates: List[str], out_dir: Path, output_name: str) -> Optional[str]:
+    exts = ["", ".png", ".jpg", ".jpeg", ".webp", ".pdf"]
+    for rel in rel_candidates:
+        rel = rel.strip()
+        if not rel:
+            continue
+        for ext in exts:
+            candidate = (source_dir / f"{rel}{ext}").resolve()
+            if not candidate.exists() or not candidate.is_file():
+                continue
+            out_path = out_dir / output_name
+            suffix = candidate.suffix.lower()
+            try:
+                if suffix in {".png", ".jpg", ".jpeg", ".webp"}:
+                    shutil.copyfile(candidate, out_path)
+                    return output_name
+                if suffix == ".pdf":
+                    doc = fitz.open(candidate)
+                    page = doc[0]
+                    pix = page.get_pixmap(matrix=fitz.Matrix(2, 2), alpha=False)
+                    pix.save(out_path)
+                    doc.close()
+                    return output_name
+            except Exception:
+                continue
+    return None
 
 
 def _build_caption_aware_figures(
@@ -952,22 +1501,31 @@ def _build_caption_aware_figures(
     out_dir: Path,
     source_figures: List[Dict[str, str]],
     docs_dir: Path,
+    source_dir: Optional[Path] = None,
     max_items: int = 8,
+    allow_pdf_crop_fallback: bool = False,
 ) -> List[Dict[str, str]]:
     results: List[Dict[str, str]] = []
     for item in source_figures[:max_items]:
         number = item.get("number", str(len(results) + 1))
         label = item.get("label", f"Figure {number}:")
         output_name = f"figure{number}_full.png"
-        saved = _extract_figure_region_by_labels(
-            pdf_path,
-            [label, f"Fig. {number}:", f"Figure {number}.", f"Fig. {number}."],
-            out_dir,
-            output_name,
-        )
+        saved = None
+        if source_dir is not None:
+            graphics = item.get("graphics") if isinstance(item.get("graphics"), list) else []
+            saved = _try_source_graphic_asset(source_dir, [str(g) for g in graphics], out_dir, output_name)
+        if not saved and allow_pdf_crop_fallback:
+            saved = _extract_figure_region_by_labels(
+                pdf_path,
+                [label, f"Fig. {number}:", f"Figure {number}.", f"Fig. {number}."],
+                out_dir,
+                output_name,
+            )
         if not saved:
             continue
         caption_en = item.get("caption_en", "")
+        if not _clean_caption_text(caption_en):
+            caption_en = _extract_caption_text(pdf_path, label, max_chars=320)
         results.append(
             {
                 "label": label,
@@ -977,6 +1535,50 @@ def _build_caption_aware_figures(
             }
         )
     return results
+
+
+def _build_tinysplat_source_figures(
+    out_dir: Path,
+    docs_dir: Path,
+    source_dir: Path,
+    source_figures: List[Dict[str, str]],
+) -> List[Dict[str, str]]:
+    # TinySplat has stable figure asset names in source; use explicit mapping
+    # to prevent wrong figure-text alignment from automatic matching.
+    mapping = [
+        ("1", "Figure 1:", "imgs/framework"),
+        ("2", "Figure 2:", "imgs/VPT"),
+        ("3", "Figure 3:", "imgs/dist"),
+        ("4", "Figure 4:", "imgs/SHs30"),
+        ("5", "Figure 5:", "imgs/RD_all"),
+        ("6", "Figure 6:", "imgs/subjective"),
+        ("7", "Figure 7:", "imgs/comp_wise_ablation"),
+        ("8", "Figure 8:", "imgs/subjective6v"),
+    ]
+
+    caption_by_number: Dict[str, str] = {}
+    for item in source_figures:
+        num = str(item.get("number", "")).strip()
+        cap = _clean_caption_text(str(item.get("caption_en", "")))
+        if num and cap:
+            caption_by_number[num] = cap
+
+    entries: List[Dict[str, str]] = []
+    for number, label, rel in mapping:
+        output_name = f"figure{number}_full.png"
+        saved = _try_source_graphic_asset(source_dir, [rel], out_dir, output_name)
+        if not saved:
+            continue
+        caption_en = caption_by_number.get(number, f"Figure {number} from TinySplat source file.")
+        entries.append(
+            {
+                "label": label,
+                "path": saved,
+                "caption_en": caption_en,
+                "caption_cn": _translate_figure_caption(caption_en, docs_dir, number),
+            }
+        )
+    return entries
 
 
 def _streetforward_caption_translation(label: str, raw_caption: str) -> str:
@@ -1025,7 +1627,7 @@ def _clip_text(text: str, limit: int = 320) -> str:
     text = " ".join(text.split())
     if len(text) <= limit:
         return text
-    return text[: limit - 1].rstrip() + "…"
+    return text[:limit].rstrip()
 
 
 def _split_sentences(text: str) -> List[str]:
@@ -1165,14 +1767,29 @@ def _combine_figure_entries(figure_files: List[str], captions: List[Dict[str, st
     return entries
 
 
-def _figure_html_from_entries(figures: List[Dict], slug: str, max_items: int = 2) -> str:
+def _replace_caption_number(caption_cn: str, blog_index: int) -> str:
+    """Replace the 「图 N：」 prefix in a Chinese figure caption with the blog-sequential index.
+
+    This ensures figure labels in the rendered blog always follow the order in which
+    figures actually appear (1, 2, 3 …), independent of the original paper's numbering.
+    """
+    caption_cn = caption_cn.strip()
+    result = re.sub(r"^图\s*\d+[：:]", f"图 {blog_index}：", caption_cn)
+    if result == caption_cn and caption_cn:
+        # No 「图 N：」 prefix found — prepend one so every caption is labelled.
+        return f"图 {blog_index}：{caption_cn}"
+    return result
+
+
+def _figure_html_from_entries(figures: List[Dict], slug: str, max_items: int = 2, start_index: int = 1) -> str:
     html_parts: List[str] = []
-    for item in figures[:max_items]:
+    for blog_idx, item in enumerate(figures[:max_items], start_index):
         if not item.get("path"):
             continue
+        caption_cn = _replace_caption_number(item.get("caption_cn", ""), blog_idx)
         html_parts.append(
             f"<figure><img class='paper-fig' src='../assets/{slug}/{html.escape(item['path'])}' alt='{html.escape(item.get('label', 'Figure'))}' loading='lazy' decoding='async' />"
-            f"<figcaption style='font-size:12px;'>{html.escape(item.get('caption_cn', ''))}</figcaption></figure>"
+            f"<figcaption style='font-size:12px;'>{html.escape(caption_cn)}</figcaption></figure>"
         )
     return "".join(html_parts)
 
@@ -1200,6 +1817,160 @@ def _deep_dive_section_quote(items: List[str]) -> str:
 
 def _page_needs_mathjax(body_html: str) -> bool:
     return any(token in body_html for token in ["$$", "\\(", "\\[", r"\mathbb", r"\mathbf", r"\sum", r"\lVert"])
+
+
+def _strip_html_tags(fragment: str) -> str:
+    fragment = re.sub(r"<script\b.*?</script>", " ", fragment, flags=re.IGNORECASE | re.DOTALL)
+    fragment = re.sub(r"<style\b.*?</style>", " ", fragment, flags=re.IGNORECASE | re.DOTALL)
+    fragment = re.sub(r"<[^>]+>", " ", fragment)
+    return html.unescape(" ".join(fragment.split()))
+
+
+def _extract_section_html(body_html: str, section_id: str) -> str:
+    match = re.search(
+        rf"<h2\s+id=['\"]{re.escape(section_id)}['\"][^>]*>.*?</h2>(.*?)(?=<h2\s+id=|</article>)",
+        body_html,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    return match.group(1) if match else ""
+
+
+def validate_post_html(content: str) -> List[str]:
+    issues: List[str] = []
+    lower = content.lower()
+
+    for section_id, section_title in DEEP_DIVE_SECTION_ITEMS:
+        if f"id='{section_id}'" not in content and f'id="{section_id}"' not in content:
+            issues.append(f"缺少章节：{section_title}")
+
+    for token in QUALITY_NOISE_TOKENS:
+        if token in lower:
+            issues.append(f"疑似作者/机构/项目页噪声残留：{token}")
+
+    if re.search(r"(?:\.\.\.|……|⋯)", content):
+        issues.append("存在省略号或疑似截断内容")
+    if re.search(r"-0\.\d+in", content):
+        issues.append("存在 LaTeX 排版残片（如 -0.3in）")
+    if re.search(r"\\(?:vspace|cite|ref|label|textbf|emph)\b", content):
+        issues.append("存在 LaTeX 源码泄露")
+
+    _template_phrases = [
+        "这篇工作要解决的问题是：",
+        "对应的核心做法是：",
+        "从机制上看，关键设计在于：",
+        "训练或推理层面的重点是：",
+        "实验层面的主要信号是：",
+    ]
+    # Count how many distinct template phrases are present (≥4 out of 5 signals heavy overuse).
+    template_unique = sum(1 for token in _template_phrases if token in content)
+    if template_unique >= 4:
+        issues.append("存在模板化直译痕迹")
+
+    if "window.MathJax" in content:
+        expected_tokens = [
+            r"['\\(', '\\)']",
+            r"['\\[', '\\]']",
+            r"mathds: ['\\mathbb{#1}', 1]",
+        ]
+        for token in expected_tokens:
+            if token not in content:
+                issues.append("MathJax 转义配置异常，可能导致公式源码泄露")
+                break
+
+    captions = re.findall(r"<figcaption[^>]*>(.*?)</figcaption>", content, flags=re.IGNORECASE | re.DOTALL)
+    expected_fig_num = 1
+    for idx, caption_html in enumerate(captions, 1):
+        caption_text = _strip_html_tags(caption_html)
+        if len(caption_text) < 12:
+            issues.append(f"图注过短：Figure {idx}")
+        if re.search(r"(?:\.\.\.|……|⋯)$", caption_text):
+            issues.append(f"图注疑似截断：Figure {idx}")
+        if idx <= 2 and len(caption_text) < 36:
+            issues.append(f"核心图图注信息不足：Figure {idx}")
+        # Sequential numbering check: every 「图 N：」 label must equal the blog-position index.
+        num_match = re.match(r"^图\s*(\d+)[：:]", caption_text)
+        if num_match:
+            found = int(num_match.group(1))
+            if found != expected_fig_num:
+                issues.append(
+                    f"图注序号不连续：第 {idx} 张图注标记为「图 {found}」，应为「图 {expected_fig_num}」"
+                )
+            expected_fig_num += 1
+
+    takeaway_html = _extract_section_html(content, "takeaway")
+    takeaway_text = _strip_html_tags(takeaway_html)
+    if len(takeaway_text) < 120:
+        issues.append("理解评价内容过短")
+    if takeaway_text and not any(token in takeaway_text for token in TAKEAWAY_LIMITATION_TOKENS):
+        issues.append("理解评价缺少局限/不足分析")
+    if takeaway_text and not any(token in takeaway_text for token in TAKEAWAY_IMPROVEMENT_TOKENS):
+        issues.append("理解评价缺少改进方向")
+
+    experiment_text = _strip_html_tags(_extract_section_html(content, "experiment"))
+    if experiment_text and any(token in experiment_text for token in ["我们鼓励读者参考视频结果的补充材料", "supplementary material"]):
+        issues.append("实验结论仍混入图注或补充材料提示")
+
+    summary_text = _strip_html_tags(_extract_section_html(content, "summary"))
+    technical_text = _strip_html_tags(_extract_section_html(content, "technical"))
+    if summary_text and technical_text and summary_text == technical_text:
+        issues.append("简单摘要与技术细节内容重复")
+
+    for section_id, section_title in DEEP_DIVE_SECTION_ITEMS:
+        section_html = _extract_section_html(content, section_id)
+        if not section_html:
+            continue
+        paragraph_texts = [
+            _strip_html_tags(item)
+            for item in re.findall(r"<p[^>]*>(.*?)</p>", section_html, flags=re.IGNORECASE | re.DOTALL)
+        ]
+        prose_paragraphs = [
+            p for p in paragraph_texts
+            if p and "$$" not in p and not p.strip().startswith("$$")
+        ]
+        short_count = sum(1 for p in prose_paragraphs if len(p) < 55)
+        if len(prose_paragraphs) >= 4 and short_count / max(1, len(prose_paragraphs)) >= 0.7:
+            issues.append(f"{section_title}段落过碎，缺少整段解读")
+        if any(re.search(r"\\\(|\\\)|\\_|\\[A-Za-z]+", re.sub(r'\$(?:[^$\\]|\\.)*\$', ' ', p)) for p in prose_paragraphs):
+            issues.append(f"{section_title}存在 LaTeX/公式乱码")
+        if any(_looks_like_truncated_cn_line(p) for p in prose_paragraphs):
+            issues.append(f"{section_title}存在疑似截断句")
+
+    equation_explains = [
+        p.strip()
+        for p in re.findall(r"<p[^>]*>(.*?)</p>", content, flags=re.IGNORECASE | re.DOTALL)
+        if "公式" in _strip_html_tags(p)
+    ]
+    if len(equation_explains) >= 4:
+        normalized = [re.sub(r"\s+", " ", _strip_html_tags(p)) for p in equation_explains]
+        unique_ratio = len(set(normalized)) / len(normalized)
+        if unique_ratio < 0.65:
+            issues.append("公式解读重复度过高")
+
+    deduped: List[str] = []
+    for issue in issues:
+        if issue not in deduped:
+            deduped.append(issue)
+    return deduped
+
+
+def validate_post_file(path: Union[str, Path]) -> List[str]:
+    file_path = Path(path)
+    if not file_path.exists():
+        return [f"文件不存在：{file_path}"]
+    return validate_post_html(file_path.read_text(encoding="utf-8"))
+
+
+def validate_site_posts(site_dir: Union[str, Path] = "./site") -> Dict[str, List[str]]:
+    site = Path(site_dir)
+    posts_dir = site / "posts"
+    results: Dict[str, List[str]] = {}
+    if not posts_dir.exists():
+        return results
+    for post_path in sorted(posts_dir.glob("*.html")):
+        issues = validate_post_file(post_path)
+        if issues:
+            results[str(post_path)] = issues
+    return results
 
 
 def _enable_lazy_images(html_text: str) -> str:
@@ -1294,14 +2065,19 @@ def _commit_site_snapshot(site_dir: Path, message: str, push: bool = False) -> b
 
 def _streetforward_post_body(doc, date_str: str, figures: List[Dict], related: List[Dict], slug: str, text: str) -> str:
     figure_map = {item.get('label'): item for item in figures}
+    # Counter tracks how many figures have actually been rendered so far in this post,
+    # so captions always show sequential blog numbers regardless of paper numbering.
+    fig_counter = [0]
 
     def render_figure(label: str) -> str:
         item = figure_map.get(label)
         if not item or not item.get("path"):
             return ""
+        fig_counter[0] += 1
+        caption_cn = _replace_caption_number(item.get("caption_cn", ""), fig_counter[0])
         return (
             f"<figure><img class='paper-fig' src='../assets/{slug}/{html.escape(item['path'])}' alt='{html.escape(label)}' loading='lazy' decoding='async' />"
-            f"<figcaption style='font-size:12px;'>{html.escape(item.get('caption_cn', ''))}</figcaption></figure>"
+            f"<figcaption style='font-size:12px;'>{html.escape(caption_cn)}</figcaption></figure>"
         )
 
     fig1_html = render_figure("Figure 1:")
@@ -1328,13 +2104,14 @@ def _streetforward_post_body(doc, date_str: str, figures: List[Dict], related: L
         ]
     )
 
+    arxiv_url_sf = f"https://arxiv.org/abs/{html.escape(doc.arxiv_id)}"
     return fr"""
 <div class='layout'>
   {sidebar}
 
   <article class='article'>
     <h1>StreetForward</h1>
-    <p class='meta'>原论文：{html.escape(doc.title)} · 中文精读</p>
+    <p class='meta'>原论文：<a href='{arxiv_url_sf}' target='_blank'>{html.escape(doc.title)}</a> · 中文精读</p>
 
     <div class='tip'>
       <strong>一句话总结：</strong>
@@ -1540,7 +2317,7 @@ def _streetforward_post_body(doc, date_str: str, figures: List[Dict], related: L
     {fig3_html}
     {fig5_html}
     <p>
-      这条约束的意义在于：如果一个点往前和往后预测出来的速度互相矛盾，那说明这套运动场并不自洽。作者用这个约束把时间插值能力真正落到几何一致性上，而不是只做表面上的图像拟合。
+      这条约束的意义在于：如果一个点的前向和后向预测出来的速度互相矛盾，那说明这套运动场并不自洽。作者用这个约束把时间插值能力真正落到几何一致性上，而不是只做表面上的图像拟合。
     </p>
     <p>
       <strong>公式分析：</strong>$L_{{rigid-2D}}$ 和 $L_{{rigid-3D}}$ 看起来都在做“速度相近”的约束，但它们针对的是两种不同邻域：
@@ -1570,7 +2347,7 @@ def _streetforward_post_body(doc, date_str: str, figures: List[Dict], related: L
 
     <h2 id='experiment'>实验结论</h2>
     <p>
-      从论文摘要和图示可以看出，StreetForward 在两个维度上是有说服力的：一是 novel view synthesis 与 depth estimation 的表现优于已有方法；二是在 CARLA 和其他数据集上的 zero-shot 推理说明其具备一定的泛化能力。
+      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，这种优势来自哪一个设计决策。
     </p>
     <p>
       更具体地说，这篇论文想强调的实验结论包括：
@@ -1613,178 +2390,181 @@ def _streetforward_post_body(doc, date_str: str, figures: List[Dict], related: L
 """
 
 
-def _pick_section_text(source_sections: Dict[str, str], fallback_text: str, keywords: List[str], fallback_limit: int) -> str:
-    lowered = [(heading, body) for heading, body in source_sections.items() if any(keyword in heading.lower() for keyword in keywords)]
-    if lowered:
-        return "\n\n".join(body for _, body in lowered)
-    return fallback_text[:fallback_limit]
+def _translate_excerpt(text: str, docs_dir: Path, char_limit: int = 2200, purpose: str = "section") -> str:
+    clean = _remove_author_affiliation_noise(text)
+    clean = _clip_text(clean, char_limit)
+    rewritten = _rewrite_to_zh(clean, docs_dir, purpose=purpose)
+    rewritten = _remove_author_affiliation_noise(rewritten)
+    return rewritten
 
 
-def _translate_excerpt(text: str, docs_dir: Path, char_limit: int = 2200) -> str:
-    return _translate_to_zh(_clip_text(text, char_limit), docs_dir)
+def _compose_takeaway_source(abstract_text: str, method_text: str, experiment_text: str, conclusion_text: str) -> str:
+    parts: List[str] = []
+    if abstract_text:
+        parts.append("Paper goal and main claim:\n" + _build_section_brief(abstract_text, purpose="summary", max_sentences=3))
+    if method_text:
+        parts.append("Method pipeline:\n" + _build_section_brief(method_text, purpose="technical", max_sentences=4))
+    if experiment_text:
+        parts.append("Experimental evidence:\n" + _build_section_brief(experiment_text, purpose="experiment", max_sentences=4))
+    if conclusion_text:
+        parts.append("Limitations and broader discussion:\n" + _build_section_brief(conclusion_text, purpose="takeaway", max_sentences=3))
+    return "\n\n".join(parts)
+
+
+def _normalize_equation_latex(latex: str) -> str:
+    latex = _clean_text_block(str(latex or ""))
+    if not latex:
+        return ""
+    latex = re.sub(r"\\label\{[^}]*\}", "", latex)
+    latex = re.sub(r"\\tag\{[^}]*\}", "", latex)
+    latex = re.sub(r"\s+", " ", latex).strip()
+    return latex if len(latex) <= 320 else ""
+
+
+def _equation_explanation_is_bad(text: str) -> bool:
+    txt = _clean_text_block(text)
+    return (not txt) or ("公式：" in txt) or len(txt) < 24
+
+
+def _fallback_equation_explanation(latex: str) -> str:
+    symbols = re.findall(r"\b[A-Za-z](?:_[A-Za-z0-9]+|\^[A-Za-z0-9]+)?\b", latex)
+    keys = "、".join(symbols[:4]) if symbols else "关键变量"
+    return f"该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 {keys} 等变量构成的约束和聚合方式。"
 
 
 def _render_equations_with_explanations(equations: List[Dict[str, str]], docs_dir: Path, max_items: int = 6) -> str:
     parts: List[str] = []
-    for idx, item in enumerate(equations[:max_items], 1):
-        latex = _clean_text_block(item.get("latex", ""))
+    recent_explains: List[str] = []
+    for item in equations[:max_items]:
+        latex = _normalize_equation_latex(item.get("latex", ""))
         if not latex:
             continue
-        context_en = item.get("context_en", "")
-        context_cn = _translate_to_zh(context_en, docs_dir) if context_en else ""
-        parts.append(f"    <p>$$ {html.escape(latex)} $$</p>")
-        if context_cn:
-            parts.append(f"    <p>\n      {html.escape(context_cn)}\n    </p>")
-        else:
-            parts.append('    <p>上述公式定义了模型中一个关键的变量关系或优化目标。理解它时，可以把等号左侧看作\u201c要学什么\u201d，右侧各项看作\u201c怎么约束学习方向\u201d。</p>')
-    if not parts:
-        return ""
+        explain_seed = f"公式：{latex}\n上下文：{item.get('context_en', '')}"
+        explain = _rewrite_to_zh(explain_seed, docs_dir, purpose="equation")
+        if _equation_explanation_is_bad(explain):
+            explain = _fallback_equation_explanation(latex)
+        compact = re.sub(r"\s+", " ", _clean_text_block(explain))
+        if compact and compact in recent_explains:
+            explain = _fallback_equation_explanation(latex)
+            compact = re.sub(r"\s+", " ", _clean_text_block(explain))
+        if compact:
+            recent_explains.append(compact)
+            recent_explains = recent_explains[-3:]
+        parts.append(f"    <p>$$ {latex} $$</p>")
+        parts.append(f"    <p>{html.escape(explain)}</p>")
     return "\n".join(parts)
 
 
-def _render_all_figures(figures: List[Dict], slug: str) -> str:
-    return _figure_html_from_entries(figures, slug, max_items=len(figures)) if figures else "<p>当前未抽取到可稳定展示的整图资源。</p>"
-
-
 def _cn_paragraphs(text: str) -> str:
-    """Split translated Chinese text into HTML paragraphs."""
     paras = [p.strip() for p in text.split("\n") if p.strip()]
-    if len(paras) <= 1 and len(text) > 300:
+    paras = _merge_short_cn_paragraphs(paras)
+    if len(paras) <= 1 and len(text) > 260:
         sentences = re.split(r"(?<=[。！？；])", text)
-        current = ""
         paras = []
-        for s in sentences:
-            current += s
-            if len(current) > 200:
+        current = ""
+        for sentence in sentences:
+            current += sentence
+            if len(current) >= 180:
                 paras.append(current.strip())
                 current = ""
         if current.strip():
             paras.append(current.strip())
+    paras = _merge_short_cn_paragraphs(paras)
     return "\n".join(f"    <p>{html.escape(p)}</p>" for p in paras if p)
+
+
+def _pick_section_text(source_sections: Dict[str, str], fallback_text: str, keywords: List[str], fallback_limit: int) -> str:
+    matched = [body for heading, body in source_sections.items() if any(keyword in heading.lower() for keyword in keywords)]
+    if matched:
+        return "\n\n".join(matched)
+    return fallback_text[:fallback_limit]
 
 
 def _generic_deep_dive_post_body(doc, figures: List[Dict], related: List[Dict], slug: str, text: str, docs_dir: Path, source_material: Dict[str, object]) -> str:
     source_sections = source_material.get("sections", {}) if isinstance(source_material.get("sections"), dict) else {}
     abstract_text = str(source_material.get("abstract") or _extract_abstract_text(text))
-    intro_text = _pick_section_text(source_sections, _extract_section_block(text, ["Introduction", "Overview"], fallback_limit=2200), ["intro", "overview"], 2200)
-    method_text = _pick_section_text(source_sections, _extract_section_block(text, ["Method", "Approach", "Methodology", "Framework"], fallback_limit=3200), ["method", "approach", "framework"], 3200)
-    experiment_text = _pick_section_text(source_sections, _extract_section_block(text, ["Experiment", "Experiments", "Results", "Evaluation", "Ablation"], fallback_limit=2800), ["experiment", "result", "evaluation", "ablation"], 2800)
-    conclusion_text = _pick_section_text(source_sections, _extract_section_block(text, ["Conclusion", "Limitations", "Discussion"], fallback_limit=1800), ["conclusion", "discussion", "limitation"], 1800)
+    intro_text = _pick_section_text(source_sections, _extract_section_block(text, ["Introduction", "Overview"], fallback_limit=2400), ["intro", "overview"], 2400)
+    method_text = _pick_section_text(source_sections, _extract_section_block(text, ["Method", "Approach", "Methodology", "Framework"], fallback_limit=3600), ["method", "approach", "framework"], 3600)
+    experiment_text = _pick_section_text(source_sections, _extract_section_block(text, ["Experiment", "Experiments", "Results", "Evaluation", "Ablation"], fallback_limit=3200), ["experiment", "result", "evaluation", "ablation"], 3200)
+    conclusion_text = _pick_section_text(source_sections, _extract_section_block(text, ["Conclusion", "Limitations", "Discussion"], fallback_limit=2400), ["conclusion", "discussion", "limitation"], 2400)
 
-    abstract_cn = _translate_excerpt(abstract_text, docs_dir, char_limit=2200)
-    intro_cn = _translate_excerpt(intro_text, docs_dir, char_limit=2600)
-    method_cn = _translate_excerpt(method_text, docs_dir, char_limit=3200)
-    experiment_cn = _translate_excerpt(experiment_text, docs_dir, char_limit=2800)
-    conclusion_cn = _translate_excerpt(conclusion_text, docs_dir, char_limit=1800)
+    abstract_cn = _translate_excerpt(abstract_text, docs_dir, char_limit=2600, purpose="summary")
+    intro_cn = _translate_excerpt(intro_text, docs_dir, char_limit=3000, purpose="summary")
+    innovation_cn = _rewrite_to_zh("\n\n".join(part for part in [abstract_text, method_text] if part), docs_dir, purpose="innovation")
+    method_cn = _translate_excerpt(method_text, docs_dir, char_limit=4200, purpose="technical")
+    experiment_cn = _translate_excerpt(experiment_text, docs_dir, char_limit=3600, purpose="experiment")
+    takeaway_source = _compose_takeaway_source(abstract_text, method_text, experiment_text, conclusion_text)
+    takeaway_cn = _rewrite_to_zh(takeaway_source, docs_dir, purpose="takeaway")
 
     equation_items = source_material.get("equations") if isinstance(source_material.get("equations"), list) else []
+    equation_html = _render_equations_with_explanations(equation_items, docs_dir, max_items=8)
     related_html = _deep_dive_related_html(related[:4], docs_dir=docs_dir)
     sidebar = _post_sidebar_html(DEEP_DIVE_SECTION_ITEMS)
-    equation_html = _render_equations_with_explanations(equation_items, docs_dir, max_items=6)
-    alias = _paper_alias(doc.title)
 
-    # Distribute figures across sections for natural placement
     n_figs = len(figures)
     summary_figs = figures[:min(2, n_figs)]
-    tech_figs = figures[min(2, n_figs):min(5, n_figs)]
-    exp_figs = figures[min(5, n_figs):]
+    tech_figs = figures[min(2, n_figs):min(6, n_figs)]
+    exp_figs = figures[min(6, n_figs):]
+
+    # fig_counter tracks the sequential blog position across all render_fig_group calls
+    # so captions are always labelled 1, 2, 3 … regardless of paper figure numbers.
+    fig_counter = [0]
 
     def render_fig_group(fig_list: List[Dict]) -> str:
-        parts = []
+        parts: List[str] = []
         for item in fig_list:
             if not item.get("path"):
                 continue
+            fig_counter[0] += 1
+            caption_cn = _replace_caption_number(item.get("caption_cn", ""), fig_counter[0])
             parts.append(
-                f"    <figure><img class='paper-fig' src='../assets/{html.escape(slug)}/{html.escape(item['path'])}' alt='{html.escape(item.get('label', ''))}' loading='lazy' decoding='async' />"
-                f"<figcaption style='font-size:12px;'>{html.escape(item.get('caption_cn', ''))}</figcaption></figure>"
+                f"<figure><img class='paper-fig' src='../assets/{slug}/{html.escape(item['path'])}' alt='{html.escape(item.get('label', 'Figure'))}' loading='lazy' decoding='async' />"
+                f"<figcaption style='font-size:12px;'>{html.escape(caption_cn)}</figcaption></figure>"
             )
         return "\n".join(parts)
 
-    summary_figs_html = render_fig_group(summary_figs)
-    tech_figs_html = render_fig_group(tech_figs)
-    exp_figs_html = render_fig_group(exp_figs)
-
+    alias = _paper_alias(doc.title)
     abstract_paras = _cn_paragraphs(abstract_cn)
     intro_paras = _cn_paragraphs(intro_cn)
+    innovation_paras = _cn_paragraphs(innovation_cn)
     method_paras = _cn_paragraphs(method_cn)
     experiment_paras = _cn_paragraphs(experiment_cn)
-    conclusion_paras = _cn_paragraphs(conclusion_cn)
+    takeaway_paras = _cn_paragraphs(takeaway_cn)
 
+    arxiv_url = f"https://arxiv.org/abs/{html.escape(doc.arxiv_id)}"
     return f"""
 <div class='layout'>
   {sidebar}
-
   <article class='article'>
     <h1>{html.escape(alias)}</h1>
-    <p class='meta'>原论文：{html.escape(doc.title)} · 中文精读</p>
+    <p class='meta'>原论文：<a href='{arxiv_url}' target='_blank'>{html.escape(doc.title)}</a> · 中文精读</p>
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      {html.escape(_clip_text(abstract_cn, 300))}
+      {html.escape(_clip_text(abstract_cn or intro_cn, 360))}
     </div>
 
     <h2 id='summary'>简单摘要</h2>
 {abstract_paras}
-{summary_figs_html}
-    <blockquote>
-      简而言之，这篇论文关注的核心是：{html.escape(_clip_text(abstract_cn, 150))}
-    </blockquote>
+{render_fig_group(summary_figs)}
 {intro_paras}
 
     <h2 id='innovation'>核心创新</h2>
-    <p>
-      综合引言与方法部分，这篇论文的核心创新可以概括为以下几方面：
-    </p>
-    <h3>1）问题定义与研究动机</h3>
-    <p>
-      {html.escape(_clip_text(intro_cn, 500))}
-    </p>
-    <h3>2）方法框架与核心模块</h3>
-    <p>
-      {html.escape(_clip_text(method_cn, 500))}
-    </p>
-    <h3>3）实验设计与工程价值</h3>
-    <p>
-      {html.escape(_clip_text(experiment_cn, 400))}
-    </p>
+{innovation_paras}
 
     <h2 id='technical'>技术细节</h2>
-    <p>
-      下面按照论文的方法章节结构展开，重点说明模型的关键模块、公式设计和训练策略。
-    </p>
 {method_paras}
 {equation_html}
-{tech_figs_html}
-    <p>
-      把全文方法串起来看，这篇论文的逻辑基本都遵循同一条主线：先把输入组织成更容易处理的表示，再通过模型结构和损失函数把这个表示推向目标输出，最后用可视化与数值实验共同证明该设计有效。
-    </p>
+{render_fig_group(tech_figs)}
 
     <h2 id='experiment'>实验结论</h2>
-    <p>
-      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，这种优势来自哪一个设计决策。
-    </p>
 {experiment_paras}
-{exp_figs_html}
-    <ul>
-      <li>方法在核心指标上的优势与结构设计和训练目标直接相关；</li>
-      <li>消融实验表明，拿掉关键模块后性能与结果质量都有明显回落；</li>
-      <li>论文不仅比较数值，也关注可视化质量、稳定性和泛化能力等更贴近真实使用的信号。</li>
-    </ul>
+{render_fig_group(exp_figs)}
 
     <h2 id='takeaway'>理解评价</h2>
-{conclusion_paras}
-    <p>
-      如果把它当成研究参考，建议重点关注三件事：第一，这套方法真正依赖的归纳偏置是什么；第二，实验中真正拉开差距的模块是哪一个；第三，它的局限究竟来自数据、算力还是监督信号本身。
-    </p>
-    <p>
-      以下相关论文可以作为进一步追踪的入口：
-    </p>
+{takeaway_paras}
+    <p>以下相关论文可作为延伸阅读：</p>
     {related_html}
-
-    <div class='tip'>
-      <strong>一句结论：</strong>
-      这篇论文值得关注的地方在于，它不只给出了更好的实验结果，更提供了一条相对完整的问题求解路径，把任务定义、方法设计与实验验证真正对齐到了同一条研究主线上。
-    </div>
   </article>
 </div>
 """
@@ -1856,11 +2636,30 @@ def build_post_from_pdf(
                 )
     else:
         source_figures = source_material.get("figures") if isinstance(source_material.get("figures"), list) else []
+        source_dir_raw = source_material.get("source_dir", "")
+        source_dir = Path(source_dir_raw) if source_dir_raw else None
+        has_source_assets = bool(source_dir and source_dir.exists() and source_figures)
         if source_figures:
-            figure_entries = _build_caption_aware_figures(pdf_path, fig_folder, source_figures, docs, max_items=8)
+            if slug == "2506_09479v1" and source_dir and source_dir.exists():
+                figure_entries = _build_tinysplat_source_figures(
+                    out_dir=fig_folder,
+                    docs_dir=docs,
+                    source_dir=source_dir,
+                    source_figures=source_figures,
+                )
+            else:
+                figure_entries = _build_caption_aware_figures(
+                    pdf_path,
+                    fig_folder,
+                    source_figures,
+                    docs,
+                    source_dir=source_dir if source_dir and source_dir.exists() else None,
+                    max_items=8,
+                    allow_pdf_crop_fallback=False,
+                )
 
     related = _related_work(doc.title, max_results=4) if include_related_work else []
-    if not figure_entries and figure_files:
+    if not figure_entries and figure_files and not (alias.lower() != "streetforward" and source_figures and source_dir and source_dir.exists()):
         fallback_captions = _extract_figure_captions_from_text(text, max_items=len(figure_files))
         for item in fallback_captions:
             item["caption_cn"] = _translate_figure_caption(item.get("caption_en", ""), docs, item.get("number", "1"))
@@ -2136,6 +2935,7 @@ def main() -> None:
     parser.add_argument("--title", default="", help="Optional blog title override")
     parser.add_argument("--rewrite-all", action="store_true", help="Rewrite all blog posts using the locked deep-dive template")
     parser.add_argument("--refresh-pages", action="store_true", help="Refresh already generated pages with the latest shared shell and lazy-loading behavior")
+    parser.add_argument("--validate-posts", action="store_true", help="Validate generated post HTML against quality gates")
     parser.add_argument("--commit-each", action="store_true", help="Commit site changes after each rewritten post")
     parser.add_argument("--push-each", action="store_true", help="Push after each commit (implies --commit-each)")
     parser.add_argument("--preserve-existing-deep", action="store_true", help="Skip overwriting posts that already match the locked deep-dive template")
@@ -2156,7 +2956,7 @@ def main() -> None:
             max_chars=14000,
             commit_each=args.commit_each or args.push_each,
             push_each=args.push_each,
-            preserve_existing_deep=False,
+            preserve_existing_deep=args.preserve_existing_deep,
         )
         print(f"Full rewrite completed: {len(posts)} posts")
     elif args.all:
@@ -2180,6 +2980,17 @@ def main() -> None:
     home = build_home(args.site_dir)
     print(f"Blog home generated: {home.resolve()}")
 
+    if args.validate_posts:
+        issues = validate_site_posts(args.site_dir)
+        if issues:
+            for path, path_issues in issues.items():
+                print(f"[QUALITY FAIL] {path}")
+                for issue in path_issues:
+                    print(f"  - {issue}")
+            raise SystemExit(1)
+        print("Quality validation passed for all generated posts.")
+
 
 if __name__ == "__main__":
     main()
+
