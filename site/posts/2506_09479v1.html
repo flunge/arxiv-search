@@ -133,8 +133,14 @@
   <script>
     window.MathJax = {
       tex: {
-        inlineMath: [['$', '$'], ['\(', '\)']],
-        displayMath: [['$$', '$$'], ['\[', '\]']]
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']],
+        macros: {
+          mathds: ['\\mathbb{#1}', 1],
+          bm: ['\\boldsymbol{#1}', 1],
+          RR: '\\mathbb{R}',
+          EE: '\\mathbb{E}'
+        }
       },
       svg: { fontCache: 'global' },
       startup: {
@@ -151,111 +157,63 @@
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
-
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
 
   <article class='article'>
     <h1>TinySplat</h1>
-    <p class='meta'>原论文：TinySplat Feedforward Approach for Generating Compact 3D Scene Representation · 中文精读</p>
+    <p class='meta'>原论文：<a href='https://arxiv.org/abs/2506.09479v1' target='_blank'>TinySplat Feedforward Approach for Generating Compact 3D Scene Representation</a> · 中文精读</p>
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      这篇工作要解决的问题是：前馈 3D 高斯分布 (3DGS) 的最新发展提出了重建 3D 场景的新范例。 对应的核心做法是：使用在大规模多视图数据集上训练的神经网络，它可以直接从稀疏输入视图推断 3DGS 表示。 从机制上看，关键设计在于：尽管前馈方法实现了较高的重建速度，但它仍然受到 3D 高斯的大量存储成本的影响。 训练或推理层面的重点是：由于架构不兼容，依赖于场景优化的现有 3DGS 压缩方法不适用。 实验层面的主要信号是：为了克服这一限制，我们提出了 TinySplat，一种用于生成紧凑 3D 场景表示的完整前馈方法。
+      TinySplat 想解决的核心问题是：前馈 3DGS 虽然把重建速度提上来了，但存储体积仍然很大，而传统 3DGS 压缩方法又大多依赖场景级优化，难以直接套到前馈管线里。作者的思路是为前馈生成的高斯表示单独设计一套兼容的压缩框架，让“快速重建”和“紧凑存储”可以在同一条链路里同时成立。
     </div>
 
     <h2 id='summary'>简单摘要</h2>
-    <p>这篇工作要解决的问题是：前馈 3D 高斯分布 (3DGS) 的最新发展提出了重建 3D 场景的新范例。</p>
-    <p>对应的核心做法是：使用在大规模多视图数据集上训练的神经网络，它可以直接从稀疏输入视图推断 3DGS 表示。</p>
-    <p>从机制上看，关键设计在于：尽管前馈方法实现了较高的重建速度，但它仍然受到 3D 高斯的大量存储成本的影响。</p>
-    <p>训练或推理层面的重点是：由于架构不兼容，依赖于场景优化的现有 3DGS 压缩方法不适用。</p>
-    <p>实验层面的主要信号是：为了克服这一限制，我们提出了 TinySplat，一种用于生成紧凑 3D 场景表示的完整前馈方法。</p>
-    <figure><img class='paper-fig' src='../assets/2506_09479v1/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：TinySplat的整体框架。我们以前馈方式从现有高斯推理网络生成高斯特征图，并使用精心设计的压缩框架对其进行压缩。符号^</figcaption></figure>
-    <figure><img class='paper-fig' src='../assets/2506_09479v1/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：拟议 VPT 的插图。我们将前馈生成的高斯基元从世界空间投影到相应的输入相机空间。我们在相机空间中进行压缩，减少通道间相关性……</figcaption></figure>
+    <p>这篇论文讨论的是前馈 3DGS 进入实用阶段后暴露出来的新瓶颈：虽然前馈网络已经把重建过程从“每场景优化”变成了“直接推理”，但生成出来的高斯表示仍然很大，存储和传输成本并没有自动消失。</p>
+    <p>问题在于，已有压缩方法大多是围绕传统优化式 3DGS 设计的，和前馈重建网络的输出形式并不兼容。TinySplat 的切入点正是在这里：它不去改动前馈重建网络本体，而是专门为这些前馈生成的高斯表示设计一套后续压缩流程。</p>
+    <p>因此，这篇论文真正想证明的是：前馈 3DGS 不应该只是“重建更快”，还应该“表示更紧凑”。如果压缩也能和前馈生成链路兼容，那么前馈 3DGS 才更有机会真正用于大规模部署。</p>
+    <figure><img class='paper-fig' src='../assets/2506_09479v1/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：TinySplat 的整体框架。系统先以前馈方式从现有高斯推理网络得到高斯特征图，再用专门设计的压缩模块对这些特征做编码，从而在不改动重建主干的前提下显著减小表示体积。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2506_09479v1/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：VPT 模块的核心思路。作者先把前馈生成的高斯基元从世界坐标投影到输入相机坐标系，再在相机空间里做压缩，以降低不同通道之间的相关性并减轻冗余表示带来的码率压力。</figcaption></figure>
     <blockquote>
-      简而言之，这篇论文关注的核心是：这篇工作要解决的问题是：前馈 3D 高斯分布 (3DGS) 的最新发展提出了重建 3D 场景的新范例。 对应的核心做法是：使用在大规模多视图数据集上训练的神经网络，它可以直接从稀疏输入视图推断 3DGS 表示。 从机制上看，关键设计在于：尽管前馈方法实现了较高的重建速度，但它仍然受到 3D 高斯的…
+      可以把 TinySplat 理解成“前馈 3DGS 的配套压缩器”：前半段负责快速生成高斯表示，后半段负责把这些表示压到更适合存储和部署的规模。
     </blockquote>
-    <p>这篇工作要解决的问题是：3D 高斯溅射 (3DGS) 已成为从多视图图像重建 3D 场景的强大技术。</p>
-    <p>对应的核心做法是：通过将场景显式表示为各向异性高斯图元的集合，3DGS 可实现照片级真实感渲染并支持实时自由视点导航。</p>
-    <p>从机制上看，关键设计在于：普通 3DGS 公式依赖于随机梯度下降 (SGD) 和自适应密度控制来联合优化高斯图元的几何和外观属性。</p>
-    <p>训练或推理层面的重点是：虽然这种方法实现了令人印象深刻的视觉保真度，但它对每个场景优化和密集输入视图的依赖极大地限制了其可扩展性和实用性。</p>
-    <p>实验层面的主要信号是：最近的前馈 3DGS 利用神经网络 (NN) 直接从输入图像推断 3D 高斯基元的参数，从而消除了迭代优化的需要。</p>
 
     <h2 id='innovation'>核心创新</h2>
-    <p>
-      综合引言与方法部分，这篇论文的核心创新可以概括为以下几方面：
-    </p>
-    <h3>1）问题定义与研究动机</h3>
-    <p>这篇工作要解决的问题是：3D 高斯溅射 (3DGS) 已成为从多视图图像重建 3D 场景的强大技术。</p>
-    <p>对应的核心做法是：通过将场景显式表示为各向异性高斯图元的集合，3DGS 可实现照片级真实感渲染并支持实时自由视点导航。</p>
-    <p>从机制上看，关键设计在于：普通 3DGS 公式依赖于随机梯度下降 (SGD) 和自适应密度控制来联合优化高斯图元的几何和外观属性。</p>
-    <p>训练或推理层面的重点是：虽然这种方法实现了令人印象深刻的视觉保真度，但它对每个场景优化和密集输入视图的依赖极大地限制了其可扩展性和实用性。</p>
-    <p>实验层面的主要信号是：最近的前馈 3DGS 利用神经网络 (NN) 直接从输入图像推断 3D 高斯基元的参数，从而消除了迭代优化的需要。</p>
-    <h3>2）方法框架与核心模块</h3>
-    <p>这篇工作要解决的问题是：初步 广泛认可的 3D 高斯分布采用高斯基元集合来对 3D 场景进行建模。</p>
-    <p>对应的核心做法是：每个基元都由定义其形状和辐射度的几何参数和 SH 参数组成。</p>
-    <p>从机制上看，关键设计在于：具体来说，高斯基元的几何性质用高斯概率密度函数来表征，其中 和 分别表示高斯中心和样本点的笛卡尔坐标。</p>
-    <p>训练或推理层面的重点是：是 3D 协方差矩阵并表示其行列式。</p>
-    <p>实验层面的主要信号是：在普通 3DGS 中，协方差矩阵进一步分解为旋转矩阵 和 缩放矩阵 ，其中对角缩放矩阵存储为向量，并存储为表示旋转的四元数。</p>
-    <h3>3）实验设计与工程价值</h3>
-    <p>这篇工作要解决的问题是：我们对几个在该领域广泛使用的基准数据集进行了全面的实验。</p>
-    <p>对应的核心做法是：其中，RealEstate10K和ACID代表了相关研究中广泛采用的两个大规模多视图3D场景数据集。</p>
-    <p>从机制上看，关键设计在于：RealEstate10K数据集主要包括从网上收集的室内场景多视图图像，包含7,289个测试场景。</p>
-    <p>训练或推理层面的重点是：ACID 数据集由空中无人机捕获的大量室外场景组成，有 1,972 个场景用于测试。</p>
-    <p>实验层面的主要信号是：此外，我们还在 DL3DV 数据集的子集上评估我们的方法，其中包含 140 个测试场景。</p>
+    <p>TinySplat 的第一个创新点，是它没有试图推翻现有前馈 3DGS 重建网络，而是把注意力集中在“这些网络输出的表示该怎么压”上。这个问题很实际，也很重要，因为前馈重建如果没有后续压缩支撑，部署成本仍然会很高。</p>
+    <p>第二个创新点，是作者提出了 VPT 和 VABR 这类更贴近高斯表示结构的压缩设计。它们不是机械照搬图像编解码思路，而是根据高斯在相机空间、观察方向和属性分布上的特点来重组表示，让后续熵编码更有效。</p>
+    <p>第三个创新点，是它把压缩效果放到多个数据集和多个前馈基线上验证，而不是只在单一场景里展示一个漂亮数字。这样做让论文更像是在回答“这套压缩框架能否作为前馈 3DGS 的通用后端”这个问题。</p>
 
     <h2 id='technical'>技术细节</h2>
-    <p>
-      下面按照论文的方法章节结构展开，重点说明模型的关键模块、公式设计和训练策略。
-    </p>
-    <p>这篇工作要解决的问题是：初步 广泛认可的 3D 高斯分布采用高斯基元集合来对 3D 场景进行建模。</p>
-    <p>对应的核心做法是：每个基元都由定义其形状和辐射度的几何参数和 SH 参数组成。</p>
-    <p>从机制上看，关键设计在于：具体来说，高斯基元的几何性质用高斯概率密度函数来表征，其中 和 分别表示高斯中心和样本点的笛卡尔坐标。</p>
-    <p>训练或推理层面的重点是：是 3D 协方差矩阵并表示其行列式。</p>
-    <p>实验层面的主要信号是：在普通 3DGS 中，协方差矩阵进一步分解为旋转矩阵 和 缩放矩阵 ，其中对角缩放矩阵存储为向量，并存储为表示旋转的四元数。</p>
+    <p>技术上，TinySplat 的方法链路可以概括为：先接收前馈重建网络生成的 3D 高斯表示，再把这些高斯属性映射到更适合压缩的空间，最后用学习式压缩框架完成编码与重建。它的重点不是重新定义 3DGS，而是让现有前馈 3DGS 表示更适合存储。</p>
+    <p>其中最关键的设计是 VPT。作者不是直接在原始世界坐标下压缩所有高斯，而是先把高斯投影到对应的相机空间，再在这个空间里处理压缩问题。这样做的直觉是：投影之后，很多本来分散在不同通道里的变化会变得更集中，从而更利于后续熵建模。</p>
+    <p>除此之外，TinySplat 还针对 SH 系数的重要性分布做了可变码率分配。这说明作者注意到不同方向分量对最终渲染的影响并不一样，因此不应该一视同仁地压缩。换句话说，它真正做的是“按表示结构来压缩”，而不是对所有数字做统一量化。</p>
     <p>$$ \mathcal{G}(\boldsymbol{x}) = \frac{1}{(2\pi)^\frac{3}{2}|\boldsymbol{\Sigma}|^{\frac{1}{2}}}exp(-\frac{1}{2}(\boldsymbol{x}-\boldsymbol{\mu})^T\boldsymbol{\Sigma}^{-1}(\boldsymbol{x}-\boldsymbol{\mu})), $$</p>
-    <p>
-      这条公式用于定义模型中的核心计算关系：左侧给出目标量，右侧由输入与参数共同决定。阅读时可先关注 G、x、T 的物理/几何含义，再看它们如何影响训练目标或渲染结果。
-    </p>
+    <p>这个式子给出了单个高斯基元在空间中的密度函数，核心作用是把“一个高斯在某个位置的贡献”明确写成可计算形式。对压缩任务来说，这一步很关键，因为后续任何量化误差最终都会通过这个密度函数放大到渲染质量上。</p>
     <p>$$ \boldsymbol{\Sigma} = \boldsymbol{RSS}^T\boldsymbol{R}^T, $$</p>
-    <p>
-      这条公式用于定义模型中的核心计算关系：左侧给出目标量，右侧由输入与参数共同决定。阅读时可先关注 T、R 的物理/几何含义，再看它们如何影响训练目标或渲染结果。
-    </p>
-    <p>$$ \begin{aligned} \mathcal{F}: \{( \boldsymbol{I}^v, \boldsymbol{K}^v,&amp; \boldsymbol{E}^v)\}_{v=1}^V \Rightarrow \\ &amp;\{\cup(\sigma_i^v, \boldsymbol{\mu}_i^v, \boldsymbol{q}_i^v, \boldsymbol{s}_i^v, \boldsymbol{SH}_i^v)\}_{i=1,...,H\times W}^{v=1,...,V}, \end{aligned} $$</p>
-    <p>
-      这条公式用于定义模型中的核心计算关系：左侧给出目标量，右侧由输入与参数共同决定。阅读时可先关注 F、I、v、K 的物理/几何含义，再看它们如何影响训练目标或渲染结果。
-    </p>
+    <p>这一项说明协方差由旋转与尺度共同决定。也就是说，高斯不是固定形状的小球，而是可以被旋转和拉伸的椭球体；因此压缩时如果把旋转或尺度压坏，几何外形会先出问题，再传导到渲染伪影。</p>
+    <p>$$ \begin{aligned} \mathcal{F}: \{( \boldsymbol{I}^v, \boldsymbol{K}^v,&amp; \boldsymbol{E}^v)\}_{v=1}^V \Rightarrow \\ &amp;\{\cup(\sigma_i^v, \boldsymbol{\mu}_i^v, \boldsymbol{q}_i^v, \boldsymbol{s}_i^v, \boldsymbol{SH}_i^v)\}_{i=1,\ldots,H\times W}^{v=1,\ldots,V}, \end{aligned} $$</p>
+    <p>这条映射描述的是前馈网络从多视图输入直接预测高斯参数集合。TinySplat 的定位正是“接在这一步之后”：它并不改动前馈预测器本身，而是把这批预测出来的参数重新组织成更容易压缩的表示。</p>
     <p>$$ z_{i,j}^v(x_{i,j}^v,y_{i,j}^v,1)^T = \boldsymbol{K}^v\cdot(\boldsymbol{R}^v\cdot \boldsymbol{\mu}_{i,j}^v + \boldsymbol{T}^v), $$</p>
-    <p>
-      这条公式用于定义模型中的核心计算关系：左侧给出目标量，右侧由输入与参数共同决定。阅读时可先关注 i、j、v、T 的物理/几何含义，再看它们如何影响训练目标或渲染结果。
-    </p>
+    <p>这个投影关系把 3D 高斯中心映射到图像平面。作者提出 VPT 的原因就在这里：既然最终渲染发生在相机视角下，那么在相机空间里做压缩往往比在世界空间里更符合数据分布，也更有利于降低通道冗余。</p>
     <p>$$ \hat{\boldsymbol{q}}_{i,j}^{v}=Quat(\boldsymbol{R}^v)\cdot \boldsymbol{q}_{i,j}^v, $$</p>
-    <p>
-      这条公式用于定义模型中的核心计算关系：左侧给出目标量，右侧由输入与参数共同决定。阅读时可先关注 q、i、j、v 的物理/几何含义，再看它们如何影响训练目标或渲染结果。
-    </p>
+    <p>这里把旋转参数从世界参考系转换到相机相关参考系，目的是让同一视角下的参数统计更集中。压缩角度看，这一步相当于先做一次“表示对齐”，再做熵编码，通常会比直接编码原始旋转参数更省码率。</p>
     <p>$$ \hat{\boldsymbol{s}}_{i,j}^{v}=f\frac{\boldsymbol{s}_{i,j}^{v}}{z_{i,j}^{v}}, $$</p>
-    <p>
-      这条公式用于定义模型中的核心计算关系：左侧给出目标量，右侧由输入与参数共同决定。阅读时可先关注 s、i、j、v 的物理/几何含义，再看它们如何影响训练目标或渲染结果。
-    </p>
-    <figure><img class='paper-fig' src='../assets/2506_09479v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：VPT 前后位置和比例因子的统计分布。应用VPT后，大部分位置能量集中在深度通道（顶行），缩放因子的分布……</figcaption></figure>
-    <figure><img class='paper-fig' src='../assets/2506_09479v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：SH 基函数值随观察方向的变化。在特定方向上，绝对值越大，说明对应的SH系数对最终渲染的影响越大……</figcaption></figure>
-    <figure><img class='paper-fig' src='../assets/2506_09479v1/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：Re10K 数据集上的率失真性能，其中失真是根据新视图合成质量来衡量的。 “Raw”表示来自 DepthSplat 的未压缩 3D 高斯模型。与 SoTA 方法相比，我们的</figcaption></figure>
+    <p>这个式子刻画了尺度参数随深度进行归一化的方式。直观上看，远处物体在像面上的有效尺度天然更小，把尺度和深度绑定后，模型更容易学到稳定分布，这也是 TinySplat 在高压缩率下仍能维持结构细节的关键原因之一。</p>
+    <figure><img class='paper-fig' src='../assets/2506_09479v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：VPT 作用前后位置与尺度因子的统计分布。引入 VPT 后，位置能量更集中到深度相关通道，而尺度分布也更集中，说明这种投影变换确实让表示更适合后续压缩。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2506_09479v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：SH 基函数值随观察方向的变化。某个方向上的绝对值越大，代表对应 SH 系数对最终渲染颜色的贡献越强；作者借这张图说明不同方向分量的重要性并不均匀，因此可以有针对性地做可变码率分配。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2506_09479v1/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：RealEstate10K 上的率失真对比。横轴对应压缩后的表示大小，纵轴对应新视图质量；“Raw”表示未压缩的 DepthSplat 高斯表示。作者用这张图说明 TinySplat 在同等甚至更小存储下，能取得更好的重建质量折中。</figcaption></figure>
     <p>
       把全文方法串起来看，这篇论文的逻辑基本都遵循同一条主线：先把输入组织成更容易处理的表示，再通过模型结构和损失函数把这个表示推向目标输出，最后用可视化与数值实验共同证明该设计有效。
     </p>
 
     <h2 id='experiment'>实验结论</h2>
-    <p>
-      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，这种优势来自哪一个设计决策。
-    </p>
-    <p>这篇工作要解决的问题是：我们对几个在该领域广泛使用的基准数据集进行了全面的实验。</p>
-    <p>对应的核心做法是：其中，RealEstate10K和ACID代表了相关研究中广泛采用的两个大规模多视图3D场景数据集。</p>
-    <p>从机制上看，关键设计在于：RealEstate10K数据集主要包括从网上收集的室内场景多视图图像，包含7,289个测试场景。</p>
-    <p>训练或推理层面的重点是：ACID 数据集由空中无人机捕获的大量室外场景组成，有 1,972 个场景用于测试。</p>
-    <p>实验层面的主要信号是：此外，我们还在 DL3DV 数据集的子集上评估我们的方法，其中包含 140 个测试场景。</p>
-    <figure><img class='paper-fig' src='../assets/2506_09479v1/figure6_full.png' alt='Figure 6:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 6：Re10k 数据集上的主观结果。我们使用 FCGS 和建议的 TinySplat 压缩来自 DepthSplat 的 3D 高斯模型。 FCGS 在 11 压缩比下表现出严重的类似水印的伪影。相比之下，我们的</figcaption></figure>
-    <figure><img class='paper-fig' src='../assets/2506_09479v1/figure7_full.png' alt='Figure 7:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 7：逐组件消融分析。我们分别禁用VPT模块和VABR模块来测试它们对编码效率的影响。 PSNR 是在渲染的新颖视图和真实视图之间测量的</figcaption></figure>
-    <figure><img class='paper-fig' src='../assets/2506_09479v1/figure8_full.png' alt='Figure 8:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 8：DL3DV 数据集 6 个输入视图下的主观结果。与 SoTA 压缩方法相比，我们的 TinySplat 仅使用 15% 的存储空间即可实现卓越的客观和感知质量。 FCGS 展示了引人注目的 c…</figcaption></figure>
+    <p>实验部分主要验证两件事：TinySplat 这种“前馈生成 + 专门压缩”的组合，是否真的比现有压缩方案更适合前馈 3DGS；以及它的提升到底来自哪些模块。作者在 RealEstate10K、ACID 和 DL3DV 上做了比较，结果显示 TinySplat 在多个数据集上都能取得更好的率失真折中。</p>
+    <p>特别值得注意的是，作者不仅报告客观指标，也给出了主观对比。论文强调，相比若干压缩基线，TinySplat 在高压缩比下仍能保持更稳定的视觉质量，而一些方法会更容易出现水印感、模糊或纹理破坏。这一点说明它的优势并不只是表格上的数字更好，而是压缩后的高斯表示更适合后续渲染。</p>
+    <p>消融实验则说明 VPT 和 VABR 都不是装饰模块。去掉它们后，编码效率和重建质量都会明显退步，这和作者的整体论点是一致的：要想把前馈 3DGS 压得好，必须利用高斯表示自身的结构，而不能简单照搬传统压缩套路。</p>
+    <figure><img class='paper-fig' src='../assets/2506_09479v1/figure6_full.png' alt='Figure 6:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 6：RealEstate10K 上的主观结果。作者比较了 TinySplat 与 FCGS 等方法在压缩 DepthSplat 高斯表示后的渲染效果；结果显示，TinySplat 在高压缩率下仍能保持更自然的纹理与结构，而部分基线会出现明显伪影。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2506_09479v1/figure7_full.png' alt='Figure 7:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 7：逐组件消融分析。作者分别去掉 VPT 和 VABR 来测量它们对编码效率的影响，结果表明两个模块都会直接影响最终的 PSNR 与压缩表现。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2506_09479v1/figure8_full.png' alt='Figure 8:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 8：DL3DV 数据集 6 个输入视图下的主观结果。与现有压缩方法相比，TinySplat 在显著更小的存储开销下仍保持了更好的客观指标和感知质量，说明它对不同前馈场景表示具有较好的泛化能力。</figcaption></figure>
     <ul>
       <li>方法在核心指标上的优势与结构设计和训练目标直接相关；</li>
       <li>消融实验表明，拿掉关键模块后性能与结果质量都有明显回落；</li>
@@ -263,18 +221,15 @@
     </ul>
 
     <h2 id='takeaway'>理解评价</h2>
-    <p>这篇工作要解决的问题是：在这项工作中，我们没有修改现有的 3D 高斯推理网络；。</p>
-    <p>对应的核心做法是：相反，我们专注于开发适用于他们生成的高斯数据的通用压缩框架。</p>
-    <p>从机制上看，关键设计在于：虽然我们的方法有效地产生紧凑的 3D 高斯表示，但我们实现的压缩比和理论限制之间仍然存在显着的差距。</p>
-    <p>训练或推理层面的重点是：由于 3D 高斯完全源自一些输入图像，因此信息论表明它们的熵不应超过输入的熵。</p>
-    <p>实验层面的主要信号是：然而，即使在压缩之后，3D 高斯模型的大小仍然超过使用传统编解码器压缩的原始图像的大小。</p>
+    <p>从整篇论文看，TinySplat 的价值在于它没有去改动前馈 3DGS 重建网络本身，而是专门为“前馈生成出来的高斯表示”设计了一套兼容的压缩框架。这个定位很重要，因为它说明作者想解决的不是重建精度本身，而是前馈 3DGS 走向实用部署时的存储瓶颈。</p>
+    <p>它的主要局限也比较清楚：虽然论文已经显著压缩了表示大小，但离理论上的最优码率还有距离，而且压缩后的 3D 高斯大小仍可能高于传统图像编解码器压缩后的输入。这意味着方法已经证明“可以压”，但还没有完全回答“能否压到足够极致、足够通用”。</p>
+    <p>如果继续往前推进，一个合理的未来方向是把更强的熵模型、跨数据集泛化和与前馈重建网络的联合训练结合起来，让压缩与生成不再是两段式流程，而是在训练阶段就共同优化存储效率与重建质量。</p>
     <p>
       如果把它当成研究参考，建议重点关注三件事：第一，这套方法真正依赖的归纳偏置是什么；第二，实验中真正拉开差距的模块是哪一个；第三，它的局限究竟来自数据、算力还是监督信号本身。
     </p>
     <p>
-      以下相关论文可以作为进一步追踪的入口：
+      以下相关论文可以作为进一步追踪的入口，可结合上下文延伸阅读。
     </p>
-    <ul></ul>
 
     <div class='tip'>
       <strong>一句结论：</strong>
@@ -282,7 +237,6 @@
     </div>
   </article>
 </div>
-
   </div>
 </div>
 </body>

@@ -133,8 +133,14 @@
   <script>
     window.MathJax = {
       tex: {
-        inlineMath: [['$', '$'], ['\(', '\)']],
-        displayMath: [['$$', '$$'], ['\[', '\]']]
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']],
+        macros: {
+          mathds: ['\\mathbb{#1}', 1],
+          bm: ['\\boldsymbol{#1}', 1],
+          RR: '\\mathbb{R}',
+          EE: '\\mathbb{E}'
+        }
       },
       svg: { fontCache: 'global' },
       startup: {
@@ -154,119 +160,58 @@
 
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
-
   <article class='article'>
     <h1>ReinDriveGen</h1>
-    <p class='meta'>原论文：ReinDriveGen Reinforcement Post-Training for Out-of-Distribution Driving Scene G · 中文精读</p>
+    <p class='meta'>原论文：<a href='https://arxiv.org/abs/2604.01129v1' target='_blank'>ReinDriveGen Reinforcement Post-Training for Out-of-Distribution Driving Scene G</a> · 中文精读</p>
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      这篇工作要解决的问题是：我们推出了 ReinDriveGen，这是一个能够完全控制动态驾驶场景的框架，允许用户自由编辑演员轨迹来模拟安全关键的极端情况，例如前车碰撞、漂移汽车、车辆旋转……。 对应的核心做法是：我们的方法从多帧 LiDAR 数据构建动态 3D 点云场景，引入车辆完成模块以根据部分观察重建完整的 360° 几何形状，并将编辑后的场景渲染为指导视频编辑的 2D 条件图像。 从机制上看，关键设计在于：由于此类经过编辑的场景不可避免地会落在训练分布之外，因此我们进一步提出了一种基于强化学习的训练后策略，该策略具有成对偏好模型和成对奖励机制，从而能够在分布外情况下实现稳健的质量改进………
+      我们推出了ReinDriveGen，这是一个能够完全可控动态驾驶场景的框架，允许用户自由编辑演员轨迹来模拟安全关键的极端情况，例如前车碰撞、漂移汽车、车辆旋转等。作者的主线做法是：我们的方法从多帧 LiDAR 数据构建动态 3D 点云场景，引入车辆完成模块以根据部分观察重建完整的 360° 几何形状，并将编辑后的场景渲染为引导视频d 的 2D 条件图像。 更关键的是，由于此类经过编辑的场景不可避免地会落在训练分布之外，因此我们进一步提出了一种基于 RL 的训练后策略，具有成对偏好模型和成对奖励机制，从而能够在分布外情况下实现稳健的质量改进。从结果上看，大量实验表明，ReinDriveGen 在编辑驾驶场景方面优于现有方法，并在新颖的自我观点合成方面取得了最先进的结果。
     </div>
 
     <h2 id='summary'>简单摘要</h2>
-    <p>这篇工作要解决的问题是：我们推出了 ReinDriveGen，这是一个能够完全控制动态驾驶场景的框架，允许用户自由编辑演员轨迹来模拟安全关键的极端情况，例如前车碰撞、漂移汽车、车辆旋转……。</p>
-    <p>对应的核心做法是：我们的方法从多帧 LiDAR 数据构建动态 3D 点云场景，引入车辆完成模块以根据部分观察重建完整的 360° 几何形状，并将编辑后的场景渲染为指导视频编辑的 2D 条件图像。</p>
-    <p>从机制上看，关键设计在于：由于此类经过编辑的场景不可避免地会落在训练分布之外，因此我们进一步提出了一种基于强化学习的训练后策略，该策略具有成对偏好模型和成对奖励机制，从而能够在分布外情况下实现稳健的质量改进……。</p>
-    <p>训练或推理层面的重点是：大量实验表明，ReinDriveGen 在编辑驾驶场景方面优于现有方法，并在新颖的自我观点合成方面取得了最先进的结果。</p>
-    <figure><img class='paper-fig' src='../assets/2604_01129v1/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：ReinDriveGen 能够生成逼真的 OOD 驾驶场景。 ReinDriveGen 可以操纵参与者轨迹来合成各种安全关键的极端情况，例如车辆原地旋转、骑车人交叉……</figcaption></figure>
-    <figure><img class='paper-fig' src='../assets/2604_01129v1/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：ReinDriveGen 的两个核心组件概述。左：我们的模拟器编辑动态点云并完成车辆几何形状以渲染结构伪图像，这为照片级真实感调节视频扩散模型</figcaption></figure>
-    <blockquote>
-      简而言之，这篇论文关注的核心是：这篇工作要解决的问题是：我们推出了 ReinDriveGen，这是一个能够完全控制动态驾驶场景的框架，允许用户自由编辑演员轨迹来模拟安全关键的极端情况，例如前车碰撞、漂移汽车、车辆旋转……。 对应的核心做法是：我们的方法从多帧 LiDAR 数据构建动态 3D 点云场景，引入车辆完成模块以根据部分观…
-    </blockquote>
-    <p>这篇工作要解决的问题是：逼真的驾驶场景模拟对于自动驾驶系统的开发和验证是必不可少的。</p>
-    <p>对应的核心做法是：高保真模拟器允许任意编辑驾驶场景，生成多样化且真实的场景，包括罕见但对安全至关重要的极端情况，例如突然切入、险些发生碰撞、车辆漂移、行人乱穿马路等，从而。</p>
-    <p>从机制上看，关键设计在于：构建这样一个模拟器的一个主要挑战在于训练和推理之间不可避免的分布差距。</p>
-    <p>训练或推理层面的重点是：当前的方法，无论是基于视频生成的还是基于重建的，从根本上都是根据记录的驾驶数据进行训练或优化的。</p>
-    <p>实验层面的主要信号是：然而，在推理时，一个有用的模拟器必须支持任意编辑，例如重新定位车辆、改变轨迹以及从新颖的自我视角进行渲染，所有这些都会产生明显偏离训练分布的条件……。</p>
+    <p>我们推出了ReinDriveGen，这是一个能够完全可控动态驾驶场景的框架，允许用户自由编辑演员轨迹来模拟安全关键的极端情况，例如前车碰撞、漂移汽车、车辆旋转等。作者的主线做法是：我们的方法从多帧 LiDAR 数据构建动态 3D 点云场景，引入车辆完成模块以根据部分观察重建完整的 360° 几何形状，并将编辑后的场景渲染为引导视频d 的 2D 条件图像。</p>
+    <p>更关键的是，由于此类经过编辑的场景不可避免地会落在训练分布之外，因此我们进一步提出了一种基于 RL 的训练后策略，具有成对偏好模型和成对奖励机制，从而能够在分布外情况下实现稳健的质量改进。从结果上看，大量实验表明，ReinDriveGen 在编辑驾驶场景方面优于现有方法，并在新颖的自我观点合成方面取得了最先进的结果。</p>
+<figure><img class='paper-fig' src='../assets/2604_01129v1/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：图 1：ReinDriveGen 能够生成逼真的 OOD 驾驶场景。 ReinDriveGen 可以操纵参与者轨迹来合成各种安全关键的极端情况，例如车辆原地旋转、骑自行车者横穿和左转碰撞。我们基于强化学习的后期训练显着提高了这些 OOD 编辑的生成质量，而无需地面实况监督。</figcaption></figure>
+<figure><img class='paper-fig' src='../assets/2604_01129v1/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：图 2：ReinDriveGen 的两个核心组件概述。左：我们的模拟器编辑动态点云并完成车辆几何形状以渲染结构伪图像，这为视频扩散模型提供了逼真的合成条件。右：为了提高分布外 (OOD) 场景的质量，我们采用 RL 后训练。成对奖励机制将生成的候选者分为正集和负集，提供强大的对比监督。</figcaption></figure>
+    <p>逼真的驾驶场景模拟对于自动驾驶系统的开发和验证是必不可少的。作者的主线做法是：构建这样一个模拟器的一个主要挑战在于训练和推理之间不可避免的分布差距。</p>
+    <p>更关键的是，为了应对这一根本挑战，我们提出了 ReinDriveGen，这是一个统一的框架，其核心见解是利用基于强化学习 (RL) 的后训练来提高 OOD 条件下的发电质量，超越单独 SFT 所能实现的目标。从结果上看，我们将 DiffusionNFT 从图像生成扩展到视频生成，作为我们的 RL 后训练框架。</p>
 
     <h2 id='innovation'>核心创新</h2>
-    <p>
-      综合引言与方法部分，这篇论文的核心创新可以概括为以下几方面：
-    </p>
-    <h3>1）问题定义与研究动机</h3>
-    <p>这篇工作要解决的问题是：逼真的驾驶场景模拟对于自动驾驶系统的开发和验证是必不可少的。</p>
-    <p>对应的核心做法是：高保真模拟器允许任意编辑驾驶场景，生成多样化且真实的场景，包括罕见但对安全至关重要的极端情况，例如突然切入、险些发生碰撞、车辆漂移、行人乱穿马路等，从而。</p>
-    <p>从机制上看，关键设计在于：构建这样一个模拟器的一个主要挑战在于训练和推理之间不可避免的分布差距。</p>
-    <p>训练或推理层面的重点是：当前的方法，无论是基于视频生成的还是基于重建的，从根本上都是根据记录的驾驶数据进行训练或优化的。</p>
-    <p>实验层面的主要信号是：然而，在推理时，一个有用的模拟器必须支持任意编辑，例如重新定位车辆、改变轨迹以及从新颖的自我视角进行渲染，所有这些都会产生明显偏离训练分布的条件……。</p>
-    <h3>2）方法框架与核心模块</h3>
-    <p>这篇工作要解决的问题是：我们的方法由两个核心组件组成，如图 1 所示。</p>
-    <p>对应的核心做法是：点云条件视频扩散模拟器（秒）。</p>
-    <p>从机制上看，关键设计在于：）和基于强化学习的后训练框架（第 2 节）。</p>
-    <p>训练或推理层面的重点是：点云条件视频扩散模拟器如果没有明确的 3D 场景表示，视频扩散模型通常很难保持多视图几何一致性，并且执行多轮目标场景编辑仍然具有挑战性……。</p>
-    <p>实验层面的主要信号是：因此，我们采用动态 3D 点云作为我们的 3D 主干，并将它们渲染成 2D 伪图像，为视频扩散模型提供像素级条件，灵感来自。</p>
-    <h3>3）实验设计与工程价值</h3>
-    <p>这篇工作要解决的问题是：演员和视点操纵的演示。</p>
-    <p>对应的核心做法是：证明我们的方法可以操纵车辆、行人和骑自行车的人，包括训练分布之外的操作，例如原地旋转、转弯、车辆侧翻和横向移动自我车辆视点。</p>
-    <p>从机制上看，关键设计在于：0.3in 实施细节条件视频扩散模型。</p>
-    <p>训练或推理层面的重点是：我们在 Waymo 数据集中的 1,000 个场景上微调视频扩散模型。</p>
-    <p>实验层面的主要信号是：我们仅使用前视图、左前视图和右前视图进行训练。</p>
+    <p>这篇工作的创新不是简单堆模块，而是把问题重新定义为：我们的方法从多帧 LiDAR 数据构建动态 3D 点云场景，引入车辆完成模块以根据部分观察重建完整的 360° 几何形状，并将编辑后的场景渲染为引导视频d 的 2D 条件图像。</p>
+    <p>第二个关键新意在于：由于此类经过编辑的场景不可避免地会落在训练分布之外，因此我们进一步提出了一种基于 RL 的训练后策略，具有成对偏好模型和成对奖励机制，从而能够在分布外情况下实现稳健的质量改进。这使方法不只是能生成结果，更能解释为什么会有效。</p>
+    <p>再往后看，大量实验表明，ReinDriveGen 在编辑驾驶场景方面优于现有方法，并在新颖的自我观点合成方面取得了最先进的结果。这也是它和纯工程拼装方案拉开差距的地方。</p>
 
     <h2 id='technical'>技术细节</h2>
-    <p>
-      下面按照论文的方法章节结构展开，重点说明模型的关键模块、公式设计和训练策略。
-    </p>
-    <p>这篇工作要解决的问题是：我们的方法由两个核心组件组成，如图 1 所示。</p>
-    <p>对应的核心做法是：点云条件视频扩散模拟器（秒）。</p>
-    <p>从机制上看，关键设计在于：）和基于强化学习的后训练框架（第 2 节）。</p>
-    <p>训练或推理层面的重点是：点云条件视频扩散模拟器如果没有明确的 3D 场景表示，视频扩散模型通常很难保持多视图几何一致性，并且执行多轮目标场景编辑仍然具有挑战性……。</p>
-    <p>实验层面的主要信号是：因此，我们采用动态 3D 点云作为我们的 3D 主干，并将它们渲染成 2D 伪图像，为视频扩散模型提供像素级条件，灵感来自。</p>
+    <p>方法主线可以概括为：点云条件视频扩散模拟器如果没有明确的 3D 场景表示，视频扩散模型通常很难保持多视图几何一致性，并且执行多轮目标场景编辑仍然具有挑战性。</p>
+    <p>其中最关键的一环是：因此，我们采用动态 3D 点云作为我们的 3D 主干，并将它们渲染成 2D 伪图像，为视频扩散模型提供像素级条件，灵感来自。这样设计直接带来的作用是：通过完成车辆增强的动态 3D 点云，我们可以在重建场景中自由编辑演员轨迹和自我车辆视点。</p>
+    <p>从训练和推理角度看，作者还特别处理了：从编辑的点云渲染的伪图像提供几何指导，但由于 LiDAR 稀疏性、多帧累积伪影和无纹理的完整表面，不可避免地存在噪声和不完整。</p>
+    <p>$$ \mathcal{L}(\theta) = \mathbb{E}_{\mathbf{c},\; \pi^{\mathrm{old}}(\mathbf{x}_0|\mathbf{c}),\; t} \Big[\, r\,\big\lVert v_\theta^{+}(\mathbf{x}_t,\mathbf{c},t)-\mathbf{v} \big\rVert_2^{2} + (1-r)\,\big\lVert v_\theta^{-}(\mathbf{x}_t,\mathbf{c},t)-\mathbf{v} \big\rVert_2^{2} \,\Big], $$</p>
+    <p>这组公式用于定义模型中的变量关系和训练目标。建议先看左侧要预测的对象，再看右侧每一项如何约束优化方向。</p>
     <p>$$ P(I_1 \succ I_2) = \sigma\!\Bigl(\frac{s_{12} - s_{21}}{2}\Bigr), $$</p>
-    <p>
-      这条公式用于定义模型中的核心计算关系：左侧给出目标量，右侧由输入与参数共同决定。阅读时可先关注 P、I_1、I_2 的物理/几何含义，再看它们如何影响训练目标或渲染结果。
-    </p>
-    <p>$$ R_m^i = \frac{1}{N-1}\sum_{j\neq i} \mathds{1}\!\Big[P(a_m^i\!\succ\!a_m^j)&gt;\tau\Big], $$</p>
-    <p>
-      这条公式用于定义模型中的核心计算关系：左侧给出目标量，右侧由输入与参数共同决定。阅读时可先关注 R_m、i、N、j 的物理/几何含义，再看它们如何影响训练目标或渲染结果。
-    </p>
+    <p>该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 P、I_1、I_2 等变量构成的约束和聚合方式。</p>
+    <p>$$ R_m^i = \frac{1}{N-1}\sum_{j\neq i} \mathds{1}\!\Big[P(a_m^i\!\succ\!a_m^j)>\tau\Big], $$</p>
+    <p>该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 R_m、i、N、j 等变量构成的约束和聚合方式。</p>
     <p>$$ E(\mathbf{c}) = \frac{\sum_{m=1}^{M} w_m \cdot P(a_m^{\mathrm{rl}}\!\succ\!a_m^{\mathrm{sft}})} {\sum_{m=1}^{M} w_m}, $$</p>
-    <p>
-      这条公式用于定义模型中的核心计算关系：左侧给出目标量，右侧由输入与参数共同决定。阅读时可先关注 E、c、m、M 的物理/几何含义，再看它们如何影响训练目标或渲染结果。
-    </p>
-    <figure><img class='paper-fig' src='../assets/2604_01129v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：ReinDriveGen 在 OOD 安全关键极端情况下的定性演示。每两连续行显示同一场景的两帧，每个图像中都注释了编辑类型和编辑区域</figcaption></figure>
-    <figure><img class='paper-fig' src='../assets/2604_01129v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：变道场景中新轨迹的定性比较</figcaption></figure>
-    <figure><img class='paper-fig' src='../assets/2604_01129v1/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：车辆轨迹编辑的定性比较。上两排：目标车辆左移6m，后移4m。下两排：目标车辆向右移动6m，向后移动1m</figcaption></figure>
-    <p>
-      把全文方法串起来看，这篇论文的逻辑基本都遵循同一条主线：先把输入组织成更容易处理的表示，再通过模型结构和损失函数把这个表示推向目标输出，最后用可视化与数值实验共同证明该设计有效。
-    </p>
+    <p>该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 E、c、m、M 等变量构成的约束和聚合方式。</p>
+<figure><img class='paper-fig' src='../assets/2604_01129v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：图 3：ReinDriveGen 在 OOD 安全关键极端情况下的定性演示。每两连续行显示同一场景的两帧，每个图像中都注释了编辑类型和编辑区域。</figcaption></figure>
+<figure><img class='paper-fig' src='../assets/2604_01129v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：图 4：变道场景中新轨迹的定性比较。</figcaption></figure>
+<figure><img class='paper-fig' src='../assets/2604_01129v1/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：图 5：车辆轨迹编辑的定性比较。上两排：目标车辆左移6m，后移4m。下两排：目标车辆向右移动6m，向后移动1m。</figcaption></figure>
+<figure><img class='paper-fig' src='../assets/2604_01129v1/figure6_full.png' alt='Figure 6:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 6：图 6：车辆完工的消融研究。车辆完成填充伪图像中未观察到的表面，有效消除扩散输出中的车辆变形和纹理伪影。</figcaption></figure>
 
     <h2 id='experiment'>实验结论</h2>
-    <p>
-      实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，这种优势来自哪一个设计决策。
-    </p>
-    <p>这篇工作要解决的问题是：演员和视点操纵的演示。</p>
-    <p>对应的核心做法是：证明我们的方法可以操纵车辆、行人和骑自行车的人，包括训练分布之外的操作，例如原地旋转、转弯、车辆侧翻和横向移动自我车辆视点。</p>
-    <p>从机制上看，关键设计在于：0.3in 实施细节条件视频扩散模型。</p>
-    <p>训练或推理层面的重点是：我们在 Waymo 数据集中的 1,000 个场景上微调视频扩散模型。</p>
-    <p>实验层面的主要信号是：我们仅使用前视图、左前视图和右前视图进行训练。</p>
-    <figure><img class='paper-fig' src='../assets/2604_01129v1/figure6_full.png' alt='Figure 6:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 6：车辆完工的消融研究。车辆完成填充伪图像中未观察到的表面，有效消除扩散输出中的车辆变形和纹理伪影</figcaption></figure>
-    <figure><img class='paper-fig' src='../assets/2604_01129v1/figure7_full.png' alt='Figure 7:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 7：基于强化学习的后训练消融研究。从上到下：车速加倍、原地旋转、车辆侧翻。随着 RL 训练步骤的增加，生成的车辆表现出逐渐更好的几何形状……</figcaption></figure>
-    <figure><img class='paper-fig' src='../assets/2604_01129v1/figure8_full.png' alt='Figure 8:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 8：RL 训练期间的评估分数曲线。 (a) 所有 OOD 条件下的总体评估分数的平均值。 (b)--(d) 分别针对加倍速度、原地旋转和车辆侧翻的每个场景得分</figcaption></figure>
-    <ul>
-      <li>方法在核心指标上的优势与结构设计和训练目标直接相关；</li>
-      <li>消融实验表明，拿掉关键模块后性能与结果质量都有明显回落；</li>
-      <li>论文不仅比较数值，也关注可视化质量、稳定性和泛化能力等更贴近真实使用的信号。</li>
-    </ul>
+    <p>实验主要围绕一个核心问题展开：比较 我们在两种评估设置下将我们的方法与现有方法进行比较。</p>
+    <p>从主要对比结果看，我们与 PVG 、 DriveDreamer4D 、 ReconDreamer 、 S3Gaussian 和 Deformable-GS 进行比较。定性结果和消融实验进一步说明：我们还报告了原始轨迹和新颖轨迹图像之间的 FID，以评估真实感。</p>
+<figure><img class='paper-fig' src='../assets/2604_01129v1/figure7_full.png' alt='Figure 7:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 7：图 7：基于强化学习的后训练消融研究。从上到下：车速加倍、原地旋转、车辆侧翻。随着 RL 训练步骤的增加，生成的车辆逐渐表现出更好的几何形状、纹理保真度和照明合理性。</figcaption></figure>
+<figure><img class='paper-fig' src='../assets/2604_01129v1/figure8_full.png' alt='Figure 8:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 8：图 8：RL 训练期间的评估分数曲线。 (a) 所有 OOD 条件下的总体评估分数的平均值。 (b)--(d) 分别针对加倍速度、原地旋转和车辆侧翻的每个场景得分。</figcaption></figure>
 
     <h2 id='takeaway'>理解评价</h2>
-    <p>这篇工作要解决的问题是：分布式驾驶场景生成的强化后训练 张浩1, 范略1,2, 卞伟康1, 吴泽欢3, 陆乐伟3, 张兆祥2, 李洪生1 1MMLab, CUHK 2CASIA 3商汤科技研究项目页面。</p>
-    <p>对应的核心做法是：原场景原地旋转原地旋转图。</p>
-    <p>从机制上看，关键设计在于：ReinDriveGen 能够生成逼真的 OOD 驾驶场景。</p>
-    <p>训练或推理层面的重点是：ReinDriveGen 可以操纵参与者轨迹来合成各种安全关键的极端情况，例如车辆原地旋转、骑自行车者横穿和左转碰撞。</p>
-    <p>实验层面的主要信号是：我们基于强化学习的后期训练显着提高了这些 OOD 编辑的生成质量，而无需地面实况监督。</p>
-    <p>
-      如果把它当成研究参考，建议重点关注三件事：第一，这套方法真正依赖的归纳偏置是什么；第二，实验中真正拉开差距的模块是哪一个；第三，它的局限究竟来自数据、算力还是监督信号本身。
-    </p>
-    <p>
-      以下相关论文可以作为进一步追踪的入口：
-    </p>
+    <p>从整篇论文看，它的真正贡献是：由于此类经过编辑的场景不可避免地会落在训练分布之外，因此我们进一步提出了一种基于 RL 的训练后策略，具有成对偏好模型和成对奖励机制，从而能够在分布外情况下实现稳健的质量改进，而不是单纯把扩散模型继续微调。作者把问题落在“分布外驾驶场景如何稳定生成”这个更关键的缺口上。</p>
+    <p>它最有说服力的地方在于：大量实验表明，ReinDriveGen 在编辑驾驶场景方面优于现有方法，并在新颖的自我观点合成方面取得了最先进的结果。这说明论文的方法链路——3D 点云编辑、车辆补全、再到 RL 后训练——是前后闭合的，而不是各模块各自堆叠。</p>
+    <p>主要局限在于：当前方案仍受算力和时长限制，更适合离线生成而非实时闭环模拟。如果继续往前推进，一个自然方向是把更长时序、更低成本训练和更广泛的 OOD 场景覆盖一起纳入统一评估。</p>
+    <p>从整篇论文看，它的真正贡献是：我们基于强化学习的后期训练显着提高了这些 OOD 编辑的生成质量，而无需地面实况监督，而不是单纯把扩散模型继续微调。作者把问题落在“分布外驾驶场景如何稳定生成”这个更关键的缺口上。</p>
+    <p>以下相关论文可作为延伸阅读：</p>
     <ul></ul>
-
-    <div class='tip'>
-      <strong>一句结论：</strong>
-      这篇论文值得关注的地方在于，它不只给出了更好的实验结果，更提供了一条相对完整的问题求解路径，把任务定义、方法设计与实验验证真正对齐到了同一条研究主线上。
-    </div>
   </article>
 </div>
 
