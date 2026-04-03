@@ -161,134 +161,73 @@
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      自动驾驶策略的闭环评估需要日志重播之外的交互式模拟。然而，现有的生成世界模型经常在闭环中退化，原因是（i）与策略输入不匹配的无历史初始化，（ii）违反实时预算的多步采样延迟，以及（iii）在长期范围内复合运动学不可行性。我们提出了 VectorWorld，这是一种流世界模型，可在推出期间增量生成以自我为中心的车道 - 代理矢量图图块。 VectorWorld 通过运动感知门控 VAE 生成策略兼容的交互状态，从而使初始化与历史条件策略保持一致。它通过无求解器的一步掩码完成以及使用间隔条件 MeanFlow 和基于 JVP 的大步监督训练的边缘门控关系 DiT 来实现实时绘制。为了稳定长期部署…
+      这篇工作要解决的问题是：自动驾驶策略的闭环评估需要日志重播之外的交互式模拟。 对应的核心做法是：然而，现有的生成世界模型经常在闭环中退化，原因是（i）与策略输入不匹配的无历史初始化，（ii）违反实时预算的多步采样延迟，以及（iii）在整个过程中复合运动学不可行性。 从机制上看，关键设计在于：我们提出了 VectorWorld，这是一种流世界模型，可在推出期间增量生成以自我为中心的车道 - 代理矢量图图块。 训练或推理层面的重点是：VectorWorld 通过运动感知门控 VAE 生成策略兼容的交互状态，从而使初始化与历史条件策略保持一致。 实验层面的主要信号是：它通过无求解器的一步掩码完成以…
     </div>
 
     <h2 id='summary'>简单摘要</h2>
-    <p>自动驾驶策略的闭环评估需要日志重播之外的交互式模拟。然而，现有的生成世界模型经常在闭环中退化，原因是（i）与策略输入不匹配的无历史初始化，（ii）违反实时预算的多步采样延迟，以及（iii）在长期范围内复合运动学不可行性。我们提出了 VectorWorld，这是一种流世界模型，可在推出期间增量生成以自我为中心的车道 - 代理矢量图图块。 VectorWorld 通过运动感知门控 VAE 生成策略兼容的交互状态，从而使初始化与历史条件策略保持一致。</p>
-    <p>它通过无求解器的一步掩码完成以及使用间隔条件 MeanFlow 和基于 JVP 的大步监督训练的边缘门控关系 DiT 来实现实时绘制。为了稳定长期部署，我们引入了 Sim，这是一种物理对齐的非自我 (NPC) 策略，具有混合离散-连续动作和可微的运动学 logit 整形。在 Waymo 开放运动和 nuPlan 上，VectorWorld 提高了地图结构保真度和初始化有效性，并支持稳定、实时的闭环部署 (https://github.com/jianchaokang/VectorWorldcode)。</p>
-    <figure><img class='paper-fig' src='../assets/2603_17652v1/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：与先前作品的比较。与之前的管道由于累积漂移（自回归推出）或无历史冷启动初始化而在闭环中降级不同，在我们的实验中通过流外画支持公里级闭环模拟。该引擎在闭环中运行：0）自我规划器在场景内驱动； 1) 初始场景生成创建基础图块； 2) 场景Outpainting使用动态扩展地图边界； 3) NPC 行为 () 确保反应性交互。这种机制通过逐步超越前方的世界来实现一致的、公里级的驾驶模拟。</figcaption></figure>
-    <figure><img class='paper-fig' src='../assets/2603_17652v1/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：具有运动感知门控 VAE 的交互状态接口。运动感知门\(g_i\)融合了静态\(s_i\)和运动代码\(m_i\)，抑制静止代理的历史噪声，同时保留移动代理的动态。因式分解场景转换器聚合类型关系 (L2L/L2A/A2A) 并输出高斯潜伏 \(z=(z_lane,z_agent)\) 用于下游生成。热启动的交互状态使初始化与历史条件策略保持一致。</figcaption></figure>
+    <p>这篇工作要解决的问题是：自动驾驶策略的闭环评估需要日志重播之外的交互式模拟。</p>
+    <p>对应的核心做法是：然而，现有的生成世界模型经常在闭环中退化，原因是（i）与策略输入不匹配的无历史初始化，（ii）违反实时预算的多步采样延迟，以及（iii）在整个过程中复合运动学不可行性。</p>
+    <p>从机制上看，关键设计在于：我们提出了 VectorWorld，这是一种流世界模型，可在推出期间增量生成以自我为中心的车道 - 代理矢量图图块。</p>
+    <p>训练或推理层面的重点是：VectorWorld 通过运动感知门控 VAE 生成策略兼容的交互状态，从而使初始化与历史条件策略保持一致。</p>
+    <p>实验层面的主要信号是：它通过无求解器的一步掩码完成以及使用间隔条件 MeanFlow 和基于 JVP 的大步监督训练的边缘门控关系 DiT 来实现实时绘制。</p>
+    <figure><img class='paper-fig' src='../assets/2603_17652v1/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：与先前作品的比较。与之前的管道由于累积漂移（自回归推出）或无历史冷启动初始化而在闭环中退化不同，它支持公里级闭环模拟……</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2603_17652v1/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：具有运动感知门控 VAE 的交互状态接口。运动感知门 \(g_i\) 融合静态状态 \(s_i\) 和运动代码 \(m_i\)，抑制静止代理的历史噪声，同时保留运动的动态</figcaption></figure>
     <blockquote>
-      简而言之，这篇论文关注的核心是：自动驾驶策略的闭环评估需要日志重播之外的交互式模拟。然而，现有的生成世界模型经常在闭环中退化，原因是（i）与策略输入不匹配的无历史初始化，（ii）违反实时预算的多步采样延迟，以及（iii）在长期范围内复合运动学不可行性。我们提出了 VectorWorld，这是一种流世界模型，可在推出期间增量生成以…
+      简而言之，这篇论文关注的核心是：这篇工作要解决的问题是：自动驾驶策略的闭环评估需要日志重播之外的交互式模拟。 对应的核心做法是：然而，现有的生成世界模型经常在闭环中退化，原因是（i）与策略输入不匹配的无历史初始化，（ii）违反实时预算的多步采样延迟，以及（iii）在整个过程中复合运动学不可行性。 从机制上看，关键设计在于：我们提…
     </blockquote>
-    <p>自动驾驶策略的闭环评估和训练需要超越记录日志的交互式模拟。一旦记录的上下文结束，日志重放既不能回答反事实查询，也不能扩展范围。尽管生成世界模型可以合成不同的车道代理场景，但将它们部署为在线模拟器后端会引入标准开环指标无法捕获的约束（初始化、延迟和长期稳定性）。 We identify three deployment constraints that dominate closed-loop simulation but are weakly reflected by standard open-loop metrics.首先，无历史初始化：许多生成器在 \(t=0\) 处输出静态快照，而反应策略则以短运动历史为条件，从而引发冷启动瞬态（例如，冲击尖峰）和不稳定的早期交互。</p>
-    <p>其次，采样延迟：基于扩散的求解器需要许多去噪步骤来生成结构化车道代理图，这与实时预算下的流式绘制不兼容。第三，长期可行性：微小的每步运动学违规虽然在短期指标中可以忽略不计，但通过复合漂移累积超过公里级的推出。为了解决这些限制，我们提出了 \（图），一个基于矢量图表示的流世界模型。对于初始化，我们引入了一个 \ ，它通过 a 学习的紧凑运动历史代码来增强每个代理，从而为历史条件策略启用热启动输入。对于实时绘制，我们提出了一种使用间隔条件训练的\和基于 JVP 的大步目标，实现无求解器（没有迭代扩散/ODE 求解器）一步潜在采样，同时保留车道连接性和代理-车道关系。</p>
-    <p>总的来说，我们的贡献如下： -3mm itemize 用于车道代理世界模型的 \ ，由选择性编码运动历史以进行热启动初始化的 \ 实现。 -2mm An \ 用于异构矢量图生成，具有边缘条件注意偏差和值门控，以保留车道拓扑和交叉类型关系。 -2mm 间隔调节 \ 具有基于 JVP 的大步监督，可实现流式外涂的高保真无解算器一步完成。 -2mm 一种符合物理的 NPC 策略，通过混合动作和可微的运动学塑造来稳定长期多智能体的推出。</p>
-    <p>-2mm 在 Waymo Open Motion 和 nuPlan 上的实验表明，\ 提高了地图结构保真度和初始化有效性，支持稳定 \(1\,km+\) 闭环…</p>
+    <p>这篇工作要解决的问题是：自动驾驶策略的闭环评估和训练需要超越记录日志的交互式模拟。</p>
+    <p>对应的核心做法是：一旦记录的上下文结束，日志重放既不能回答反事实查询，也不能扩展范围。</p>
+    <p>从机制上看，关键设计在于：尽管生成世界模型可以合成不同的车道代理场景，但将它们部署为在线模拟器后端会引入标准开环指标无法捕获的约束（初始化、延迟和长期稳定性）。</p>
+    <p>训练或推理层面的重点是：我们确定了主导闭环仿真但在标准开环指标中反映较弱的三个部署约束。</p>
+    <p>实验层面的主要信号是：许多生成器在 \(t=0\) 处输出静态快照，而反应策略则以短运动历史为条件，从而引发冷启动瞬态（例如，冲击尖峰）和不稳定的早期交互。</p>
 
     <h2 id='innovation'>核心创新</h2>
     <p>
       综合引言与方法部分，这篇论文的核心创新可以概括为以下几方面：
     </p>
     <h3>1）问题定义与研究动机</h3>
-    <p>
-      自动驾驶策略的闭环评估和训练需要超越记录日志的交互式模拟。一旦记录的上下文结束，日志重放既不能回答反事实查询，也不能扩展范围。尽管生成世界模型可以合成不同的车道代理场景，但将它们部署为在线模拟器后端会引入标准开环指标无法捕获的约束（初始化、延迟和长期稳定性）。 We identify three deployment constraints that dominate closed-loop simulation but are weakly reflected by standard open-loop metrics.首先，无历史初始化：许多生成器在 \(t=0\) 处输出静态快照，而反应策略则以短运动历史为条件，从而引发冷启动瞬态（例如，冲击尖峰）和不稳定的早期交互。其次，采样延迟：基于扩散的求解器需要许多去噪步骤来生成结构化车道代理图，这与实时预算下的流式绘制不兼容。第三，长期可行性：微小的每步运动学违规虽然在短期指标中可以忽略不计，但通过复合漂移累积超过公里级的推出。为了解决这些限制，我们提出了 \（图），一个基于矢量图表示的流世界模型。对于初始化，我们引入了一个 \ ，它…
-    </p>
+    <p>这篇工作要解决的问题是：自动驾驶策略的闭环评估和训练需要超越记录日志的交互式模拟。</p>
+    <p>对应的核心做法是：一旦记录的上下文结束，日志重放既不能回答反事实查询，也不能扩展范围。</p>
+    <p>从机制上看，关键设计在于：尽管生成世界模型可以合成不同的车道代理场景，但将它们部署为在线模拟器后端会引入标准开环指标无法捕获的约束（初始化、延迟和长期稳定性）。</p>
+    <p>训练或推理层面的重点是：我们确定了主导闭环仿真但在标准开环指标中反映较弱的三个部署约束。</p>
+    <p>实验层面的主要信号是：许多生成器在 \(t=0\) 处输出静态快照，而反应策略则以短运动历史为条件，从而引发冷启动瞬态（例如，冲击尖峰）和不稳定的早期交互。</p>
     <h3>2）方法框架与核心模块</h3>
-    <p>
-      闭环流式配方。我们将流模拟制定为动态矢量图上的滑动窗口生成任务。在模拟步骤 ，系统为每个代理维护一个以自我为中心的本地图块和一个 \ 。自我规划者和我们的反应性 NPC 政策（第 1 节）会根据这种状态起作用。为了在没有预生成的情况下维持公里级的推出，当自我接近图块边界时，我们触发了outpainting：系统通过 编码当前状态，并通过无求解器的 MeanFlow 生成器生成前沿（第 1 节）。该管道依赖于三个耦合创新来确保一致性和速度：（i）用于历史对齐初始化（第 1 节）； (ii) 结构一致性（第 3 节）； (iii) 运动学可行性（第 1 节）。矢量图表示 我们将每个以自我为中心的场景图块表示为异构矢量图 \(G=(V,E)\)，其中包含车道节点 \(V_lane\) 和代理节点 \(V_agent\)。边通过交互语义来键入：\(E=E_L2LE_A2AE_L2AE_A2L\)，捕获车道连接性（前驱/后继/相邻）和车道-代理关系（邻近和对齐）。与光栅化相比，矢量图保持拓扑明确并使缺失区域适定：我们可以限制观察到的标记并仅完成边界标记，这是流式绘制中的关键操作。我们通过自动编…
-    </p>
+    <p>这篇工作要解决的问题是：我们将流模拟制定为动态矢量图上的滑动窗口生成任务。</p>
+    <p>对应的核心做法是：在模拟步骤 ，系统为每个代理维护一个以自我为中心的本地图块和一个 \。</p>
+    <p>从机制上看，关键设计在于：自我规划者和我们的反应性 NPC 政策（第 1 节）会根据这种状态起作用。</p>
+    <p>训练或推理层面的重点是：为了在不进行预生成的情况下维持公里级的推出，当自我接近图块边界时，我们会触发外画。</p>
+    <p>实验层面的主要信号是：系统通过 编码当前状态，并通过无求解器的 MeanFlow 生成器生成前沿（第 部分）。</p>
     <h3>3）实验设计与工程价值</h3>
-    <p>
-      我们将 \ 评估为（i）离线场景生成器，（ii）在线绘制引擎，以及（iii）闭环模拟器。核心问题是，在部署过程中重复调用时，快速的单步生成器是否可以保持结构一致和运动学上的可行性。设置数据集和基线。我们使用 Waymo Open Motion 和 nuPlan 。我们与矢量化场景生成器 SLEDGE (L/XL) 和 ScenDream (B/L) 进行比较。指标。我们遵循附录中的定义。离线初始化质量通过FD、路由长度、EPD和静态冲突率（tab：main_performance）来衡量。我们还报告拓扑 Fr\&#x27;echet 距离和代理属性 JSD 作为漂移诊断（附录选项卡：detailed_metrics）。效率是每 \(64\,m 64\,m\) 瓦片（采样 + 一次解码）的端到端延迟，流预算为 \( 30\)\,ms（图：efficiency_quality）。闭环。我们评估与反应性…
-    </p>
+    <p>这篇工作要解决的问题是：我们将 \ 评估为（i）离线场景生成器，（ii）在线绘制引擎，以及（iii）闭环模拟器。</p>
+    <p>对应的核心做法是：核心问题是，在部署过程中重复调用时，快速的单步生成器是否可以保持结构一致和运动学上的可行性。</p>
+    <p>从机制上看，关键设计在于：我们与矢量化场景生成器 SLEDGE (L/XL) 和 ScenDream (B/L) 进行比较。</p>
+    <p>训练或推理层面的重点是：离线初始化质量通过FD、路由长度、EPD和静态冲突率（tab：main_performance）来衡量。</p>
+    <p>实验层面的主要信号是：效率是每 \(64\,m 64\,m\) 瓦片（采样 + 一次解码）的端到端延迟，流预算为 \( 30\)\,ms（图：efficiency_quality）。</p>
 
     <h2 id='technical'>技术细节</h2>
     <p>
       下面按照论文的方法章节结构展开，重点说明模型的关键模块、公式设计和训练策略。
     </p>
-    <p>闭环流式配方。我们将流模拟制定为动态矢量图上的滑动窗口生成任务。在模拟步骤 ，系统为每个代理维护一个以自我为中心的本地图块和一个 \ 。自我规划者和我们的反应性 NPC 政策（第 1 节）会根据这种状态起作用。为了在没有预生成的情况下维持公里级的推出，当自我接近图块边界时，我们触发了outpainting：系统通过 编码当前状态，并通过无求解器的 MeanFlow 生成器生成前沿（第 1 节）。该管道依赖于三个耦合创新来确保一致性和速度：（i）用于历史对齐初始化（第 1 节）； (ii) 结构一致性（第 3 节）； (iii) 运动学可行性（第 1 节）。矢量图表示 我们将每个以自我为中心的场景图块表示为异构矢量图 \(G=(V,E)\)，其中包含车道节点 \(V_lane\) 和代理节点 \(V_agent\)。边通过交互语义来键入：\(E=E_L2LE_A2AE_L2AE_A2L\)，捕获车道连接性（前驱/后继/相邻）和车道-代理关系（邻近和对齐）。与光栅化相比，矢量图保持拓扑明确并使缺失区域适定：我们可以限制观察到的标记并仅完成边界标记，这是流式绘制中的关键操作。我们通过自动编码器学习 \(G\) 的潜在接口。令 \(z=(z_lane, z_agent)\) 表示编码器生成的通道/代理潜在令牌。生成、修复和修复都在这个潜在空间中作为屏蔽完成来实现，使得单个生成器能够服务于初始化（\(t=0\)）和推出时修复。交互状态界面动机：历史条件策略。闭环行为策略（包括许多自我规划者和 NPC 模型）是受历史条件限制的，因为意图推断取决于最近的速度和曲率趋势。因此，初始化时的无历史快照会导致下游策略的隐式近零历史先验，通常会导致大的急动和不稳定的早期交互。交互状态：静态+运动代码。因此，我们用由统一格式\([x, y, speed, , , length, width]\)的静态状态\(s_iR^7\)、类型标记\(_i\)和表示为代理框架中\(K_mot\)点折线的运动历史代码\(m_iR^2K_mot\)组成的\(i\)来表示。在模拟开始时，\(m_i\) 确定性地展开为一个短的伪历史序列以填充策略上下文窗口 (app:motion)。</p>
-    <p>选择性运动编码。运动历史表现出信息内容的稀疏性：对于停放的智能体，积极地重建\(m_i\)会将噪声注入到潜在的界面中。我们采用Fig:ae中的运动感知门控机制，并根据经验观察到门激活与运动幅度相关（附录图），从而导致静态和动态智能体之间的可解释分离：其中\(g_i(0,1)^d\)是学习门，\(()\)是S形，而\(\)表示逐元素乘积。场景级关系编码。下图：ae，车道和代理令牌由因子分解处理......</p>
-    <p>$$ \label{eq:vae_core}
-\begin{gathered}
-g_i = \sigma\!\Big(f_{\mathrm{gate}}\big([s_i, m_i, \tau_i]\big)\Big), \\
-h_i = (1-g_i)\odot f_{\mathrm{st}}\big([s_i,\tau_i]\big)\;+\;g_i\odot f_{\mathrm{mot}}\big([m_i,\tau_i]\big), \\
-q_\phi(z_i \mid s_i, m_i, \tau_i) = \mathcal{N}\!\Big(\mu_\phi(h_i),\ \mathrm{diag}\!\big(\sigma_\phi(h_i)^2\big)\Big),
-\end{gathered} $$</p>
+    <p>这篇工作要解决的问题是：我们将流模拟制定为动态矢量图上的滑动窗口生成任务。</p>
+    <p>对应的核心做法是：在模拟步骤 ，系统为每个代理维护一个以自我为中心的本地图块和一个 \。</p>
+    <p>从机制上看，关键设计在于：自我规划者和我们的反应性 NPC 政策（第 1 节）会根据这种状态起作用。</p>
+    <p>训练或推理层面的重点是：为了在不进行预生成的情况下维持公里级的推出，当自我接近图块边界时，我们会触发外画。</p>
+    <p>实验层面的主要信号是：系统通过 编码当前状态，并通过无求解器的 MeanFlow 生成器生成前沿（第 部分）。</p>
+    <p>$$ \begin{gathered} V_\theta(z_t;\,t,\Delta,c) = u_\theta(z_t;\,t,\Delta,c) + \\ \Delta\,\frac{\mathrm{d}}{\mathrm{d}t}u_\theta(z_t;\,t,\Delta,c), \end{gathered} $$</p>
     <p>
-      公式：\label{eq:vae_core}
-\开始{聚集}
-g_i = \sigma\!\Big(f_{\mathrm{gate}}\big([s_i, m_i, \tau_i]\big)\Big), \\
-h_i = (1-g_i)\odot f_{\mathrm{st}}\big([s_i,\tau_i]\big)\;+\;g_i\odot f_{\mathrm{mot}}\big([m_i,\tau_i]\big), \\
-q_\phi(z_i \mid s_i, m_i, \tau_i) = \mathcal{N}\!\Big(\mu_\phi(h_i),\ \mathrm{diag}\!\big(\sigma_\phi(h_i)^2\big)\Big),
-\end{聚集}
-上下文：关于编码。运动历史表现出信息内容的稀疏性：对于停放的智能体，积极地重建\(m_i\)会将噪声注入到潜在的界面中。我们采用Fig:ae中的运动感知门控机制，并凭经验观察到门激活与运动幅度相关（附录图），r…
+      这条公式用于定义模型中的核心计算关系：左侧给出目标量，右侧由输入与参数共同决定。阅读时可先关注 z_t、t、c、d 的物理/几何含义，再看它们如何影响训练目标或渲染结果。
     </p>
-    <p>$$ \label{eq:rel_attn}
-\begin{gathered}
-\alpha_{ij}^{(h)} = \operatorname{softmax}_{j}\!\left(
-\frac{\langle q_i^{(h)}, k_j^{(h)}\rangle}{\sqrt{d_h}}
-\;+\; B^{(h)}\!\big(\edgeemb_{ij}\big)
-\right), \\
-y_i^{(h)} = \sum_{j}\alpha_{ij}^{(h)}
-\Big(G^{(h)}\!\big(\edgeemb_{ij}\big)\odot v_j^{(h)}\Big),
-\end{gathered} $$</p>
+    <p>$$ z_t = (1-t)\,z + t\,\boldsymbol{\epsilon},\qquad t\in[0,1]. $$</p>
     <p>
-      公式：\label{eq:rel_attn}
-\开始{聚集}
-\alpha_{ij}^{(h)} = \operatorname{softmax}_{j}\!\left(
-\frac{\langle q_i^{(h)}, k_j^{(h)}\rangle}{\sqrt{d_h}}
-\;+\; B^{(h)}\!\big(\edgeemb_{ij}\big)
-\右），\\
-y_i^{(h)} = \sum_{j}\alpha_{ij}^{(h)}
-\Big(G^{(h)}\!\big(\edgeemb_{ij}\big)\odot v_j^{(h)}\Big),
-\end{聚集}
-上下文：erentiable kinematic logit 整形和 DKAL 正则化。该设计减少了公里级闭环仿真下复合的可行性违规。图* 边缘条件偏差和值门控。对于每个类型边缘 \((i,j)\)，我们计算相对边缘嵌入 \(_ij\) 并通过…
+      这条公式用于定义模型中的核心计算关系：左侧给出目标量，右侧由输入与参数共同决定。阅读时可先关注 z_t、t、z 的物理/几何含义，再看它们如何影响训练目标或渲染结果。
     </p>
-    <p>$$ \begin{gathered}
-V_\theta(z_t;\,t,\Delta,c) = u_\theta(z_t;\,t,\Delta,c) + \\
-\Delta\,\frac{\mathrm{d}}{\mathrm{d}t}u_\theta(z_t;\,t,\Delta,c),
-\end{gathered} $$</p>
+    <p>$$ \begin{gathered} u_{\theta}^{\mathrm{cfg}} = u_\theta(z_t;\, t,\Delta,c_{\varnothing}) \;+\; \\ s\Big(u_\theta(z_t;\, t,\Delta,c)-u_\theta(z_t;\, t,\Delta,c_{\varnothing})\Big), \end{gathered} $$</p>
     <p>
-      公式：\begin{聚集}
-V_\theta(z_t;\,t,\Delta,c) = u_\theta(z_t;\,t,\Delta,c) + \\
-\Delta\,\frac{\mathrm{d}}{\mathrm{d}t}u_\theta(z_t;\,t,\Delta,c),
-\end{聚集}
-上下文：fapp:notation)。基于JVP的大步校准。标准整流流匹配监督瞬时速度场，该速度场在小求解器步长下是准确的，但不直接约束单个大步长传输。 \ 相反，预测间隔平均速度 \(u_(z_t;\,t,,c)\)。为了提高一步...
+      这条公式用于定义模型中的核心计算关系：左侧给出目标量，右侧由输入与参数共同决定。阅读时可先关注 z_t、t、s、c 的物理/几何含义，再看它们如何影响训练目标或渲染结果。
     </p>
-    <p>$$ \label{eq:mf_path}
-z_t = (1-t)\,z + t\,\boldsymbol{\epsilon},\qquad t\in[0,1]. $$</p>
-    <p>
-      公式：\label{eq:mf_path}
-z_t = (1-t)\,z + t\,\boldsymbol{\epsilon},\qquad t\in[0,1]。
-上下：最终通过雅可比向量积（JVP）（附录）。这里，全导数通过显式时间输入和沿校正路径对 \(z_t\) 的隐式依赖进行区分。带有掩模钳位的修正路径。我们使用数据潜伏 \(z\) 和高斯 n 之间的直线概率路径...
-    </p>
-    <p>$$ \label{eq:mf_improved}
-\begin{gathered}
-\Delta = t-r, \\
-V_\theta(z_t;\, t,r,c) = u_\theta(z_t;\, t,\Delta,c) \\
-+ \Delta\, \frac{\mathrm{d}}{\mathrm{d}t}\,u_\theta(z_t;\, t,\Delta,c), \\
-\mathcal{L}_{\mathrm{mf}} = \mathbb{E}\!\left[\left\lVert V_\theta(z_t;\, t,r,c)-v^\star\right\rVert_2^2\right],
-\end{gathered} $$</p>
-    <p>
-      公式：\label{eq:mf_improved}
-\开始{聚集}
-\Delta = t-r, \\
-V_\theta(z_t;\, t,r,c) = u_\theta(z_t;\, t,\Delta,c) \\
-+ \Delta\, \frac{\mathrm{d}}{\mathrm{d}t}\,u_\theta(z_t;\, t,\Delta,c), \\
-\mathcal{L}_{\mathrm{mf}} = \mathbb{E}\!\left[\left\lVert V_\theta(z_t;\, t,r,c)-v^\star\right\rVert_2^2\right],
-\end{聚集}
-上下文：ked tokens 为 \(v^ = - z\)。区间条件平均速度和 JVP。令 \(u_(z_t;\, t,,c)\) 为长度区间 \(=t-r\)（其中 \(r t\)）内的预测平均速度，以场景上下文 \(c\) 为条件。我们用两个时间通道 \((t,)\) 参数化模型，并使用 eq:mf_imp… 中的校正目标进行训练
-    </p>
-    <p>$$ \label{eq:mf_cfg}
-\begin{gathered}
-u_{\theta}^{\mathrm{cfg}} = u_\theta(z_t;\, t,\Delta,c_{\varnothing})
-\;+\; \\
-s\Big(u_\theta(z_t;\, t,\Delta,c)-u_\theta(z_t;\, t,\Delta,c_{\varnothing})\Big),
-\end{gathered} $$</p>
-    <p>
-      公式：\label{eq:mf_cfg}
-\开始{聚集}
-u_{\theta}^{\mathrm{cfg}} = u_\theta(z_t;\, t,\Delta,c_{\varnothing})
-\;+\; \\
-s\Big(u_\theta(z_t;\, t,\Delta,c)-u_\theta(z_t;\, t,\Delta,c_{\varnothing})\Big),
-\end{聚集}
-上面：L_mf = E\!，聚集方程，其中 \(ddtu_\) 表示全导数，并作为 JVP 有效实现（附录）。引导式无求解器更新。对于条件生成，我们在平均速度场上应用无分类器引导（CFG）：其中 \(c_\) 是场景级实现的无条件条件......
-    </p>
-    <figure><img class='paper-fig' src='../assets/2603_17652v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：用于矢量图潜在生成的边缘门控关系 DiT。该框架通过分解的变压器主干生成矢量图潜伏。为了捕获复杂的图依赖关系，我们引入了关系注意模块（右）。与标准注意力不同，该模块通过以下方式调节边缘特征 \(_ij\) 上的消息传递： 1) 将附加偏差 B_ij 应用于注意力分数以调节连接性； 2) 乘法门 G_ij 应用于值向量以调制特征聚合。这种设计可以实现跨异构代理和地图元素的精确结构控制，并与各种生成动力学（DDPM、Flow 或 MeanFlow）兼容。</figcaption></figure>
-    <figure><img class='paper-fig' src='../assets/2603_17652v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：\(\)Sim：符合物理的 NPC 政策。单通道返程 (RTG) 控制嵌入通过 FiLM \((,)\) 调制解码器。动作使用具有可微分运动 Logit 整形和 DKAL 正则化的混合头（离散 k 盘标记加上连续残差）。该设计减少了公里级闭环仿真下复合的可行性违规。</figcaption></figure>
-    <figure><img class='paper-fig' src='../assets/2603_17652v1/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：Waymo 和 nuPlan 的定性比较。可视化 \(64\,m 64\,m\) 个图块中的解码元素。与之前的矢量化生成器相比，VectorWorld 展示了卓越的车道连接性和初始化时更少的代理重叠。</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2603_17652v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：用于矢量图潜在生成的边缘门控关系 DiT。该框架通过分解的变压器主干生成矢量图潜伏。为了捕获复杂的图依赖关系，我们引入了关系注意力</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2603_17652v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：\(\)Sim：符合物理的 NPC 政策。单通道返程 (RTG) 控制嵌入通过 FiLM \((,)\) 调制解码器。动作使用混合头（离散 k 盘令牌加上连续残差），具有不同的…</figcaption></figure>
+    <figure><img class='paper-fig' src='../assets/2603_17652v1/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：Waymo 和 nuPlan 的定性比较。可视化 \(64\,m 64\,m\) 个图块中的解码元素。与之前的向量相比，VectorWorld 展示了卓越的车道连接性和初始化时更少的代理重叠……</figcaption></figure>
     <p>
       把全文方法串起来看，这篇论文的逻辑基本都遵循同一条主线：先把输入组织成更容易处理的表示，再通过模型结构和损失函数把这个表示推向目标输出，最后用可视化与数值实验共同证明该设计有效。
     </p>
@@ -297,9 +236,12 @@ s\Big(u_\theta(z_t;\, t,\Delta,c)-u_\theta(z_t;\, t,\Delta,c_{\varnothing})\Big)
     <p>
       实验部分主要回答两个问题：第一，方法是否真的优于已有基线；第二，这种优势来自哪一个设计决策。
     </p>
-    <p>我们将 \ 评估为（i）离线场景生成器，（ii）在线绘制引擎，以及（iii）闭环模拟器。核心问题是，在部署过程中重复调用时，快速的单步生成器是否可以保持结构一致和运动学上的可行性。设置数据集和基线。我们使用 Waymo Open Motion 和 nuPlan 。我们与矢量化场景生成器 SLEDGE (L/XL) 和 ScenDream (B/L) 进行比较。指标。我们遵循附录中的定义。离线初始化质量通过FD、路由长度、EPD和静态冲突率（tab：main_performance）来衡量。我们还报告拓扑 Fr\&#x27;echet 距离和代理属性 JSD 作为漂移诊断（附录选项卡：detailed_metrics）。效率是每 \(64\,m 64\,m\) 瓦片（采样 + 一次解码）的端到端延迟，流预算为 \( 30\)\,ms（图：efficiency_quality）。闭环。我们评估与反应性 NPC 交互的自我规划器，并报告碰撞/越野/成功、路线进度和加加速度（表；附录中的定义）。我们使用三个探针：用于平台稳定性的基于规则的 IDM 探针、用于压力测试的固定 PPO 策略以及用于衡量培训价值的 PPO 再训练。结果离线场景质量。表显示，\ 提高了两个数据集的结构完整性和初始化有效性。在 nuPlan 上，\ 将 EPD 从 0.250\,m (ScenDream-L) 降低到 0.078\,m，并且碰撞率从 9.30% 降低到 3.01%。在 Waymo 上，\ 在非特权方法中实现了最低的 FD（0.94），同时提高了路线长度和 EPD。定性比较。 Fig:app:waymo_nuplan_compare 可视化两个数据集上的代表性样本。改进集中在交叉路口和合并处：\ 更好地保留车道后继连续性并减少代理车道不一致，匹配选项卡中端点距离和初始化碰撞率的增益：main_performance。实时效率——质量权衡。该图报告了我们改变求解器步骤预算时的质量-延迟曲线。 MeanFlow-1 保持在实时状态内，并在 EPD 和平均代理-JSD 方面保持竞争力，从而实现流式外画；增加步骤可以提高质量，但很快就会超出预算。的消融。该表显示 RTG 调节、混合锚定残差操作和 DKAL 是互补的。与 Ctrl-Sim 相比，完整\将 ADE 从 2.80\,m 提高到 1.72\,m，并将可控性 (\(\)) 从 \(-0.25\) 提高到 0.53，同时使用单个前向传递。闭环系统。</p>
-    <p>表显示在线绘制将评估扩展到\(1\,km+\)，但暴露了复合错误。热启动的交互状态减少了急动（16.6 \(\) 9.6）并增加了成功率（42.0% \(\) 78.0%），这与无历史初始化是早期地平线不稳定的主要来源一致。…</p>
-    <figure><img class='paper-fig' src='../assets/2603_17652v1/figure6_full.png' alt='Figure 6:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 6：质量-图块生成的延迟权衡。随着求解器步骤预算的变化，端点距离 (EPD) 和平均代理 JSD 与挂钟延迟相对应；垂直标记表示流预算（包括一个 VAE 解码）。</figcaption></figure>
+    <p>这篇工作要解决的问题是：我们将 \ 评估为（i）离线场景生成器，（ii）在线绘制引擎，以及（iii）闭环模拟器。</p>
+    <p>对应的核心做法是：核心问题是，在部署过程中重复调用时，快速的单步生成器是否可以保持结构一致和运动学上的可行性。</p>
+    <p>从机制上看，关键设计在于：我们与矢量化场景生成器 SLEDGE (L/XL) 和 ScenDream (B/L) 进行比较。</p>
+    <p>训练或推理层面的重点是：离线初始化质量通过FD、路由长度、EPD和静态冲突率（tab：main_performance）来衡量。</p>
+    <p>实验层面的主要信号是：效率是每 \(64\,m 64\,m\) 瓦片（采样 + 一次解码）的端到端延迟，流预算为 \( 30\)\,ms（图：efficiency_quality）。</p>
+    <figure><img class='paper-fig' src='../assets/2603_17652v1/figure6_full.png' alt='Figure 6:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 6：质量-图块生成的延迟权衡。随着求解器步骤预算的变化，端点距离 (EPD) 和平均代理 JSD 与挂钟延迟相对应；垂直标记表示流媒体预算（包括</figcaption></figure>
     <ul>
       <li>方法在核心指标上的优势与结构设计和训练目标直接相关；</li>
       <li>消融实验表明，拿掉关键模块后性能与结果质量都有明显回落；</li>
@@ -307,7 +249,9 @@ s\Big(u_\theta(z_t;\, t,\Delta,c)-u_\theta(z_t;\, t,\Delta,c_{\varnothing})\Big)
     </ul>
 
     <h2 id='takeaway'>理解评价</h2>
-    <p>我们推出了 VectorWorld，这是一种用于闭环自动驾驶模拟的流式矢量图世界模型，可按需绘制车道代理图块。它结合了 (i) 运动感知交互状态 VAE，将初始化与历史条件策略对齐；(ii) 边缘门控关系 DiT，使用区间条件 MeanFlow 和 JVP 监督进行训练，以实现无求解器的一步掩码完成；(iii) 物理对齐 NPC 策略 (\(\)Sim)，减少不可行动作的长期复合。在 Waymo Open Motion 和 nuPlan 中，VectorWorld 提高了初始化有效性，实现了 \(1\,km+\) 闭环部署，并产生了压力测试和策略训练收益。</p>
+    <p>这篇工作要解决的问题是：我们推出了 VectorWorld，这是一种用于闭环自动驾驶模拟的流式矢量图世界模型，可按需绘制车道代理图块。</p>
+    <p>对应的核心做法是：它结合了 (i) 一个运动感知交互状态 VAE，将初始化与历史条件策略相结合，(ii) 一个边缘门控关系 DiT，使用区间条件 MeanFlow 和 JVP 监督进行训练，以实现无求解器的一步屏蔽完成，以及……。</p>
+    <p>从机制上看，关键设计在于：在 Waymo Open Motion 和 nuPlan 中，VectorWorld 提高了初始化有效性，实现了 \(1\,km+\) 闭环部署，并产生了压力测试和策略训练收益。</p>
     <p>
       如果把它当成研究参考，建议重点关注三件事：第一，这套方法真正依赖的归纳偏置是什么；第二，实验中真正拉开差距的模块是哪一个；第三，它的局限究竟来自数据、算力还是监督信号本身。
     </p>
