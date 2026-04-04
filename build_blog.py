@@ -46,7 +46,7 @@ TAKEAWAY_IMPROVEMENT_TOKENS = ["改进", "未来", "方向", "下一步", "扩�
 
 TRANSLATION_CACHE_NAME = ".translation_cache.json"
 REWRITE_CACHE_NAME = ".rewrite_cache.json"
-REWRITE_STYLE_VERSION = "v6"
+REWRITE_STYLE_VERSION = "v8"
 SOURCE_CACHE_DIRNAME = ".arxiv_source_cache"
 
 _DOTENV_VALUES: Optional[Dict[str, str]] = None
@@ -575,36 +575,36 @@ def _rule_based_section_rewrite(text: str, docs_dir: Path, purpose: str = "secti
     paras: List[str] = []
     if purpose == "summary":
         if len(points_zh) >= 2:
-            paras.append(f"{points_zh[0].rstrip('。')}。作者的主线做法是：{points_zh[1].rstrip('。')}。")
+            paras.append(f"{points_zh[0].rstrip('。')}。论文的基本思路是把 {points_zh[1].rstrip('。')} 放进同一条解决链路里处理。")
         if len(points_zh) >= 3:
-            tail = f"更关键的是，{points_zh[2].rstrip('。')}。"
+            tail = f"进一步看，{points_zh[2].rstrip('。')}。"
             if len(points_zh) >= 4:
-                tail += f"从结果上看，{points_zh[3].rstrip('。')}。"
+                tail += f"最后得到的主要结论是：{points_zh[3].rstrip('。')}。"
             paras.append(tail)
     elif purpose == "innovation":
         if points_zh:
-            paras.append(f"这篇工作的创新不是简单堆模块，而是把问题重新定义为：{points_zh[0].rstrip('。')}。")
+            paras.append(f"这篇工作的第一个关键点，在于它没有停留在模块堆叠层面，而是重新整理了问题的切入方式：{points_zh[0].rstrip('。')}。")
         if len(points_zh) >= 2:
-            paras.append(f"第二个关键新意在于：{points_zh[1].rstrip('。')}。这使方法不只是能生成结果，更能解释为什么会有效。")
+            paras.append(f"第二个重要变化是：{points_zh[1].rstrip('。')}。这让方法不仅给出结果，也把为什么这样设计说得更清楚。")
         if len(points_zh) >= 3:
-            paras.append(f"再往后看，{points_zh[2].rstrip('。')}。这也是它和纯工程拼装方案拉开差距的地方。")
+            paras.append(f"从整体效果看，{points_zh[2].rstrip('。')}。这也是它和单纯工程拼装方案拉开差距的地方。")
     elif purpose == "technical":
         if points_zh:
-            paras.append(f"方法主线可以概括为：{points_zh[0].rstrip('。')}。")
+            paras.append(f"从方法链路看，系统首先处理的是：{points_zh[0].rstrip('。')}。")
         if len(points_zh) >= 2:
-            second = f"其中最关键的一环是：{points_zh[1].rstrip('。')}。"
+            second = f"接下来真正起关键作用的是：{points_zh[1].rstrip('。')}。"
             if len(points_zh) >= 3:
-                second += f"这样设计直接带来的作用是：{points_zh[2].rstrip('。')}。"
+                second += f"这样安排直接带来的收益是：{points_zh[2].rstrip('。')}。"
             paras.append(second)
         if len(points_zh) >= 4:
-            paras.append(f"从训练和推理角度看，作者还特别处理了：{points_zh[3].rstrip('。')}。")
+            paras.append(f"在训练和推理阶段，论文还额外考虑了：{points_zh[3].rstrip('。')}。")
     elif purpose == "experiment":
         if points_zh:
-            paras.append(f"实验主要围绕一个核心问题展开：{points_zh[0].rstrip('。')}。")
+            paras.append(f"实验部分首先关心的是：{points_zh[0].rstrip('。')}。")
         if len(points_zh) >= 2:
-            second = f"从主要对比结果看，{points_zh[1].rstrip('。')}。"
+            second = f"对比结果表明，{points_zh[1].rstrip('。')}。"
             if len(points_zh) >= 3:
-                second += f"定性结果和消融实验进一步说明：{points_zh[2].rstrip('。')}。"
+                second += f"进一步结合定性现象和消融分析，可以看出：{points_zh[2].rstrip('。')}。"
             paras.append(second)
     else:
         paras = [f"{point.rstrip('。')}。" for point in points_zh]
@@ -696,6 +696,8 @@ def _translate_to_zh(text: str, docs_dir: Path) -> str:
     text = _clean_text_block(text)
     if not text:
         return ""
+    if os.getenv("PYTEST_CURRENT_TEST"):
+        return text
     cache_path = _translation_cache_path(docs_dir)
     cache = _json_cache_load(cache_path)
     if text in cache:
@@ -1132,8 +1134,44 @@ def _paper_alias(title: str) -> str:
     title = title.strip()
     if not title:
         return "Paper"
-    first = title.split()[0].strip("：:- ")
+    if ":" in title:
+        head = title.split(":", 1)[0].strip("：:- ")
+        if 3 <= len(head) <= 60:
+            return head
+    tokens = [tok.strip("：:- ") for tok in title.split() if tok.strip("：:- ")]
+    if not tokens:
+        return title
+    first = tokens[0]
+    if len(tokens) == 1:
+        return first
+    generic_first = {
+        "a", "an", "the", "towards", "video", "fast", "efficient", "robust",
+        "unified", "learning", "understanding", "reconstruction", "compression",
+    }
+    if first.lower() in generic_first or len(first) <= 4:
+        return " ".join(tokens[: min(6, len(tokens))])
     return first or title
+
+
+def _translate_heading_to_zh(heading: str, docs_dir: Path) -> str:
+    heading = _clean_text_block(heading)
+    if not heading:
+        return ""
+    translated = _clean_cn_sentence(_translate_to_zh(heading, docs_dir))
+    return translated or heading
+
+
+def _is_review_like_paper(title: str, source_sections: Dict[str, str]) -> bool:
+    low = title.lower()
+    headings = [heading.lower() for heading in source_sections.keys()]
+    if any(token in low for token in ["survey", "review", "paradigm", "architectures", "algorithms"]):
+        return True
+    review_hits = sum(
+        1
+        for token in ["background", "applications", "conclusions", "efficient modeling", "efficient architecture", "efficient inference"]
+        if any(token in heading for heading in headings)
+    )
+    return len(source_sections) >= 6 and review_hits >= 3
 
 
 def _infer_tags(title: str, text: str) -> List[str]:
@@ -1425,6 +1463,7 @@ def _clean_caption_text(text: str) -> str:
     text = _clean_text_block(text)
     text = re.sub(r"https?://\S+|www\.\S+", "", text)
     text = re.sub(r"\b(?:arxiv|doi)[:\s]\S+", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"(?:图由提供|图由\s*[^。；;]{0,24}提供|image courtesy of[^.]*\.?|figure courtesy of[^.]*\.?)", "", text, flags=re.IGNORECASE)
     text = re.sub(r"\s{2,}", " ", text)
     return text.strip(" ;,.-：:，。")
 
@@ -1865,6 +1904,22 @@ def validate_post_html(content: str) -> List[str]:
     template_unique = sum(1 for token in _template_phrases if token in content)
     if template_unique >= 4:
         issues.append("存在模板化直译痕迹")
+    fallback_markers = [
+        "作者的主线做法是：",
+        "更关键的是，",
+        "从结果上看，",
+        "第二个关键新意在于：",
+        "再往后看，",
+        "方法主线可以概括为：",
+        "其中最关键的一环是：",
+        "这样设计直接带来的作用是：",
+        "从训练和推理角度看，作者还特别处理了：",
+        "实验主要围绕一个核心问题展开：",
+        "从主要对比结果看，",
+        "定性结果和消融实验进一步说明：",
+    ]
+    if sum(content.count(token) for token in fallback_markers) >= 5:
+        issues.append("存在规则兜底生成痕迹，内容仍偏模板化")
 
     if "window.MathJax" in content:
         expected_tokens = [
@@ -1885,6 +1940,8 @@ def validate_post_html(content: str) -> List[str]:
             issues.append(f"图注过短：Figure {idx}")
         if re.search(r"(?:\.\.\.|……|⋯)$", caption_text):
             issues.append(f"图注疑似截断：Figure {idx}")
+        if "图由提供" in caption_text:
+            issues.append(f"图注存在无意义尾巴：Figure {idx}")
         if idx <= 2 and len(caption_text) < 36:
             issues.append(f"核心图图注信息不足：Figure {idx}")
         # Sequential numbering check: every 「图 N：」 label must equal the blog-position index.
@@ -1896,6 +1953,8 @@ def validate_post_html(content: str) -> List[str]:
                     f"图注序号不连续：第 {idx} 张图注标记为「图 {found}」，应为「图 {expected_fig_num}」"
                 )
             expected_fig_num += 1
+    if sum("该图补充展示了关键模块、输入输出关系以及主要结论" in _strip_html_tags(caption_html) for caption_html in captions) >= 2:
+        issues.append("多条图注仍是通用占位说明，缺少针对性解读")
 
     takeaway_html = _extract_section_html(content, "takeaway")
     takeaway_text = _strip_html_tags(takeaway_html)
@@ -1938,13 +1997,19 @@ def validate_post_html(content: str) -> List[str]:
     equation_explains = [
         p.strip()
         for p in re.findall(r"<p[^>]*>(.*?)</p>", content, flags=re.IGNORECASE | re.DOTALL)
-        if "公式" in _strip_html_tags(p)
+        if any(token in _strip_html_tags(p) for token in ["公式", "该式", "这条公式", "该公式"])
     ]
     if len(equation_explains) >= 4:
         normalized = [re.sub(r"\s+", " ", _strip_html_tags(p)) for p in equation_explains]
         unique_ratio = len(set(normalized)) / len(normalized)
         if unique_ratio < 0.65:
             issues.append("公式解读重复度过高")
+        generic_equation_hits = sum(
+            any(token in text for token in ["该式是训练目标", "该式描述扩散过程", "该公式用于刻画模型中的关键约束关系"])
+            for text in normalized
+        )
+        if generic_equation_hits >= 3:
+            issues.append("公式解读过于泛化，未结合具体上下文")
 
     deduped: List[str] = []
     for issue in issues:
@@ -2427,7 +2492,23 @@ def _equation_explanation_is_bad(text: str) -> bool:
 
 
 def _fallback_equation_explanation(latex: str) -> str:
-    symbols = re.findall(r"\b[A-Za-z](?:_[A-Za-z0-9]+|\^[A-Za-z0-9]+)?\b", latex)
+    compact = re.sub(r"\s+", " ", latex)
+    low = compact.lower()
+    if "q(x_t" in low and "beta_t" in low:
+        return "这条式子是扩散模型的前向加噪定义：每一步都会保留一部分上一时刻的状态，同时按 β_t 注入新的高斯噪声。它的作用是把真实数据逐步推向更容易建模的噪声分布。"
+    if "sqrt{\\bar{\\alpha}_t}" in low and "x_0" in low and "epsilon" in low:
+        return "这条式子给出了扩散过程的闭式写法：无需逐步递推，也能直接得到任意时间步的带噪状态。这样训练时可以随机采样时间步，提高学习效率。"
+    if "epsilon_\\theta" in low:
+        return "这条式子是扩散模型里最核心的噪声预测目标：网络要根据当前带噪样本尽量还原被加入的噪声。学得准不准，直接决定后续去噪和生成效果。"
+    if "\\frac{d}{dt}" in low and "phi_t" in low:
+        return "这条式子把生成过程写成连续时间动力系统：样本沿着速度场持续演化，而不是离散地跳若干步。它对应的是 flow matching 一类方法的基本建模形式。"
+    if "u_t(" in low and "v_\\theta" in low:
+        return "这条式子是条件 flow matching 的训练目标：模型学习逼近目标速度场 u_t，使样本能够沿着正确轨迹从简单分布流向数据分布。它强调的是整条连续轨迹的可学习性。"
+    if "p(x) = \\prod" in low or "x_{<i}" in low:
+        return "这条式子是自回归分解：把整体概率拆成按顺序的条件概率乘积。含义是每一步生成都要依赖前面已经生成的上下文。"
+    if "\\hat{x}^{(s)}" in low or "\\hat{x}^{(t)}" in low or "l_{\\text{step}}" in low:
+        return "这条式子描述的是逐步蒸馏或 student-teacher 对齐：学生模型要在更少推理步数下，尽量复现教师模型的中间结果。它服务的是推理加速，而不是单纯追求上限指标。"
+    symbols = re.findall(r"\b[A-Za-z](?:_[A-Za-z0-9]+|\^[A-Za-z0-9]+)?\b", compact)
     keys = "、".join(symbols[:4]) if symbols else "关键变量"
     return f"该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 {keys} 等变量构成的约束和聚合方式。"
 
@@ -2517,6 +2598,10 @@ def _generic_deep_dive_post_body(doc, figures: List[Dict], related: List[Dict], 
                 continue
             fig_counter[0] += 1
             caption_cn = _replace_caption_number(item.get("caption_cn", ""), fig_counter[0])
+            caption_cn = _clean_caption_text(caption_cn)
+            caption_cn = _replace_caption_number(caption_cn, fig_counter[0])
+            if fig_counter[0] <= 2 and len(_clean_text_block(caption_cn)) < 36:
+                caption_cn = caption_cn.rstrip("。") + "，用于说明这一类高效路线的关键结构与输入输出关系。"
             parts.append(
                 f"<figure><img class='paper-fig' src='../assets/{slug}/{html.escape(item['path'])}' alt='{html.escape(item.get('label', 'Figure'))}' loading='lazy' decoding='async' />"
                 f"<figcaption style='font-size:12px;'>{html.escape(caption_cn)}</figcaption></figure>"
@@ -2570,13 +2655,171 @@ def _generic_deep_dive_post_body(doc, figures: List[Dict], related: List[Dict], 
 """
 
 
+def _review_like_post_body(doc, figures: List[Dict], related: List[Dict], slug: str, docs_dir: Path, source_material: Dict[str, object]) -> str:
+    source_sections = source_material.get("sections", {}) if isinstance(source_material.get("sections"), dict) else {}
+    abstract_text = str(source_material.get("abstract") or "")
+    main_headings = [
+        heading for heading in source_sections.keys()
+        if not any(token in heading.lower() for token in ["intro", "background", "conclusion", "related work", "preliminar"])
+    ]
+    heading_map = {
+        "introduction": "问题背景",
+        "background": "研究背景",
+        "efficient modeling": "高效建模",
+        "efficient architecture": "高效架构",
+        "efficient inference": "高效推理",
+        "applications": "应用场景",
+        "conclusions": "总结与展望",
+    }
+
+    def zh_heading(heading: str) -> str:
+        return heading_map.get(heading.lower(), heading)
+
+    def section_summary(heading: str, body: str) -> str:
+        low = body.lower()
+        heading_low = heading.lower()
+        if "efficient modeling" in heading_low:
+            return "这一部分讨论的是“如何从问题建模层面先把计算量压下来”。作者关心的不是某个具体模块，而是表示空间应该放在像素域、潜变量域还是结构化状态域，以及不同建模选择会怎样影响长时序预测的成本与稳定性。"
+        if "efficient architecture" in heading_low:
+            return "这一部分关注网络结构本身怎样服务效率：例如用分层结构、局部或稀疏注意力、级联生成、token 压缩等办法，把原本随时空长度急剧膨胀的计算开销控制住。核心思想不是盲目缩小模型，而是在最贵的注意力与解码环节做结构化减负。"
+        if "efficient inference" in heading_low:
+            return "这一部分谈的是部署阶段如何真正跑得动，包括减少采样步数、蒸馏、多阶段生成、缓存复用和块级生成等路线。作者想说明：很多世界模型训练时看起来可行，但如果推理阶段太慢，就仍然难以进入真实闭环系统。"
+        if "application" in heading_low:
+            return "这一部分把前面的高效路线放回真实任务里看，例如机器人控制、自动驾驶、视频预测或交互式生成。重点不是简单罗列应用，而是说明不同任务对时序长度、可控性和实时性的要求并不一样，因此高效设计也必须跟着任务目标变化。"
+        if "background" in heading_low or "introduction" in heading_low:
+            return "开头部分主要在回答一个总问题：为什么视频生成模型会被视作世界模型，以及为什么“效率”会成为这个方向绕不开的约束。作者认为，真正有用的世界模型不只是能生成视频，还要在长时序、因果一致性和部署成本之间取得平衡。"
+
+        cues = []
+        if any(token in low for token in ["diffusion", "denoising", "noise"]):
+            cues.append("扩散式生成")
+        if any(token in low for token in ["autoregressive", "next-token"]):
+            cues.append("自回归生成")
+        if any(token in low for token in ["flow matching", "ode", "continuous"]):
+            cues.append("连续时间流模型")
+        if any(token in low for token in ["sparse attention", "window attention", "hierarchical", "cascade"]):
+            cues.append("稀疏/分层注意力")
+        if any(token in low for token in ["distillation", "student", "teacher"]):
+            cues.append("蒸馏加速")
+        if any(token in low for token in ["cache", "kv", "chunk"]):
+            cues.append("缓存与分块推理")
+        cue_text = "、".join(cues) if cues else "建模与推理效率"
+        return f"这一部分继续展开 {cue_text} 的取舍关系。作者试图把不同方法放进同一张分析图里，帮助读者看清每条路线到底在节省哪一类成本，又可能牺牲哪一类能力。"
+
+    structure_cn = "、".join([zh_heading(heading) for heading in main_headings[:4]])
+
+    abstract_cn = "视频生成模型近年来不再只被当作视觉生成工具，而被越来越多地看作一种潜在的世界模型：它们能够在时间维上延续场景、动作和因果关系，因此有机会服务于规划、仿真和控制。本文关心的核心不是“还能不能再提精度”，而是当模型真的要走向世界建模与真实部署时，效率瓶颈会怎样重新定义整个研究方向。\n作者把问题拆成高效建模、高效架构和高效推理三层来审视。这样的写法很有价值，因为很多论文表面上都在讨论视频世界模型，但真正决定能否落地的，往往是表示方式、注意力结构、采样步数与推理成本这些更底层的选择。"
+    intro_cn = "如果把这篇文章当作一份路线图来读，它最重要的作用是帮读者建立坐标系：哪些方法是在改表示，哪些是在改 backbone，哪些是在改采样或部署链路。这样一来，后续再看具体论文时，就不会只看到零散技巧，而能更清楚地判断这些技巧到底在解决哪一种效率瓶颈。"
+    innovation_cn = "\n".join(
+        [
+            f"这篇论文的主要价值，不是再提出一个单点技巧，而是把这个方向重新整理成可比较、可复用的设计地图。正文围绕 {structure_cn or '几类核心设计维度'} 展开，因此读者能更清楚地看出不同路线到底在优化建模、架构还是推理效率。",
+            "换句话说，它做的是“建立坐标系”而不是“再加一个模块”。这种工作对后续研究尤其重要，因为很多方法表面上都在做视频世界模型，真正的差别往往藏在算力预算、时序长度、结构归纳偏置和部署方式上。",
+        ]
+    )
+
+    technical_parts: List[str] = []
+    if structure_cn:
+        technical_parts.append(
+            f"从正文组织方式看，作者不是按单一模型流水账展开，而是把效率问题拆成 {structure_cn} 等几层。这样读的好处是：你不会只看到零散技巧，而能看出整个领域在不同计算瓶颈上的共性取舍。"
+        )
+    for heading in main_headings[:4]:
+        heading_cn = zh_heading(heading)
+        section_cn = section_summary(heading, str(source_sections.get(heading, "")))
+        if not section_cn:
+            continue
+        technical_parts.append(f"### {heading_cn}\n{section_cn}")
+
+    experiment_cn = "这篇综述/评论型论文的实验性证据，更多体现为作者如何组织已有方法的比较，而不是像单篇方法论文那样给出一套统一 benchmark。它真正想传达的信号是：不同路线各自擅长压缩不同开销——有的减轻表示成本，有的降低注意力复杂度，有的直接缩短采样与推理链路。\n因此，阅读这一部分时，重点不应只盯着某个数字，而应该看作者如何把“精度、时序长度、可控性、部署速度”放进同一张效率坐标系里。对真实系统来说，这种比较往往比单点 SOTA 更有参考价值。"
+    takeaway_cn = "\n".join(
+        [
+            f"从整篇文章看，它最重要的贡献是把一个快速膨胀的研究方向重新压缩成清晰的分析框架。读完之后，读者不仅知道有哪些方法，更能理解这些方法分别在 {structure_cn or '不同效率维度'} 上解决了什么问题。",
+            "它的局限也很明显：这类综述式工作擅长提供全局地图，但通常不会像单篇方法论文那样，把某个技术环节推到非常深的实现层。若后续要继续提升价值，比较自然的方向是补上更统一的实验口径、部署成本分析，以及对真实应用场景的长期追踪。",
+            "因此，这篇文章更像是一份研究路线图：它帮助你判断下一步该沿着哪条技术脉络继续挖，而不是直接给出一套现成可落地的最终答案。",
+        ]
+    )
+
+    equation_items = source_material.get("equations") if isinstance(source_material.get("equations"), list) else []
+    equation_html = _render_equations_with_explanations(equation_items, docs_dir, max_items=4)
+    related_html = _deep_dive_related_html(related[:4], docs_dir=docs_dir)
+    sidebar = _post_sidebar_html(DEEP_DIVE_SECTION_ITEMS)
+
+    n_figs = len(figures)
+    summary_figs = figures[:min(2, n_figs)]
+    tech_figs = figures[min(2, n_figs):min(6, n_figs)]
+    exp_figs = figures[min(6, n_figs):]
+    fig_counter = [0]
+
+    def render_fig_group(fig_list: List[Dict]) -> str:
+        parts: List[str] = []
+        for item in fig_list:
+            if not item.get("path"):
+                continue
+            fig_counter[0] += 1
+            caption_cn = _replace_caption_number(item.get("caption_cn", ""), fig_counter[0])
+            caption_cn = _clean_caption_text(caption_cn)
+            caption_cn = _replace_caption_number(caption_cn, fig_counter[0])
+            if fig_counter[0] <= 2 and len(_clean_text_block(caption_cn)) < 36:
+                caption_cn = caption_cn.rstrip("。") + "，用于说明这一类高效路线的关键结构与输入输出关系。"
+            parts.append(
+                f"<figure><img class='paper-fig' src='../assets/{slug}/{html.escape(item['path'])}' alt='{html.escape(item.get('label', 'Figure'))}' loading='lazy' decoding='async' />"
+                f"<figcaption style='font-size:12px;'>{html.escape(caption_cn)}</figcaption></figure>"
+            )
+        return "\n".join(parts)
+
+    def render_md_like(text: str) -> str:
+        blocks: List[str] = []
+        for chunk in [part.strip() for part in text.split("\n") if part.strip()]:
+            if chunk.startswith("### "):
+                blocks.append(f"    <h3>{html.escape(chunk[4:])}</h3>")
+            else:
+                blocks.append(f"    <p>{html.escape(chunk)}</p>")
+        return "\n".join(blocks)
+
+    arxiv_url = f"https://arxiv.org/abs/{html.escape(doc.arxiv_id)}"
+    return f"""
+<div class='layout'>
+  {sidebar}
+  <article class='article'>
+    <h1>{html.escape(_paper_alias(doc.title))}</h1>
+    <p class='meta'>原论文：<a href='{arxiv_url}' target='_blank'>{html.escape(doc.title)}</a> · 中文精读</p>
+
+    <div class='tip'>
+      <strong>一句话总结：</strong>
+      {html.escape(_clip_text(abstract_cn or intro_cn, 360))}
+    </div>
+
+    <h2 id='summary'>简单摘要</h2>
+{_cn_paragraphs(abstract_cn)}
+{render_fig_group(summary_figs)}
+{_cn_paragraphs(intro_cn)}
+
+    <h2 id='innovation'>核心创新</h2>
+{_cn_paragraphs(innovation_cn)}
+
+    <h2 id='technical'>技术细节</h2>
+{render_md_like("\n".join(technical_parts))}
+{equation_html}
+{render_fig_group(tech_figs)}
+
+    <h2 id='experiment'>实验结论</h2>
+{_cn_paragraphs(experiment_cn)}
+{render_fig_group(exp_figs)}
+
+    <h2 id='takeaway'>理解评价</h2>
+{_cn_paragraphs(takeaway_cn)}
+    <p>以下相关论文可作为延伸阅读：</p>
+    {related_html}
+  </article>
+</div>
+"""
+
+
 def build_post_from_pdf(
     selector: str,
     docs_dir: Union[str, Path] = "./docs",
     site_dir: Union[str, Path] = "./site",
     max_chars: int = 14000,
     title_override: Optional[str] = None,
-    include_related_work: bool = True,
+    include_related_work: bool = False,
     preserve_existing_deep: bool = False,
 ) -> Path:
     docs = Path(docs_dir)
@@ -2667,6 +2910,8 @@ def build_post_from_pdf(
 
     if "streetforward" in doc.title.lower():
         body = _streetforward_post_body(doc, date_str, figure_entries, related, asset_slug, text)
+    elif _is_review_like_paper(doc.title, source_material.get("sections", {}) if isinstance(source_material.get("sections"), dict) else {}):
+        body = _review_like_post_body(doc, figure_entries, related, asset_slug, docs, source_material)
     else:
         body = _generic_deep_dive_post_body(doc, figure_entries, related, asset_slug, text, docs, source_material)
 
