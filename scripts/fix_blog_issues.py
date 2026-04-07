@@ -148,8 +148,42 @@ def _merge_short_paragraphs_in_body(body: str) -> str:
 
 
 def fix_technical(content: str) -> str:
+    # First pass: merge short prose across all deep-dive sections.
     for sec in ["summary", "innovation", "technical", "experiment", "takeaway"]:
         content = replace_section(content, sec, _merge_short_paragraphs_in_body)
+
+    # Second pass (aggressive): collapse technical prose into one long paragraph
+    # while keeping equation/figure paragraphs as-is.
+    def compress_technical(body: str) -> str:
+        p_matches = list(re.finditer(r"<p[^>]*>.*?</p>", body, flags=re.DOTALL | re.IGNORECASE))
+        if not p_matches:
+            return body
+
+        prose_chunks = []
+        kept_parts = []
+        last = 0
+        for m in p_matches:
+            kept_parts.append(body[last : m.start()])
+            block = m.group(0)
+            inner = re.search(r"<p[^>]*>(.*?)</p>", block, flags=re.DOTALL | re.IGNORECASE).group(1)
+            plain = strip_tags(inner).strip()
+            is_equ = ("$$" in plain) or plain.startswith("$$")
+            if is_equ:
+                kept_parts.append(block)
+            elif plain:
+                if not re.search(r"[。！？.!?]$", plain):
+                    plain += "。"
+                prose_chunks.append(plain)
+            last = m.end()
+        kept_parts.append(body[last:])
+
+        if not prose_chunks:
+            return body
+        merged = re.sub(r"\s+", " ", "".join(prose_chunks)).strip()
+        merged_p = f"<p>{merged}</p>\n"
+        return merged_p + "".join(kept_parts)
+
+    content = replace_section(content, "technical", compress_technical)
     return content
 
 

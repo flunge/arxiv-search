@@ -182,39 +182,40 @@
     <p>第二个重要变化是：在训练数据分区中，我们仅保留那些位于相应块内或对渲染结果做出重大贡献的观察结果。这让方法不仅给出结果，也把为什么这样设计说得更清楚。</p>
     <p>从整体效果看，为了解决这个问题，我们提出了一个层次优化框架，平衡粗略的全局表示和细粒度的局部细化，如图 1 所示。这也是它和单纯工程拼装方案拉开差距的地方。</p>
 
-    <h2 id='technical'>技术细节</h2>
-    <p>从方法链路看，系统首先处理的是：我们提出的 HRGS 可以有效地重建高分辨率场景。</p>
-    <p>接下来真正起关键作用的是：出于渲染目的，给定像素处多个高斯的组合颜色和不透明度贡献根据各自的不透明度进行加权。这样安排直接带来的收益是：为了解决这个问题，我们提出了一个层次优化框架，平衡粗略的全局表示和细粒度的局部细化，如图 1 所示。</p>
-    <p>在训练和推理阶段，论文还额外考虑了：我们首先构建一个低分辨率全局高斯先验，指导逐块高分辨率优化以增强几何细节，同时保持内存效率。</p>
+    <h2 id='technical'>技术细节</h2><p>从方法链路看，系统首先处理的是：我们提出的 HRGS 可以有效地重建高分辨率场景。接下来真正起关键作用的是：出于渲染目的，给定像素处多个高斯的组合颜色和不透明度贡献根据各自的不透明度进行加权。这样安排直接带来的收益是：为了解决这个问题，我们提出了一个层次优化框架，平衡粗略的全局表示和细粒度的局部细化，如图 1 所示。在训练和推理阶段，论文还额外考虑了：我们首先构建一个低分辨率全局高斯先验，指导逐块高分辨率优化以增强几何细节，同时保持内存效率。这组公式用于定义模型中的变量关系和训练目标。建议先看左侧要预测的对象，再看右侧每一项如何约束优化方向。该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 p、p、p、p 等变量构成的约束和聚合方式。该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 P、L、G_K、G_K 等变量构成的约束和聚合方式。该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 P、j、p、j 等变量构成的约束和聚合方式。这组公式用于定义模型中的变量关系和训练目标。建议先看左侧要预测的对象，再看右侧每一项如何约束优化方向。该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 H_i、r、R、p_i 等变量构成的约束和聚合方式。该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 L、N、N、N 等变量构成的约束和聚合方式。该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 N、d、d、d 等变量构成的约束和聚合方式。</p>
+
+    
+    
+    
     <p>$$ \hat{C} = \sum_{k \in M} c_k \alpha_k \prod_{j=1}^{k-1} \left( 1 - \alpha_j \right), $$</p>
-    <p>这组公式用于定义模型中的变量关系和训练目标。建议先看左侧要预测的对象，再看右侧每一项如何约束优化方向。</p>
+    
     <p>$$ \text{contract} (\hat{\mathbf{p}}_k) = \begin{cases} \hat{\mathbf{p}}_k, & \text{if } \|\hat{\mathbf{p}}_k\|_\infty \leq 1, \\ \left( 2 - \frac{1}{\|\hat{\mathbf{p}}_k\|_\infty} \right) \frac{\hat{\mathbf{p}}_k}{\|\hat{\mathbf{p}}_k\|_\infty}, & \text{if } \|\hat{\mathbf{p}}_k\|_\infty > 1. \end{cases} $$</p>
-    <p>该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 p、p、p、p 等变量构成的约束和聚合方式。</p>
+    
     <p>$$ \begin{aligned} \mathbf{P}^1_j = \text{Mask}\left(\mathcal{L}_{\text{SSIM}} \left( I_{G_K} (\boldsymbol{\tau}), I_{G_K \setminus G_{Kj}} (\boldsymbol{\tau}) \right ) > \epsilon \right ) \odot \boldsymbol{\tau}, \end{aligned} $$</p>
-    <p>该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 P、L、G_K、G_K 等变量构成的约束和聚合方式。</p>
+    
     <p>$$ \mathbf{P}^2_j = \text{Mask}\left(b_{j, \text{min}} \leq \text{contract} (\hat{\mathbf{p}}_{\tau_i}) < b_{j, \text{max}} \right) \odot \boldsymbol{\tau}. $$</p>
-    <p>该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 P、j、p、j 等变量构成的约束和聚合方式。</p>
+    
     <p>$$ \mathbf{P}_j(\boldsymbol{\tau}, G_{Kj}) = \mathrm{Merge}\bigl(\mathbf{P}^1_j, \mathbf{P}^2_j\bigr), $$</p>
-    <p>这组公式用于定义模型中的变量关系和训练目标。建议先看左侧要预测的对象，再看右侧每一项如何约束优化方向。</p>
+    
     <p>$$ H_i \;=\;\sum_{r\in\mathcal{R}_b}\mathbf{1}(p_i \cap r)\,T_{i,r}, \text{where } T_{i,r} =\prod_{\substack{p_k \cap r\\\mathrm{depth}(p_k)<\mathrm{depth}(p_i)}}\bigl(1 - \alpha_k\bigr). $$</p>
-    <p>该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 H_i、r、R、p_i 等变量构成的约束和聚合方式。</p>
+    
     <p>$$ \mathcal{L}_n = \| \hat{\mathbf{N}} - \mathbf{N} \|_1 + (1 - \hat{\mathbf{N}} \cdot \mathbf{N}). $$</p>
-    <p>该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 L、N、N、N 等变量构成的约束和聚合方式。</p>
+    
     <p>$$ \overline{\mathbf{N}}_d = \frac{\nabla_v \mathbf{d} \times \nabla_h \mathbf{d}}{\left|\nabla_v \mathbf{d} \times \nabla_h \mathbf{d}\right|}, $$</p>
-    <p>该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 N、d、d、d 等变量构成的约束和聚合方式。</p>
+    
 <figure><img class='paper-fig' src='../assets/2506_14229v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：图 3：Mip-NeRF 360 数据集的定性比较。三个代表性场景表明，与 3DGS 和 Mip-Splatting 相比，我们的方法更忠实地保留了精细尺度结构并实现了卓越的视觉保真度。</figcaption></figure>
 <figure><img class='paper-fig' src='../assets/2506_14229v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：图 4：TNT 数据集的定性比较。从左到右的重建——SuGar、NeuS、2DGS 和 VCR-Gaus——表明我们的方法提供了更完整的表面几何形状、增强了平面区域的平滑度以及对精细结构细节的出色保留，从而在几何保真度方面优于现有方法。</figcaption></figure>
 
     <h2 id='experiment'>实验结论</h2>
-    <p>实验部分首先关心的是：为了评估我们的重建方法的有效性，我们对两个核心任务进行了实验。</p>
-    <p>对比结果表明，使用多个基准数据集的新颖视图合成（NVS）和表面重建。进一步结合定性现象和消融分析，可以看出：为了进行全面评估，我们采用了 SSIM、PSNR、LPIPS 和 F1 分数等标准指标。</p>
+    
+    <p>实验部分首先关心的是：为了评估我们的重建方法的有效性，我们对两个核心任务进行了实验。</p><p>对比结果表明，使用多个基准数据集的新颖视图合成（NVS）和表面重建。进一步结合定性现象和消融分析，可以看出：为了进行全面评估，我们采用了 SSIM、PSNR、LPIPS 和 F1 分数等标准指标。</p>
 
 
     <h2 id='takeaway'>理解评价</h2>
     <p>从整篇论文看，它的真正贡献是：3D Gaussian Splatting (3DGS) 在实时 3D 场景重建方面取得了重大进展，而不是单纯把扩散模型继续微调。作者把问题落在“分布外驾驶场景如何稳定生成”这个更关键的缺口上。</p>
     <p>它最有说服力的地方在于：在训练数据分区中，我们仅保留那些位于相应块内或对渲染结果做出重大贡献的观察结果。这说明论文的方法链路——3D 点云编辑、车辆补全、再到 RL 后训练——是前后闭合的，而不是各模块各自堆叠。</p>
     <p>主要局限在于：3D Gaussian Splatting (3DGS) 在实时 3D 场景重建方面取得了重大进展。如果继续往前推进，一个自然方向是把更长时序、更低成本训练和更广泛的 OOD 场景覆盖一起纳入统一评估。</p>
-    <p>以下相关论文可作为延伸阅读：</p>
+    <p>以下相关论文可作为延伸阅读：。</p>
     <ul></ul>
   </article>
 </div>

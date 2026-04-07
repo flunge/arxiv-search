@@ -182,26 +182,27 @@
     <p>另一项关键新意在于：作为回应，我们引入了 GenSplat，一种前馈 3D 高斯 Splatting 框架，可通过新颖的视图渲染促进视图广义策略学习。这使方法不只是能生成结果，更能解释为什么会有效。</p>
     <p>进一步看，前馈 3D 高斯分布 3D 先行蒸馏视图泛化策略学习 我们详细介绍了 GenSplat，一个前馈 3D 高斯分布 (3DGS) 框架，旨在通过稀疏、非校准的新颖视图合成来扩展观测流形。这也是它和纯工程拼装方案拉开差距的地方。</p>
 
-    <h2 id='technical'>技术细节</h2>
-    <p>方法主干可以概括为：通过在没有严格相机校准的情况下重建度量一致的 3D 工作空间，GenSplat 密集了训练数据的连续空间支持，本质上为下游策略引入了视图广义动作映射。</p>
-    <p>其中最关键的环节是：为此，我们构建了一个每帧、无姿态的相机增强管道，表示为。这种设计直接带来的效果是：给定时间步长的相机视图，通过一组高斯基元表示 3D 场景，预测每个视图的相机参数，并根据采样的目标相机姿势渲染图像。</p>
-    <p>从训练与推理角度看，作者还专门处理了：得到的增强数据集是，用替换每个原始帧，其中 是从定期采样的相机变换渲染的新颖视图。</p>
+    <h2 id='technical'>技术细节</h2><p>方法主干可以概括为：通过在没有严格相机校准的情况下重建度量一致的 3D 工作空间，GenSplat 密集了训练数据的连续空间支持，本质上为下游策略引入了视图广义动作映射。其中最关键的环节是：为此，我们构建了一个每帧、无姿态的相机增强管道，表示为。这种设计直接带来的效果是：给定时间步长的相机视图，通过一组高斯基元表示 3D 场景，预测每个视图的相机参数，并根据采样的目标相机姿势渲染图像。从训练与推理角度看，作者还专门处理了：得到的增强数据集是，用替换每个原始帧，其中 是从定期采样的相机变换渲染的新颖视图。这组公式用于定义模型中的变量关系和训练目标。建议先看左侧要预测的对象，再看右侧每一项如何约束优化方向。该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 L、u、v、P 等变量构成的约束和聚合方式。该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 L、i、j、R 等变量构成的约束和聚合方式。该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 L、L、L 等变量构成的约束和聚合方式。这组公式用于定义模型中的变量关系和训练目标。建议先看左侧要预测的对象，再看右侧每一项如何约束优化方向。该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 L、L、L、L 等变量构成的约束和聚合方式。该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 L、I、I、I 等变量构成的约束和聚合方式。该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 L、M、M、P 等变量构成的约束和聚合方式。</p>
+
+    
+    
+    
     <p>$$ \begin{cases} (\boldsymbol{P}_i, \boldsymbol{C}_i) = D_{\text{p}}(\boldsymbol{h}_i),\; \boldsymbol{\mu}_g = \text{trans}(\boldsymbol{P}_i, \boldsymbol{p}_i), \\ (\sigma_g, \boldsymbol{r}_g, \boldsymbol{s}_g, \boldsymbol{c}_g) = H_\text{G}(F_{\text{DPT}}(\boldsymbol{h}_i) + F_{\text{RGB}}(I_i)). \end{cases} $$</p>
-    <p>这组公式用于定义模型中的变量关系和训练目标。建议先看左侧要预测的对象，再看右侧每一项如何约束优化方向。</p>
+    
     <p>$$ \mathcal{L}_{\text{3D}} = \frac{1}{HW} \sum_{u,v} \left\| \hat{\boldsymbol{P}}(u,v) - \boldsymbol{P}(u,v) \right\|_2^2, $$</p>
-    <p>该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 L、u、v、P 等变量构成的约束和聚合方式。</p>
+    
     <p>$$ \mathcal{L}_{\text{cam}} \!=\! \sum_{i \neq j} \Big( \ell_{\text{rot}}(\boldsymbol{\hat{R}}_{i\leftarrow j}, \boldsymbol{R}_{i\leftarrow j}) + \mathcal{H}_{\delta}(\boldsymbol{\hat{T}}_{i\leftarrow j} - \boldsymbol{T}_{i\leftarrow j})\Big). $$</p>
-    <p>该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 L、i、j、R 等变量构成的约束和聚合方式。</p>
+    
     <p>$$ \mathcal{L}_{\text{3D-prior}} = \lambda_{\text{3D}} \mathcal{L}_{\text{3D}} + \lambda_{\text{cam}} \mathcal{L}_{\text{cam}}. $$</p>
-    <p>该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 L、L、L 等变量构成的约束和聚合方式。</p>
+    
     <p>$$ \max_{\theta}\sum_{(\boldsymbol{o},\,\boldsymbol{a}) \in \mathcal{D}_{\text{train}}} \log \pi_{\theta}(\boldsymbol{a}\mid \boldsymbol{o}), $$</p>
-    <p>这组公式用于定义模型中的变量关系和训练目标。建议先看左侧要预测的对象，再看右侧每一项如何约束优化方向。</p>
+    
     <p>$$ \mathcal{L} = \mathcal{L}_{\text{rgb}} + \lambda_{\text{depth}} \mathcal{L}_{\text{depth}} + \mathcal{L}_{\text{3D-prior}}. $$</p>
-    <p>该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 L、L、L、L 等变量构成的约束和聚合方式。</p>
+    
     <p>$$ \mathcal{L}_{\text{rgb}} = \lambda_{\text{1}}\| I - \hat{I} \|_1 + \lambda_{\text{2}} \, \mathtt{LPIPS}(I,\hat{I}), $$</p>
-    <p>该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 L、I、I、I 等变量构成的约束和聚合方式。</p>
+    
     <p>$$ \mathcal{L}_{\text{depth}} = \frac{1}{\lVert M \rVert_{1}} \left\lVert\, M \odot \big( \boldsymbol{P}_{。,\;2} - \hat{D} \big) \,\right\rVert_{2}^{2}, $$</p>
-    <p>该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 L、M、M、P 等变量构成的约束和聚合方式。</p>
+    
 <figure><img class='paper-fig' src='../assets/2603_29192v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：实验设置和任务概述。我们设计了六个用于现实世界评估的操作任务。</figcaption></figure>
 <figure><img class='paper-fig' src='../assets/2603_29192v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：政策对相机的稳健性造成了扰动。我们在不断增加的摄像机扰动下对 6 个现实世界任务的每个任务 30 个片段进行评估，并报告平均成功率（以 % 为单位）。使用 GenSplat 增强新颖视图数据训练的策略始终优于仅在源视图和扩散策略上训练的策略。</figcaption></figure>
 <figure><img class='paper-fig' src='../assets/2603_29192v1/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：DROID 数据集上的定性 3D 几何重建。我们根据 GenSplat 的预测 RGB、深度和法线贴图可视化参考目标对（地面实况或伪标签）。 GenSplat 可以准确地恢复结构高频细节，并保持严格的空间对齐，无需明确的相机校准。附录 redB 中提供了扩展的视觉比较。</figcaption></figure>
@@ -217,7 +218,7 @@
     <p>从整篇论文看，它的真正贡献是：作为回应，我们引入了 GenSplat，一种前馈 3D 高斯 Splatting 框架，可通过新颖的视图渲染促进视图广义策略学习，而不是单纯把扩散模型继续微调。作者把问题落在“分布外驾驶场景如何稳定生成”这个更关键的缺口上。</p>
     <p>它最有说服力的地方在于：得到的增强数据集是，用替换每个原始帧，其中 是从定期采样的相机变换渲染的新颖视图。这说明论文的方法链路——3D 点云编辑、车辆补全、再到 RL 后训练——是前后闭合的，而不是各模块各自堆叠。</p>
     <p>主要局限在于：当前方案仍受算力和时长限制，更适合离线生成而非实时闭环模拟。如果继续往前推进，一个自然方向是把更长时序、更低成本训练和更广泛的 OOD 场景覆盖一起纳入统一评估。</p>
-    <p>以下相关论文可作为延伸阅读：</p>
+    <p>以下相关论文可作为延伸阅读：。</p>
     <ul></ul>
   </article>
 </div>
