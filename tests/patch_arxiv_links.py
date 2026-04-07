@@ -24,8 +24,9 @@ def patch_post(html_path: Path, arxiv_id: str) -> bool:
 
     # Match: <p class='meta'>原论文：{title_text} · 中文精读</p>
     # title_text may contain HTML entities but NOT '<' since it was html.escape()'d
+    # The separator can be literal U+00B7 '·' or the HTML entity '&middot;'
     pattern = re.compile(
-        r"(<p class='meta'>原论文：)((?:(?!</p>|<).)+?)( · 中文精读</p>)"
+        r"(<p class='meta'>原论文：)((?:(?!</p>|<).)+?)(\s*(?:·|&middot;)\s*中文精读</p>)"
     )
 
     def replacer(m: re.Match) -> str:
@@ -33,10 +34,12 @@ def patch_post(html_path: Path, arxiv_id: str) -> bool:
         # Skip if already a hyperlink
         if title_fragment.startswith("<a "):
             return m.group(0)
+        # Normalize the separator to a literal middle dot
+        after_norm = after.replace("&middot;", "\u00b7")
         return (
             f"{before}"
             f"<a href='{arxiv_url}' target='_blank'>{title_fragment}</a>"
-            f"{after}"
+            f"{after_norm}"
         )
 
     new_content, n = pattern.subn(replacer, content)
@@ -50,7 +53,7 @@ def main() -> None:
     samples = json.loads(SAMPLES_FILE.read_text(encoding="utf-8"))
     for item in samples:
         slug = item["slug"]
-        post_path = SITE_DIR / item["path"]
+        post_path = REPO_ROOT / item["path"]
         if not post_path.exists():
             print(f"  [SKIP] not found: {post_path}")
             continue
