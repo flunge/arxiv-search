@@ -46,7 +46,7 @@ TAKEAWAY_IMPROVEMENT_TOKENS = ["改进", "未来", "方向", "下一步", "扩�
 
 TRANSLATION_CACHE_NAME = ".translation_cache.json"
 REWRITE_CACHE_NAME = ".rewrite_cache.json"
-REWRITE_STYLE_VERSION = "v10"
+REWRITE_STYLE_VERSION = "v11"
 SOURCE_CACHE_DIRNAME = ".arxiv_source_cache"
 
 _DOTENV_VALUES: Optional[Dict[str, str]] = None
@@ -405,11 +405,11 @@ def _fallback_rewrite_without_llm(text: str, docs_dir: Path, purpose: str = "sec
     if purpose == "equation":
         return _source_grounded_equation_explanation("", text)
     if purpose == "caption":
-        return _clip_text(_source_grounded_excerpt(text, purpose="caption", max_items=2), 340)
+        return _clip_text(_source_grounded_excerpt(text, purpose="caption", max_items=2, docs_dir=docs_dir), 340)
     if purpose == "takeaway":
-        grounded = _source_grounded_excerpt(text, purpose="takeaway", max_items=3)
+        grounded = _source_grounded_excerpt(text, purpose="takeaway", max_items=3, docs_dir=docs_dir)
         return grounded or _rule_based_takeaway(text, docs_dir)
-    grounded = _source_grounded_excerpt(text, purpose=purpose, max_items=3)
+    grounded = _source_grounded_excerpt(text, purpose=purpose, max_items=3, docs_dir=docs_dir)
     return grounded or _rule_based_section_rewrite(text, docs_dir, purpose=purpose)
 
 
@@ -463,6 +463,41 @@ def _localize_terms(text: str) -> str:
     return localized.strip()
 
 
+_MIXED_LANG_ALLOW_TOKENS = {
+    "2dgs", "3dgs", "2d", "3d", "u-net", "unet", "rgb", "pat3d", "surfsplat",
+    "hrrc", "sh", "sobel", "plane-sweep", "rodrigues", "scene tree", "scene-tree",
+    "simulation-in-the-loop", "text-to-3d", "multi-view", "single-view",
+}
+
+
+def _looks_mixed_language_prose(text: str) -> bool:
+    plain = _clean_text_block(text)
+    if not plain:
+        return False
+    if not re.search(r"[\u4e00-\u9fff]", plain):
+        return False
+    english_words = re.findall(r"\b[A-Za-z][A-Za-z\-]{2,}\b", plain)
+    filtered = [w for w in english_words if w.lower() not in _MIXED_LANG_ALLOW_TOKENS]
+    if len(filtered) < 4:
+        return False
+    cn_chars = len(re.findall(r"[\u4e00-\u9fff]", plain))
+    ascii_chars = len(re.findall(r"[A-Za-z]", plain))
+    return ascii_chars >= 12 and cn_chars >= 6
+
+
+def _translate_line_to_cn(line: str, docs_dir: Optional[Path]) -> str:
+    raw = _clean_text_block(line)
+    if not raw:
+        return ""
+    if docs_dir is None:
+        return _localize_terms(raw)
+    translated = _clean_cn_sentence(_translate_to_zh(_clip_text_to_boundary(raw, 260), docs_dir))
+    if translated and not _looks_mixed_language_prose(translated):
+        return translated.rstrip("。") + "。"
+    localized = _localize_terms(raw)
+    return localized.rstrip("。") + "。" if localized else ""
+
+
 def _clip_text_to_boundary(text: str, limit: int = 220) -> str:
     raw = " ".join(str(text or "").split())
     if len(raw) <= limit:
@@ -476,24 +511,24 @@ def _clip_text_to_boundary(text: str, limit: int = 220) -> str:
     return clipped
 
 
-def _source_grounded_points(text: str, purpose: str = "section", max_items: int = 3) -> List[str]:
+def _source_grounded_points(text: str, purpose: str = "section", max_items: int = 3, docs_dir: Optional[Path] = None) -> List[str]:
     digest = _build_section_brief(text, purpose=purpose, max_sentences=max_items)
     lines = [ln.strip()[2:].strip() if ln.strip().startswith("- ") else ln.strip() for ln in digest.splitlines() if ln.strip()]
     points: List[str] = []
     for line in lines:
         line = _strip_inline_latex_from_prose(line)
         line = re.sub(r"^[-•*]\s*", "", line)
-        line = _localize_terms(_clip_text_to_boundary(line, 220))
+        line = _translate_line_to_cn(_clip_text_to_boundary(line, 220), docs_dir)
         line = re.sub(r"\s{2,}", " ", line).strip(" ;,.，。")
         if line and line not in points:
             points.append(line)
     return points[:max_items]
 
 
-def _source_grounded_excerpt(text: str, purpose: str = "section", max_items: int = 3) -> str:
-    points = _source_grounded_points(text, purpose=purpose, max_items=max_items)
+def _source_grounded_excerpt(text: str, purpose: str = "section", max_items: int = 3, docs_dir: Optional[Path] = None) -> str:
+    points = _source_grounded_points(text, purpose=purpose, max_items=max_items, docs_dir=docs_dir)
     if not points:
-        fallback = _localize_terms(_clip_text(_strip_inline_latex_from_prose(text), 260))
+        fallback = _translate_line_to_cn(_clip_text(_strip_inline_latex_from_prose(text), 260), docs_dir)
         return fallback.rstrip("。") + "。" if fallback else ""
     if purpose == "summary":
         return "".join(f"{point.rstrip('。')}。" for point in points[:2])
@@ -515,9 +550,9 @@ def _source_grounded_excerpt(text: str, purpose: str = "section", max_items: int
     return "".join(f"{point.rstrip('。')}。" for point in points)
 
 
-def _source_grounded_one_liner(title: str, abstract_text: str, intro_text: str) -> str:
+def _source_grounded_one_liner(title: str, abstract_text: str, intro_text: str, docs_dir: Optional[Path] = None) -> str:
     alias = _paper_alias(title)
-    points = _source_grounded_points(abstract_text or intro_text or title, purpose="summary", max_items=2)
+    points = _source_grounded_points(abstract_text or intro_text or title, purpose="summary", max_items=2, docs_dir=docs_dir)
     if points:
         head = _clip_text_to_boundary(points[0], 180).rstrip("。")
         if alias.lower() not in head.lower():
@@ -527,8 +562,8 @@ def _source_grounded_one_liner(title: str, abstract_text: str, intro_text: str) 
     return f"{alias} 关注 {title_hint} 的核心问题、方法路径与实验结论。"
 
 
-def _source_grounded_caption_fallback(caption_en: str, number: str) -> str:
-    localized = _clip_text_to_boundary(_source_grounded_excerpt(caption_en, purpose="caption", max_items=2), 220)
+def _source_grounded_caption_fallback(caption_en: str, number: str, docs_dir: Optional[Path] = None) -> str:
+    localized = _clip_text_to_boundary(_source_grounded_excerpt(caption_en, purpose="caption", max_items=2, docs_dir=docs_dir), 220)
     localized = re.sub(r"^(?:Figure|Fig\.?)[\s.:]*\d+[\s:：-]*", "", localized, flags=re.IGNORECASE)
     localized = localized.strip(" ;,.，。")
     if not localized:
@@ -881,7 +916,7 @@ def _translate_to_zh(text: str, docs_dir: Path) -> str:
                 time.sleep(1.0)
         translated = _clean_text_block(translated) if translated else ""
         if not translated:
-            translated = _source_grounded_excerpt(chunk, purpose="summary", max_items=3)
+            translated = _source_grounded_excerpt(chunk, purpose="summary", max_items=3, docs_dir=docs_dir)
         cache[chunk] = translated
         translated_chunks.append(translated)
         _json_cache_save(cache_path, cache)
@@ -1611,8 +1646,8 @@ def _translate_figure_caption(caption_en: str, docs_dir: Path, number: str) -> s
     if not caption_en:
         return f"图 {number}：该图用于展示论文中的关键模块、实验设置或可视化结果。"
     translated = _clean_caption_text(_rewrite_to_zh(caption_en, docs_dir, purpose="caption"))
-    if (not translated) or translated.startswith("该图对应《") or "关键可视化结果，展示方法流程、核心模块交互关系以及主要实验观察" in translated:
-        translated = _source_grounded_caption_fallback(caption_en, number).replace(f"图 {number}：", "", 1)
+    if (not translated) or translated.startswith("该图对应《") or "关键可视化结果，展示方法流程、核心模块交互关系以及主要实验观察" in translated or _looks_mixed_language_prose(translated):
+        translated = _source_grounded_caption_fallback(caption_en, number, docs_dir=docs_dir).replace(f"图 {number}：", "", 1)
     translated = re.sub(rf"^(图|Figure|Fig\.?)[\s.:]*{re.escape(number)}[\s:：.-]*", "", translated, flags=re.IGNORECASE)
     translated = translated.strip(" ：:.-")
     translated = _clip_text(translated, 340)
@@ -2061,6 +2096,10 @@ def validate_post_html(content: str) -> List[str]:
     if "<!-- source-grounding:" not in content:
         issues.append("缺少 source-grounding 元数据，无法确认文章与 PDF/LaTeX 来源对应")
 
+    tip_match = re.search(r"<div class='tip'>.*?<strong>一句话总结：</strong>(.*?)</div>", content, flags=re.IGNORECASE | re.DOTALL)
+    if tip_match and _looks_mixed_language_prose(_strip_html_tags(tip_match.group(1))):
+        issues.append("一句话总结存在中英文混杂，说明生成链路未完成中文重写")
+
     for section_id, section_title in DEEP_DIVE_SECTION_ITEMS:
         if f"id='{section_id}'" not in content and f'id="{section_id}"' not in content:
             issues.append(f"缺少章节：{section_title}")
@@ -2176,6 +2215,8 @@ def validate_post_html(content: str) -> List[str]:
             issues.append(f"{section_title}存在 LaTeX/公式乱码")
         if any(_looks_like_truncated_cn_line(p) for p in prose_paragraphs):
             issues.append(f"{section_title}存在疑似截断句")
+        if any(_looks_mixed_language_prose(p) for p in prose_paragraphs):
+            issues.append(f"{section_title}存在中英文混杂，影响可读性")
 
     equation_explains = [
         p.strip()
@@ -2806,7 +2847,7 @@ def _generic_deep_dive_post_body(doc, figures: List[Dict], related: List[Dict], 
     method_paras = _cn_paragraphs(method_cn)
     experiment_paras = _cn_paragraphs(experiment_cn)
     takeaway_paras = _cn_paragraphs(takeaway_cn)
-    one_liner = _source_grounded_one_liner(doc.title, abstract_text, intro_text)
+    one_liner = _source_grounded_one_liner(doc.title, abstract_text, intro_text, docs_dir=docs_dir)
 
     arxiv_url = f"https://arxiv.org/abs/{html.escape(doc.arxiv_id)}"
     return f"""
@@ -2928,7 +2969,7 @@ def _review_like_post_body(doc, figures: List[Dict], related: List[Dict], slug: 
             "因此，这篇文章更像是一份研究路线图：它帮助你判断下一步该沿着哪条技术脉络继续挖，而不是直接给出一套现成可落地的最终答案。",
         ]
     )
-    one_liner = _source_grounded_one_liner(doc.title, abstract_text, " ".join(main_headings[:2]))
+    one_liner = _source_grounded_one_liner(doc.title, abstract_text, " ".join(main_headings[:2]), docs_dir=docs_dir)
 
     equation_items = source_material.get("equations") if isinstance(source_material.get("equations"), list) else []
     equation_html = _render_equations_with_explanations(equation_items, docs_dir, max_items=4)

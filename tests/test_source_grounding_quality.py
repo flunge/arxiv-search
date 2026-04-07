@@ -23,6 +23,8 @@ _BAD_STRINGS = [
     "上下文：",
     "关键变量",
     "被优化或预测的量",
+    "a 前馈 framework based on",
+    "first 物理-augmented 文本到3D",
 ]
 
 

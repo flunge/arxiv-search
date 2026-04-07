@@ -167,47 +167,44 @@
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      To address this issue, we present SurfSplat, a 前馈 framework based on 2D 高斯泼溅 (2DGS) primitive, which provides stronger anisotropy and higher geometric precision。
+      为了解决这个问题，我们提出了 SurfSplat，一种基于 2D 高斯分布 (2DGS) 原语的前馈框架，它提供了更强的各向异性和更高的几何精度。
     </div>
 
     <h2 id='summary'>简单摘要</h2>
-    <p>Reconstructing 3D scenes from sparse images remains a challenging task due to the difficulty of recovering accurate 几何 and texture without optimization。Recent approaches leverage generalizable models to generate 3D scenes using 3D 高斯泼溅 (3DGS) primitive。</p>
-<figure><img class='paper-fig' src='../assets/2602_02000v2/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：Given sparse input images, our dual-path encoder processes them through both single-view and 多视角 branches；The fused features are passed through a U-Net to predict intermediate attributes, including depth, scale multipliers, and 外观 components</figcaption></figure>
-<figure><img class='paper-fig' src='../assets/2602_02000v2/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：We visualize rendered images and depth maps at three resolutions:；As resolution increases, artifacts in the underlying 3D representation become more evident</figcaption></figure>
-    <p>Reconstructing geometrically accurate real-world scenes continues to be a longstanding challenge in 3D vision。These methods then perform scene-specific optimization over tens of thousands of iterations, often taking several hours to converge to high-quality results。</p>
+    <p>从稀疏图像重建 3D 场景仍然是一项具有挑战性的任务，因为在不进行优化的情况下很难恢复准确的几何和纹理。最近的方法利用通用模型来使用 3D 高斯泼溅 (3DGS) 原语生成 3D 场景。</p>
+<figure><img class='paper-fig' src='../assets/2602_02000v2/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：给定稀疏输入图像，我们的双路径编码器通过单视图和多视图分支处理它们；融合的特征通过 U-Net 来预测中间属性，包括深度、尺度乘数和外观分量</figcaption></figure>
+<figure><img class='paper-fig' src='../assets/2602_02000v2/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：我们以三种分辨率可视化渲染图像和深度图；随着分辨率的提高，底层 3D 表示中的伪影变得更加明显</figcaption></figure>
+    <p>重建几何精确的现实世界场景仍然是 3D 视觉领域的长期挑战。然后，这些方法经过数万次迭代执行特定于场景的优化，通常需要几个小时才能收敛到高质量的结果。</p>
 
     <h2 id='innovation'>核心创新</h2>
-    <p>创新点 1：In the 多视角 branch, input images are first converted into low-resolution feature maps, which are then processed by multiple layers of self- and cross-attention to extract inter-view correspondences。</p>
-    <p>创新点 2：To address this, we propose a forced alpha blending strategy that explicitly constrains each Gaussian’s opacity。创新点 3：First, we initialize the RGB color directly into the DC component of the SH basis。</p>
+    <p>创新点 1：在多视图分支中，输入图像首先被转换为低分辨率特征图，然后通过多层自注意力和交叉注意力来处理以提取视图间对应关系。创新点 2：为了解决这个问题，我们提出了一种强制 alpha 混合策略，明确限制每个高斯的不透明度。创新点 3：首先，我们将 RGB 颜色直接初始化为 SH 基的 DC 分量。</p>
 
     <h2 id='technical'>技术细节</h2>
-    <p>在 SurfSplat 中，单视角分支负责保留局部外观线索，多视角分支负责建立跨视角几何对应。作者的判断是：即便输入视角稀疏，现代 backbone 仍能从图像特征中保留足够的局部几何信息，只要再结合相机参数，就可以把这些特征稳定抬升到 3D 空间并转成高斯属性。</p>
-    <p>两路特征融合后，系统会通过 plane-sweep stereo 构造代价体，再由 U-Net 预测深度、尺度倍率和外观分量。接下来的一组公式，就是在解释这些中间量如何进一步被约束成连续表面的 2DGS 表示。</p>
+    <p>这种模型之所以可行，是因为作者观察到：即使输入视角稀疏，现代视觉主干网络提取的图像特征仍然保留了足够的局部几何线索。再结合相机参数，这些特征就可以被稳定地抬升到三维空间，并进一步转成高斯属性。随后，融合特征通过平面扫描立体匹配构造跨视图代价体，作为多视图分支的核心几何信息来源。</p>
     <p>$$ f_\theta : \{(I^v, \mathbf{k}^v, \mathbf{T}^v)\}_{v=1}^{V} \mapsto \left\{ \bigcup_{j=1}^{H \times W} \left(\boldsymbol{\mu}_j^v, \boldsymbol{\alpha}_j^v, \mathbf{r}_j^v, \mathbf{s}_j^v, \mathbf{c}_j^v\right) \right\}_{v=1}^{V}, $$</p>
-    <p>这条式子给出了 SurfSplat 的整体预测映射：输入是多视角图像以及对应的相机参数，输出是每个像素位置的一组高斯属性，包括位置、透明度、旋转、尺度和颜色。它说明该方法是一次前向传播直接预测完整 2DGS 表示，而不是像传统方法那样对高斯反复迭代优化。</p>
+    <p>这条式子给出了 SurfSplat 的整体预测映射：输入是多视角图像以及对应的相机参数，输出是每个像素位置的一组高斯属性，包括位置、透明度、旋转、尺度和颜色。它说明该方法是一次前向传播直接预测完整的二维高斯表面表示，而不是像传统方法那样对高斯反复迭代优化。</p>
     <p>$$ \mathbf{t}_1, \mathbf{t}_2 = \mathbf{p}_1-\mathbf{p}_0, \quad \mathbf{p}_2-\mathbf{p}_0. $$</p>
-    <p>这条式子先从局部邻域构造两条切向量。作者用中心点与两个相邻点的差分，得到表面上的两个局部方向，后面法线估计和高斯朝向计算都建立在这一步之上。</p>
+    <p>这条式子用于从局部邻域估计表面方向。作者先把初始旋转设为单位姿态，再在中心点附近施加水平方向和垂直方向的 Sobel 滤波，从而构造出两个虚拟邻点。后面两条切向量的计算，就建立在这个局部方向估计之上。</p>
     <p>$$ \mathbf{n} = \frac{\mathbf{t}_1 \times \mathbf{t}_2}{\| \mathbf{t}_1 \times \mathbf{t}_2 \|}. $$</p>
     <p>这条式子通过两条切向量的叉积来计算局部表面法线。它的作用是从邻域几何中恢复稳定的朝向信息，让 2DGS 的姿态真正贴合表面，而不是漂浮成离散点云。</p>
     <p>$$ \mathbf{R} = \mathbf{I} + [\mathbf{v}]_\times + \frac{1 - c}{\| \mathbf{v} \|^2} [\mathbf{v}]_\times^2, $$</p>
     <p>这条式子是 Rodrigues 旋转公式。作者用它把标准坐标系旋转到目标法线方向，从而把前面估计出来的表面朝向转成可以直接用于高斯姿态建模的旋转矩阵。</p>
     <p>$$ \mathbf{R}_{\text{surf}} = \mathbf{R} \mathbf{R}_0 = \mathbf{R}. $$</p>
-    <p>这条式子把前面求出的旋转结果写成最终的 surfel 朝向。它说明高斯的局部坐标系并不是自由回归得到的，而是由表面法线约束出来的，这正是 surface continuity prior 的核心思想。</p>
+    <p>这条式子把前面求出的旋转结果写成最终的局部表面朝向。它说明高斯的局部坐标系并不是自由回归得到的，而是由表面法线约束出来的，这正是“表面连续性先验”的核心思想。</p>
     <p>$$ \bar{\sigma}_u^2, \bar{\sigma}_v^2 = \mathbf{t}_{1x}^2 + \mathbf{t}_{1z}^2, \quad \mathbf{t}_{2y}^2 + \mathbf{t}_{2z}^2. $$</p>
     <p>这条式子根据局部切向量的投影长度定义两个基础尺度，分别对应表面两个主方向上的宽度。这样可以先由几何关系给出一个稳定的初始尺度，再交给后面的网络做细化。</p>
     <p>$$ \sigma_u = \bar{\sigma}_u \hat{\sigma}_u, \quad \sigma_v = \bar{\sigma}_v \hat{\sigma}_v. $$</p>
     <p>这条式子根据局部切向量的投影长度定义两个基础尺度，分别对应表面两个主方向上的宽度。这样可以先由几何关系给出一个稳定的初始尺度，再交给后面的网络做细化。</p>
     <p>$$ C = \begin{cases} C, & \alpha < \tau_\alpha, \\ \dfrac{C}{\alpha}, & \alpha \geq \tau_\alpha, \end{cases} $$</p>
-    <p>这条分段式在处理颜色与透明度的耦合关系：当透明度较低时直接使用颜色值，当透明度较高时再做归一化修正。作者这样设计，是为了让 forced alpha blending 下的颜色估计更稳定，减少颜色被错误放大或压暗。</p>
-<figure><img class='paper-fig' src='../assets/2602_02000v2/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：Normal and mesh comparison with DepthSplat</figcaption></figure>
+    <p>这条分段式在处理颜色与透明度的耦合关系：当透明度较低时直接使用颜色值，当透明度较高时再做归一化修正。作者这样设计，是为了让“强制透明度混合”机制下的颜色估计更稳定，减少颜色被错误放大或压暗。</p>
+<figure><img class='paper-fig' src='../assets/2602_02000v2/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：法线和网格与 DepthSplat 的比较</figcaption></figure>
 
     <h2 id='experiment'>实验结论</h2>
-    <p>实验主要验证：We evaluate 新视角合成 quality using standard metrics:。结果上，To better evaluate geometric fidelity, we additionally report high-resolution 渲染 consistency (HRRC) results at and resolution。</p>
+    <p>实验主要验证：我们使用标准指标评估新颖的视图合成质量。结果上，为了更好地评估几何保真度，我们还报告了 和 分辨率下的高分辨率渲染一致性 (HRRC) 结果。</p>
 
 
     <h2 id='takeaway'>理解评价</h2>
-    <p>从论文贡献看，To address this limitation, we render each reconstructed scene at a higher resolution (e.g., or the original), resulting in an output。主要局限在于 From this comparison, we observe that our method produces more geometrically consistent results, highlighting the improved geometric coherence induced by the 表面 continuity prior。</p>
-    <p>未来可以重点改进 These limitations open opportunities for future research on joint pose elimination and compact, adaptive representations。</p>
+    <p>从论文贡献看，为了解决这个限制，我们以更高分辨率（例如，原始）渲染每个重建的场景，从而产生输出。主要局限在于 从这个比较中，我们观察到我们的方法产生了更几何一致的结果，突出了表面连续性先验引起的几何相干性的改进。未来可以重点改进 这些限制为未来研究联合姿势消除和紧凑、自适应表示提供了机会。</p>
     <p>以下相关论文可作为延伸阅读：</p>
     <ul></ul>
   </article>

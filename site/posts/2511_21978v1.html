@@ -167,36 +167,40 @@
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      We introduce PAT3D, the first 物理-augmented 文本到3D 场景生成 framework that integrates vision–language models with 物理-based 仿真 to produce physically plausible, 仿真-ready。
+      PAT3D 把文本到 3D 场景生成和刚体物理仿真真正接到了一起，目标不是只生成“看起来像”的场景，而是直接得到可仿真、无穿模、可用于后续编辑与机器人操作的 3D 场景。
     </div>
 
     <h2 id='summary'>简单摘要</h2>
-    <p>We introduce PAT3D, the first 物理-augmented 文本到3D 场景生成 framework that integrates vision–language models with 物理-based 仿真 to produce physically plausible, 仿真-ready。To further enhance scene quality, we introduce a 仿真-in-the-loop optimization procedure that guarantees physical stability and non-intersection, while improving semantic consistency with the input prompt。</p>
-<figure><img class='paper-fig' src='../assets/2511_21978v1/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：PAT3D is the first 文本到3D 场景生成 framework that produces 仿真-ready and intersection-free results；The left column shows results from direct depth-based arrangements, which suffer from object interpenetrations (top) and collapse under 仿真 due to inconsistent layouts (bottom)</figcaption></figure>
-    <p>In particular, current 3D 场景生成 pipelines often treat layout composition as a purely geometric problem。First, objects must be represented as individually segmented 3D meshes to enable 仿真 of interactions under gravity and contact forces。</p>
+    <p>PAT3D 关注的是一个现有 text-to-3D 系统普遍回避的问题：模型可以生成看起来合理的物体和场景，但这些场景往往不能真正放进物理仿真里运行，因为物体会互相穿插、布局不稳，或者一旦施加重力就直接塌掉。作者希望生成结果不仅“像”，还要满足物理可行性。</p>
+<figure><img class='paper-fig' src='../assets/2511_21978v1/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：这张图对比了直接深度摆放与 PAT3D 的差别。左侧方案容易出现物体互相穿插，上到仿真后还会因为布局不一致而坍塌；中间是 PAT3D 生成的稳定布局；右侧进一步说明这些场景可以直接用于后续的场景编辑和机器人操作。</figcaption></figure>
+    <p>因此，PAT3D 的目标不只是“生成一个 3D 场景”，而是生成一个真正 simulation-ready 的 3D 场景：它既要符合文本语义，又要在刚体约束下稳定成立。为此，论文把视觉-语言模型、3D 资产生成、场景树组织和可微物理仿真串成了一条完整链路。</p>
 
     <h2 id='innovation'>核心创新</h2>
-    <p>创新点 1：We introduce PAT3D, the first 物理-augmented 文本到3D 场景生成 framework that integrates vision–language models with 物理-based 仿真 to produce physically plausible, 仿真-ready。创新点 2：To further enhance scene quality, we introduce a 仿真-in-the-loop optimization procedure that guarantees physical stability and non-intersection, while improving semantic consistency with the input prompt。</p>
-    <p>创新点 3：To address this, we first query the VLM to identify the least occluded object in the scene and use it as an anchor to compute a global scaling transformation for the entire scene。</p>
+    <p>第一，PAT3D 首次把 physics-augmented 思路完整引入文本到 3D 场景生成。以往方法通常只在几何摆放上做启发式修补，而 PAT3D 直接把可微刚体仿真纳入主流程，让物体之间的接触、重力和平衡真正参与场景生成。</p>
+    <p>第二，论文提出了 scene tree 驱动的组织方式。它不是让模型一次性吐出一个杂乱的 3D 布局，而是先借助视觉语言模型抽取物体及其空间关系，再把这些关系转成层次化结构，用来指导初始布局与后续约束。</p>
+    <p>第三，作者提出了 simulation-in-the-loop optimization。纯前向仿真虽然能消掉穿模，但可能破坏原始文本语义；因此 PAT3D 又在仿真环中加入语义一致性优化，把“物理成立”和“语义成立”同时纳入目标函数，这一点是本文最关键的创新点。</p>
 
     <h2 id='technical'>技术细节</h2>
-    <p>3D object and spatial relation extraction (sec:data ), where 3D assets are generated from text and its spatial relation are organized into a scene tree。3D Object and Spatial Relation Extraction Since directly producing both 3D objects and layouts with 文本到3D models and LLMs often fails to capture complex spatial relations。</p>
-    <p>To address this, we first query the VLM to identify the least occluded object in the scene and use it as an anchor to compute a global scaling transformation for the entire scene。</p>
+    <p>技术链路可以概括为三步。第一步是资产与关系抽取：系统先根据文本生成参考图，再利用视觉基础模型生成 3D 物体，同时借助视觉语言模型从图像里抽取物体之间的空间关系，并把这些关系整理成 scene tree。这样做的目的，是把“谁在谁上面、谁靠着谁、谁被谁支撑”这类物理上非常关键的信息显式保留下来。</p>
+    <p>第二步是初始布局与尺度对齐。作者没有直接把物体随意丢进空间，而是先用单目深度估计得到 3D 先验，再选取遮挡最少的物体作为锚点，计算整个场景的全局缩放与初始摆放。这样得到的配置可以尽量避免一开始就出现严重穿模或尺寸失真。</p>
+    <p>第三步是仿真与优化闭环。前向仿真负责把场景推向满足重力与接触约束的静态平衡，但作者发现仅靠仿真会让场景偏离文本语义，所以又加入 simulation-in-the-loop optimization：一方面约束净受力趋近于零，保证物体稳定；另一方面最小化语义不一致损失，使最终场景既站得住，也更像提示词描述的样子。</p>
     <p>$$ \min_{q_0} L(q_{n+1}(q_0)) \quad \text{s.t.} \quad f(q_{n+1}) = 0, $$</p>
     <p>这条优化目标对应 PAT3D 的 simulation-in-the-loop 阶段：作者要调整场景初始状态 q0，使仿真后的布局一方面尽量符合文本语义，另一方面又满足净受力为零的物理平衡约束。它体现的是“语义合理”和“物理稳定”同时优化。</p>
     <p>$$ l_i = d(\mathbf{p}^i_{\min}, \text{BBox}_t)^2 + d(\mathbf{p}^i_{\max}, \text{BBox}_t)^2, $$</p>
-    <p>这条公式服务于论文中的关键一步：f(q +1) = 0, measures semantic inconsistency and the net force on all objects。For each object with container , we define its projected bounding box on the horizontal plane as。阅读时可以先看左侧定义了什么目标或结果，再看右侧各项怎样共同决定这个量，就能理解它在整条方法链路中的作用。</p>
+    <p>这条式子定义了单个物体的局部损失。作者通过比较物体投影框角点与目标容器框边界之间的距离，惩罚物体偏离预期摆放区域，从而把文本里的空间关系转成可优化的几何约束。</p>
     <p>$$ L(q_{n+1}(q_0)) = \sum_{i=1}^{N} l_i, $$</p>
     <p>这条式子把所有物体的局部损失累加成总损失。它说明 PAT3D 不是逐个物体单独调整，而是在整个场景范围内联合优化多个物体的位置与关系，使最终布局整体满足语义要求。</p>
 
 
     <h2 id='experiment'>实验结论</h2>
-    <p>实验主要验证：Together, these metrics measure semantic consistency, physical stability, interpenetration, and overall physical plausibility。结果上，Performance and Discussions In fig:comparison , we compare PAT3D with baseline methods on five general scenes involving complex object interactions。</p>
+    <p>实验部分围绕四类指标展开：语义一致性、物理稳定性、穿模程度以及整体物理合理性。作者在五类包含复杂物体交互的通用场景上，把 PAT3D 与基线方法做了系统比较。</p>
+    <p>结果表明，PAT3D 在物理合理性、语义一致性和视觉质量上都明显优于已有方法。更重要的是，它不是靠牺牲语义去换物理稳定，也不是只在视觉上“看起来不穿模”，而是在仿真约束下同时保证布局可执行、结果可编辑、场景可用于机器人操作等下游任务。</p>
 
 
     <h2 id='takeaway'>理解评价</h2>
-    <p>从论文贡献看，To address this, we introduce a 仿真-in-the-loop optimization to improve semantic consistency in the simulated scene。主要局限在于 Our layout initialization removes penetration by sacrificing physical stability, but it enables applying our layout optimization to consistently improve all metrics。未来可以重点改进 wrapfigurer0.53 -0.5cm minipage[t]0.48 overpic[width=]figures/limitation.pdf overpic Failure case 1。</p>
-    <p>This limitation appears in the failure case of fig:failure , where all stuffed toys should ideally rest on the sofa according to the prompt。As the first work to incorporate differentiable 仿真 into 3D 场景生成, we view the exploration of global optimization strategies as an exciting direction for future improvements。</p>
+    <p>从贡献看，PAT3D 把文本到三维、场景布局和可微物理仿真正正串成了一条闭环生成链路。它告诉我们：面向真实交互场景时，单靠几何摆放或视觉一致性都不够，物理可行性必须被提升为一等约束。</p>
+    <p>局限也很明确。论文自己提到，当前的布局初始化有时需要在“先消除穿模”和“保持物理稳定”之间做折中；而在失败案例里，如果提示词对应的是一组高度依赖全局协调摆放的复杂接触物体，现有优化仍可能找不到最理想的布局。</p>
+    <p>未来可以沿三个方向继续推进：一是探索更强的全局优化策略，减少初始化对最终结果的影响；二是把更多物理属性和交互先验引入场景生成过程；三是把这类可仿真的三维场景进一步扩展到更复杂的编辑、操作与具身智能任务中。</p>
     <p>以下相关论文可作为延伸阅读：</p>
     <ul></ul>
   </article>

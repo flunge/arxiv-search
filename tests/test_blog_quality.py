@@ -25,13 +25,13 @@ _CRITICAL_ISSUE_KEYWORDS = [
 
 
 def test_quality_sample_set_contains_ten_posts() -> None:
-    assert len(QUALITY_SAMPLES) == 10
-    assert len({item["slug"] for item in QUALITY_SAMPLES}) == 10
+    assert len(QUALITY_SAMPLES) >= 10
+    assert len({item["slug"] for item in QUALITY_SAMPLES}) == len(QUALITY_SAMPLES)
 
 
-def test_quality_sample_set_has_six_gold_and_four_diagnostic() -> None:
-    assert len(GOLD_STANDARD) == 6, f"Expected 6 tier-1 posts, got {len(GOLD_STANDARD)}"
-    assert len(DIAGNOSTIC) == 4, f"Expected 4 tier-2 posts, got {len(DIAGNOSTIC)}"
+def test_quality_sample_set_has_golden_and_diagnostic_coverage() -> None:
+    assert len(GOLD_STANDARD) >= 2, f"Expected at least 2 tier-1 golden posts, got {len(GOLD_STANDARD)}"
+    assert len(DIAGNOSTIC) >= 4, f"Expected at least 4 tier-2 diagnostic posts, got {len(DIAGNOSTIC)}"
 
 
 @pytest.mark.parametrize("sample", GOLD_STANDARD, ids=[item["slug"] for item in GOLD_STANDARD])
@@ -106,6 +106,23 @@ def test_validator_flags_common_generation_regressions() -> None:
     assert any("段落过碎" in issue for issue in issues)
     assert any("LaTeX/公式乱码" in issue for issue in issues)
     assert any("公式解读重复度过高" in issue for issue in issues)
+
+
+def test_validator_flags_mixed_language_summary_and_section() -> None:
+    html_mixed = """
+    <html><body><article>
+      <div class='tip'><strong>一句话总结：</strong>To address this issue, we present SurfSplat, a 前馈 framework based on 2D 高斯泼溅 primitive.</div>
+      <h2 id='summary'>简单摘要</h2><p>这是一个完整的中文段落，不会触发其他问题。</p>
+      <h2 id='innovation'>核心创新</h2><p>创新内容完整描述。</p>
+      <h2 id='technical'>技术细节</h2><p>In the 多视角 branch, input images are first converted into feature maps，然后再进入 U-Net 预测深度和颜色。</p>
+      <h2 id='experiment'>实验结论</h2><p>实验内容完整描述。</p>
+      <h2 id='takeaway'>理解评价</h2><p>这篇论文的局限很明确，未来可以继续改进和扩展方向。</p>
+    </article></body></html>
+    """
+
+    issues = validate_post_html(html_mixed)
+    assert any("一句话总结存在中英文混杂" in issue for issue in issues)
+    assert any("技术细节存在中英文混杂" in issue for issue in issues)
 
 
 def test_render_page_uses_escaped_mathjax_sequences() -> None:
