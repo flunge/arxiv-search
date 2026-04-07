@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from build_blog import _extract_source_material, validate_post_file
+from build_blog import _extract_source_material, _source_grounded_equation_explanation, validate_post_file
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DOCS_DIR = REPO_ROOT / "docs"
@@ -20,6 +20,9 @@ _BAD_STRINGS = [
     "从贡献看，本文把问题定义、方法实现和实验验证连接成闭环",
     "以下相关论文可作为延伸阅读：。",
     "实验部分首先关心的是：",
+    "上下文：",
+    "关键变量",
+    "被优化或预测的量",
 ]
 
 
@@ -44,4 +47,25 @@ def test_golden_posts_pass_validator() -> None:
     for _, alias, post_path in GOLDEN_SOURCE_CASES:
         issues = validate_post_file(post_path)
         assert issues == [], f"{alias} still fails validation: {issues}"
+
+
+def test_equation_explanations_are_human_readable_for_golden_patterns() -> None:
+    surfsplat_explain = _source_grounded_equation_explanation(
+        r"f_\theta : \{(I^v, \mathbf{k}^v, \mathbf{T}^v)\}_{v=1}^{V} \mapsto \{(\boldsymbol{\mu}, \boldsymbol{\alpha}, \mathbf{r}, \mathbf{s}, \mathbf{c})\}",
+        "from sparse multi-view images. Unlike optimization-based approaches that iteratively refine Gaussians, feedforward methods predict all Gaussian parameters in a single forward pass.",
+    )
+    assert "上下文：" not in surfsplat_explain
+    assert "关键变量" not in surfsplat_explain
+    assert "多视角图像" in surfsplat_explain
+    assert ("高斯属性" in surfsplat_explain) or ("2DGS" in surfsplat_explain)
+
+    pat3d_explain = _source_grounded_equation_explanation(
+        r"\min_{q_0} L(q_{n+1}(q_0)) \quad \text{s.t.} \quad f(q_{n+1}) = 0",
+        "simulation alone may cause the scene to deviate from its intended semantics. We introduce a simulation-in-the-loop optimization to improve semantic consistency in the simulated scene.",
+    )
+    assert "上下文：" not in pat3d_explain
+    assert "关键变量" not in pat3d_explain
+    assert "仿真" in pat3d_explain
+    assert ("语义" in pat3d_explain) and ("物理" in pat3d_explain)
+
 

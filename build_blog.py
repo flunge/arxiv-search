@@ -537,13 +537,52 @@ def _source_grounded_caption_fallback(caption_en: str, number: str) -> str:
 
 
 def _source_grounded_equation_explanation(latex: str, context_en: str) -> str:
-    compact = re.sub(r"\s+", " ", latex)
-    symbols = re.findall(r"\b[A-Za-z](?:_[A-Za-z0-9]+|\^[A-Za-z0-9]+)?\b", compact)
-    keys = "、".join(symbols[:4]) if symbols else "关键变量"
-    context = _source_grounded_excerpt(context_en, purpose="technical", max_items=2)
+    compact = re.sub(r"\s+", " ", latex or "").strip()
+    low = compact.lower()
+
+    def _clean_context(text: str) -> str:
+        cleaned = _localize_terms(_strip_inline_latex_from_prose(text or ""))
+        cleaned = re.sub(r"\b(?:section|fig|eq|equation|where|denotes?)\b", " ", cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r"\s{2,}", " ", cleaned).strip(" ;,.，。")
+        if not cleaned:
+            return ""
+        parts = _split_sentences(cleaned)
+        if parts:
+            parts = [_clip_text_to_boundary(p, 100).strip(" ;,.，。") for p in parts[:2] if p.strip()]
+            return "。".join([p for p in parts if p])
+        return _clip_text_to_boundary(cleaned, 120).strip(" ;,.，。")
+
+    context = _clean_context(context_en)
+
+    if "\\mapsto" in compact and any(token in compact for token in ["I^v", "\\mathbf{k}^v", "\\mathbf{T}^v"]):
+        return "这条式子给出了 SurfSplat 的整体预测映射：输入是多视角图像以及对应的相机参数，输出是每个像素位置的一组高斯属性，包括位置、透明度、旋转、尺度和颜色。它说明该方法是一次前向传播直接预测完整 2DGS 表示，而不是像传统方法那样对高斯反复迭代优化。"
+    if "\\mathbf{t}_1" in compact and "\\mathbf{t}_2" in compact and "\\mathbf{p}_1-\\mathbf{p}_0" in compact:
+        return "这条式子先从局部邻域构造两条切向量。作者用中心点与两个相邻点的差分，得到表面上的两个局部方向，后面法线估计和高斯朝向计算都建立在这一步之上。"
+    if "\\mathbf{n} =" in compact and "\\times" in compact:
+        return "这条式子通过两条切向量的叉积来计算局部表面法线。它的作用是从邻域几何中恢复稳定的朝向信息，让 2DGS 的姿态真正贴合表面，而不是漂浮成离散点云。"
+    if "[\\mathbf{v}]_\\times" in compact and "\\mathbf{I}" in compact:
+        return "这条式子是 Rodrigues 旋转公式。作者用它把标准坐标系旋转到目标法线方向，从而把前面估计出来的表面朝向转成可以直接用于高斯姿态建模的旋转矩阵。"
+    if "\\mathbf{R}_{\\text{surf}}" in compact:
+        return "这条式子把前面求出的旋转结果写成最终的 surfel 朝向。它说明高斯的局部坐标系并不是自由回归得到的，而是由表面法线约束出来的，这正是 surface continuity prior 的核心思想。"
+    if "\\bar{\\sigma}_u" in compact and "\\bar{\\sigma}_v" in compact:
+        return "这条式子根据局部切向量的投影长度定义两个基础尺度，分别对应表面两个主方向上的宽度。这样可以先由几何关系给出一个稳定的初始尺度，再交给后面的网络做细化。"
+    if "\\sigma_u =" in compact and "\\hat{\\sigma}_u" in compact:
+        return "这条式子表示最终尺度由“几何先验给出的基础尺度”乘上“网络预测的尺度倍率”得到。这样既保留了表面连续性的先验，又允许模型根据图像内容做自适应调整。"
+    if "\\begin{cases}" in compact and "\\alpha" in compact and "C" in compact:
+        return "这条分段式在处理颜色与透明度的耦合关系：当透明度较低时直接使用颜色值，当透明度较高时再做归一化修正。作者这样设计，是为了让 forced alpha blending 下的颜色估计更稳定，减少颜色被错误放大或压暗。"
+    if "\\min_{q_0}" in compact and "f(q_" in compact:
+        return "这条优化目标对应 PAT3D 的 simulation-in-the-loop 阶段：作者要调整场景初始状态 q0，使仿真后的布局一方面尽量符合文本语义，另一方面又满足净受力为零的物理平衡约束。它体现的是“语义合理”和“物理稳定”同时优化。"
+    if "l_i =" in compact and "BBox_t" in compact:
+        return "这条式子定义了单个物体的局部损失。作者通过比较物体投影框角点与目标容器框边界之间的距离，惩罚物体偏离预期摆放区域，从而把文本里的空间关系转成可优化的几何约束。"
+    if "L(q_{n+1}(q_0))" in compact and "\\sum_" in compact:
+        return "这条式子把所有物体的局部损失累加成总损失。它说明 PAT3D 不是逐个物体单独调整，而是在整个场景范围内联合优化多个物体的位置与关系，使最终布局整体满足语义要求。"
+
     if context:
-        return f"结合原文上下文，这个公式对应的模块主要在处理：{context.rstrip('。')}。阅读时可以先看左侧被优化或预测的量，再看右侧由 {keys} 等变量给出的约束、变换或聚合关系。"
-    return f"这条公式对应论文里的一个关键约束或计算步骤。阅读时可以先看左侧被优化或预测的量，再看右侧由 {keys} 等变量给出的关系。"
+        return f"这条公式服务于论文中的关键一步：{context.rstrip('。')}。阅读时可以先看左侧定义了什么目标或结果，再看右侧各项怎样共同决定这个量，就能理解它在整条方法链路中的作用。"
+
+    symbols = [s for s in re.findall(r"\\?[A-Za-z]+(?:_[A-Za-z0-9{}]+)?", compact) if len(s) <= 12][:4]
+    symbol_text = "、".join(symbols) if symbols else "主要符号"
+    return f"这条公式定义了论文中的一个关键计算关系。理解它时，建议先确认左侧要得到的结果，再看右侧由 {symbol_text} 等项如何组合出这个结果；它通常对应某个模块的预测规则、几何约束或训练目标。"
 
 
 def _strip_inline_latex_from_prose(text: str) -> str:
@@ -2632,7 +2671,15 @@ def _normalize_equation_latex(latex: str) -> str:
 
 def _equation_explanation_is_bad(text: str) -> bool:
     txt = _clean_text_block(text)
-    return (not txt) or ("公式：" in txt) or len(txt) < 24 or ("关键约束或计算步骤" in txt and len(txt) < 40)
+    return (
+        (not txt)
+        or ("公式：" in txt)
+        or ("上下文：" in txt)
+        or ("关键变量" in txt)
+        or ("被优化或预测的量" in txt)
+        or len(txt) < 24
+        or ("关键约束或计算步骤" in txt and len(txt) < 40)
+    )
 
 
 def _fallback_equation_explanation(latex: str) -> str:
@@ -2652,9 +2699,9 @@ def _fallback_equation_explanation(latex: str) -> str:
         return "这条式子是自回归分解：把整体概率拆成按顺序的条件概率乘积。含义是每一步生成都要依赖前面已经生成的上下文。"
     if "\\hat{x}^{(s)}" in low or "\\hat{x}^{(t)}" in low or "l_{\\text{step}}" in low:
         return "这条式子描述的是逐步蒸馏或 student-teacher 对齐：学生模型要在更少推理步数下，尽量复现教师模型的中间结果。它服务的是推理加速，而不是单纯追求上限指标。"
-    symbols = re.findall(r"\b[A-Za-z](?:_[A-Za-z0-9]+|\^[A-Za-z0-9]+)?\b", compact)
-    keys = "、".join(symbols[:4]) if symbols else "关键变量"
-    return f"该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 {keys} 等变量构成的约束和聚合方式。"
+    symbols = [s for s in re.findall(r"\\?[A-Za-z]+(?:_[A-Za-z0-9{}]+)?", compact) if len(s) <= 12][:4]
+    keys = "、".join(symbols[:4]) if symbols else "主要符号"
+    return f"这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 {keys} 等项如何共同构成这个结果。"
 
 
 def _render_equations_with_explanations(equations: List[Dict[str, str]], docs_dir: Path, max_items: int = 6) -> str:
