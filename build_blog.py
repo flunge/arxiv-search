@@ -46,7 +46,7 @@ TAKEAWAY_IMPROVEMENT_TOKENS = ["改进", "未来", "方向", "下一步", "扩�
 
 TRANSLATION_CACHE_NAME = ".translation_cache.json"
 REWRITE_CACHE_NAME = ".rewrite_cache.json"
-REWRITE_STYLE_VERSION = "v8"
+REWRITE_STYLE_VERSION = "v10"
 SOURCE_CACHE_DIRNAME = ".arxiv_source_cache"
 
 _DOTENV_VALUES: Optional[Dict[str, str]] = None
@@ -403,16 +403,14 @@ def _fallback_rewrite_without_llm(text: str, docs_dir: Path, purpose: str = "sec
     if not text:
         return ""
     if purpose == "equation":
-        return "这组公式用于定义模型中的变量关系和训练目标。建议先看左侧要预测的对象，再看右侧每一项如何约束优化方向。"
+        return _source_grounded_equation_explanation("", text)
     if purpose == "caption":
-        zh = _clean_cn_sentence(_translate_to_zh(_clip_text(text, 520), docs_dir))
-        if not zh:
-            return "该图展示了论文中的关键模块、实验设置或可视化结果。"
-        zh = re.sub(r"[.…]{3,}", "。", zh)
-        return _clip_text(zh, 340)
+        return _clip_text(_source_grounded_excerpt(text, purpose="caption", max_items=2), 340)
     if purpose == "takeaway":
-        return _rule_based_takeaway(text, docs_dir)
-    return _rule_based_section_rewrite(text, docs_dir, purpose=purpose)
+        grounded = _source_grounded_excerpt(text, purpose="takeaway", max_items=3)
+        return grounded or _rule_based_takeaway(text, docs_dir)
+    grounded = _source_grounded_excerpt(text, purpose=purpose, max_items=3)
+    return grounded or _rule_based_section_rewrite(text, docs_dir, purpose=purpose)
 
 
 def _clean_cn_sentence(text: str) -> str:
@@ -422,6 +420,130 @@ def _clean_cn_sentence(text: str) -> str:
     text = re.sub(r"\s{2,}", " ", text)
     text = text.strip(" ：:;,.，。")
     return text
+
+
+_TERM_LOCALIZATION_PAIRS = [
+    ("novel view synthesis", "新视角合成"),
+    ("autonomous driving", "自动驾驶"),
+    ("world model", "世界模型"),
+    ("gaussian splatting", "高斯泼溅"),
+    ("text-to-3d", "文本到3D"),
+    ("sparse-view", "稀疏视角"),
+    ("sparse view", "稀疏视角"),
+    ("multi-view", "多视角"),
+    ("feedforward", "前馈"),
+    ("dynamic scene reconstruction", "动态场景重建"),
+    ("scene generation", "场景生成"),
+    ("surface reconstruction", "表面重建"),
+    ("surface", "表面"),
+    ("geometry", "几何"),
+    ("appearance", "外观"),
+    ("rendering", "渲染"),
+    ("reconstruction", "重建"),
+    ("compression", "压缩"),
+    ("training", "训练"),
+    ("inference", "推理"),
+    ("experiment", "实验"),
+    ("evaluation", "评测"),
+    ("benchmark", "基准"),
+    ("ablation", "消融"),
+    ("diffusion", "扩散"),
+    ("physics", "物理"),
+    ("camera", "相机"),
+    ("control", "控制"),
+    ("simulation", "仿真"),
+]
+
+
+def _localize_terms(text: str) -> str:
+    localized = _clean_text_block(text)
+    for src, dst in sorted(_TERM_LOCALIZATION_PAIRS, key=lambda item: len(item[0]), reverse=True):
+        localized = re.sub(re.escape(src), dst, localized, flags=re.IGNORECASE)
+    localized = re.sub(r"\s{2,}", " ", localized)
+    return localized.strip()
+
+
+def _clip_text_to_boundary(text: str, limit: int = 220) -> str:
+    raw = " ".join(str(text or "").split())
+    if len(raw) <= limit:
+        return raw
+    clipped = raw[:limit].rstrip()
+    for sep in ["。", "！", "？", ".", ";", "；", ":", "：", ",", "，", " "]:
+        pos = clipped.rfind(sep)
+        if pos >= max(40, limit // 2):
+            clipped = clipped[: pos + (0 if sep == " " else 1)].rstrip()
+            break
+    return clipped
+
+
+def _source_grounded_points(text: str, purpose: str = "section", max_items: int = 3) -> List[str]:
+    digest = _build_section_brief(text, purpose=purpose, max_sentences=max_items)
+    lines = [ln.strip()[2:].strip() if ln.strip().startswith("- ") else ln.strip() for ln in digest.splitlines() if ln.strip()]
+    points: List[str] = []
+    for line in lines:
+        line = _strip_inline_latex_from_prose(line)
+        line = re.sub(r"^[-•*]\s*", "", line)
+        line = _localize_terms(_clip_text_to_boundary(line, 220))
+        line = re.sub(r"\s{2,}", " ", line).strip(" ;,.，。")
+        if line and line not in points:
+            points.append(line)
+    return points[:max_items]
+
+
+def _source_grounded_excerpt(text: str, purpose: str = "section", max_items: int = 3) -> str:
+    points = _source_grounded_points(text, purpose=purpose, max_items=max_items)
+    if not points:
+        fallback = _localize_terms(_clip_text(_strip_inline_latex_from_prose(text), 260))
+        return fallback.rstrip("。") + "。" if fallback else ""
+    if purpose == "summary":
+        return "".join(f"{point.rstrip('。')}。" for point in points[:2])
+    if purpose == "innovation":
+        chunks = [f"创新点 {idx}：{point.rstrip('。')}。" for idx, point in enumerate(points[:3], 1)]
+        return "".join(chunks)
+    if purpose == "technical":
+        return "".join(f"{point.rstrip('。')}。" for point in points[:3])
+    if purpose == "experiment":
+        if len(points) >= 2:
+            return f"实验主要验证：{points[0].rstrip('。')}。结果上，{points[1].rstrip('。')}。"
+        return "".join(f"{point.rstrip('。')}。" for point in points)
+    if purpose == "takeaway":
+        if len(points) >= 3:
+            return f"从论文贡献看，{points[0].rstrip('。')}。主要局限在于 {points[1].rstrip('。')}。未来可以重点改进 {points[2].rstrip('。')}。"
+        return "".join(f"{point.rstrip('。')}。" for point in points)
+    if purpose == "caption":
+        return "；".join(point.rstrip("。") for point in points[:2])
+    return "".join(f"{point.rstrip('。')}。" for point in points)
+
+
+def _source_grounded_one_liner(title: str, abstract_text: str, intro_text: str) -> str:
+    alias = _paper_alias(title)
+    points = _source_grounded_points(abstract_text or intro_text or title, purpose="summary", max_items=2)
+    if points:
+        head = _clip_text_to_boundary(points[0], 180).rstrip("。")
+        if alias.lower() not in head.lower():
+            return f"{alias} 重点讨论：{head}。"
+        return head if head.endswith("。") else head + "。"
+    title_hint = _localize_terms(title)
+    return f"{alias} 关注 {title_hint} 的核心问题、方法路径与实验结论。"
+
+
+def _source_grounded_caption_fallback(caption_en: str, number: str) -> str:
+    localized = _clip_text_to_boundary(_source_grounded_excerpt(caption_en, purpose="caption", max_items=2), 220)
+    localized = re.sub(r"^(?:Figure|Fig\.?)[\s.:]*\d+[\s:：-]*", "", localized, flags=re.IGNORECASE)
+    localized = localized.strip(" ;,.，。")
+    if not localized:
+        localized = "该图展示论文中的关键流程、模块交互或主要实验现象"
+    return f"图 {number}：{localized.rstrip('。')}。"
+
+
+def _source_grounded_equation_explanation(latex: str, context_en: str) -> str:
+    compact = re.sub(r"\s+", " ", latex)
+    symbols = re.findall(r"\b[A-Za-z](?:_[A-Za-z0-9]+|\^[A-Za-z0-9]+)?\b", compact)
+    keys = "、".join(symbols[:4]) if symbols else "关键变量"
+    context = _source_grounded_excerpt(context_en, purpose="technical", max_items=2)
+    if context:
+        return f"结合原文上下文，这个公式对应的模块主要在处理：{context.rstrip('。')}。阅读时可以先看左侧被优化或预测的量，再看右侧由 {keys} 等变量给出的约束、变换或聚合关系。"
+    return f"这条公式对应论文里的一个关键约束或计算步骤。阅读时可以先看左侧被优化或预测的量，再看右侧由 {keys} 等变量给出的关系。"
 
 
 def _strip_inline_latex_from_prose(text: str) -> str:
@@ -700,14 +822,16 @@ def _translate_to_zh(text: str, docs_dir: Path) -> str:
         return text
     cache_path = _translation_cache_path(docs_dir)
     cache = _json_cache_load(cache_path)
-    if text in cache:
-        return cache[text]
+    cached_text = cache.get(text, "")
+    if cached_text and "本文这一段主要在说明方法设计、实验结果或问题背景" not in cached_text:
+        return cached_text
 
     translator = GoogleTranslator(source="en", target="zh-CN")
     translated_chunks: List[str] = []
     for chunk in _split_translation_chunks(text):
-        if chunk in cache:
-            translated_chunks.append(cache[chunk])
+        cached_chunk = cache.get(chunk, "")
+        if cached_chunk and "本文这一段主要在说明方法设计、实验结果或问题背景" not in cached_chunk:
+            translated_chunks.append(cached_chunk)
             continue
         translated = ""
         for _ in range(3):
@@ -718,7 +842,7 @@ def _translate_to_zh(text: str, docs_dir: Path) -> str:
                 time.sleep(1.0)
         translated = _clean_text_block(translated) if translated else ""
         if not translated:
-            translated = "本文这一段主要在说明方法设计、实验结果或问题背景；为避免保留成段英文，这里在生成时退化为中文概述，请结合上下文理解。"
+            translated = _source_grounded_excerpt(chunk, purpose="summary", max_items=3)
         cache[chunk] = translated
         translated_chunks.append(translated)
         _json_cache_save(cache_path, cache)
@@ -1448,6 +1572,8 @@ def _translate_figure_caption(caption_en: str, docs_dir: Path, number: str) -> s
     if not caption_en:
         return f"图 {number}：该图用于展示论文中的关键模块、实验设置或可视化结果。"
     translated = _clean_caption_text(_rewrite_to_zh(caption_en, docs_dir, purpose="caption"))
+    if (not translated) or translated.startswith("该图对应《") or "关键可视化结果，展示方法流程、核心模块交互关系以及主要实验观察" in translated:
+        translated = _source_grounded_caption_fallback(caption_en, number).replace(f"图 {number}：", "", 1)
     translated = re.sub(rf"^(图|Figure|Fig\.?)[\s.:]*{re.escape(number)}[\s:：.-]*", "", translated, flags=re.IGNORECASE)
     translated = translated.strip(" ：:.-")
     translated = _clip_text(translated, 340)
@@ -1813,7 +1939,7 @@ def _replace_caption_number(caption_cn: str, blog_index: int) -> str:
     figures actually appear (1, 2, 3 …), independent of the original paper's numbering.
     """
     caption_cn = caption_cn.strip()
-    result = re.sub(r"^图\s*\d+[：:]", f"图 {blog_index}：", caption_cn)
+    result = re.sub(r"^(?:图\s*\d+[：:]\s*)+", f"图 {blog_index}：", caption_cn)
     if result == caption_cn and caption_cn:
         # No 「图 N：」 prefix found — prepend one so every caption is labelled.
         return f"图 {blog_index}：{caption_cn}"
@@ -1877,6 +2003,24 @@ def _extract_section_html(body_html: str, section_id: str) -> str:
 def validate_post_html(content: str) -> List[str]:
     issues: List[str] = []
     lower = content.lower()
+
+    generic_semantic_patterns = [
+        (r"这篇文章围绕《[^》]+》展开，核心是给出可复现的方法设计、关键技术路径与实验结论，并明确其局限与改进方向。", "一句话总结仍是泛化套话，未落到论文具体内容"),
+        (r"该图对应《[^》]+》中的关键可视化结果，展示方法流程、核心模块交互关系以及主要实验观察。", "图注仍是泛化套话，未对应论文具体图意"),
+        (r"核心创新在于将任务拆解为可解释的模块化链路，并引入结构化约束抑制噪声传播。", "核心创新仍是通用模板，未提取论文特有创新点"),
+        (r"技术细节上，方法先构建中间表示并完成关键变量对齐，再通过分阶段优化逐步收敛。", "技术细节仍是通用模板，未对应论文真实方法链路"),
+        (r"实验结果显示，该方法在主要指标上相对基线具有稳定增益，尤其在复杂或稀疏条件下更有优势。", "实验结论仍是通用模板，未对应论文真实实验发现"),
+        (r"从贡献看，本文把问题定义、方法实现和实验验证连接成闭环，结论更具可解释性与工程参考价值。", "理解评价仍是通用模板，未结合论文具体贡献"),
+    ]
+    for pattern, message in generic_semantic_patterns:
+        if re.search(pattern, content):
+            issues.append(message)
+    if "以下相关论文可作为延伸阅读：。" in content:
+        issues.append("理解评价尾句异常，延伸阅读列表为空或表述错误")
+    if "实验部分首先关心的是：" in content:
+        issues.append("实验结论仍使用旧模板起手，缺少自然展开")
+    if "<!-- source-grounding:" not in content:
+        issues.append("缺少 source-grounding 元数据，无法确认文章与 PDF/LaTeX 来源对应")
 
     for section_id, section_title in DEEP_DIVE_SECTION_ITEMS:
         if f"id='{section_id}'" not in content and f'id="{section_id}"' not in content:
@@ -2488,7 +2632,7 @@ def _normalize_equation_latex(latex: str) -> str:
 
 def _equation_explanation_is_bad(text: str) -> bool:
     txt = _clean_text_block(text)
-    return (not txt) or ("公式：" in txt) or len(txt) < 24
+    return (not txt) or ("公式：" in txt) or len(txt) < 24 or ("关键约束或计算步骤" in txt and len(txt) < 40)
 
 
 def _fallback_equation_explanation(latex: str) -> str:
@@ -2523,10 +2667,10 @@ def _render_equations_with_explanations(equations: List[Dict[str, str]], docs_di
         explain_seed = f"公式：{latex}\n上下文：{item.get('context_en', '')}"
         explain = _rewrite_to_zh(explain_seed, docs_dir, purpose="equation")
         if _equation_explanation_is_bad(explain):
-            explain = _fallback_equation_explanation(latex)
+            explain = _source_grounded_equation_explanation(latex, item.get("context_en", ""))
         compact = re.sub(r"\s+", " ", _clean_text_block(explain))
         if compact and compact in recent_explains:
-            explain = _fallback_equation_explanation(latex)
+            explain = _source_grounded_equation_explanation(latex, item.get("context_en", ""))
             compact = re.sub(r"\s+", " ", _clean_text_block(explain))
         if compact:
             recent_explains.append(compact)
@@ -2615,6 +2759,7 @@ def _generic_deep_dive_post_body(doc, figures: List[Dict], related: List[Dict], 
     method_paras = _cn_paragraphs(method_cn)
     experiment_paras = _cn_paragraphs(experiment_cn)
     takeaway_paras = _cn_paragraphs(takeaway_cn)
+    one_liner = _source_grounded_one_liner(doc.title, abstract_text, intro_text)
 
     arxiv_url = f"https://arxiv.org/abs/{html.escape(doc.arxiv_id)}"
     return f"""
@@ -2626,7 +2771,7 @@ def _generic_deep_dive_post_body(doc, figures: List[Dict], related: List[Dict], 
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      {html.escape(_clip_text(abstract_cn or intro_cn, 360))}
+      {html.escape(_clip_text(one_liner, 360))}
     </div>
 
     <h2 id='summary'>简单摘要</h2>
@@ -2736,6 +2881,7 @@ def _review_like_post_body(doc, figures: List[Dict], related: List[Dict], slug: 
             "因此，这篇文章更像是一份研究路线图：它帮助你判断下一步该沿着哪条技术脉络继续挖，而不是直接给出一套现成可落地的最终答案。",
         ]
     )
+    one_liner = _source_grounded_one_liner(doc.title, abstract_text, " ".join(main_headings[:2]))
 
     equation_items = source_material.get("equations") if isinstance(source_material.get("equations"), list) else []
     equation_html = _render_equations_with_explanations(equation_items, docs_dir, max_items=4)
@@ -2784,7 +2930,7 @@ def _review_like_post_body(doc, figures: List[Dict], related: List[Dict], slug: 
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      {html.escape(_clip_text(abstract_cn or intro_cn, 360))}
+      {html.escape(_clip_text(one_liner, 360))}
     </div>
 
     <h2 id='summary'>简单摘要</h2>
@@ -2914,6 +3060,14 @@ def build_post_from_pdf(
         body = _review_like_post_body(doc, figure_entries, related, asset_slug, docs, source_material)
     else:
         body = _generic_deep_dive_post_body(doc, figure_entries, related, asset_slug, text, docs, source_material)
+
+    source_dir = str(source_material.get("source_dir", "") or "")
+    source_comment = (
+        f"<!-- source-grounding: arxiv_id={doc.arxiv_id}; pdf={Path(doc.path).name}; "
+        f"source_dir={source_dir}; sections={len(source_material.get('sections', {}) or {})}; "
+        f"figures={len(source_material.get('figures', []) or [])}; equations={len(source_material.get('equations', []) or [])} -->\n"
+    )
+    body = source_comment + body
 
     with open(page_path, "w", encoding="utf-8") as f:
         body = _enable_lazy_images(body)

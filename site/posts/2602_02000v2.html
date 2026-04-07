@@ -157,6 +157,7 @@
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
+<!-- source-grounding: arxiv_id=2602.02000v2; pdf=2602_02000v2_SurfSplat Conquering Feedforward 2D Gaussian Splatting with Surface Continuity P.pdf; source_dir=docs\.arxiv_source_cache\2602_02000v2\extracted; sections=5; figures=3; equations=10 -->
 
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
@@ -166,45 +167,54 @@
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      这篇文章围绕《SurfSplat》展开，核心是给出可复现的方法设计、关键技术路径与实验结论，并明确其局限与改进方向。
+      SurfSplat 把稀疏视角前馈重建从 3DGS 切换到 2DGS，并加入 surface continuity prior 与 forced alpha blending，从而显著减少近距离观察时的几何断裂、空洞和深度伪影。
     </div>
 
     <h2 id='summary'>简单摘要</h2>
-
-<figure><img class='paper-fig' src='../assets/2602_02000v2/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：该图对应《SurfSplat》中的关键可视化结果，展示方法流程、核心模块交互关系以及主要实验观察。</figcaption></figure>
-<figure><img class='paper-fig' src='../assets/2602_02000v2/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：该图对应《SurfSplat》中的关键可视化结果，展示方法流程、核心模块交互关系以及主要实验观察。</figcaption></figure>
-
+    <p>这篇论文关注的是一个很具体、但长期没有解决干净的问题：稀疏输入下的前馈 3D 重建虽然速度快，但一旦放大看局部表面，往往会出现孔洞、深度不连续和颜色“糊在一起”的伪影。作者认为，问题不只在网络容量，而在于表示本身不够适合描述连续表面。</p>
+<figure><img class='paper-fig' src='../assets/2602_02000v2/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：这是 SurfSplat 的整体架构图。稀疏输入图像先分别经过单视角分支和多视角分支提取特征，再在 U-Net 中融合，输出深度、尺度倍率和外观等中间属性，最后借助 surface continuity prior 与 forced alpha blending 转成标准高斯属性。</figcaption></figure>
+<figure><img class='paper-fig' src='../assets/2602_02000v2/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：作者把同一场景在不同分辨率下的颜色图和深度图并排比较。分辨率升高后，底层表示中的空洞和几何断裂会被明显放大：颜色图里表现为黑色缺口，深度图里表现为异常区域，这正是论文想重点解决的失败模式。</figcaption></figure>
+    <p>为此，SurfSplat 不再沿用只擅长“看起来像”的离散点状 3DGS，而是转向更强调表面连续性的 2DGS 表示，并围绕这种表示重新设计属性预测与约束方式。论文还额外提出高分辨率评测指标 HRRC，目的是让那些在普通分辨率下被掩盖的几何问题显式暴露出来。</p>
 
     <h2 id='innovation'>核心创新</h2>
-<p>核心创新在于将任务拆解为可解释的模块化链路，并引入结构化约束抑制噪声传播。这种设计使《SurfSplat》在稳定性、可扩展性与可复现性之间取得更好的平衡。</p>
-<h2 id='technical'>技术细节</h2><p>技术细节上，方法先构建中间表示并完成关键变量对齐，再通过分阶段优化逐步收敛。结合后续公式可看到：目标函数负责约束误差最小化，附加条件用于保证几何或语义一致性，从而提高训练稳定性与推理可控性。这组公式用于定义模型中的变量关系和训练目标。建议先看左侧要预测的对象，再看右侧每一项如何约束优化方向。该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 t、t、p、p 等变量构成的约束和聚合方式。该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 n、t、t、t 等变量构成的约束和聚合方式。该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 R、I、v、c 等变量构成的约束和聚合方式。这组公式用于定义模型中的变量关系和训练目标。建议先看左侧要预测的对象，再看右侧每一项如何约束优化方向。该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 t、t、t、t 等变量构成的约束和聚合方式。该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 关键变量 等变量构成的约束和聚合方式。该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 C、C、C 等变量构成的约束和聚合方式。</p>
+    <p>第一，论文把前馈重建的核心表示从 3DGS 改成了 2DGS。这个变化不是换个 primitive 那么简单，而是试图让每个高斯更自然地贴合局部表面，从源头上减少离散点云式表示带来的裂缝与厚度错误。</p>
+    <p>第二，作者引入了 <em>surface continuity prior</em>。它不让网络直接“随便回归”高斯属性，而是通过局部法线、切向量和尺度关系，把高斯的朝向与形状约束在更符合真实表面的空间里，这一步是几何质量提升的关键。</p>
+    <p>第三，作者提出 <em>forced alpha blending</em> 与配套的颜色初始化策略，专门处理 2DGS 在透明度和颜色混合上的不稳定问题。再加上新提出的 HRRC 指标，论文不仅改了方法，也改了“怎么看清方法是否真的更好”的评测方式。</p>
 
-
-
-    
+    <h2 id='technical'>技术细节</h2>
+    <p>方法上可以分成三步。第一步是双路径编码：单视角分支负责保留局部外观与细节，多视角分支通过 self-/cross-attention 和 plane-sweep stereo 代价体显式建模跨视角对应关系。两路信息融合后，再由 U-Net 预测深度、尺度倍率和外观分量。</p>
+    <p>第二步是把这些中间量转成真正的 2DGS 属性。这里最关键的是 surface continuity prior：作者不是直接回归高斯旋转与尺度，而是先从局部邻域估计切向量与法线，再据此构造高斯的局部表面坐标系。这样做的意义是把“几何连续”这件事直接写进表示中，而不是完全交给网络自己摸索。</p>
+    <p>第三步是解决颜色与透明度的稳定性问题。forced alpha blending 显式限制高斯 opacity 的作用方式，避免颜色在混合时被错误放大或稀释；同时 RGB 先写入 SH 的 DC 分量，减少高频颜色项在训练早期的不稳定。整体上，这条链路体现的是“先把几何立住，再让外观贴上去”。</p>
     <p>$$ f_\theta : \{(I^v, \mathbf{k}^v, \mathbf{T}^v)\}_{v=1}^{V} \mapsto \left\{ \bigcup_{j=1}^{H \times W} \left(\boldsymbol{\mu}_j^v, \boldsymbol{\alpha}_j^v, \mathbf{r}_j^v, \mathbf{s}_j^v, \mathbf{c}_j^v\right) \right\}_{v=1}^{V}, $$</p>
-    
+    <p>结合原文上下文，这个公式对应的模块主要在处理：\ (I , k , T )\ \ ( , , r , s , c ) \ , 上下文：from sparse 多视角 images。Unlike optimization-based approaches that iteratively refine Gaussians, 前馈 methods predict all Gaussian parameters in a single forward pass。阅读时可以先看左侧被优化或预测的量，再看右侧由 关键变量 等变量给出的约束、变换或聚合关系。</p>
     <p>$$ \mathbf{t}_1, \mathbf{t}_2 = \mathbf{p}_1-\mathbf{p}_0, \quad \mathbf{p}_2-\mathbf{p}_0. $$</p>
-    
+    <p>结合原文上下文，这个公式对应的模块主要在处理：The initial rotation is set to the identity matrix, which corresponds to the quaternion。To estimate the local 表面 orientation, we apply rightward and downward Sobel filters over the neighborhood around , obtaining two virtual neighbors, and。阅读时可以先看左侧被优化或预测的量，再看右侧由 关键变量 等变量给出的约束、变换或聚合关系。</p>
     <p>$$ \mathbf{n} = \frac{\mathbf{t}_1 \times \mathbf{t}_2}{\| \mathbf{t}_1 \times \mathbf{t}_2 \|}. $$</p>
-    
+    <p>结合原文上下文，这个公式对应的模块主要在处理：Although and are not guaranteed to be orthogonal in world space, their projections onto the image plane are orthogonal。The local 表面 normal is then computed as their cross product:。阅读时可以先看左侧被优化或预测的量，再看右侧由 关键变量 等变量给出的约束、变换或聚合关系。</p>
     <p>$$ \mathbf{R} = \mathbf{I} + [\mathbf{v}]_\times + \frac{1 - c}{\| \mathbf{v} \|^2} [\mathbf{v}]_\times^2, $$</p>
-    
+    <p>结合原文上下文，这个公式对应的模块主要在处理：R = I + [ v ]_ + 1 - c \| v \| [ v ]_ , 上下文：rmal is then computed as their cross product:。Given this target normal , the corresponding rotation matrix that aligns with can be computed using Rodrigues’ rotation formula:。阅读时可以先看左侧被优化或预测的量，再看右侧由 关键变量 等变量给出的约束、变换或聚合关系。</p>
     <p>$$ \mathbf{R}_{\text{surf}} = \mathbf{R} \mathbf{R}_0 = \mathbf{R}. $$</p>
-    
+    <p>结合原文上下文，这个公式对应的模块主要在处理：上下文：tion R = I + [v]_ + 1 - c\| v \| [v]_ , equation where , , and denotes the skew-symmetric matrix of。This rotation aligns the canonical frame with the estimated local 表面, giving the updated surfel rotation:。阅读时可以先看左侧被优化或预测的量，再看右侧由 关键变量 等变量给出的约束、变换或聚合关系。</p>
     <p>$$ \bar{\sigma}_u^2, \bar{\sigma}_v^2 = \mathbf{t}_{1x}^2 + \mathbf{t}_{1z}^2, \quad \mathbf{t}_{2y}^2 + \mathbf{t}_{2z}^2. $$</p>
-    
+    <p>结合原文上下文，这个公式对应的模块主要在处理：上下文：corresponds to a unit circle in the image plane, as in 前馈 methods each GS corresponds one-to-one with an image pixel and its projection always covers a single pixel。However, inverting the projection matrix to estimate scale often yields unstable values that hinder convergence。阅读时可以先看左侧被优化或预测的量，再看右侧由 关键变量 等变量给出的约束、变换或聚合关系。</p>
     <p>$$ \sigma_u = \bar{\sigma}_u \hat{\sigma}_u, \quad \sigma_v = \bar{\sigma}_v \hat{\sigma}_v. $$</p>
-    
+    <p>结合原文上下文，这个公式对应的模块主要在处理：We then use the neural network to predict scale multipliers , which are constrained to lie within。With this design, instead of directly regressing Gaussian attributes, our method derives them from predicted 3D positions, gu。阅读时可以先看左侧被优化或预测的量，再看右侧由 关键变量 等变量给出的约束、变换或聚合关系。</p>
     <p>$$ C = \begin{cases} C, & \alpha < \tau_\alpha, \\ \dfrac{C}{\alpha}, & \alpha \geq \tau_\alpha, \end{cases} $$</p>
-    
-<figure><img class='paper-fig' src='../assets/2602_02000v2/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：法线和网格与 DepthSplat 的比较</figcaption></figure>
-<h2 id='experiment'>实验结论</h2>
-<p>实验结果显示，该方法在主要指标上相对基线具有稳定增益，尤其在复杂或稀疏条件下更有优势。消融实验进一步证明各关键模块都对最终表现有独立贡献，联合使用时收益最大。</p>
-<h2 id='takeaway'>理解评价</h2>
-<p>从贡献看，本文把问题定义、方法实现和实验验证连接成闭环，结论更具可解释性与工程参考价值。从局限看，当前结果仍受数据覆盖与训练成本限制；后续可在更长时序、更复杂场景和更低成本训练上继续改进。以下相关论文可作为延伸阅读：。</p>
-<ul></ul>
-</article>
+    <p>结合原文上下文，这个公式对应的模块主要在处理：del&#x27;s multi-layer expressiveness and its 3D alignment capabilities。To further improve the reliability of spherical harmonics (SH)-based color estimation under enforced blending, we apply two adjustments。阅读时可以先看左侧被优化或预测的量，再看右侧由 C、C、C 等变量给出的约束、变换或聚合关系。</p>
+<figure><img class='paper-fig' src='../assets/2602_02000v2/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：Normal and mesh comparison with DepthSplat</figcaption></figure>
+
+    <h2 id='experiment'>实验结论</h2>
+    <p>实验部分主要在三个数据集上展开：RealEstate10K、DL3DV 和 ScanNet。作者不仅报告常规的新视角合成指标，还专门引入 HRRC 来衡量高分辨率下的几何一致性，因为普通分辨率往往掩盖了表面断裂与空洞。</p>
+    <p>结果上，SurfSplat 在常规指标和 HRRC 上都优于已有前馈方法。更重要的是，这种优势不是只体现在远看“像不像”，而是体现在近看时表面是否连续、深度是否稳定、局部几何是否仍然成立。图 3 对比也说明，它生成的法线和网格明显比 DepthSplat 更平滑、更符合表面结构。</p>
+
+
+    <h2 id='takeaway'>理解评价</h2>
+    <p>从贡献看，SurfSplat 真正解决的不是“前馈方法能不能再提一点分数”，而是把前馈重建中最难看的几何问题——近距离放大后的表面破碎、空洞和错误深度——明确拿出来处理，并通过 2DGS + 表面连续性先验给出了一条更合理的表示路线。</p>
+    <p>它的局限也很清楚：方法仍然依赖较好的跨视角匹配与相机信息，极端稀疏、姿态误差较大或外观特别复杂的场景下，局部法线与尺度估计仍可能不稳定。另外，论文虽然提出了更严格的高分辨率评测，但距离真正大规模、鲁棒的工程部署还有距离。</p>
+    <p>未来可以沿三个方向继续改进：一是把 pose 误差和表面建模放到统一框架里联合优化；二是探索更紧凑、更自适应的表示以降低显存与推理成本；三是把 HRRC 一类“几何保真优先”的评测思路推广到更多前馈 3D 重建方法中。</p>
+    <p>以下相关论文可作为延伸阅读：</p>
+    <ul></ul>
+  </article>
 </div>
 
   </div>
