@@ -167,42 +167,72 @@
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      PAT3D 把文本到 3D 场景生成和刚体物理仿真真正接到了一起，目标不是只生成“看起来像”的场景，而是直接得到可仿真、无穿模、可用于后续编辑与机器人操作的 3D 场景。
+      PAT3D 把 VLM 驱动的资产生成、scene tree 关系约束与 simulation-in-the-loop 优化串成闭环，从文本生成既符合语义、又物理稳定且可直接进入仿真的 3D 场景。
     </div>
 
     <h2 id='summary'>简单摘要</h2>
-    <p>PAT3D 关注的是一个现有 text-to-3D 系统普遍回避的问题：模型可以生成看起来合理的物体和场景，但这些场景往往不能真正放进物理仿真里运行，因为物体会互相穿插、布局不稳，或者一旦施加重力就直接塌掉。作者希望生成结果不仅“像”，还要满足物理可行性。</p>
-<figure><img class='paper-fig' src='../assets/2511_21978v1/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：这张图对比了直接深度摆放与 PAT3D 的差别。左侧方案容易出现物体互相穿插，上到仿真后还会因为布局不一致而坍塌；中间是 PAT3D 生成的稳定布局；右侧进一步说明这些场景可以直接用于后续的场景编辑和机器人操作。</figcaption></figure>
-    <p>因此，PAT3D 的目标不只是“生成一个 3D 场景”，而是生成一个真正 simulation-ready 的 3D 场景：它既要符合文本语义，又要在刚体约束下稳定成立。为此，论文把视觉-语言模型、3D 资产生成、场景树组织和可微物理仿真串成了一条完整链路。</p>
+    <p>PAT3D 关注的不是“生成一张看起来像 3D 场景的图”，而是直接从文本生成<strong>可仿真、可交互、物理上站得住</strong>的 3D 场景。作者把视觉语言模型、单体 3D 资产生成、场景树关系建模、刚体仿真和仿真环内优化连成一条链路，让输出结果不仅语义上贴近文本，还能满足无穿插、可稳定落地的物理约束。</p>
+    <figure><img class='paper-fig' src='../assets/2511_21978v1/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：PAT3D 是第一个文本到 3D 场景生成框架，可生成模拟就绪且无交叉的结果；左列显示了直接基于深度的排列结果，这些布局会受到对象相互渗透影响，并且由于布局不一致而在仿真下崩溃。</figcaption></figure>
+    <p>论文的出发点很明确：现有 text-to-3D 或 3D scene generation 方法往往把布局看成几何摆放问题，却没有把“谁支撑谁、谁装在谁里面、仿真后会不会塌”纳入主目标。PAT3D 因此显式引入重力相关的场景关系和物理求解过程，希望最终生成的场景能直接用于场景编辑、机器人操作等下游任务。</p>
 
     <h2 id='innovation'>核心创新</h2>
-    <p>第一，PAT3D 首次把 physics-augmented 思路完整引入文本到 3D 场景生成。以往方法通常只在几何摆放上做启发式修补，而 PAT3D 直接把可微刚体仿真纳入主流程，让物体之间的接触、重力和平衡真正参与场景生成。</p>
-    <p>第二，论文提出了 scene tree 驱动的组织方式。它不是让模型一次性吐出一个杂乱的 3D 布局，而是先借助视觉语言模型抽取物体及其空间关系，再把这些关系转成层次化结构，用来指导初始布局与后续约束。</p>
-    <p>第三，作者提出了 simulation-in-the-loop optimization。纯前向仿真虽然能消掉穿模，但可能破坏原始文本语义；因此 PAT3D 又在仿真环中加入语义一致性优化，把“物理成立”和“语义成立”同时纳入目标函数，这一点是本文最关键的创新点。</p>
+    <p>第一，PAT3D 把 text-to-3D 的目标从“做出视觉上像样的三维布局”推进到“生成 simulation-ready 的 3D 场景”。这意味着输出不仅要在语义上说得通，还要在物理上不穿模、能稳定落地，并能被直接导入仿真器。</p>
+    <p>第二，作者提出了 <strong>scene tree</strong> 这一关键中间表示。它把“支撑、包含、位于上方”等沿重力方向的依赖关系组织成层次结构，因此后续布局初始化不再只是对齐 2D 参考图，而是能明确保留容器—被容纳物、支撑物—被支撑物之间的约束。</p>
+    <p>第三，论文最核心的设计是 <strong>simulation-in-the-loop optimization</strong>。单纯前向仿真虽然能把物体落到稳定位置，却可能破坏原本文本指定的布局语义；PAT3D 因此把仿真后的平衡状态也拉进优化目标中，反向调整初始布局，使“物理稳定”与“语义一致”同时成立。</p>
 
     <h2 id='technical'>技术细节</h2>
-    <p>技术链路可以概括为三步。第一步是资产与关系抽取：系统先根据文本生成参考图，再利用视觉基础模型生成 3D 物体，同时借助视觉语言模型从图像里抽取物体之间的空间关系，并把这些关系整理成 scene tree。这样做的目的，是把“谁在谁上面、谁靠着谁、谁被谁支撑”这类物理上非常关键的信息显式保留下来。</p>
-    <p>第二步是初始布局与尺度对齐。作者没有直接把物体随意丢进空间，而是先用单目深度估计得到 3D 先验，再选取遮挡最少的物体作为锚点，计算整个场景的全局缩放与初始摆放。这样得到的配置可以尽量避免一开始就出现严重穿模或尺寸失真。</p>
-    <p>第三步是仿真与优化闭环。前向仿真负责把场景推向满足重力与接触约束的静态平衡，但作者发现仅靠仿真会让场景偏离文本语义，所以又加入 simulation-in-the-loop optimization：一方面约束净受力趋近于零，保证物体稳定；另一方面最小化语义不一致损失，使最终场景既站得住，也更像提示词描述的样子。</p>
-    <p>$$ \min_{q_0} L(q_{n+1}(q_0)) \quad \text{s.t.} \quad f(q_{n+1}) = 0, $$</p>
+    <p>原文的 Method 章节按三步展开：先抽取 3D 物体与空间关系，再生成无穿插的初始布局，最后做 simulation-in-the-loop 优化。PAT3D 的重点不在某一个孤立模块，而在于它如何把“资产生成—关系建模—布局初始化—仿真优化”连接成闭环。</p>
+    <figure><img class='paper-fig' src='../assets/2511_21978v1/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：PAT3D 的 text-to-3D 场景生成总流程。(a) 输入文本先生成参考图像，并据此抽取物体、生成 3D 资产、再构建 scene tree；(b) 利用单目深度先验给出初始布局，再用场景树约束把布局修正为无穿插配置；(c) 前向仿真负责满足物理合理性，而 simulation-in-the-loop 优化进一步把仿真后的平衡态拉回文本语义。</figcaption></figure>
+    <h3>3.1 3D 对象和空间关系提取</h3>
+    <p>作者没有直接让大模型一步生成完整 3D 场景，而是先用文生图模型生成参考图像，再围绕这张图做两件事：一是借助视觉语言模型识别对象类别，并用 Grounded-SAM 分割对应区域；二是针对每个区域补充材质、颜色、朝向等描述，再送入文生三维流程生成单体 3D 资产。这样做的好处是把“单个物体长什么样”和“物体之间怎样摆”分开处理，从而提高资产质量和可控性。</p>
+    <h4>3.1.1 3D 对象生成</h4>
+    <p>为了为文本提示指定的场景生成单独的对象，使用参考图像查询 VLM 以获得对象类标签，并相应地使用 Grounded-SAM 对图像进行分割。基于分割的对象区域，我们进一步提示 VLM 生成包含对象语义、材质、颜色和方向的详细文本描述。这些描述被输入到文本到 3D 管道中，以合成语义一致且视觉逼真的高质量、有纹理的 3D 资源。</p>
+    <h4>3.1.2 空间关系提取</h4>
+    <p>接着，PAT3D 不只是抽取“谁在左边、谁在右边”这类二维关系，而是重点分析沿重力方向的物理依赖，例如“放在上面”“被包含”“提供支撑”。作者把这些两两关系组织成一棵层次化场景树：地面是根节点，其余物体按照支撑或包含关系递归挂接进去。这个表示会直接约束后续初始化与优化，因为它明确规定了哪些物体必须落在容器内，哪些物体必须由某个父物体支撑。</p>
+    <h3>3.2 布局初始化</h3>
+    <p>第二步的目标不是一次得到最终最优场景，而是先构造一个<strong>尺度合理、尽量符合参考图、并且没有明显穿插</strong>的初始布局，为后续物理求解提供良好的起点。</p>
+    <h4>3.2.1 初步布局</h4>
+    <p>论文先通过单目深度估计把 2D 参考图像反投影成 3D 点云，再根据各对象投影区域和点云质心计算平移与尺度。但作者也指出，遮挡会让直接从局部点云恢复尺度变得很不稳定，因此他们先用 VLM 找到场景中遮挡最少的对象作为锚点，估计全局缩放；其余对象再结合修补后的可见区域估计相对尺度。这样得到的 preliminary layout 更接近参考图所表达的空间关系。</p>
+    <h4>3.2.2 精致的初始布局</h4>
+    <p>更关键的是由场景树驱动的细化初始布局。作者以广度优先遍历场景树，对每个节点施加两类修正：水平方向上，要求子物体投影落在父物体投影内部、兄弟节点之间尽量不重叠；垂直方向上，则把子物体抬到父物体包围盒上方。它本质上是在仿真前先把明显违反支撑/包含关系的布局排掉，从而得到无穿插且更符合物理依赖的初值。</p>
+    <h3>3.3 布局优化</h3>
+    <p>模拟后，重力导致子对象落到各自的父对象上或落入其各自的父对象中，并且兄弟对象自然地采取物理上合理的姿势。然而，由于复杂的对象间交互，仅进行模拟可能会导致场景偏离其预期语义。为了解决这个问题，我们引入了循环仿真优化来提高模拟场景中的语义一致性。</p>
+    <p>$$ \min_{q_{0}} L(q_{n+1}(q_{0})) \quad \text{s.t.} \quad f(q_{n+1}) = 0, $$</p>
     <p>这条优化目标对应 PAT3D 的 simulation-in-the-loop 阶段：作者要调整场景初始状态 q0，使仿真后的布局一方面尽量符合文本语义，另一方面又满足净受力为零的物理平衡约束。它体现的是“语义合理”和“物理稳定”同时优化。</p>
     <p>$$ l_i = d(\mathbf{p}^i_{\min}, \text{BBox}_t)^2 + d(\mathbf{p}^i_{\max}, \text{BBox}_t)^2, $$</p>
-    <p>这条式子定义了单个物体的局部损失。作者通过比较物体投影框角点与目标容器框边界之间的距离，惩罚物体偏离预期摆放区域，从而把文本里的空间关系转成可优化的几何约束。</p>
-    <p>$$ L(q_{n+1}(q_0)) = \sum_{i=1}^{N} l_i, $$</p>
+    <p>局部损失衡量的是对象 <em>i</em> 在仿真后是否还处在目标容器或支撑区域内：如果它的投影框角点仍落在目标框 <em>BBox</em><sub>t</sub> 里，损失就是 0；一旦物体被挤出容器或偏离支撑范围，距离项就会迅速增大。它把“空间关系是否还成立”写成了连续可优化的几何代价。</p>
+    <p>$$ L(q_{n+1}(q_{0})) = \sum_{i=1}^{N} l_i, $$</p>
     <p>这条式子把所有物体的局部损失累加成总损失。它说明 PAT3D 不是逐个物体单独调整，而是在整个场景范围内联合优化多个物体的位置与关系，使最终布局整体满足语义要求。</p>
 
-
     <h2 id='experiment'>实验结论</h2>
-    <p>实验部分围绕四类指标展开：语义一致性、物理稳定性、穿模程度以及整体物理合理性。作者在五类包含复杂物体交互的通用场景上，把 PAT3D 与基线方法做了系统比较。</p>
-    <p>结果表明，PAT3D 在物理合理性、语义一致性和视觉质量上都明显优于已有方法。更重要的是，它不是靠牺牲语义去换物理稳定，也不是只在视觉上“看起来不穿模”，而是在仿真约束下同时保证布局可执行、结果可编辑、场景可用于机器人操作等下游任务。</p>
-
+    <p>实验部分分成比较、应用和消融三块，但核心问题很集中：PAT3D 能否在复杂接触场景里同时保住<strong>文本语义、物理稳定性与无穿插布局</strong>。作者没有直接沿用现成 benchmark，而是构建了 18 条包含明显物体交互关系的文本提示，其中既有来自 MIDI 和 GraphDreamer 的样例，也有额外生成的复杂场景。</p>
+    <p>评测也不是只看“像不像”，而是同时统计五类信号：文本语义一致性分数与问答一致性分数衡量语义匹配，仿真后位移量衡量稳定性，穿模比例衡量几何交叠程度，物理合理性分数则概括整体可执行性。这样的指标组合正好对应 PAT3D 的设计目标：生成的不是纯视觉结果，而是可进入仿真的 3D 场景。</p>
+        <div class='card'><strong>源论文表 1（预览）</strong><div style='margin-top:6px;'>我们的方法在所有基线中实现了与输入文本提示的最高语义一致性，并且是唯一实现完美物理稳定性和不相交的方法；删除布局初始化和优化（显示为原始布局），并仅删除布局优化（显示为场景初始化）。</div><div style='overflow-x:auto;margin-top:10px;'><table style='width:100%;border-collapse:collapse;font-size:12px;'><tr><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'></th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Clip Score</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>VQA Score</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Displacement</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Pene. Ratio</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Phys. Score</th></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>GraphDreamer</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>27.53</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.46</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.25</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>61.72</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>40.0</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Blender-MCP</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>28.93</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.56</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>1.03</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>14.78</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>47.7</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>MIDI</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>29.68</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.63</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.69</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>110.80</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>62.7</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Raw layout</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>29.88</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.64</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.81</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>14.11</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>65.5</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Scene Init.</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>30.77</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.70</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>2.91</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>34.2</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Ours</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>31.79</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.68</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>88.5</td></tr></table></div><div style='font-size:12px;color:#666;margin-top:8px;'>表格为 source 预览；复杂排版、部分行列或强调格式可能已做简化。</div></div>
+    <figure><img class='paper-fig' src='../assets/2511_21978v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：与 GraphDreamer、Blender-MCP 和 MIDI 的定性对比。PAT3D 在复杂接触场景中更能保持正确的支撑/包含关系和物体尺度，而基线方法容易出现忽视空间关系、物体悬浮、尺度失真或布局过于拥挤的问题。</figcaption></figure>
+    <h3>4.1 比较</h3>
+    <h4>4.1.1 基线</h4>
+    <p>论文对比了三类代表性基线方法：其中两条路线直接接收文本提示，另一条路线使用参考图像；为保证公平，作者给图像驱动方法提供了与 PAT3D 相同的参考图。这个设置的重点在于比较不同路线在复杂物体接触和支撑关系下，能否同时兼顾语义与物理约束。</p>
+    <h4>4.1.2 数据集</h4>
+    <h4>4.1.3 评估指标</h4>
+    <p>五项指标分别覆盖语义一致性、物理稳定性、相互穿插和整体物理合理性，因此不会出现“语义好但站不住”或“物理稳定但完全偏题”却仍然被误判为好结果的情况。这一点对 PAT3D 很关键，因为它本来就试图同时优化这两类目标。</p>
+    <h4>4.1.4 表演与讨论</h4>
+    <p>图 3 展示了五类复杂交互场景的定性对比：有的方法在复杂场景中容易忽略文本里的空间约束；有的方法会出现物体悬浮和尺度失真；还有的方法虽然能避免部分穿插，但在复杂接触场景下常把物体挤成不规则、紧密堆叠的布局。相比之下，PAT3D 通过场景树与物理仿真联合约束，能更稳定地维持正确的支撑/包含关系。表 1 的定量结果进一步说明：PAT3D 不只是把语义分数做高，而是同时做到最高语义一致性、零位移误差、零穿模和最高物理合理性分数。</p>
+    <h3>4.2 应用</h3>
+    <p>作者还展示了 PAT3D 生成的场景可以直接导入仿真器，用于场景编辑和机器人操作。这部分不是主 benchmark，却说明了论文提出的“simulation-ready”并非口号，而是可以真实服务下游交互任务。</p>
+    <h4>4.2.1 场景编辑</h4>
+    <p>场景编辑实验展示了删除底层书本、移除笔筒或新增书本后，系统都能重新收敛到新的物理平衡态，并保持无网格穿插。它表明 PAT3D 生成的结果不是静态展示品，而是能够承受交互式修改。</p>
+    <h4>4.2.2 机器人操作</h4>
+    <p>机器人操作示例则进一步说明，PAT3D 生成的对象布局既有一致的相对位置，也足够避免穿插，因而适合用于抓取策略评测。这和很多只追求视觉质量的方法不同，后者往往很难直接拿来做操控验证。</p>
+    <h3>4.3 消融研究</h3>
+    <p>消融实验把 PAT3D 的两级设计拆得很清楚。第一，场景树驱动的布局初始化主要负责消除穿模：与原始深度对齐布局相比，仅初始化版本已经把穿模比例压到 0，但它的位移量反而升高，说明仅靠几何规则修正还不足以保证仿真后的稳定性。第二，仿真环内优化负责把“无穿插但不稳”的布局进一步推向“既稳又符合语义”的平衡态；加入这一步后，PAT3D 同时把位移误差压到 0、保持零穿模，并把物理合理性分数提升到 88.5。这个结果说明优化阶段不是锦上添花，而是决定最终物理可执行性的关键步骤。</p>
+    <figure><img class='paper-fig' src='../assets/2511_21978v1/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：消融结果。左半部分说明 scene tree 能把 depth-only 初始布局中的错误支撑关系修正为无穿插布局；右半部分说明仅靠仿真会让木块结构倒塌，而加入 simulation-in-the-loop 优化后，可以收敛到既稳定又符合文本语义的堆叠状态。</figcaption></figure>
 
     <h2 id='takeaway'>理解评价</h2>
-    <p>从贡献看，PAT3D 把文本到三维、场景布局和可微物理仿真正正串成了一条闭环生成链路。它告诉我们：面向真实交互场景时，单靠几何摆放或视觉一致性都不够，物理可行性必须被提升为一等约束。</p>
-    <p>局限也很明确。论文自己提到，当前的布局初始化有时需要在“先消除穿模”和“保持物理稳定”之间做折中；而在失败案例里，如果提示词对应的是一组高度依赖全局协调摆放的复杂接触物体，现有优化仍可能找不到最理想的布局。</p>
-    <p>未来可以沿三个方向继续推进：一是探索更强的全局优化策略，减少初始化对最终结果的影响；二是把更多物理属性和交互先验引入场景生成过程；三是把这类可仿真的三维场景进一步扩展到更复杂的编辑、操作与具身智能任务中。</p>
-    <p>以下相关论文可作为延伸阅读：</p>
-    <ul></ul>
+    <p>我觉得 PAT3D 最值得重视的地方，是它把 text-to-3D 从“生成一个像样的三维场景”推进到了“生成一个可直接进入仿真和交互的三维场景”。这一步看似只是多加了一个 physics 模块，实际上意味着研究目标发生了变化：评价标准不再只有视觉好不好看，而是场景能不能站得住、能不能编辑、能不能服务机器人操作。</p>
+    <p>论文的主线也很清楚：scene tree 负责显式表达支撑和包含关系，布局初始化负责快速消除明显穿插，仿真环内优化再负责把仿真后的结果拉回文本语义。这种“结构先验 + 物理求解 + 语义优化”的组合，是 PAT3D 相比纯几何摆放或纯生成式方法更有说服力的原因。</p>
+    <p>当然，它的局限也很明确。作者自己承认，初始化阶段有时需要在“先消除穿模”和“保持物理稳定”之间做权衡；而当提示词涉及高度依赖全局协调的复杂接触布局时，现有优化仍可能陷入次优解。此外，单体资产质量仍会受到上游 text-to-3D 与视觉模型的影响，这意味着 PAT3D 的上限部分依赖外部生成器。</p>
+    <p>未来比较自然的方向有三条：一是探索更强的全局优化策略，减少初始化对最终平衡态的影响；二是把更多物理属性（如摩擦、材质、柔顺性）纳入场景生成，而不只处理刚体接触；三是把这类 simulation-ready 场景继续接到更复杂的场景编辑、机器人操作和具身智能任务中。按这个意义看，PAT3D 不只是做了一篇 text-to-3D 论文，而是在尝试给“可交互三维场景生成”建立一条更完整的技术路线。</p>
+    
   </article>
 </div>
 

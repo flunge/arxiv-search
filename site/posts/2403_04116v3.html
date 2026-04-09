@@ -1,4 +1,3 @@
-<!-- source-grounding: arxiv_id=2403.04116v3; pdf=2403_04116v3_Radiative Gaussian Splatting for Efficient X-ray Novel View Synthesis.pdf; source_dir=C:\Users\XPENG_USER\Documents\docs\文献\feedforward\docs\.arxiv_source_cache\2403_04116v3\extracted; tex_files=1; sections=0; figures=0; equations=0 -->
 <!doctype html>
 <html lang="zh-CN">
 <head>
@@ -158,6 +157,7 @@
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
+<!-- source-grounding: arxiv_id=2403.04116v3; pdf=2403_04116v3_Radiative Gaussian Splatting for Efficient X-ray Novel View Synthesis.pdf; source_dir=docs\.arxiv_source_cache\2403_04116v3\extracted; sections=6; figures=8; equations=10 -->
 
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
@@ -167,61 +167,86 @@
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      圆圈的半径代表训练时间（分钟）。论文的基本思路是把 5mm 环绕图 X 射线新颖视图合成 (NVS) 旨在仅使用从不同视图方向扫描的现有投影，从最初未捕获的新视点创建物体的 X 射线投影 放进同一条解决链路里处理。 进一步看，众所周知，X射线具有较强的穿透力，可以捕获成像物体的内部结构，因此在医学成像中得到广泛应用。最后得到的主要结论是：即使是最近最有效的基于 NeRF 的方法仍然需要一个多小时的训练，并且在 2 fps 的缓慢推理速度下产生次优结果，如图 1 所示。
+      在本文中，我们提出了一种基于 3D 高斯溅射的框架，即 X-Gaussian，用于 X 射线新视图合成；itemize -1.5mm 我们提出了一种新颖的基于 3D 高斯溅射的框架 X-Gaussian，用于 X 射线新颖的视图合成。
     </div>
 
     <h2 id='summary'>简单摘要</h2>
-
-<figure><img class='paper-fig' src='../assets/2403_04116v3/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：原始 3DGS（上）和 X-Gaussian（下）的点云可视化。我们可视化不同训练迭代中高斯点云的位置和不透明度。我们还将脚的体积可视化作为参考。请注意，体积并不是点云的真实情况。我们的 X-Gaussian 可以比 3DGS 更好地表示详细结构，显示出更快更好的收敛性。</figcaption></figure>
-<figure><img class='paper-fig' src='../assets/2403_04116v3/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：我们的方法的管道。 (a) 角位长方体均匀初始化 (ACUI) 策略使用 X 射线扫描仪的参数来计算内在和外在矩阵，并采样 3D 高斯的中心点。 (b) 我们的辐射高斯点云模型学习预测 3D 点的辐射强度。 (c) 基于我们的高斯模型，我们开发了一种 GPU 友好的可微分辐射光栅化 (DRR)。</figcaption></figure>
-    <p>圆圈的半径代表训练时间（分钟）。论文的基本思路是把 5mm 环绕图 X 射线新颖视图合成 (NVS) 旨在仅使用从不同视图方向扫描的现有投影，从最初未捕获的新视点创建物体的 X 射线投影 放进同一条解决链路里处理。</p>
-    <p>进一步看，众所周知，X射线具有较强的穿透力，可以捕获成像物体的内部结构，因此在医学成像中得到广泛应用。最后得到的主要结论是：即使是最近最有效的基于 NeRF 的方法仍然需要一个多小时的训练，并且在 2 fps 的缓慢推理速度下产生次优结果，如图 1 所示。</p>
+    <p>圆圈的半径代表训练时间（分钟）。即使是最近最有效的基于 NeRF 的方法仍然需要一个多小时的训练，并且在 2 fps 的缓慢推理速度下产生次优结果，如图 1 所示。</p>
+<figure><img class='paper-fig' src='../assets/2403_04116v3/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：原始 3DGS（上）和 X-Gaussian（下）的点云可视化；我们可视化不同训练迭代中高斯点云的位置和不透明度</figcaption></figure>
+    <p>圆圈的半径代表训练时间（分钟）。即使是最近最有效的基于 NeRF 的方法仍然需要一个多小时的训练，并且在 2 fps 的缓慢推理速度下产生次优结果，如图 1 所示。</p>
 
     <h2 id='innovation'>核心创新</h2>
-    <p>这篇工作的第一个关键点，在于它没有停留在模块堆叠层面，而是重新整理了问题的切入方式：在本节中，我们将首先介绍我们的辐射高斯点云模型和 DRR 处理，然后介绍 ACUI 策略。</p>
-    <p>第二个重要变化是：我们首先回顾一下自然光成像中原始的RGB高斯点云模型。这让方法不仅给出结果，也把为什么这样设计说得更清楚。</p>
-    <p>从整体效果看，我们首先总结整个 DRR 处理，然后描述其细节。这也是它和单纯工程拼装方案拉开差距的地方。</p>
+    <p>第一，在渲染新颖的视图X射线投影时，现有的主要基于NeRF的方法存在训练时间长、推理速度慢的问题。</p>
+    <p>第二，在本文中，我们提出了一种基于 3D 高斯溅射的框架，即 X-Gaussian，用于 X 射线新视图合成。</p>
+    <p>第三，首先，受 X 射线成像各向同性性质的启发，我们重新设计了辐射高斯点云模型。</p>
 
-    <h2 id='technical'>技术细节</h2><p>从方法链路看，系统首先处理的是：然后，ACUI 对长方体内的 3D 点进行均匀采样，该长方体可以完全包围扫描对象，以初始化图 1 中辐射高斯点云的中心位置。接下来真正起关键作用的是：在本节中，我们将首先介绍我们的辐射高斯点云模型和 DRR 处理，然后介绍 ACUI 策略。这样安排直接带来的收益是：其中心位置、协方差和不透明度定义为 、 和。在训练和推理阶段，论文还额外考虑了：相反，X射线成像是基于穿透物体时的衰减。这组公式用于定义模型中的变量关系和训练目标。建议先看左侧要预测的对象，再看右侧每一项如何约束优化方向。该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 c、d、k、l 等变量构成的约束和聚合方式。该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 i、f、f、f 等变量构成的约束和聚合方式。该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 G、G_i、f、i 等变量构成的约束和聚合方式。这组公式用于定义模型中的变量关系和训练目标。建议先看左侧要预测的对象，再看右侧每一项如何约束优化方向。该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 P、x、x、x 等变量构成的约束和聚合方式。该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 J、W、W、J 等变量构成的约束和聚合方式。</p>
-
-
-    
-    
-    
+    <h2 id='technical'>技术细节</h2>
+    <p>然后，ACUI 对长方体内的 3D 点进行均匀采样，该长方体可以完全包围扫描对象，以初始化图 1 中辐射高斯点云的中心位置。DRR表示为-0.3mm，其中表示渲染图像，表示外在矩阵，指内在矩阵。首先，将3D点位置处的第-次高斯分布的可能性值表述为-0.7mm，然后将3D高斯分布到2D探测器平面进行后续渲染。</p>
+<figure><img class='paper-fig' src='../assets/2403_04116v3/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：(b) 我们的辐射高斯点云模型学习预测 3D 点的辐射强度，用于说明这一类高效路线的关键结构与输入输出关系。</figcaption></figure>
+<figure><img class='paper-fig' src='../assets/2403_04116v3/figure8_full.png' alt='Figure 8:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：我们可视化训练 20 秒、60 秒和 180 秒时的渲染投影；我们的 X-Gaussian 表现出更快更好的收敛</figcaption></figure>
+    <h3>3.1 辐射高斯点云模型</h3>
+    <p>1mm 一个物体可以用一组基本高斯点云来表示，其中，第-个高斯点云。其中心位置、协方差和不透明度定义为 、 和。相反，X射线成像是基于穿透物体时的衰减。</p>
+    <h3>3.2 可微分辐射光栅化</h3>
+    <p>DRR表示为-0.3mm，其中表示渲染图像，表示外在矩阵，指内在矩阵。首先，将3D点位置处的第-次高斯分布的可能性值表述为-0.7mm，然后将3D高斯分布到2D探测器平面进行后续渲染。最终，训练目标是渲染图像和真实投影图像之间的损失和SSIM损失的加权和为-2。</p>
+    <h3>3.3 角位长方体均匀初始化</h3>
+    <p>0.5mm 在训练开始时，我们需要初始化式（1）中的参数。在自然光成像中，原始3DGS采用SfM算法计算初始 、 、 、。我们设置一个长方体，其尺寸（mm）可以完全包围物体。</p>
     <p>$$ \mathcal{G} = \{G_i(\bm{\mu}_i, \mathbf{\Sigma}_i, \alpha_i)~|~i = 1, 2, \dots, N_p\}, $$</p>
-    
-    <p>$$ \small \mathbf{c}(\mathbf{d}, \mathbf{k}) = \sum_{l = 0}^{L} \sum_{m = -l}^{l} k_l^m~Y_l^m(\theta, \phi),  $$</p>
-    
-    <p>$$ \small \mathbf{i}(\mathbf{f}) = \text{RIRF}(\mathbf{f}) = \text{Sigmoid}(\bm{\lambda} \odot \mathbf{f}),  $$</p>
-    
-    <p>$$ \small \mathcal{G}_x = \{G_i(\bm{\mu}_i, \mathbf{\Sigma}_i, \alpha_i, \mathbf{f}_i)~|~i = 1, 2, \dots, N_p\},  $$</p>
-    
-    <p>$$ \small \mathbf{I} = F_{\text{DRR}}(\mathbf{M}_{ext}, \mathbf{M}_{int}, \{G_i(\bm{\mu}_i, \mathbf{\Sigma}_i, \alpha_i, \mathbf{f}_i)~|~{i = 1, 2, \dots, N_p}\}),  $$</p>
-    
-    <p>$$ \small P(\mathbf{x}|\mathrm{\bm{\mu}}_i, \mathrm{\bf \Sigma}_i) = \text{exp}\big(-\frac{1}{2}(\mathbf{x} - \bm{\mu}_i)^\top \mathrm{\bf \Sigma}_i^{-1} (\mathbf{x} - \bm{\mu}_i)\big).  $$</p>
-    
-    <p>$$ \small \mathrm{\bf \Sigma}_i^{'} = \mathbf{J}_i \mathbf{W}_i \mathrm{\bf \Sigma}_i \mathbf{W}_i^\top \mathbf{J}_i^\top,  $$</p>
-    
-<figure><img class='paper-fig' src='../assets/2403_04116v3/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：原始 3DGS 和我们的 X-Gaussian 的高斯点云模型之间的比较。 (a) 原始 RGB 高斯点云模型使用球谐函数 (SH) 来模拟各向异性自然光分布和与视图相关的颜色。 (b) 我们的辐射高斯点云模型采用点特征的加权和来拟合各向同性的 X 射线穿透力和与视图无关的辐射强度。</figcaption></figure>
-<figure><img class='paper-fig' src='../assets/2403_04116v3/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：胰腺（上）和胸部（下）场景的新颖视图合成的定性结果。我们的 X-Gaussian 产生更清晰的结果。请放大以获得更好的视图。</figcaption></figure>
-<figure><img class='paper-fig' src='../assets/2403_04116v3/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：脚（上）和头（下）新颖视图合成的定性结果。我们的方法重建了更细粒度的细节。请放大以获得更好的视图。</figcaption></figure>
-<figure><img class='paper-fig' src='../assets/2403_04116v3/figure6_full.png' alt='Figure 6:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 6：足部和胸部场景的稀疏视图 CT 重建的视觉结果。基于 NeRF 的方法和我们的 X-Gaussian 用于为 SART 创建新颖的视图。</figcaption></figure>
+    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 G、bm、mu、i 如何共同构成这个结果。</p>
+    <p>$$ \small \mathbf{c}(\mathbf{d}, \mathbf{k}) = \sum_{l = 0}^{L} \sum_{m = -l}^{l} k_l^m~Y_l^m(\theta, \phi), \vspace{-1.4mm} $$</p>
+    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 small、c、d、k 如何共同构成这个结果。</p>
+    <p>$$ \small \mathbf{i}(\mathbf{f}) = \text{RIRF}(\mathbf{f}) = \text{Sigmoid}(\bm{\lambda} \odot \mathbf{f}), \vspace{-1.7mm} $$</p>
+    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 small、i、f、RIRF 如何共同构成这个结果。</p>
+    <p>$$ \small \mathcal{G}_x = \{G_i(\bm{\mu}_i, \mathbf{\Sigma}_i, \alpha_i, \mathbf{f}_i)~|~i = 1, 2, \dots, N_p\}, \vspace{-1.1mm} $$</p>
+    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 small、G、x、bm 如何共同构成这个结果。</p>
+    <p>$$ \small \mathbf{I} = F_{\text{DRR}}(\mathbf{M}_{ext}, \mathbf{M}_{int}, \{G_i(\bm{\mu}_i, \mathbf{\Sigma}_i, \alpha_i, \mathbf{f}_i)~|~{i = 1, 2, \dots, N_p}\}), \vspace{-0.4mm} $$</p>
+    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 small、I、DRR、M 如何共同构成这个结果。</p>
+    <p>$$ \small P(\mathbf{x}|\mathrm{\bm{\mu}}_i, \mathrm{\bf \Sigma}_i) = \text{exp}\big(-\frac{1}{2}(\mathbf{x} - \bm{\mu}_i)^\top \mathrm{\bf \Sigma}_i^{-1} (\mathbf{x} - \bm{\mu}_i)\big). \vspace{-0.7mm} $$</p>
+    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 small、P、x、mathrm 如何共同构成这个结果。</p>
+    <p>$$ \small \mathrm{\bf \Sigma}_i^{'} = \mathbf{J}_i \mathbf{W}_i \mathrm{\bf \Sigma}_i \mathbf{W}_i^\top \mathbf{J}_i^\top, \vspace{-1mm} $$</p>
+    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 small、mathrm、bf、Sigma 如何共同构成这个结果。</p>
 
     <h2 id='experiment'>实验结论</h2>
-    <p>实验部分重点验证了：继NAF之后，我们采用人体器官CT的公共数据集，即LIDC-IDRI和开放科学可视化数据集来评估我们的方法。</p>
-    <p>对比结果表明，我们采用峰值信噪比（PSNR）和结构相似性指数测量（SSIM）来评估性能。进一步结合定性现象和消融分析，可以看出：更具体地说，与最近最好的基于 X 射线 NeRF 的方法 NAF 相比，我们的 X-Gaussian 平均性能优于它 6.5 dB，推理速度快 73，同时需要不到 15% 的训练时间。</p>
-<figure><img class='paper-fig' src='../assets/2403_04116v3/figure7_full.png' alt='Figure 7:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 7：腹部和头部稀疏视图 CT 重建的视觉结果。基于 NeRF 的方法和 X-Gaussian 用于为 ASD-POCS 创建新颖的视图。</figcaption></figure>
-<figure><img class='paper-fig' src='../assets/2403_04116v3/figure8_full.png' alt='Figure 8:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 8：NAF 与 X-Gaussian 的收敛性分析。我们可视化训练 20 秒、60 秒和 180 秒时的渲染投影。我们的 X-Gaussian 表现出更快更好的收敛。</figcaption></figure>
+    <p>实验主要验证：继NAF之后，我们采用人体器官CT的公共数据集，即LIDC-IDRI和开放科学可视化数据集来评估我们的方法。结果上，更具体地说，与最近最好的基于 X 射线 NeRF 的方法 NAF 相比，我们的 X-Gaussian 平均性能优于它 6.5 dB，推理速度快 73，同时需要不到 15% 的训练时间。</p>
+    <div class='card'><strong>源论文表 1（预览）</strong><div style='margin-top:6px;'>新颖视图合成任务的定量结果；在每个场景的结果的单元格中，列出了 PSNR（上）和 SSIM（下）。</div><div style='overflow-x:auto;margin-top:10px;'><table style='width:100%;border-collapse:collapse;font-size:12px;'><tr><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>#1@#2</th></tr></table></div><div style='font-size:12px;color:#666;margin-top:8px;'>表格为 source 预览；复杂排版、部分行列或强调格式可能已做简化。</div></div>
+    <div class='card'><strong>源论文表 2（预览）</strong><div style='margin-top:6px;'>实验主要验证：稀疏视图 CT 重建结果。结果上，NeRF-based methods and our X-Gaussian are used to create novel views for FDK , SART , and ASD-POCS。</div><div style='overflow-x:auto;margin-top:10px;'><table style='width:100%;border-collapse:collapse;font-size:12px;'><tr><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Method</th><th colspan='2' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>+ None</th><th colspan='2' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>+ InTomo</th><th colspan='2' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>+ NeRF</th><th colspan='2' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>+ TensoRF</th><th colspan='2' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>+ NeAT</th><th colspan='2' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>+ NAF</th><th colspan='2' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>+ X-Gaussian</th></tr><tr><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Metric</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>PSNR</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>SSIM</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>PSNR</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>SSIM</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>PSNR</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>SSIM</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>PSNR</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>SSIM</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>PSNR</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>SSIM</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>PSNR</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>SSIM</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>PSNR</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>SSIM</th></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>FDK</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>7.41</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.093</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>20.31</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.498</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>20.57</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.502</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>20.61</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.501</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>20.94</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.511</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>21.28</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.523</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>22.60</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.584</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>FDK</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>12.90</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.405</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>13.16</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.409</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>13.20</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.408</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>13.52</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.418</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>13.87</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.430</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>15.19</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.491</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>SART</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>17.24</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.528</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>26.28</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.859</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>26.78</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.853</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>27.06</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.867</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>27.31</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.869</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>27.84</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.879</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>30.25</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.907</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>SART</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>9.04</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.331</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>9.54</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.325</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>9.82</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.339</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>10.07</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.341</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>10.60</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.351</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>13.01</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.379</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>ASD-POCS</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>17.03</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.525</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>25.44</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.847</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>26.58</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.857</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>26.93</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.868</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>26.95</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.865</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>27.91</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.880</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>30.56</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.926</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>ASD-POCS</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>8.41</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.322</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>9.55</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.332</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>9.90</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.343</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>9.92</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.340</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>10.88</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.355</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>13.53</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.401</td></tr></table></div><div style='font-size:12px;color:#666;margin-top:8px;'>表格为 source 预览；复杂排版、部分行列或强调格式可能已做简化。</div></div>
+<figure><img class='paper-fig' src='../assets/2403_04116v3/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：原始 3DGS 和我们的 X-Gaussian 的高斯点云模型之间的比较；(a) 原始 RGB 高斯点云模型使用球谐函数 (SH) 来模拟各向异性自然光分布和与视图相关的颜色</figcaption></figure>
+<figure><img class='paper-fig' src='../assets/2403_04116v3/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：胰腺（上）和胸部（下）场景的新颖视图合成的定性结果</figcaption></figure>
+<figure><img class='paper-fig' src='../assets/2403_04116v3/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 6：脚（上）和头（下）新颖视图合成的定性结果；我们的方法重建了更细粒度的细节</figcaption></figure>
+<figure><img class='paper-fig' src='../assets/2403_04116v3/figure6_full.png' alt='Figure 6:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 7：足部和胸部场景的稀疏视图 CT 重建的视觉结果；基于 NeRF 的方法和我们的 X-Gaussian 用于为 SART 创建新颖的视图</figcaption></figure>
+<figure><img class='paper-fig' src='../assets/2403_04116v3/figure7_full.png' alt='Figure 7:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 8：腹部和头部稀疏视图 CT 重建的视觉结果；基于 NeRF 的方法和 X-Gaussian 用于为 ASD-POCS 创建新颖的视图</figcaption></figure>
+    <h3>4.1 实验设置</h3>
+    <p>实验部分首先关心的是：1毫米。</p>
+    <h4>4.1.1 数据集</h4>
+    <p>实验主要验证：继NAF之后，我们采用人体器官CT的公共数据集，即LIDC-IDRI和开放科学可视化数据集来评估我们的方法。结果上，测试场景包括胸部、足部、头部、腹部、胰腺。</p>
+    <h4>4.1.2 实施细节</h4>
+    <p>实验主要验证：使用 Adam 优化器（= 0.9、= 0.999 和 = 1 10 ）对模型进行 2 10 次迭代训练。结果上，我们采用峰值信噪比（PSNR）和结构相似性指数测量（SSIM）来评估性能。</p>
+    <h3>4.2 新颖的视图合成</h3>
+    <p>实验部分首先关心的是：0.5毫米。</p>
+    <h4>4.2.1 定量结果</h4>
+    <p>实验部分首先关心的是：显示我们的 X-Gaussian 和五种基于 SOTA NeRF 的算法（包括 InTomo 、 NeRF 、 TensoRF 、 NeAT 和 NAF ）在 NVS 任务上的定量比较。</p>
+    <p>对比结果表明，更具体地说，与最近最好的基于 X 射线 NeRF 的方法 NAF 相比，我们的 X-Gaussian 平均性能优于它 6.5 dB，推理速度快 73，同时需要不到 15% 的训练时间。进一步结合定性现象和消融分析，可以看出：与基于 SOTA RGB NeRF 的方法 TensoRF 相比，我们的 X-Gaussian 提高了 12.93 dB，同时享有 192 的推理速度和 20 的训练速度。</p>
+    <h4>4.2.2 定性结果</h4>
+    <p>实验主要验证：并描绘了NVS在胰腺、胸部、足部和头部场景上的定性比较。结果上，从放大的补丁中可以看出，之前基于 NeRF 的算法无法呈现清晰新颖的视图。</p>
+    <h3>4.3 稀疏视图 CT 重建</h3>
+    <p>实验部分首先关心的是：1mm 我们将我们的方法与基于 SOTA NeRF 的稀疏视图 CT 重建算法进行比较。</p>
+    <p>对比结果表明，当使用我们的 X-Gaussin 为 FDK、SART 和 ASD-POCS 创建新颖的 X 射线投影时，它们在 PSNR 方面产生了 15.19、13.01 和 13.53 dB 的最显着改进。进一步结合定性现象和消融分析，可以看出：这些改进比使用 NAF 的改进高 1.32、2.41 和 2.65 dB。</p>
+    <h3>4.4 消融研究</h3>
+    <p>实验部分首先关心的是：1毫米。</p>
+    <h4>4.4.1 分解消融</h4>
+    <p>实验主要验证：我们首先进行分解消融实验，以研究每种提出的技术对更高性能和更快速度的影响。结果上，(i) 当使用ACUI代替耗时的SfM算法进行初始化时，训练时间显着减少了34%，而性能提高了1.66 dB。</p>
+    <h4>4.4.2 点位置的初始化</h4>
+    <p>实验主要验证：我们比较了高斯点云中心位置的不同初始化策略，包括随机、球形、FDK 和立方初始化。结果上，具体来说，随机初始化是指在3D空间的扫描区域内随机采样点。</p>
+    <h4>4.4.3 参数分析</h4>
+    <p>实验主要验证：(i) 当增加 时，性能逐渐提高，但提高的幅度减小。结果上，特别是在PSNR方面取得了43.42 dB的最佳结果。</p>
+    <h4>4.4.4 收敛性分析</h4>
+    <p>实验主要验证：我们进行了两次视觉分析来比较我们的 X-Gaussian 和原始 3DGS 之间的收敛性（如图 1 所示）。结果上，相比之下，我们配备了所提出的 DRR 的 X-Gaussian 显示出更快更好的收敛。</p>
 
     <h2 id='takeaway'>理解评价</h2>
-    <p>从整篇论文看，它的真正贡献是：在本文中，我们提出了一种基于 3D 高斯溅射的框架，即 X-Gaussian，用于 X 射线新视图合成，而不是单纯把扩散模型继续微调。作者把问题落在“分布外驾驶场景如何稳定生成”这个更关键的缺口上。</p>
-    <p>它最有说服力的地方在于：实验表明，我们的 X-Gaussian 比最先进的方法高 6.5 dB，同时享受不到 15% 的训练时间和超过 73 的推理速度。这说明论文的方法链路——3D 点云编辑、车辆补全、再到 RL 后训练——是前后闭合的，而不是各模块各自堆叠。</p>
-    <p>主要局限在于：当前方案仍受算力和时长限制，更适合离线生成而非实时闭环模拟。如果继续往前推进，一个自然方向是把更长时序、更低成本训练和更广泛的 OOD 场景覆盖一起纳入统一评估。</p>
+    <p>如果把这篇论文放回问题背景里看，它真正的价值在于：在本文中，我们提出了一种基于 3D 高斯溅射的框架，即 X-Gaussian，用于 X 射线新视图合成。这说明作者不是只补一个局部模块，而是在重新组织问题该怎样被解决。</p>
+    <p>最能支撑这个判断的，还是实验给出的证据：实验表明，我们的 X-Gaussian 比最先进的方法高 6.5 dB，同时享受不到 15% 的训练时间和超过 73 的推理速度。换句话说，这些设计并不只是概念上更完整，而是实实在在改变了最终结果。</p>
+    <p>当然，它离真正成熟的方案还有距离：在 处实现最佳性能、最便宜的内存成本和最快的推理速度。后续更值得继续推进的方向，是 后续更值得继续推进的方向，是同时提升效率、泛化能力以及在更复杂场景下的稳定性。</p>
     
-    <ul></ul>
-  
-<p>以下相关论文可作为延伸阅读：。未来可以从数据覆盖、训练效率与跨场景泛化三个方向继续改进，以提升稳定性与可部署性。</p>
-</article>
+  </article>
 </div>
 
   </div>

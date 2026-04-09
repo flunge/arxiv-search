@@ -1,4 +1,3 @@
-<!-- source-grounding: arxiv_id=2602.20685v2; pdf=2602_20685v2_RAYNOVA Scale-Temporal Autoregressive World Modeling in Ray Space.pdf; source_dir=C:\Users\XPENG_USER\Documents\docs\文献\feedforward\docs\.arxiv_source_cache\2602_20685v2\extracted; tex_files=9; sections=0; figures=0; equations=0 -->
 <!doctype html>
 <html lang="zh-CN">
 <head>
@@ -158,6 +157,7 @@
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
+<!-- source-grounding: arxiv_id=2602.20685v2; pdf=2602_20685v2_RAYNOVA Scale-Temporal Autoregressive World Modeling in Ray Space.pdf; source_dir=docs\.arxiv_source_cache\2602_20685v2\extracted; sections=5; figures=5; equations=8 -->
 
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
@@ -167,45 +167,70 @@
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      这篇文章围绕《RAYNOVA》展开，核心是给出可复现的方法设计、关键技术路径与实验结论，并明确其局限与改进方向。
+      与单独处理空间和时间相关性的现有方法不同，我们提出了一种采用双因果自回归框架的用于驾驶场景的几何对抗多视图世界模型；这使得能够开发基于变压器的无几何框架，具有最小的感应偏差，用于世界建模，在秒内获取不同的控制信号。
     </div>
 
     <h2 id='summary'>简单摘要</h2>
-
+    <p>空间本身和时间本身都注定会消失在纯粹的阴影中，只有两者的某种结合才能保留独立的现实。为了克服这些限制，我们追求一个通用框架，以最小的归纳偏差保留物理合理性。</p>
 <figure><img class='paper-fig' src='../assets/2602_20685v2/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：不受任何特定传感器设置的限制，允许在连续的 4D 世界空间中灵活生成视频</figcaption></figure>
-<figure><img class='paper-fig' src='../assets/2602_20685v2/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：该图对应《RAYNOVA》中的关键可视化结果，展示方法流程、核心模块交互关系以及主要实验观察。</figcaption></figure>
-
+    <p>空间本身和时间本身都注定会消失在纯粹的阴影中，只有两者的某种结合才能保留独立的现实。为了克服这些限制，我们追求一个通用框架，以最小的归纳偏差保留物理合理性。</p>
 
     <h2 id='innovation'>核心创新</h2>
-<p>核心创新在于将任务拆解为可解释的模块化链路，并引入结构化约束抑制噪声传播。这种设计使《RAYNOVA》在稳定性、可扩展性与可复现性之间取得更好的平衡。</p>
-<h2 id='technical'>技术细节</h2><p>技术细节上，方法先构建中间表示并完成关键变量对齐，再通过分阶段优化逐步收敛。结合后续公式可看到：目标函数负责约束误差最小化，附加条件用于保证几何或语义一致性，从而提高训练稳定性与推理可控性。这组公式用于定义模型中的变量关系和训练目标。建议先看左侧要预测的对象，再看右侧每一项如何约束优化方向。该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 p、X_1、V、X_K 等变量构成的约束和聚合方式。该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 p、K、V、T 等变量构成的约束和聚合方式。该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 p、K、V、T 等变量构成的约束和聚合方式。这组公式用于定义模型中的变量关系和训练目标。建议先看左侧要预测的对象，再看右侧每一项如何约束优化方向。该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 i、j、R、k_i 等变量构成的约束和聚合方式。该公式用于定义核心计算关系。阅读时先看左侧目标量，再看右侧由 R、R_m、R_d、d 等变量构成的约束和聚合方式。</p>
+    <p>第一，与单独处理空间和时间相关性的现有方法不同，我们提出了一种采用双因果自回归框架的用于驾驶场景的几何对抗多视图世界模型。</p>
+    <p>第二，我们进一步引入了一种循环训练范例，以减轻长视野视频生成中的分布漂移。</p>
+    <p>第三，在nuScenes上实现最先进的多视图视频生成结果，同时在不同的输入条件下提供更高的吞吐量和更强的可控性。</p>
 
-
-
-    
+    <h2 id='technical'>技术细节</h2>
+    <p>相反，我们根据过去帧的所有视图来调节当前时间步长的多视图图像生成。在每个变压器块中，视觉标记依次通过图像真实感的图像自注意力模块，用于时空一致性的全局自注意力模块。我们对输入条件应用图像式交叉注意模块，包括文本描述、3D 对象边界框和高清地图。</p>
+<figure><img class='paper-fig' src='../assets/2602_20685v2/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：由双休闲（规模和时间）块组成；局部尺度注意力和局部交叉注意力独立地作用于每个图像，而全局因果注意力作用于通过统一的光线级相对位置增强的多视图和多帧图像</figcaption></figure>
+<figure><img class='paper-fig' src='../assets/2602_20685v2/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：darkgreen绿色箭头表示因果依赖性，而黑暗表示自回归的拓扑顺序（从lightgreenlight到darkdarkgreendark）</figcaption></figure>
+    <h3>3.1 初步：下一尺度的预测</h3>
+    <p>与将图像的 2D 网格扁平化为 1D 标记的普通自回归模型不同，最近的一些工作从“下一个标记预测”策略转向“下一个尺度预测”策略。每个图像都被标记器量化为分辨率越来越高的多尺度标记图。5pt 其中是包含视觉标记的比例标记图。</p>
+    <h3>3.2 双因果自回归的公式化</h3>
+    <p>我们通过超越图像级“下一个尺度预测”的多视图视频制定世界建模建议。对于时间因果关系，每一帧的生成都是以历史信息为条件的。相反，我们根据过去帧的所有视图来调节当前时间步长的多视图图像生成。</p>
+    <h3>3.3 各向同性时空表示</h3>
+    <p>或者，我们提出了一种各向同性 4D 位置嵌入，通过将相对旋转位置嵌入扩展到所有多视图和多帧视觉标记共享的相机光线空间来增强空间。为此，我们引入相对嵌入，使用修改后的自注意力块来根据相机光线之间的相对位置来调节网络。其中 是时间步长的一维旋转位置嵌入， 是多头自注意力模块中的头部尺寸。</p>
+    <h3>3.4 双因果块架构设计</h3>
+    <p>在每个变压器块中，视觉标记依次通过图像真实感的图像自注意力模块，用于时空一致性的全局自注意力模块。每张图像均根据其前缀比例进行独立处理，无论帧和相机视图如何。我们对输入条件应用图像式交叉注意模块，包括文本描述、3D 对象边界框和高清地图。</p>
+    <h3>3.5 长期视频的循环训练</h3>
+    <p>从方法链路看，系统首先处理的是：考虑到 GPU 内存限制，我们的自回归模型训练仅限于几帧。</p>
+    <p>在训练和推理阶段，论文还额外考虑了：我们将潜在特征缓存在全局自注意力模块中，因为它是唯一跨帧操作的模块（第 1 节）。</p>
     <p>$$ p(X_1,X_2,\dots,X_K)=\prod_{k=1}^Kp(X_k|X_1,X_2,\dots,X_{k-1}) $$</p>
-    
+    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 p、dots、Kp、dots 如何共同构成这个结果。</p>
     <p>$$ p(X_1^{1:V},\dots,X_K^{1:V})=\prod_{k=1}^Kp(X_k^{1:V}|X_1^{1:V},\dots,X_{k-1}^{1:V}). $$</p>
-    
+    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 p、V、dots、V 如何共同构成这个结果。</p>
     <p>$$ p(X_{1:K}^{1:V,1:T})=\prod_{t=1}^Tp(X_{1:K}^{1:V,t}|X_{1:K}^{1:V,1:t-1}). $$</p>
-    
+    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 p、K、V、T 如何共同构成这个结果。</p>
     <p>$$ p\left(X_{1:K}^{1:V,1:T}\right)=\prod_{t=1}^T\prod_{k=1}^Kp\left(X_{k}^{1:V,t}|X_{1:k-1}^{1:V,1:t}\right). $$</p>
-    
+    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 p、left、K、V 如何共同构成这个结果。</p>
     <p>$$ \mathbf{p}^{v,t}_k=(\mathbf{m}_k^{v,t}\in\mathbb{R}^3,\mathbf{d}_k^{v,t}\in\mathbb{R}^3,t) $$</p>
-    
+    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 p、v、t、k 如何共同构成这个结果。</p>
     <p>$$ a_{i,j}=\left(\mathbf{R}_{k_i}^{v_i,t_i}\mathbf{q}_{k_i}^{v_i,t_i}\right)^T\left(\mathbf{R}_{k_j}^{v_j,t_j}\mathbf{k}_{k_j}^{v_j,t_j}\right)={\mathbf{q}_{k_i}^{v_i,t_i}}^T\mathbf{R}_{\Delta}^{i,j}\mathbf{k}_{k_j}^{v_j,t_j} $$</p>
-    
+    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 j、left、R、q 如何共同构成这个结果。</p>
     <p>$$ \mathbf{R}=\left[\begin{matrix} \mathbf{R_m} & 0 & 0\\ 0 & \mathbf{R_d} & 0\\ 0 & 0 & \text{RoPE}_{\frac{d}{4}}(t) \end{matrix}\right]\\ $$</p>
+    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 R、left、matrix、RoPE 如何共同构成这个结果。</p>
+
+    <h2 id='experiment'>实验结论</h2>
+    <p>实验主要验证：我们还通过使用 NDS 表示物体、使用 mIoU 表示地图的感知模型来评估对条件的保真度。结果上，评估中同时考虑基于视觉和多模态（结合地面实况点云）感知模型，综合评估语义真实感和几何真实感。</p>
+    <div class='card'><strong>源论文表 1（预览）</strong><div style='margin-top:6px;'>多视图视频生成性能。</div><div style='overflow-x:auto;margin-top:10px;'><table style='width:100%;border-collapse:collapse;font-size:12px;'><tr><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>2*Method</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Resolution</th><th colspan='3' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Metrics</th></tr><tr><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'></th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'></th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>FID</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>FVD</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Throughput</th></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>MagicDrive</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>224400</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>16.2</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>-</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>1.76</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>X-Drive</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>224400</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>16.0</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>-</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.83</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>DriveDreamer</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>256448</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>14.9</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>341</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.37</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>BEVWorld</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>-</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>19.0</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>154</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>-</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Panacea</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>256512</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>17.0</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>139</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.67</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>DrivingDiffusion</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>512512</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>15.8</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>332</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>-</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'></td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>384672</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>10.5</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>91</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>1.96</td></tr></table></div><div style='font-size:12px;color:#666;margin-top:8px;'>表格为 source 预览；复杂排版、部分行列或强调格式可能已做简化。</div></div>
+    <div class='card'><strong>源论文表 5（预览）</strong><div style='margin-top:6px;'>通过相机移位实现新颖的视图合成性能。</div><div style='overflow-x:auto;margin-top:10px;'><table style='width:100%;border-collapse:collapse;font-size:12px;'><tr><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Method</th><th colspan='2' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Shift 1m</th><th colspan='2' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Shift 2m</th><th colspan='2' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Shift 4m</th></tr><tr><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>(lr)2-3 (lr)4-5 (lr)6-7</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>FID</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>FVD</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>FID</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>FVD</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>FID</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>FVD</th></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>StreetGaussian</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>32.12</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>153.45</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>43.24</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>256.91</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>67.44</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>429.98</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>OmniRe</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>31.48</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>152.01</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>43.31</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>254.52</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>67.36</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>428.20</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>FreeVS</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>51.26</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>431.99</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>62.04</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>497.37</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>77.14</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>556.14</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'></td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>14.11</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>117.20</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>15.58</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>122.60</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>17.48</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>143.48</td></tr></table></div><div style='font-size:12px;color:#666;margin-top:8px;'>表格为 source 预览；复杂排版、部分行列或强调格式可能已做简化。</div></div>
+<figure><img class='paper-fig' src='../assets/2602_20685v2/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：历史上所有尺度的条件影响了动力学建模，而仅在相同尺度上的条件不足以保证时间连贯性</figcaption></figure>
+<figure><img class='paper-fig' src='../assets/2602_20685v2/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：大比例模型可以带来明显更好的视觉质量</figcaption></figure>
+    <h3>4.1 实验设置</h3>
+    <p>实验主要验证：可以扩展到具有不同相机配置、分辨率或帧速率的异构训练数据。结果上，我们结合了两个公共数据集（nuScenes 和 nuPlan），将其转换为统一的 ScenarioNet 格式。</p>
+    <h3>4.2 视频生成性能</h3>
+    <p>实验主要验证：我们将多视图生成性能与其他现有世界模型进行比较。结果上，还值得一提的是，我们的模型应用基于图像的 VAE 编码器-解码器来最小化与相机设置和自我运动相关的感应偏差。</p>
+    <h3>4.3 新颖的视图合成</h3>
+    <p>实验主要验证：我们接下来评估 nuScenes 验证集上新颖视图合成任务的性能。结果上，我们测量合成移位多视图视频和原始真实视频之间的 FID 和 FVD 指标。</p>
+    <h3>4.4 消融研究</h3>
+    <p>实验主要验证：如果我们想扩展到长视频自回归，时间因果关系是不可避免的。结果上，在数百次迭代内将 FVD 从 100 提高到 91。</p>
+
+    <h2 id='takeaway'>理解评价</h2>
+    <p>如果把这篇论文放回问题背景里看，它真正的价值在于：世界基础模型旨在通过物理上合理的行为来模拟现实世界的演变。这说明作者不是只补一个局部模块，而是在重新组织问题该怎样被解决。</p>
+    <p>最能支撑这个判断的，还是实验给出的证据：与单独处理空间和时间相关性的现有方法不同，我们提出了一种采用双因果自回归框架的用于驾驶场景的几何对抗多视图世界模型。换句话说，这些设计并不只是概念上更完整，而是实实在在改变了最终结果。</p>
+    <p>当然，它离真正成熟的方案还有距离：当前方案仍然受到计算资源、输入质量或场景复杂度的约束，离真正大规模稳定部署还有距离。后续更值得继续推进的方向，是 后续更值得继续推进的方向，是同时提升效率、泛化能力以及在更复杂场景下的稳定性。</p>
     
-<figure><img class='paper-fig' src='../assets/2602_20685v2/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：多视图视频生成的双因果关系。 darkgreen绿色箭头表示因果依赖性，而黑暗表示自回归的拓扑顺序（从lightgreenlight到darkdarkgreendark）</figcaption></figure>
-<figure><img class='paper-fig' src='../assets/2602_20685v2/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：尺度因果关系的消融研究。历史上所有尺度的条件影响了动力学建模，而仅在相同尺度上的条件不足以保证时间连贯性</figcaption></figure>
-<figure><img class='paper-fig' src='../assets/2602_20685v2/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：模型尺寸的消融研究。大比例模型可以带来明显更好的视觉质量</figcaption></figure>
-<h2 id='experiment'>实验结论</h2>
-<p>实验结果显示，该方法在主要指标上相对基线具有稳定增益，尤其在复杂或稀疏条件下更有优势。消融实验进一步证明各关键模块都对最终表现有独立贡献，联合使用时收益最大。</p>
-<h2 id='takeaway'>理解评价</h2>
-<p>从贡献看，本文把问题定义、方法实现和实验验证连接成闭环，结论更具可解释性与工程参考价值。从局限看，当前结果仍受数据覆盖与训练成本限制；后续可在更长时序、更复杂场景和更低成本训练上继续改进。以下相关论文可作为延伸阅读：。</p>
-<ul></ul>
-</article>
+  </article>
 </div>
 
   </div>

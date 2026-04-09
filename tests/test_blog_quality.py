@@ -23,6 +23,15 @@ _CRITICAL_ISSUE_KEYWORDS = [
     "MathJax 转义配置异常",
 ]
 
+RECENTLY_FIXED_FULL_CLEAN = [
+    "2410_08017v3",
+    "2506_09479v1",
+    "2603_25741v2",
+    "2503_02279v1",
+    "2506_14229v1",
+    "2603_22102v1",
+]
+
 
 def test_quality_sample_set_contains_ten_posts() -> None:
     assert len(QUALITY_SAMPLES) >= 10
@@ -108,6 +117,24 @@ def test_validator_flags_common_generation_regressions() -> None:
     assert any("公式解读重复度过高" in issue for issue in issues)
 
 
+def test_validator_flags_orphan_related_reading_sentence() -> None:
+    html_bad_related = """
+    <html><body><article>
+      <h2 id='summary'>简单摘要</h2><p>这是一个完整的中文段落，不会触发其他检查项。</p>
+      <h2 id='innovation'>核心创新</h2><p>创新内容完整描述。</p>
+      <h2 id='technical'>技术细节</h2><p>技术内容完整描述。</p>
+      <h2 id='experiment'>实验结论</h2><p>实验内容完整描述。</p>
+      <h2 id='takeaway'>理解评价</h2>
+      <p>这篇论文的局限很明确，未来可以继续改进和扩展方向。</p>
+      <p>以下相关论文可作为延伸阅读：</p>
+      <ul></ul>
+    </article></body></html>
+    """
+
+    issues = validate_post_html(html_bad_related)
+    assert any("延伸阅读列表为空" in issue for issue in issues)
+
+
 def test_validator_flags_mixed_language_summary_and_section() -> None:
     html_mixed = """
     <html><body><article>
@@ -123,6 +150,77 @@ def test_validator_flags_mixed_language_summary_and_section() -> None:
     issues = validate_post_html(html_mixed)
     assert any("一句话总结存在中英文混杂" in issue for issue in issues)
     assert any("技术细节存在中英文混杂" in issue for issue in issues)
+
+
+def test_validator_flags_shallow_one_liner_and_collapsed_innovation_list() -> None:
+    html_shallow = """
+    <html><body><article>
+      <div class='tip'><strong>一句话总结：</strong>GeoDrive 重点讨论：我们提出了一个新方法。</div>
+      <h2 id='summary'>简单摘要</h2><p>这是一个完整的中文段落，不会触发其他检查项。</p>
+      <h2 id='innovation'>核心创新</h2><p>创新点 1：提出新模型。创新点 2：加入新模块。创新点 3：效果更好。</p>
+      <h2 id='technical'>技术细节</h2><p>技术内容完整描述，说明模块如何工作以及为什么这样设计。</p>
+      <h2 id='experiment'>实验结论</h2><p>实验内容完整描述，比较对象、指标和结论都比较清楚。</p>
+      <h2 id='takeaway'>理解评价</h2><p>这篇论文存在明显局限，未来可以继续改进和扩展方向。</p>
+    </article></body></html>
+    """
+
+    issues = validate_post_html(html_shallow)
+    assert any("一句话总结过于笼统" in issue for issue in issues)
+    assert any("核心创新仍是单段罗列" in issue for issue in issues)
+
+
+def test_validator_flags_generic_equation_template_and_scaffold_takeaway() -> None:
+    html_bad_equations = """
+    <html><body><article>
+      <div class='tip'><strong>一句话总结：</strong>这是一个包含具体问题、方法和结果的完整一句话总结，不会触发其他规则。</div>
+      <h2 id='summary'>简单摘要</h2><p>摘要内容完整，足够长，并且是正常中文描述。</p>
+      <h2 id='innovation'>核心创新</h2><p>第一，提出了具体机制。第二，补充了训练约束。第三，在实验中验证有效。</p>
+      <h2 id='technical'>技术细节</h2>
+      <p>这里有一段完整的技术描述，用于避免其他检查项误报。</p>
+      <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 t、T、t、T 如何共同构成这个结果。</p>
+      <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 P、j、Mask、left 如何共同构成这个结果。</p>
+      <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 L、n、hat、N 如何共同构成这个结果。</p>
+      <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 overline、N、d、d 如何共同构成这个结果。</p>
+      <h2 id='experiment'>实验结论</h2><p>实验内容完整，比较对象、指标和结论都比较清楚。</p>
+      <h2 id='takeaway'>理解评价</h2><p>从论文贡献看，方法有效。主要局限在于 训练成本较高。未来可以重点改进 更好的泛化能力。</p>
+    </article></body></html>
+    """
+
+    issues = validate_post_html(html_bad_equations)
+    assert any("公式解读仍是变量罗列模板" in issue for issue in issues)
+    assert any("理解评价仍是脚手架式总结" in issue for issue in issues)
+
+
+def test_validator_flags_adjacent_duplicate_equation_explanations() -> None:
+    html_dup_equations = """
+    <html><body><article>
+      <div class='tip'><strong>一句话总结：</strong>这是一个包含具体问题、方法和结果的完整一句话总结，不会触发其他规则。</div>
+      <h2 id='summary'>简单摘要</h2><p>摘要内容完整，足够长，并且是正常中文描述。</p>
+      <h2 id='innovation'>核心创新</h2><p>第一，提出了具体机制。第二，补充了训练约束。第三，在实验中验证有效。</p>
+      <h2 id='technical'>技术细节</h2>
+      <p>这里有一段完整的技术描述，用于避免其他检查项误报。</p>
+      <p>$$ a = b $$</p>
+      <p>这条式子根据局部切向量的投影长度定义两个基础尺度，分别对应表面两个主方向上的宽度。这样可以先由几何关系给出一个稳定的初始尺度，再交给后面的网络做细化。</p>
+      <p>$$ c = d $$</p>
+      <p>这条式子根据局部切向量的投影长度定义两个基础尺度，分别对应表面两个主方向上的宽度。这样可以先由几何关系给出一个稳定的初始尺度，再交给后面的网络做细化。</p>
+      <p>$$ e = f $$</p>
+      <p>这条式子通过两条切向量的叉积来计算局部表面法线。它的作用是从邻域几何中恢复稳定的朝向信息，让 2DGS 的姿态真正贴合表面，而不是漂浮成离散点云。</p>
+      <p>$$ g = h $$</p>
+      <p>这条分段式在处理颜色与透明度的耦合关系：当透明度较低时直接使用颜色值，当透明度较高时再做归一化修正。作者这样设计，是为了让 forced alpha blending 下的颜色估计更稳定，减少颜色被错误放大或压暗。</p>
+      <h2 id='experiment'>实验结论</h2><p>实验内容完整，比较对象、指标和结论都比较清楚。</p>
+      <h2 id='takeaway'>理解评价</h2><p>这篇论文存在明显局限，未来可以继续改进和扩展方向。</p>
+    </article></body></html>
+    """
+
+    issues = validate_post_html(html_dup_equations)
+    assert any("相邻公式解读重复" in issue for issue in issues)
+
+
+@pytest.mark.parametrize("slug", RECENTLY_FIXED_FULL_CLEAN)
+def test_recently_fixed_sample_posts_now_pass_full_validator(slug: str) -> None:
+    post_path = REPO_ROOT / "site" / "posts" / f"{slug}.html"
+    issues = validate_post_file(post_path)
+    assert issues == [], f"{slug} still has quality issues: {issues}"
 
 
 def test_render_page_uses_escaped_mathjax_sequences() -> None:

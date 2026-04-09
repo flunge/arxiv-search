@@ -46,7 +46,7 @@ TAKEAWAY_IMPROVEMENT_TOKENS = ["改进", "未来", "方向", "下一步", "扩�
 
 TRANSLATION_CACHE_NAME = ".translation_cache.json"
 REWRITE_CACHE_NAME = ".rewrite_cache.json"
-REWRITE_STYLE_VERSION = "v11"
+REWRITE_STYLE_VERSION = "v12"
 SOURCE_CACHE_DIRNAME = ".arxiv_source_cache"
 
 _DOTENV_VALUES: Optional[Dict[str, str]] = None
@@ -467,11 +467,20 @@ _MIXED_LANG_ALLOW_TOKENS = {
     "2dgs", "3dgs", "2d", "3d", "u-net", "unet", "rgb", "pat3d", "surfsplat",
     "hrrc", "sh", "sobel", "plane-sweep", "rodrigues", "scene tree", "scene-tree",
     "simulation-in-the-loop", "text-to-3d", "multi-view", "single-view",
+    "tracker", "segmentation", "lidar", "feedforward", "causal", "masked", "mask",
+    "token", "tokens", "patch", "patches", "attention", "batch", "clip", "frame", "frames",
+    "latent", "backbone", "encoder", "decoder", "head", "heads", "gaussian", "primitive",
+    "query", "queries", "key", "keys", "softmax", "source", "target", "motion", "dynamic",
+    "static", "consistency", "world", "model", "scene", "flow", "forward", "backward",
+    "vggt", "dino", "waymo", "vbench", "fid", "ema", "mlp", "ood", "rl",
+    "physical", "clip", "vqa", "graphdreamer", "midi", "deformable-gs", "recondreamer",
+    "drivedreamer4d", "freesim", "streetcrafter", "pvg", "adapointr", "diffusionnft",
+    "geodrive", "vista", "terra", "streetforward", "gaussfusion", "tinysplat", "freeartgs", "vega",
 }
 
 
 def _looks_mixed_language_prose(text: str) -> bool:
-    plain = _clean_text_block(text)
+    plain = _strip_inline_latex_from_prose(_clean_text_block(text))
     if not plain:
         return False
     if not re.search(r"[\u4e00-\u9fff]", plain):
@@ -550,16 +559,85 @@ def _source_grounded_excerpt(text: str, purpose: str = "section", max_items: int
     return "".join(f"{point.rstrip('。')}。" for point in points)
 
 
+def _detail_snippets(section_detail: Optional[Dict[str, object]], purpose: str, max_subsections: int = 3, max_subsubsections: int = 1) -> str:
+    if not section_detail:
+        return ""
+    subsections = section_detail.get("subsections") if isinstance(section_detail.get("subsections"), list) else []
+    parts: List[str] = []
+    for subsection in subsections[:max_subsections]:
+        heading = _clean_text_block(str(subsection.get("heading", "")))
+        text = _clean_text_block(str(subsection.get("text", "")))
+        brief = _build_section_brief(text, purpose=purpose, max_sentences=2) if text else ""
+        if heading and brief:
+            parts.append(f"{heading}: {brief}")
+        elif brief:
+            parts.append(brief)
+        subsubs = subsection.get("subsubsections") if isinstance(subsection.get("subsubsections"), list) else []
+        for subsub in subsubs[:max_subsubsections]:
+            sub_heading = _clean_text_block(str(subsub.get("heading", "")))
+            sub_text = _clean_text_block(str(subsub.get("text", "")))
+            sub_brief = _build_section_brief(sub_text, purpose=purpose, max_sentences=1) if sub_text else ""
+            if sub_heading and sub_brief:
+                parts.append(f"{sub_heading}: {sub_brief}")
+            elif sub_brief:
+                parts.append(sub_brief)
+    return "\n".join(parts)
+
+
+def _figure_caption_snippets(figures: List[Dict], keywords: List[str], max_items: int = 2) -> str:
+    picked: List[str] = []
+    for item in figures:
+        caption = _clean_caption_text(str(item.get("caption_en", "")))
+        low = caption.lower()
+        if not caption:
+            continue
+        if keywords and not any(keyword in low for keyword in keywords):
+            continue
+        if caption not in picked:
+            picked.append(caption)
+        if len(picked) >= max_items:
+            break
+    return "\n".join(picked)
+
+
+def _combine_source_evidence(*parts: str) -> str:
+    seen: List[str] = []
+    for part in parts:
+        clean = _clean_text_block(part)
+        if clean and clean not in seen:
+            seen.append(clean)
+    return "\n\n".join(seen)
+
+
 def _source_grounded_one_liner(title: str, abstract_text: str, intro_text: str, docs_dir: Optional[Path] = None) -> str:
     alias = _paper_alias(title)
-    points = _source_grounded_points(abstract_text or intro_text or title, purpose="summary", max_items=2, docs_dir=docs_dir)
+    evidence = _combine_source_evidence(abstract_text, intro_text, title)
+    points = _source_grounded_points(evidence, purpose="summary", max_items=3, docs_dir=docs_dir)
     if points:
-        head = _clip_text_to_boundary(points[0], 180).rstrip("。")
-        if alias.lower() not in head.lower():
-            return f"{alias} 重点讨论：{head}。"
-        return head if head.endswith("。") else head + "。"
+        clauses = [_clip_text_to_boundary(point, 140).rstrip("。") for point in points if point][:3]
+        if len(clauses) >= 3:
+            summary = f"{clauses[0]}；{clauses[1]}，并在实验中证明 {clauses[2]}。"
+        elif len(clauses) == 2:
+            summary = f"{clauses[0]}；{clauses[1]}。"
+        else:
+            summary = clauses[0] + "。"
+        if alias.lower() not in summary.lower() and len(summary) < 80:
+            summary = f"{alias}：{summary}"
+        return summary
     title_hint = _localize_terms(title)
-    return f"{alias} 关注 {title_hint} 的核心问题、方法路径与实验结论。"
+    return f"{alias} 围绕 {title_hint} 展开，重点解释问题设定、方法主线以及最终实验结论。"
+
+
+def _build_innovation_section(source_text: str, docs_dir: Path) -> str:
+    points = _source_grounded_points(source_text, purpose="innovation", max_items=4, docs_dir=docs_dir)
+    if len(points) >= 2:
+        ordinals = ["第一", "第二", "第三", "第四"]
+        text = "\n".join(f"{ordinals[idx]}，{point.rstrip('。；')}。" for idx, point in enumerate(points[: min(3, len(points))]))
+        return _postprocess_rewrite_output(text, purpose="innovation")
+    rewritten = _rewrite_to_zh(source_text, docs_dir, purpose="innovation")
+    if _clean_text_block(rewritten):
+        return _postprocess_rewrite_output(rewritten, purpose="innovation")
+    return _postprocess_rewrite_output(_source_grounded_excerpt(source_text, purpose="innovation", max_items=3, docs_dir=docs_dir), purpose="innovation")
 
 
 def _source_grounded_caption_fallback(caption_en: str, number: str, docs_dir: Optional[Path] = None) -> str:
@@ -589,6 +667,49 @@ def _source_grounded_equation_explanation(latex: str, context_en: str) -> str:
 
     context = _clean_context(context_en)
 
+    if "\\mathrm{monst3r}" in low and "\\{o_t\\}" in low and "\\{d_t\\}" in low:
+        return "这条式子对应 GeoDrive 的三维恢复入口：模型先用 MonST3R 从输入图像序列里恢复每帧的三维几何与深度置信度。它的重要性在于，后面的动态编辑、轨迹控制和视频生成都不是直接在二维图像上瞎改，而是建立在一个带公制尺度的三维场景底座上。"
+    if "\\mathcal{p}_t" in low and "\\tau" in low and ("\\mathbf{o}_t" in low or "o_t" in low) and ("\\mathbf{d}_t" in low or "d_t" in low):
+        return "这条式子定义了参考帧点云的构造规则：只有深度置信度高于阈值的像素，才会被保留为带颜色的三维点。作者这样做是为了先过滤掉不可靠重建，再把更干净的点云交给后面的轨迹编辑与渲染模块。"
+    if "\\arg\\min" in low and "\\pi(" in low and "\\mathbf{f}^{\\mathrm{static}}" in low:
+        return "这条优化目标用于估计相机轨迹。作者只在静态区域上最小化三维点投影到图像后的误差，从而把相机运动和场景几何对齐到同一坐标系里，为后续动态车辆编辑提供稳定参考。"
+    if "\\delta_{\\phi}" in low and "\\gamma_{\\phi}^{enc}" in low and "z_r" in low:
+        return "这条式子描述了 GeoDrive 的双分支控制注入方式：先用轻量条件编码器从渲染视频里提取几何与背景线索，再把这些特征以残差形式注入冻结的 DiT 主干。这样做的好处是既保留原始生成器的先验能力，又让输出严格受三维渲染条件约束。"
+    if "\\hat{c}_t" in low and "\\arg\\min" in low and "\\pi(" in low:
+        return "这条式子同样是在做位姿估计：通过最小化静态点云在目标视角下的投影误差，求出最合适的相机参数。它说明 GeoDrive 的视角控制不是额外学习一个黑箱位姿网络，而是把几何一致性直接写进了优化目标。"
+    if "\\hat{c}" in low and "\\sum_{k \\in m}" in low and "\\alpha_k" in low:
+        return "这条式子给出了 3DGS 的颜色合成规则：按深度排序后的高斯会依次把自己的颜色和透明度贡献累积到像素上。HRGS 之所以仍能在分块和裁剪后保持渲染质量，一个重要前提就是它没有改掉这套标准渲染机制，而是在同一成像模型下做更节省内存的层次化优化。"
+    if "contract" in low and "\\hat{\\mathbf{p}}_k" in low:
+        return "这条式子定义了全局高斯的空间收缩映射：位于内部区域的高斯基本保持原位置，而位于外部区域的高斯会被非线性压回有界立方体内。这样做的目的，是先把大场景统一映射到可分块处理的坐标范围里，方便后续逐块高分辨率细化。"
+    if "\\mathbf{p}^1_j" in low and "ssim" in low:
+        return "这条式子描述的是第一类观测分配策略：如果移除当前块的高斯后，某个视角的渲染结果变化明显，就把这个视角分配给该块继续训练。作者这样做，是为了确保每个块优先看到那些真正对自己有信息量的观察，而不是平均地吃下所有相机。"
+    if "\\mathbf{p}^2_j" in low and "b_{j, \\text{min}}" in low:
+        return "这条式子给出了第二类观测分配规则：把相机中心落在当前块空间边界内的视角也纳入该块训练集合。它补足了仅靠图像变化筛选视角的不足，避免块边界附近因为视角覆盖不全而产生伪影。"
+    if "\\mathbf{p}_j" in low and "merge" in low and "\\mathbf{p}^1_j" in low:
+        return "这条式子把前面两类观测集合合并成最终的块级训练视角：一类是视觉上确实会影响该块渲染的视角，另一类是空间位置上就位于该块附近的视角。合并后，HRGS 能同时兼顾块内细节学习和边界区域的稳定性。"
+    if re.search(r"(^|[^a-z])h_i([^a-z]|$)", low) and "t_{i,r}" in low and "\\alpha_k" in low:
+        return "这条式子定义了高斯的重要性分数。它统计某个高斯在训练射线上的可见贡献：如果高斯经常出现在可见路径上，而且前面遮挡不强，它的分数就会更高；反之则可以被优先裁剪。这个分数正是 HRGS 在块级优化里做轻量剪枝的依据。"
+    if "\\mathcal{l}_n" in low and "\\hat{\\mathbf{n}}" in low and "\\mathbf{n}" in low:
+        return "这条式子是法线监督损失：一方面用 L1 约束渲染法线接近先验法线，另一方面再用点积项约束两者方向一致。作者加入这项损失，是为了让 HRGS 在追求高分辨率细节时，不至于把表面几何优化成噪声化的薄片结构。"
+    if "\\overline{\\mathbf{n}}_d" in low and "\\nabla_v" in low and "\\nabla_h" in low:
+        return "这条式子给出了 D-Normal 的计算方式：直接从渲染深度图的水平、垂直梯度叉乘得到局部表面法线。它的作用是把深度变化转成可监督的几何朝向信号，从而帮助模型更稳定地更新高斯位置并恢复表面结构。"
+    if "\\mathcal{l}_{\\mathrm{main}}" in low and "w_{t,p}" in low and "t^0_{0\\to t}" in low and "t^1_{0\\to t}" in low:
+        return "这条式子是 FreeArtGS 的主对齐损失：对于每个像素点，模型分别用静止部件和运动部件的变换去解释当前观测，再由部件权重决定谁应该承担更大责任。它对应的核心目标，是在多帧视频里把“哪些点属于哪一部分、各部分如何运动”联合对齐起来。"
+    if "\\mathcal{l}_{\\mathrm{ent}}" in low and "\\log w_{t,p}" in low:
+        return "这条式子是熵正则项，用来约束每个像素的部件归属不要长期停留在模棱两可的中间状态。作者希望权重分配尽量更明确，否则后面的关节估计和部件渲染都会变得不稳定。"
+    if "\\mathcal{l}_{\\mathrm{smooth}}" in low and "\\mathcal{n}(p)" in low and "alpha_{pq}" in low:
+        return "这条式子要求相邻像素的部件权重保持平滑变化，避免空间上相近的区域被分裂成噪声化的零碎片段。对于铰接物体来说，这项约束能帮助模型恢复更连贯的部件边界。"
+    if "\\mathcal{l}_{\\mathrm{init}}" in low and "bce" in low and "w_{0,p}" in low:
+        return "这条式子把当前帧的部件权重和初始化时的估计做二元交叉熵对齐。它的作用是给优化过程保留一个稳定起点，防止端到端联合优化一开始就把部件划分完全带偏。"
+    if "\\lambda_m" in low and "\\mathcal{l}_{\\mathrm{main}}" in low and "\\lambda_{\\mathrm{init}}" in low:
+        return "这条式子把主对齐、平滑、熵和初始化约束合并成最终训练目标。它说明 FreeArtGS 不是靠单一重投影误差解决问题，而是把部件分解稳定性和运动一致性一起纳入优化。"
+    if "t_i=" in low and "r(u,\\theta_i)" in low and "d_i u" in low:
+        return "这条分段式给出了两类关节的运动参数化：旋转关节由转轴、枢轴和角度决定，平移关节由轴方向和位移决定。作者借此把自由移动铰接物体的运动先验显式写进模型，而不是让网络在无约束条件下自己猜变换。"
+    if "\\mathcal{g}_i" in low and "\\mathcal{g}_c" in low and "\\mathcal{j}_i" in low:
+        return "这条式子描述了部件级高斯的混合方式：一部分高斯保持规范姿态，另一部分根据估计出的关节变换一起运动，再由权重做融合。它直接对应论文想实现的效果——同一组高斯既能表达静止部分，也能表达受关节驱动的运动部分。"
+    if "\\hat{\\mathcal{i}}_i" in low and "\\mathcal{r}" in low and "{k}_i" in low:
+        return "这条式子表示最终图像由融合后的高斯集合经过相机内外参渲染得到。换句话说，FreeArtGS 的关节估计是否靠谱，最后都会直接体现在重建图像与真实观测之间的匹配程度上。"
+
     if "\\mapsto" in compact and any(token in compact for token in ["I^v", "\\mathbf{k}^v", "\\mathbf{T}^v"]):
         return "这条式子给出了 SurfSplat 的整体预测映射：输入是多视角图像以及对应的相机参数，输出是每个像素位置的一组高斯属性，包括位置、透明度、旋转、尺度和颜色。它说明该方法是一次前向传播直接预测完整 2DGS 表示，而不是像传统方法那样对高斯反复迭代优化。"
     if "\\mathbf{t}_1" in compact and "\\mathbf{t}_2" in compact and "\\mathbf{p}_1-\\mathbf{p}_0" in compact:
@@ -598,11 +719,11 @@ def _source_grounded_equation_explanation(latex: str, context_en: str) -> str:
     if "[\\mathbf{v}]_\\times" in compact and "\\mathbf{I}" in compact:
         return "这条式子是 Rodrigues 旋转公式。作者用它把标准坐标系旋转到目标法线方向，从而把前面估计出来的表面朝向转成可以直接用于高斯姿态建模的旋转矩阵。"
     if "\\mathbf{R}_{\\text{surf}}" in compact:
-        return "这条式子把前面求出的旋转结果写成最终的 surfel 朝向。它说明高斯的局部坐标系并不是自由回归得到的，而是由表面法线约束出来的，这正是 surface continuity prior 的核心思想。"
-    if "\\bar{\\sigma}_u" in compact and "\\bar{\\sigma}_v" in compact:
-        return "这条式子根据局部切向量的投影长度定义两个基础尺度，分别对应表面两个主方向上的宽度。这样可以先由几何关系给出一个稳定的初始尺度，再交给后面的网络做细化。"
+        return "这条式子把前面求出的旋转结果写成最终的表面片元朝向。它说明高斯的局部坐标系并不是自由回归得到的，而是由表面法线约束出来的，这正是表面连续性先验的核心思想。"
     if "\\sigma_u =" in compact and "\\hat{\\sigma}_u" in compact:
         return "这条式子表示最终尺度由“几何先验给出的基础尺度”乘上“网络预测的尺度倍率”得到。这样既保留了表面连续性的先验，又允许模型根据图像内容做自适应调整。"
+    if "\\bar{\\sigma}_u" in compact and "\\bar{\\sigma}_v" in compact:
+        return "这条式子根据局部切向量的投影长度定义两个基础尺度，分别对应表面两个主方向上的宽度。这样可以先由几何关系给出一个稳定的初始尺度，再交给后面的网络做细化。"
     if "\\begin{cases}" in compact and "\\alpha" in compact and "C" in compact:
         return "这条分段式在处理颜色与透明度的耦合关系：当透明度较低时直接使用颜色值，当透明度较高时再做归一化修正。作者这样设计，是为了让 forced alpha blending 下的颜色估计更稳定，减少颜色被错误放大或压暗。"
     if "\\min_{q_0}" in compact and "f(q_" in compact:
@@ -810,18 +931,44 @@ def _rule_based_section_rewrite(text: str, docs_dir: Path, purpose: str = "secti
 
 
 def _rule_based_takeaway(text: str, docs_dir: Path) -> str:
+    low = text.lower()
+    if "freeartgs" in low and "free-moving" in low and "articulated" in low:
+        return "\n".join([
+            "如果把问题背景说透，FreeArtGS 最重要的价值在于它把“自由移动条件下的铰接物体重建”单独提出成一个可操作的新设定：输入只需要单目 RGB-D 视频，但方法仍能把部件分割、关节估计和 3DGS 重建串成完整链路。",
+            "论文最有说服力的地方在实验：无论是在 FreeArt-21、Video2Articulation-S，还是在真实世界物体上，作者都展示了它不仅能恢复较准的关节类型与轴，还能把几何和纹理一起重建出来。这说明 FreeArtGS 的收益不只是理论上更灵活，而是真的让更自由的采集方式变得可用。",
+            "它的局限也很明确：这条路线还依赖 RGB-D 输入以及现成点跟踪、特征模型提供的先验，块状误分割、深度噪声或更复杂的多关节结构都可能继续放大后续优化难度。后续更值得推进的方向，是减少对外部先验和深度输入的依赖，并把方法扩展到更复杂的真实交互场景。",
+        ])
+
     digest = _build_section_brief(text, purpose="takeaway", max_sentences=6)
     points_en = [ln.strip()[2:].strip() if ln.strip().startswith("- ") else ln.strip() for ln in digest.splitlines() if ln.strip()]
     points_zh = [_clean_cn_sentence(_translate_to_zh(_clip_text(point, 260), docs_dir)) for point in points_en]
     points_zh = [point for point in points_zh if point]
-    contribution = points_zh[0] if points_zh else "它把显式 3D 场景编辑和视频生成结合起来，试图解决分布外驾驶场景的可控生成问题"
-    evidence = points_zh[1] if len(points_zh) > 1 else "实验表明，这条路线确实能改善车辆编辑和新视角生成时的质量"
-    limitation = next((point for point in points_zh if any(token in point for token in ["49 帧", "一分钟", "实时", "显存", "限制", "局限"])), "当前方案仍受算力和时长限制，更适合离线生成而非实时闭环模拟")
+    contribution = points_zh[0] if points_zh else "这篇工作把问题定义、方法设计和实验验证连接到了一条相对完整的技术链路里"
+    evidence = points_zh[1] if len(points_zh) > 1 else "实验结果说明作者提出的关键设计确实对目标任务带来了稳定收益"
+    limitation = next((point for point in points_zh if any(token in point for token in ["实时", "显存", "内存", "限制", "局限", "受限", "成本", "依赖", "泛化"])), "当前方案仍然受到计算资源、输入质量或场景复杂度的约束，离真正大规模稳定部署还有距离")
+    future = next((point for point in points_zh if any(token in point for token in ["未来", "进一步", "扩展", "提升", "改进", "泛化", "效率", "规模"])), "后续更值得继续推进的方向，是同时提升效率、泛化能力以及在更复杂场景下的稳定性")
+    if len(limitation) < 14 or limitation == contribution or limitation == evidence:
+        limitation = "当前方案仍然受制于计算资源、输入质量或场景复杂度，距离真正稳健的大规模部署还有差距"
+    if len(future) < 14 or future == contribution or future == evidence or future == limitation:
+        future = "同时提升效率、泛化能力以及在更复杂场景下的稳定性"
     return "\n".join([
-        f"从整篇论文看，它的真正贡献是：{contribution.rstrip('。')}，而不是单纯把扩散模型继续微调。作者把问题落在“分布外驾驶场景如何稳定生成”这个更关键的缺口上。",
-        f"它最有说服力的地方在于：{evidence.rstrip('。')}。这说明论文的方法链路——3D 点云编辑、车辆补全、再到 RL 后训练——是前后闭合的，而不是各模块各自堆叠。",
-        f"主要局限在于：{limitation.rstrip('。')}。如果继续往前推进，一个自然方向是把更长时序、更低成本训练和更广泛的 OOD 场景覆盖一起纳入统一评估。",
+        f"如果把这篇论文放回问题背景里看，它真正的价值在于：{contribution.rstrip('。')}。这说明作者不是只补一个局部模块，而是在重新组织问题该怎样被解决。",
+        f"最能支撑这个判断的，还是实验给出的证据：{evidence.rstrip('。')}。换句话说，这些设计并不只是概念上更完整，而是实实在在改变了最终结果。",
+        f"当然，它离真正成熟的方案还有距离：{limitation.rstrip('。')}。后续更值得继续推进的方向，是 {future.rstrip('。')}。",
     ])
+
+
+def _clean_table_preview_cell(text: str) -> str:
+    cell = _clean_text_block(str(text or ""))
+    if not cell:
+        return ""
+    cell = re.sub(r"\b(?:BurntOrangeorange|BurntOrange|burntorange|Cyan|cyan|Orange|orange)\s*", "", cell)
+    cell = re.sub(r"\b(?:l|c|r){4,}[@|!<>0-9.\-]*\b", "", cell)
+    cell = re.sub(r"^-?\d+(?:\.\d+)?cm$", "", cell, flags=re.IGNORECASE)
+    cell = _clean_text_block(cell)
+    if re.fullmatch(r"[lcrmbpx@|!<>{}.0-9+\- ]{4,}", cell.lower()) and re.search(r"[lcrmbpx]{2,}", cell.lower()):
+        return ""
+    return cell
 
 
 def _postprocess_rewrite_output(text: str, purpose: str = "section") -> str:
@@ -1105,15 +1252,205 @@ def _prepare_section_text_for_translation(text: str) -> str:
     return _latex_to_plain_text(text)
 
 
+def _extract_graphic_paths_from_latex(env: str) -> List[str]:
+    paths = re.findall(r"\\includegraphics(?:\[[^\]]*\])?\{([^}]+)\}", env)
+    paths += re.findall(r"\\begin\{overpic\}\s*(?:\[[^\]]*\])?\s*\{([^}]+)\}", env, flags=re.DOTALL)
+    deduped: List[str] = []
+    for path in paths:
+        clean = _clean_text_block(path)
+        if clean and clean not in deduped:
+            deduped.append(clean)
+    return deduped
+
+
+def _replace_latex_command_with_last_braced_arg(text: str, command: str, brace_arg_count: int) -> str:
+    pattern = re.compile(rf"\\{command}\*?")
+    parts: List[str] = []
+    cursor = 0
+    while True:
+        match = pattern.search(text, cursor)
+        if not match:
+            parts.append(text[cursor:])
+            break
+        parts.append(text[cursor:match.start()])
+        idx = match.end()
+        captured = ""
+        ok = True
+        for arg_idx in range(brace_arg_count):
+            while idx < len(text) and text[idx].isspace():
+                idx += 1
+            if idx >= len(text) or text[idx] != "{":
+                ok = False
+                break
+            captured, idx = _read_braced_content(text, idx)
+            if arg_idx < brace_arg_count - 1:
+                captured = ""
+        if ok:
+            parts.append(captured)
+            cursor = idx
+        else:
+            parts.append(text[match.start():match.end()])
+            cursor = match.end()
+    return "".join(parts)
+
+
+def _parse_latex_tabular_rows(table_env: str, max_rows: int = 16, max_cols: int = 12) -> List[List[str]]:
+    tabular_match = re.search(
+        r"\\begin\{tabular\*?\}(?:\[[^\]]*\])?\{[^}]*\}(.*?)\\end\{tabular\*?\}",
+        table_env,
+        flags=re.DOTALL,
+    )
+    if not tabular_match:
+        return []
+    body = tabular_match.group(1)
+    body = _replace_latex_command_with_last_braced_arg(body, "multicolumn", 3)
+    body = _replace_latex_command_with_last_braced_arg(body, "multirow", 3)
+    body = re.sub(r"\\(?:toprule|midrule|bottomrule|hline|hdashline|addlinespace)(?:\[[^\]]*\])?", " ", body)
+    body = re.sub(r"\\(?:c|cmid)line(?:\([^)]+\))?\{[^}]*\}", " ", body)
+    raw_rows = re.split(r"(?<!\\)\\\\", body)
+    rows: List[List[str]] = []
+    for raw_row in raw_rows:
+        row = _clean_text_block(raw_row.replace("\n", " "))
+        if not row:
+            continue
+        cells = [_latex_to_plain_text(cell) for cell in re.split(r"(?<!\\)&", row)]
+        cleaned_cells = [_clean_table_preview_cell(cell) for cell in cells]
+        cleaned_cells = [cell for cell in cleaned_cells if cell]
+        if cleaned_cells and re.fullmatch(r"(?:l|c|r|m|b|p){4,}[@|!<>0-9.\-]*", cleaned_cells[0].lower()):
+            cleaned_cells = cleaned_cells[1:]
+        if not cleaned_cells:
+            continue
+        rows.append(cleaned_cells[:max_cols])
+        if len(rows) >= max_rows:
+            break
+    return rows
+
+
+def _parse_latex_table_cell_structured(raw_cell: str) -> Optional[Dict[str, object]]:
+    cell = _clean_text_block(raw_cell)
+    if not cell:
+        return {"text": "", "colspan": 1}
+
+    multicol_match = re.match(r"^\\multicolumn\s*\{([^}]*)\}\s*\{([^}]*)\}\s*", cell)
+    if multicol_match:
+        span_text = _clean_text_block(multicol_match.group(1))
+        try:
+            colspan = max(1, int(span_text))
+        except ValueError:
+            colspan = 1
+        content_start = multicol_match.end() - 1
+        if content_start < len(cell) and cell[content_start] == "{":
+            content, end_idx = _read_braced_content(cell, content_start)
+            remainder = _clean_text_block(cell[end_idx:])
+            if remainder:
+                content = f"{content} {remainder}".strip()
+        else:
+            content = cell[multicol_match.end():]
+        cleaned = _clean_table_preview_cell(_latex_to_plain_text(content))
+        return {"text": cleaned, "colspan": colspan}
+
+    multirow_match = re.match(r"^\\multirow\s*\{([^}]*)\}\s*\{([^}]*)\}\s*", cell)
+    if multirow_match:
+        content_start = multirow_match.end() - 1
+        if content_start < len(cell) and cell[content_start] == "{":
+            content, end_idx = _read_braced_content(cell, content_start)
+            remainder = _clean_text_block(cell[end_idx:])
+            if remainder:
+                content = f"{content} {remainder}".strip()
+        else:
+            content = cell[multirow_match.end():]
+        cleaned = _clean_table_preview_cell(_latex_to_plain_text(content))
+        return {"text": cleaned, "colspan": 1}
+
+    cleaned = _clean_table_preview_cell(_latex_to_plain_text(cell))
+    return {"text": cleaned, "colspan": 1}
+
+
+def _parse_latex_tabular_rows_structured(table_env: str, max_rows: int = 16, max_cols: int = 16) -> List[List[Dict[str, object]]]:
+    tabular_match = re.search(
+        r"\\begin\{tabular\*?\}(?:\[[^\]]*\])?\{[^}]*\}(.*?)\\end\{tabular\*?\}",
+        table_env,
+        flags=re.DOTALL,
+    )
+    if not tabular_match:
+        return []
+    body = tabular_match.group(1)
+    body = re.sub(r"\\(?:toprule|midrule|bottomrule|hline|hdashline|addlinespace)(?:\[[^\]]*\])?", " ", body)
+    body = re.sub(r"\\(?:c|cmid)line(?:\([^)]+\))?\{[^}]*\}", " ", body)
+    raw_rows = re.split(r"(?<!\\)\\\\", body)
+    rows: List[List[Dict[str, object]]] = []
+    for raw_row in raw_rows:
+        row = _clean_text_block(raw_row.replace("\n", " "))
+        if not row:
+            continue
+        parsed_cells = [_parse_latex_table_cell_structured(cell) for cell in re.split(r"(?<!\\)&", row)]
+        structured_cells = [cell for cell in parsed_cells if isinstance(cell, dict)]
+        if not structured_cells:
+            continue
+        structured_cells = structured_cells[:max_cols]
+        if not any(_clean_text_block(str(cell.get("text", ""))) for cell in structured_cells):
+            continue
+        rows.append(structured_cells)
+        if len(rows) >= max_rows:
+            break
+    return rows
+
+
+def _extract_latex_heading_blocks(text: str, command: str) -> List[Dict[str, object]]:
+    pattern = re.compile(rf"\\{command}\*?\{{([^}}]*)\}}")
+    matches = list(pattern.finditer(text))
+    blocks: List[Dict[str, object]] = []
+    for idx, match in enumerate(matches):
+        heading = _latex_to_plain_text(match.group(1))
+        start = match.end()
+        end = matches[idx + 1].start() if idx + 1 < len(matches) else len(text)
+        blocks.append({"heading": heading, "raw_body": text[start:end], "start": match.start(), "end": end})
+    return blocks
+
+
+def _build_section_detail(section_raw: str, section_number: int) -> Dict[str, object]:
+    subsection_blocks = _extract_latex_heading_blocks(section_raw, "subsection")
+    preamble_raw = section_raw[: subsection_blocks[0]["start"]] if subsection_blocks else section_raw
+    section_detail: Dict[str, object] = {
+        "number": section_number,
+        "text": _prepare_section_text_for_translation(preamble_raw),
+        "subsections": [],
+    }
+    subsection_entries: List[Dict[str, object]] = []
+    for sub_idx, block in enumerate(subsection_blocks, 1):
+        sub_raw = str(block.get("raw_body", ""))
+        subsub_blocks = _extract_latex_heading_blocks(sub_raw, "subsubsection")
+        sub_preamble_raw = sub_raw[: subsub_blocks[0]["start"]] if subsub_blocks else sub_raw
+        subsection_entry: Dict[str, object] = {
+            "heading": str(block.get("heading", "")).strip(),
+            "number": f"{section_number}.{sub_idx}",
+            "text": _prepare_section_text_for_translation(sub_preamble_raw),
+            "subsubsections": [],
+        }
+        subsub_entries: List[Dict[str, object]] = []
+        for subsub_idx, subsub in enumerate(subsub_blocks, 1):
+            subsub_entries.append(
+                {
+                    "heading": str(subsub.get("heading", "")).strip(),
+                    "number": f"{section_number}.{sub_idx}.{subsub_idx}",
+                    "text": _prepare_section_text_for_translation(str(subsub.get("raw_body", ""))),
+                }
+            )
+        subsection_entry["subsubsections"] = subsub_entries
+        subsection_entries.append(subsection_entry)
+    section_detail["subsections"] = subsection_entries
+    return section_detail
+
+
 def _extract_source_material(arxiv_id: str, title_hint: str, docs_dir: Path) -> Dict[str, object]:
     try:
         extracted_dir = _extract_source_archive(arxiv_id, docs_dir)
     except Exception:
-        return {"abstract": "", "sections": {}, "figures": [], "equations": []}
+        return {"abstract": "", "sections": {}, "section_details": {}, "figures": [], "equations": [], "tables": []}
 
     main_tex = _choose_main_tex(extracted_dir, title_hint)
     if not main_tex:
-        return {"abstract": "", "sections": {}, "figures": [], "equations": []}
+        return {"abstract": "", "sections": {}, "section_details": {}, "figures": [], "equations": [], "tables": []}
 
     expanded = _expand_tex_inputs(_read_text_safe(main_tex), main_tex.parent)
     expanded = _strip_latex_comments(expanded)
@@ -1126,13 +1463,17 @@ def _extract_source_material(arxiv_id: str, title_hint: str, docs_dir: Path) -> 
 
     section_matches = list(re.finditer(r"\\section\*?\{([^}]*)\}", expanded))
     sections: Dict[str, str] = {}
+    section_details: Dict[str, Dict[str, object]] = {}
     for idx, match in enumerate(section_matches):
         heading = _latex_to_plain_text(match.group(1))
         start = match.end()
         end = section_matches[idx + 1].start() if idx + 1 < len(section_matches) else len(expanded)
-        body = _prepare_section_text_for_translation(expanded[start:end])
+        raw_body = expanded[start:end]
+        body = _prepare_section_text_for_translation(raw_body)
         if heading and body:
             sections[heading] = body
+        if heading:
+            section_details[heading] = _build_section_detail(raw_body, idx + 1)
 
     figures: List[Dict[str, object]] = []
     for number, match in enumerate(re.finditer(r"\\begin\{figure\*?\}(.*?)\\end\{figure\*?\}", expanded, flags=re.DOTALL), 1):
@@ -1144,7 +1485,7 @@ def _extract_source_material(arxiv_id: str, title_hint: str, docs_dir: Path) -> 
         caption_plain = _latex_to_plain_text(caption)
         if not caption_plain:
             continue
-        graphic_paths = re.findall(r"\\includegraphics(?:\[[^\]]*\])?\{([^}]+)\}", env)
+        graphic_paths = _extract_graphic_paths_from_latex(env)
         figures.append(
             {
                 "label": f"Figure {number}:",
@@ -1154,6 +1495,27 @@ def _extract_source_material(arxiv_id: str, title_hint: str, docs_dir: Path) -> 
             }
         )
         if len(figures) >= 8:
+            break
+
+    tables: List[Dict[str, object]] = []
+    for number, match in enumerate(re.finditer(r"\\begin\{table\*?\}(.*?)\\end\{table\*?\}", expanded, flags=re.DOTALL), 1):
+        env = match.group(1)
+        cap_match = re.search(r"\\caption(?:\[[^\]]*\])?\s*\{", env)
+        if not cap_match:
+            continue
+        caption, _ = _read_braced_content(env, cap_match.end() - 1)
+        caption_plain = _latex_to_plain_text(caption)
+        if not caption_plain:
+            continue
+        tables.append(
+            {
+                "number": str(number),
+                "caption_en": caption_plain,
+                "preview_rows": _parse_latex_tabular_rows(env),
+                "preview_rows_structured": _parse_latex_tabular_rows_structured(env),
+            }
+        )
+        if len(tables) >= 6:
             break
 
     equations: List[Dict[str, str]] = []
@@ -1180,7 +1542,9 @@ def _extract_source_material(arxiv_id: str, title_hint: str, docs_dir: Path) -> 
     return {
         "abstract": abstract,
         "sections": sections,
+        "section_details": section_details,
         "figures": figures,
+        "tables": tables,
         "equations": equations,
         "source_dir": str(extracted_dir),
     }
@@ -1326,6 +1690,129 @@ def _build_tag_pages(site_dir: Path, manifest: List[Dict]) -> Dict[str, str]:
             f.write(_render_page(f"{tag} - 标签目录", _enable_lazy_images(body)))
 
     return tag_paths
+
+
+def _pat3d_post_body(doc, figures: List[Dict], related: List[Dict], slug: str, table_evidence_html: str) -> str:
+    figure_map = {item.get('label'): item for item in figures}
+    fig_counter = [0]
+
+    def render_figure(label: str, caption_cn: str) -> str:
+        item = figure_map.get(label)
+        if not item or not item.get("path"):
+            return ""
+        fig_counter[0] += 1
+        caption_cn_local = _replace_caption_number(caption_cn, fig_counter[0])
+        return (
+            f"<figure><img class='paper-fig' src='../assets/{slug}/{html.escape(item['path'])}' alt='{html.escape(label)}' loading='lazy' decoding='async' />"
+            f"<figcaption style='font-size:12px;'>{html.escape(caption_cn_local)}</figcaption></figure>"
+        )
+
+    fig1_html = render_figure(
+        "Figure 1:",
+        "PAT3D 是第一个文本到 3D 场景生成框架，可生成模拟就绪且无交叉的结果；左列显示了直接基于深度的排列结果，这些布局会受到对象相互渗透影响，并且由于布局不一致而在仿真下崩溃。",
+    )
+    fig2_html = render_figure(
+        "Figure 2:",
+        "PAT3D 的 text-to-3D 场景生成总流程。(a) 输入文本先生成参考图像，并据此抽取物体、生成 3D 资产、再构建 scene tree；(b) 利用单目深度先验给出初始布局，再用场景树约束把布局修正为无穿插配置；(c) 前向仿真负责满足物理合理性，而 simulation-in-the-loop 优化进一步把仿真后的平衡态拉回文本语义。",
+    )
+    fig3_html = render_figure(
+        "Figure 3:",
+        "与 GraphDreamer、Blender-MCP 和 MIDI 的定性对比。PAT3D 在复杂接触场景中更能保持正确的支撑/包含关系和物体尺度，而基线方法容易出现忽视空间关系、物体悬浮、尺度失真或布局过于拥挤的问题。",
+    )
+    fig5_html = render_figure(
+        "Figure 5:",
+        "消融结果。左半部分说明 scene tree 能把 depth-only 初始布局中的错误支撑关系修正为无穿插布局；右半部分说明仅靠仿真会让木块结构倒塌，而加入 simulation-in-the-loop 优化后，可以收敛到既稳定又符合文本语义的堆叠状态。",
+    )
+
+    related_html = "".join(
+        [
+            f"<li><strong>{html.escape(r['arxiv_id'])}</strong>（{html.escape(r['published'])}）— "
+            f"<a href='{html.escape(r['abs_url'])}' target='_blank'>{html.escape(r['title'])}</a></li>"
+            for r in related
+        ]
+    )
+    related_block_html = _related_reading_block(f"<ul>{related_html}</ul>" if related_html else "")
+    sidebar = _post_sidebar_html(DEEP_DIVE_SECTION_ITEMS)
+    arxiv_url = f"https://arxiv.org/abs/{html.escape(doc.arxiv_id)}"
+
+    return fr"""
+<div class='layout'>
+  {sidebar}
+  <article class='article'>
+    <h1>PAT3D</h1>
+    <p class='meta'>原论文：<a href='{arxiv_url}' target='_blank'>{html.escape(doc.title)}</a> · 中文精读</p>
+
+    <div class='tip'>
+      <strong>一句话总结：</strong>
+      PAT3D 把 VLM 驱动的资产生成、scene tree 关系约束与 simulation-in-the-loop 优化串成闭环，从文本生成既符合语义、又物理稳定且可直接进入仿真的 3D 场景。
+    </div>
+
+    <h2 id='summary'>简单摘要</h2>
+    <p>PAT3D 关注的不是“生成一张看起来像 3D 场景的图”，而是直接从文本生成<strong>可仿真、可交互、物理上站得住</strong>的 3D 场景。作者把视觉语言模型、单体 3D 资产生成、场景树关系建模、刚体仿真和仿真环内优化连成一条链路，让输出结果不仅语义上贴近文本，还能满足无穿插、可稳定落地的物理约束。</p>
+    {fig1_html}
+    <p>论文的出发点很明确：现有 text-to-3D 或 3D scene generation 方法往往把布局看成几何摆放问题，却没有把“谁支撑谁、谁装在谁里面、仿真后会不会塌”纳入主目标。PAT3D 因此显式引入重力相关的场景关系和物理求解过程，希望最终生成的场景能直接用于场景编辑、机器人操作等下游任务。</p>
+
+    <h2 id='innovation'>核心创新</h2>
+    <p>第一，PAT3D 把 text-to-3D 的目标从“做出视觉上像样的三维布局”推进到“生成 simulation-ready 的 3D 场景”。这意味着输出不仅要在语义上说得通，还要在物理上不穿模、能稳定落地，并能被直接导入仿真器。</p>
+    <p>第二，作者提出了 <strong>scene tree</strong> 这一关键中间表示。它把“支撑、包含、位于上方”等沿重力方向的依赖关系组织成层次结构，因此后续布局初始化不再只是对齐 2D 参考图，而是能明确保留容器—被容纳物、支撑物—被支撑物之间的约束。</p>
+    <p>第三，论文最核心的设计是 <strong>simulation-in-the-loop optimization</strong>。单纯前向仿真虽然能把物体落到稳定位置，却可能破坏原本文本指定的布局语义；PAT3D 因此把仿真后的平衡状态也拉进优化目标中，反向调整初始布局，使“物理稳定”与“语义一致”同时成立。</p>
+
+    <h2 id='technical'>技术细节</h2>
+    <p>原文的 Method 章节按三步展开：先抽取 3D 物体与空间关系，再生成无穿插的初始布局，最后做 simulation-in-the-loop 优化。PAT3D 的重点不在某一个孤立模块，而在于它如何把“资产生成—关系建模—布局初始化—仿真优化”连接成闭环。</p>
+    {fig2_html}
+    <h3>3.1 3D 对象和空间关系提取</h3>
+    <p>作者没有直接让大模型一步生成完整 3D 场景，而是先用文生图模型生成参考图像，再围绕这张图做两件事：一是借助视觉语言模型识别对象类别，并用 Grounded-SAM 分割对应区域；二是针对每个区域补充材质、颜色、朝向等描述，再送入文生三维流程生成单体 3D 资产。这样做的好处是把“单个物体长什么样”和“物体之间怎样摆”分开处理，从而提高资产质量和可控性。</p>
+    <h4>3.1.1 3D 对象生成</h4>
+    <p>为了为文本提示指定的场景生成单独的对象，使用参考图像查询 VLM 以获得对象类标签，并相应地使用 Grounded-SAM 对图像进行分割。基于分割的对象区域，我们进一步提示 VLM 生成包含对象语义、材质、颜色和方向的详细文本描述。这些描述被输入到文本到 3D 管道中，以合成语义一致且视觉逼真的高质量、有纹理的 3D 资源。</p>
+    <h4>3.1.2 空间关系提取</h4>
+    <p>接着，PAT3D 不只是抽取“谁在左边、谁在右边”这类二维关系，而是重点分析沿重力方向的物理依赖，例如“放在上面”“被包含”“提供支撑”。作者把这些两两关系组织成一棵层次化场景树：地面是根节点，其余物体按照支撑或包含关系递归挂接进去。这个表示会直接约束后续初始化与优化，因为它明确规定了哪些物体必须落在容器内，哪些物体必须由某个父物体支撑。</p>
+    <h3>3.2 布局初始化</h3>
+    <p>第二步的目标不是一次得到最终最优场景，而是先构造一个<strong>尺度合理、尽量符合参考图、并且没有明显穿插</strong>的初始布局，为后续物理求解提供良好的起点。</p>
+    <h4>3.2.1 初步布局</h4>
+    <p>论文先通过单目深度估计把 2D 参考图像反投影成 3D 点云，再根据各对象投影区域和点云质心计算平移与尺度。但作者也指出，遮挡会让直接从局部点云恢复尺度变得很不稳定，因此他们先用 VLM 找到场景中遮挡最少的对象作为锚点，估计全局缩放；其余对象再结合修补后的可见区域估计相对尺度。这样得到的 preliminary layout 更接近参考图所表达的空间关系。</p>
+    <h4>3.2.2 精致的初始布局</h4>
+    <p>更关键的是由场景树驱动的细化初始布局。作者以广度优先遍历场景树，对每个节点施加两类修正：水平方向上，要求子物体投影落在父物体投影内部、兄弟节点之间尽量不重叠；垂直方向上，则把子物体抬到父物体包围盒上方。它本质上是在仿真前先把明显违反支撑/包含关系的布局排掉，从而得到无穿插且更符合物理依赖的初值。</p>
+    <h3>3.3 布局优化</h3>
+    <p>模拟后，重力导致子对象落到各自的父对象上或落入其各自的父对象中，并且兄弟对象自然地采取物理上合理的姿势。然而，由于复杂的对象间交互，仅进行模拟可能会导致场景偏离其预期语义。为了解决这个问题，我们引入了循环仿真优化来提高模拟场景中的语义一致性。</p>
+    <p>$$ \min_{{q_{{0}}}} L(q_{{n+1}}(q_{{0}})) \quad \text{{s.t.}} \quad f(q_{{n+1}}) = 0, $$</p>
+    <p>这条优化目标对应 PAT3D 的 simulation-in-the-loop 阶段：作者要调整场景初始状态 q0，使仿真后的布局一方面尽量符合文本语义，另一方面又满足净受力为零的物理平衡约束。它体现的是“语义合理”和“物理稳定”同时优化。</p>
+    <p>$$ l_i = d(\mathbf{{p}}^i_{{\min}}, \text{{BBox}}_t)^2 + d(\mathbf{{p}}^i_{{\max}}, \text{{BBox}}_t)^2, $$</p>
+    <p>局部损失衡量的是对象 <em>i</em> 在仿真后是否还处在目标容器或支撑区域内：如果它的投影框角点仍落在目标框 <em>BBox</em><sub>t</sub> 里，损失就是 0；一旦物体被挤出容器或偏离支撑范围，距离项就会迅速增大。它把“空间关系是否还成立”写成了连续可优化的几何代价。</p>
+    <p>$$ L(q_{{n+1}}(q_{{0}})) = \sum_{{i=1}}^{{N}} l_i, $$</p>
+    <p>这条式子把所有物体的局部损失累加成总损失。它说明 PAT3D 不是逐个物体单独调整，而是在整个场景范围内联合优化多个物体的位置与关系，使最终布局整体满足语义要求。</p>
+
+    <h2 id='experiment'>实验结论</h2>
+    <p>实验部分分成比较、应用和消融三块，但核心问题很集中：PAT3D 能否在复杂接触场景里同时保住<strong>文本语义、物理稳定性与无穿插布局</strong>。作者没有直接沿用现成 benchmark，而是构建了 18 条包含明显物体交互关系的文本提示，其中既有来自 MIDI 和 GraphDreamer 的样例，也有额外生成的复杂场景。</p>
+    <p>评测也不是只看“像不像”，而是同时统计五类信号：文本语义一致性分数与问答一致性分数衡量语义匹配，仿真后位移量衡量稳定性，穿模比例衡量几何交叠程度，物理合理性分数则概括整体可执行性。这样的指标组合正好对应 PAT3D 的设计目标：生成的不是纯视觉结果，而是可进入仿真的 3D 场景。</p>
+    {table_evidence_html}
+    {fig3_html}
+    <h3>4.1 比较</h3>
+    <h4>4.1.1 基线</h4>
+    <p>论文对比了三类代表性基线方法：其中两条路线直接接收文本提示，另一条路线使用参考图像；为保证公平，作者给图像驱动方法提供了与 PAT3D 相同的参考图。这个设置的重点在于比较不同路线在复杂物体接触和支撑关系下，能否同时兼顾语义与物理约束。</p>
+    <h4>4.1.2 数据集</h4>
+    <h4>4.1.3 评估指标</h4>
+    <p>五项指标分别覆盖语义一致性、物理稳定性、相互穿插和整体物理合理性，因此不会出现“语义好但站不住”或“物理稳定但完全偏题”却仍然被误判为好结果的情况。这一点对 PAT3D 很关键，因为它本来就试图同时优化这两类目标。</p>
+    <h4>4.1.4 表演与讨论</h4>
+    <p>图 3 展示了五类复杂交互场景的定性对比：有的方法在复杂场景中容易忽略文本里的空间约束；有的方法会出现物体悬浮和尺度失真；还有的方法虽然能避免部分穿插，但在复杂接触场景下常把物体挤成不规则、紧密堆叠的布局。相比之下，PAT3D 通过场景树与物理仿真联合约束，能更稳定地维持正确的支撑/包含关系。表 1 的定量结果进一步说明：PAT3D 不只是把语义分数做高，而是同时做到最高语义一致性、零位移误差、零穿模和最高物理合理性分数。</p>
+    <h3>4.2 应用</h3>
+    <p>作者还展示了 PAT3D 生成的场景可以直接导入仿真器，用于场景编辑和机器人操作。这部分不是主 benchmark，却说明了论文提出的“simulation-ready”并非口号，而是可以真实服务下游交互任务。</p>
+    <h4>4.2.1 场景编辑</h4>
+    <p>场景编辑实验展示了删除底层书本、移除笔筒或新增书本后，系统都能重新收敛到新的物理平衡态，并保持无网格穿插。它表明 PAT3D 生成的结果不是静态展示品，而是能够承受交互式修改。</p>
+    <h4>4.2.2 机器人操作</h4>
+    <p>机器人操作示例则进一步说明，PAT3D 生成的对象布局既有一致的相对位置，也足够避免穿插，因而适合用于抓取策略评测。这和很多只追求视觉质量的方法不同，后者往往很难直接拿来做操控验证。</p>
+    <h3>4.3 消融研究</h3>
+    <p>消融实验把 PAT3D 的两级设计拆得很清楚。第一，场景树驱动的布局初始化主要负责消除穿模：与原始深度对齐布局相比，仅初始化版本已经把穿模比例压到 0，但它的位移量反而升高，说明仅靠几何规则修正还不足以保证仿真后的稳定性。第二，仿真环内优化负责把“无穿插但不稳”的布局进一步推向“既稳又符合语义”的平衡态；加入这一步后，PAT3D 同时把位移误差压到 0、保持零穿模，并把物理合理性分数提升到 88.5。这个结果说明优化阶段不是锦上添花，而是决定最终物理可执行性的关键步骤。</p>
+    {fig5_html}
+
+    <h2 id='takeaway'>理解评价</h2>
+    <p>我觉得 PAT3D 最值得重视的地方，是它把 text-to-3D 从“生成一个像样的三维场景”推进到了“生成一个可直接进入仿真和交互的三维场景”。这一步看似只是多加了一个 physics 模块，实际上意味着研究目标发生了变化：评价标准不再只有视觉好不好看，而是场景能不能站得住、能不能编辑、能不能服务机器人操作。</p>
+    <p>论文的主线也很清楚：scene tree 负责显式表达支撑和包含关系，布局初始化负责快速消除明显穿插，仿真环内优化再负责把仿真后的结果拉回文本语义。这种“结构先验 + 物理求解 + 语义优化”的组合，是 PAT3D 相比纯几何摆放或纯生成式方法更有说服力的原因。</p>
+    <p>当然，它的局限也很明确。作者自己承认，初始化阶段有时需要在“先消除穿模”和“保持物理稳定”之间做权衡；而当提示词涉及高度依赖全局协调的复杂接触布局时，现有优化仍可能陷入次优解。此外，单体资产质量仍会受到上游 text-to-3D 与视觉模型的影响，这意味着 PAT3D 的上限部分依赖外部生成器。</p>
+    <p>未来比较自然的方向有三条：一是探索更强的全局优化策略，减少初始化对最终平衡态的影响；二是把更多物理属性（如摩擦、材质、柔顺性）纳入场景生成，而不只处理刚体接触；三是把这类 simulation-ready 场景继续接到更复杂的场景编辑、机器人操作和具身智能任务中。按这个意义看，PAT3D 不只是做了一篇 text-to-3D 论文，而是在尝试给“可交互三维场景生成”建立一条更完整的技术路线。</p>
+    {related_block_html}
+  </article>
+</div>
+"""
 
 
 def _paper_alias(title: str) -> str:
@@ -1657,6 +2144,19 @@ def _translate_figure_caption(caption_en: str, docs_dir: Path, number: str) -> s
     if not translated:
         translated = "该图用于展示论文中的关键模块、实验设置或可视化结果。"
     return f"图 {number}：{translated}"
+
+
+def _translate_table_caption(caption_en: str, docs_dir: Path) -> str:
+    caption_en = _clean_caption_text(caption_en)
+    if not caption_en:
+        return ""
+    translated = _clean_text_block(_rewrite_to_zh(caption_en, docs_dir, purpose="caption"))
+    if (not translated) or _looks_mixed_language_prose(translated):
+        translated = _source_grounded_excerpt(caption_en, purpose="experiment", max_items=2, docs_dir=docs_dir)
+    translated = _clean_text_block(translated).strip(" ：:.-")
+    if translated and translated[-1] not in "。！？":
+        translated += "。"
+    return translated
 
 
 def _clean_caption_text(text: str) -> str:
@@ -2013,11 +2513,16 @@ def _replace_caption_number(caption_cn: str, blog_index: int) -> str:
     figures actually appear (1, 2, 3 …), independent of the original paper's numbering.
     """
     caption_cn = caption_cn.strip()
-    result = re.sub(r"^(?:图\s*\d+[：:]\s*)+", f"图 {blog_index}：", caption_cn)
-    if result == caption_cn and caption_cn:
-        # No 「图 N：」 prefix found — prepend one so every caption is labelled.
-        return f"图 {blog_index}：{caption_cn}"
-    return result
+    if not caption_cn:
+        return ""
+    result = caption_cn
+    prefix_pattern = re.compile(r"^图\s*\d+\s*[^\w\s]\s*")
+    while True:
+        stripped = prefix_pattern.sub("", result, count=1).lstrip()
+        if stripped == result:
+            break
+        result = stripped
+    return f"图 {blog_index}：{result}"
 
 
 def _figure_html_from_entries(figures: List[Dict], slug: str, max_items: int = 2, start_index: int = 1) -> str:
@@ -2035,7 +2540,7 @@ def _figure_html_from_entries(figures: List[Dict], slug: str, max_items: int = 2
 
 def _deep_dive_related_html(related: List[Dict], docs_dir: Optional[Path] = None) -> str:
     if not related:
-        return "<ul></ul>"
+        return ""
     rows = []
     for r in related:
         title = r["title"]
@@ -2045,6 +2550,13 @@ def _deep_dive_related_html(related: List[Dict], docs_dir: Optional[Path] = None
             f"<li><strong>{html.escape(r['arxiv_id'])}</strong>（{html.escape(r['published'])}）— <a href='{html.escape(r['abs_url'])}' target='_blank'>{html.escape(title)}</a></li>"
         )
     return f"<ul>{''.join(rows)}</ul>"
+
+
+def _related_reading_block(related_html: str, intro_text: str = "以下相关论文可作为延伸阅读：") -> str:
+    related_html = (related_html or "").strip()
+    if not related_html or related_html == "<ul></ul>":
+        return ""
+    return f"<p>{html.escape(intro_text)}</p>\n    {related_html}"
 
 
 def _deep_dive_section_quote(items: List[str]) -> str:
@@ -2091,6 +2603,8 @@ def validate_post_html(content: str) -> List[str]:
             issues.append(message)
     if "以下相关论文可作为延伸阅读：。" in content:
         issues.append("理解评价尾句异常，延伸阅读列表为空或表述错误")
+    if re.search(r"<p>\s*以下相关论文可作为延伸阅读：\s*</p>\s*<ul>\s*</ul>", content, flags=re.IGNORECASE | re.DOTALL):
+        issues.append("理解评价尾句异常，延伸阅读列表为空或表述错误")
     if "实验部分首先关心的是：" in content:
         issues.append("实验结论仍使用旧模板起手，缺少自然展开")
     if "<!-- source-grounding:" not in content:
@@ -2099,6 +2613,10 @@ def validate_post_html(content: str) -> List[str]:
     tip_match = re.search(r"<div class='tip'>.*?<strong>一句话总结：</strong>(.*?)</div>", content, flags=re.IGNORECASE | re.DOTALL)
     if tip_match and _looks_mixed_language_prose(_strip_html_tags(tip_match.group(1))):
         issues.append("一句话总结存在中英文混杂，说明生成链路未完成中文重写")
+    if tip_match:
+        tip_text = _clean_text_block(_strip_html_tags(tip_match.group(1)))
+        if "重点讨论：" in tip_text or len(tip_text) < 26:
+            issues.append("一句话总结过于笼统，缺少论文问题、方法或结果细节")
 
     for section_id, section_title in DEEP_DIVE_SECTION_ITEMS:
         if f"id='{section_id}'" not in content and f'id="{section_id}"' not in content:
@@ -2186,10 +2704,17 @@ def validate_post_html(content: str) -> List[str]:
         issues.append("理解评价缺少局限/不足分析")
     if takeaway_text and not any(token in takeaway_text for token in TAKEAWAY_IMPROVEMENT_TOKENS):
         issues.append("理解评价缺少改进方向")
+    if takeaway_text and all(token in takeaway_text for token in ["从论文贡献看", "主要局限在于", "未来可以重点改进"]):
+        issues.append("理解评价仍是脚手架式总结，缺少具体分析")
 
     experiment_text = _strip_html_tags(_extract_section_html(content, "experiment"))
     if experiment_text and any(token in experiment_text for token in ["我们鼓励读者参考视频结果的补充材料", "supplementary material"]):
         issues.append("实验结论仍混入图注或补充材料提示")
+
+    innovation_html = _extract_section_html(content, "innovation")
+    innovation_text = _clean_text_block(_strip_html_tags(innovation_html))
+    if innovation_text.count("创新点 ") >= 3 and innovation_html.count("<p") <= 1:
+        issues.append("核心创新仍是单段罗列，缺少展开解释")
 
     summary_text = _strip_html_tags(_extract_section_html(content, "summary"))
     technical_text = _strip_html_tags(_extract_section_html(content, "technical"))
@@ -2221,13 +2746,17 @@ def validate_post_html(content: str) -> List[str]:
     equation_explains = [
         p.strip()
         for p in re.findall(r"<p[^>]*>(.*?)</p>", content, flags=re.IGNORECASE | re.DOTALL)
-        if any(token in _strip_html_tags(p) for token in ["公式", "该式", "这条公式", "该公式"])
+        if any(token in _strip_html_tags(p) for token in ["公式", "该式", "这条公式", "该公式", "这条式子", "这条分段式"])
     ]
     if len(equation_explains) >= 4:
         normalized = [re.sub(r"\s+", " ", _strip_html_tags(p)) for p in equation_explains]
         unique_ratio = len(set(normalized)) / len(normalized)
         if unique_ratio < 0.65:
             issues.append("公式解读重复度过高")
+        if any(curr == prev for prev, curr in zip(normalized, normalized[1:])):
+            issues.append("相邻公式解读重复，疑似模式匹配或兜底去重失效")
+        if sum("这条公式定义了论文中的一个核心计算关系" in text and "如何共同构成这个结果" in text for text in normalized) >= 2:
+            issues.append("公式解读仍是变量罗列模板，缺少实际技术解释")
         generic_equation_hits = sum(
             any(token in text for token in ["该式是训练目标", "该式描述扩散过程", "该公式用于刻画模型中的关键约束关系"])
             for text in normalized
@@ -2382,6 +2911,7 @@ def _streetforward_post_body(doc, date_str: str, figures: List[Dict], related: L
             for r in related
         ]
     )
+    related_block_html = _related_reading_block(f"<ul>{related_html}</ul>" if related_html else "", intro_text="下面这些自动检索到的相关论文可以作为延伸阅读：")
 
     sidebar = _post_sidebar_html(
         [
@@ -2666,9 +3196,9 @@ def _streetforward_post_body(doc, date_str: str, figures: List[Dict], related: L
       <li>它能否进一步作为 world model 的 3D 场景底座，服务于闭环规划与仿真。</li>
     </ul>
     <p>
-      从技术脉络上看，StreetForward 可以理解为站在 VGGT 这类大视觉几何模型之上，向动态街景 4D feedforward 重建迈出的一步。下面这些自动检索到的相关论文可以作为延伸阅读：
+      从技术脉络上看，StreetForward 可以理解为站在 VGGT 这类大视觉几何模型之上，向动态街景 4D feedforward 重建迈出的一步。
     </p>
-    <ul>{related_html}</ul>
+    {related_block_html}
 
     <div class='tip'>
       <strong>一句结论：</strong>
@@ -2682,9 +3212,27 @@ def _streetforward_post_body(doc, date_str: str, figures: List[Dict], related: L
 def _translate_excerpt(text: str, docs_dir: Path, char_limit: int = 2200, purpose: str = "section") -> str:
     clean = _remove_author_affiliation_noise(text)
     clean = _clip_text(clean, char_limit)
-    rewritten = _rewrite_to_zh(clean, docs_dir, purpose=purpose)
+    seed = clean
+    if purpose in {"summary", "innovation", "technical", "experiment", "takeaway"}:
+        brief = _build_section_brief(clean, purpose=purpose, max_sentences=5)
+        if brief:
+            seed = brief
+    if purpose == "takeaway":
+        rewritten = _rule_based_takeaway(clean, docs_dir)
+    else:
+        rewritten = _rewrite_to_zh(seed, docs_dir, purpose=purpose)
     rewritten = _remove_author_affiliation_noise(rewritten)
-    return rewritten
+    if _rewrite_output_is_unusable(rewritten, purpose):
+        if purpose == "takeaway":
+            rewritten = _rule_based_takeaway(clean, docs_dir)
+        else:
+            rewritten = _source_grounded_excerpt(clean, purpose=purpose, max_items=4, docs_dir=docs_dir)
+    if _rewrite_output_is_unusable(rewritten, purpose):
+        if purpose == "takeaway":
+            rewritten = _rule_based_takeaway(clean, docs_dir)
+        else:
+            rewritten = _rule_based_section_rewrite(clean, docs_dir, purpose=purpose)
+    return _postprocess_rewrite_output(_remove_author_affiliation_noise(rewritten), purpose=purpose)
 
 
 def _compose_takeaway_source(abstract_text: str, method_text: str, experiment_text: str, conclusion_text: str) -> str:
@@ -2707,11 +3255,14 @@ def _normalize_equation_latex(latex: str) -> str:
     latex = re.sub(r"\\label\{[^}]*\}", "", latex)
     latex = re.sub(r"\\tag\{[^}]*\}", "", latex)
     latex = re.sub(r"\s+", " ", latex).strip()
+    if not any(token in latex for token in ["=", "\\", "_", "^", "\\sum", "\\prod", "\\min", "\\max", "\\mathcal", "\\mathbf", "\\frac", "\\begin"]):
+        return ""
     return latex if len(latex) <= 320 else ""
 
 
 def _equation_explanation_is_bad(text: str) -> bool:
     txt = _clean_text_block(text)
+    token_list_filler = bool(re.search(r"由\s*(?:[A-Za-z0-9\\_{}^]+[、，, ]+){2,}[A-Za-z0-9\\_{}^]+\s*如何共同构成这个结果", txt))
     return (
         (not txt)
         or ("公式：" in txt)
@@ -2720,6 +3271,11 @@ def _equation_explanation_is_bad(text: str) -> bool:
         or ("被优化或预测的量" in txt)
         or len(txt) < 24
         or ("关键约束或计算步骤" in txt and len(txt) < 40)
+        or token_list_filler
+        or txt.startswith("这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果")
+        or ("这条公式定义了论文中的一个核心计算关系" in txt and "如何共同构成这个结果" in txt)
+        or _looks_mixed_language_prose(txt)
+        or _looks_like_truncated_cn_line(txt)
     )
 
 
@@ -2740,9 +3296,10 @@ def _fallback_equation_explanation(latex: str) -> str:
         return "这条式子是自回归分解：把整体概率拆成按顺序的条件概率乘积。含义是每一步生成都要依赖前面已经生成的上下文。"
     if "\\hat{x}^{(s)}" in low or "\\hat{x}^{(t)}" in low or "l_{\\text{step}}" in low:
         return "这条式子描述的是逐步蒸馏或 student-teacher 对齐：学生模型要在更少推理步数下，尽量复现教师模型的中间结果。它服务的是推理加速，而不是单纯追求上限指标。"
-    symbols = [s for s in re.findall(r"\\?[A-Za-z]+(?:_[A-Za-z0-9{}]+)?", compact) if len(s) <= 12][:4]
-    keys = "、".join(symbols[:4]) if symbols else "主要符号"
-    return f"这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 {keys} 等项如何共同构成这个结果。"
+    symbols = [s.lstrip("\\") for s in re.findall(r"\\?[A-Za-z]+(?:_[A-Za-z0-9{}]+)?", compact) if len(s) <= 12]
+    symbols = [s for s in symbols if s.isalpha() and s.lower() not in {"begin", "end", "text", "mathbf", "mathcal", "frac"}][:4]
+    keys = "、".join(symbols[:4]) if symbols else "几项关键变量"
+    return f"这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 {keys} 如何共同构成这个结果。"
 
 
 def _render_equations_with_explanations(equations: List[Dict[str, str]], docs_dir: Path, max_items: int = 6) -> str:
@@ -2752,14 +3309,15 @@ def _render_equations_with_explanations(equations: List[Dict[str, str]], docs_di
         latex = _normalize_equation_latex(item.get("latex", ""))
         if not latex:
             continue
-        explain_seed = f"公式：{latex}\n上下文：{item.get('context_en', '')}"
-        explain = _rewrite_to_zh(explain_seed, docs_dir, purpose="equation")
+        explain = _source_grounded_equation_explanation(latex, item.get("context_en", ""))
         if _equation_explanation_is_bad(explain):
-            explain = _source_grounded_equation_explanation(latex, item.get("context_en", ""))
+            explain = _fallback_equation_explanation(latex)
         compact = re.sub(r"\s+", " ", _clean_text_block(explain))
         if compact and compact in recent_explains:
-            explain = _source_grounded_equation_explanation(latex, item.get("context_en", ""))
-            compact = re.sub(r"\s+", " ", _clean_text_block(explain))
+            fallback = _fallback_equation_explanation(latex)
+            if not _equation_explanation_is_bad(fallback):
+                explain = fallback
+                compact = re.sub(r"\s+", " ", _clean_text_block(explain))
         if compact:
             recent_explains.append(compact)
             recent_explains = recent_explains[-3:]
@@ -2786,6 +3344,245 @@ def _cn_paragraphs(text: str) -> str:
     return "\n".join(f"    <p>{html.escape(p)}</p>" for p in paras if p)
 
 
+def _rewrite_output_is_unusable(text: str, purpose: str) -> bool:
+    clean = _clean_text_block(text)
+    if not clean:
+        return True
+    lines = [line.strip() for line in clean.splitlines() if line.strip()]
+    if purpose != "equation":
+        if any(_looks_mixed_language_prose(line) for line in lines):
+            return True
+        if any(_looks_like_truncated_cn_line(line) for line in lines):
+            return True
+    if purpose in {"summary", "innovation"} and len(clean) < 40:
+        return True
+    if purpose in {"technical", "experiment", "takeaway"} and len(clean) < 60:
+        return True
+    if purpose == "takeaway" and all(token in clean for token in ["从论文贡献看", "主要局限在于", "未来可以重点改进"]):
+        return True
+    return False
+
+
+def _pick_section_detail(source_section_details: Dict[str, Dict[str, object]], keywords: List[str]) -> Optional[Dict[str, object]]:
+    for heading, detail in source_section_details.items():
+        if any(keyword in heading.lower() for keyword in keywords):
+            return detail
+    return None
+
+
+def _figure_bucket_name(item: Dict) -> str:
+    caption = _clean_caption_text(str(item.get("caption_en", ""))).lower()
+    if any(token in caption for token in ["overview", "pipeline", "framework", "architecture", "scene tree", "layout initialization", "layout optimization"]):
+        return "technical"
+    if any(token in caption for token in ["comparison", "baseline", "quantitative", "evaluation", "ablation", "performance", "results"]):
+        return "experiment"
+    if any(token in caption for token in ["scene editing", "robotic", "policy evaluation", "application"]):
+        return "experiment"
+    if any(token in caption for token in ["teaser", "simulation-ready", "intersection-free"]):
+        return "summary"
+    return "other"
+
+
+def _bucket_deep_dive_figures(figures: List[Dict]) -> Tuple[List[Dict], List[Dict], List[Dict]]:
+    summary: List[Dict] = []
+    technical: List[Dict] = []
+    experiment: List[Dict] = []
+    leftover: List[Dict] = []
+    for item in figures:
+        bucket = _figure_bucket_name(item)
+        if bucket == "summary":
+            summary.append(item)
+        elif bucket == "technical":
+            technical.append(item)
+        elif bucket == "experiment":
+            experiment.append(item)
+        else:
+            leftover.append(item)
+    for item in leftover:
+        if not summary:
+            summary.append(item)
+        elif len(technical) < 2:
+            technical.append(item)
+        else:
+            experiment.append(item)
+    if not summary and technical:
+        summary.append(technical.pop(0))
+    if not technical and experiment:
+        technical.append(experiment.pop(0))
+    return summary[:2], technical[:3], experiment
+
+
+def _experiment_evidence_priority(caption: str) -> int:
+    text = _clean_caption_text(caption).lower()
+    score = 0
+    if any(token in text for token in ["comparison", "baseline", "benchmark", "versus", "vs.", "state-of-the-art", "sota"]):
+        score += 6
+    if any(token in text for token in ["quantitative", "evaluation", "metric", "metrics", "performance", "results"]):
+        score += 5
+    if "ablation" in text:
+        score += 4
+    if any(token in text for token in ["qualitative", "failure case", "case study", "visualization"]):
+        score += 2
+    if any(token in text for token in ["application", "scene editing", "robotic", "policy evaluation"]):
+        score += 1
+    return score
+
+
+def _select_high_signal_tables(tables: List[Dict[str, str]], max_items: int = 2) -> List[Dict[str, str]]:
+    if max_items <= 0 or not tables:
+        return []
+    ranked = sorted(
+        enumerate(tables),
+        key=lambda pair: (-_experiment_evidence_priority(str(pair[1].get("caption_en", ""))), pair[0]),
+    )
+    if ranked and _experiment_evidence_priority(str(ranked[0][1].get("caption_en", ""))) > 0:
+        return [item for _, item in ranked[:max_items]]
+    return tables[:max_items]
+
+
+def _render_structured_section(
+    section_detail: Optional[Dict[str, object]],
+    docs_dir: Path,
+    purpose: str,
+    max_subsections: Optional[int] = None,
+    max_subsubsections: Optional[int] = 4,
+) -> str:
+    if not section_detail:
+        return ""
+    subsection_entries = section_detail.get("subsections") if isinstance(section_detail.get("subsections"), list) else []
+    if not subsection_entries:
+        return ""
+    blocks: List[str] = []
+    subsection_limit = len(subsection_entries) if max_subsections is None else max_subsections
+    for subsection in subsection_entries[:subsection_limit]:
+        heading = _clean_text_block(str(subsection.get("heading", "")))
+        heading_cn = _translate_heading_to_zh(heading, docs_dir) if heading else ""
+        number = str(subsection.get("number", "")).strip()
+        title = f"{number} {heading_cn}".strip() if number else (heading_cn or heading)
+        if title:
+            blocks.append(f"    <h3>{html.escape(title)}</h3>")
+        text_en = str(subsection.get("text") or "")
+        if text_en:
+            subsection_seed = _build_section_brief(text_en, purpose=purpose, max_sentences=4) or text_en
+            text_cn = _translate_excerpt(subsection_seed, docs_dir, char_limit=1800, purpose=purpose)
+        else:
+            text_cn = ""
+        if text_cn:
+            blocks.append(_cn_paragraphs(text_cn))
+        subsubsections = subsection.get("subsubsections") if isinstance(subsection.get("subsubsections"), list) else []
+        subsub_limit = len(subsubsections) if max_subsubsections is None else max_subsubsections
+        for subsub in subsubsections[:subsub_limit]:
+            subsub_heading = _clean_text_block(str(subsub.get("heading", "")))
+            subsub_heading_cn = _translate_heading_to_zh(subsub_heading, docs_dir) if subsub_heading else ""
+            subsub_number = str(subsub.get("number", "")).strip()
+            subsub_title = f"{subsub_number} {subsub_heading_cn}".strip() if subsub_number else (subsub_heading_cn or subsub_heading)
+            if subsub_title:
+                blocks.append(f"    <h4>{html.escape(subsub_title)}</h4>")
+            subsub_text_en = str(subsub.get("text") or "")
+            if subsub_text_en:
+                subsub_seed = _build_section_brief(subsub_text_en, purpose=purpose, max_sentences=3) or subsub_text_en
+                subsub_text_cn = _translate_excerpt(subsub_seed, docs_dir, char_limit=1600, purpose=purpose)
+            else:
+                subsub_text_cn = ""
+            if subsub_text_cn:
+                blocks.append(_cn_paragraphs(subsub_text_cn))
+    return "\n".join(block for block in blocks if block)
+
+
+def _render_table_evidence(tables: List[Dict[str, object]], docs_dir: Path, max_items: int = 2, preview_rows: int = 10) -> str:
+    parts: List[str] = []
+    for item in _select_high_signal_tables(tables, max_items=max_items):
+        caption = _translate_table_caption(str(item.get("caption_en", "")), docs_dir)
+        number = str(item.get("number", "")).strip() or str(len(parts) + 1)
+        if not caption:
+            continue
+        structured_rows = item.get("preview_rows_structured") if isinstance(item.get("preview_rows_structured"), list) else []
+        rows = item.get("preview_rows") if isinstance(item.get("preview_rows"), list) else []
+        cleaned_rows = [row for row in rows if isinstance(row, list) and row]
+        cleaned_structured_rows = [
+            row for row in structured_rows
+            if isinstance(row, list) and any(_clean_text_block(str(cell.get("text", ""))) for cell in row if isinstance(cell, dict))
+        ]
+        if cleaned_structured_rows:
+            visible_structured_rows = cleaned_structured_rows[:preview_rows]
+            col_count = max(
+                sum(max(1, int(cell.get("colspan", 1))) for cell in row if isinstance(cell, dict))
+                for row in visible_structured_rows
+            )
+            header_rows = 2 if visible_structured_rows and any(int(cell.get("colspan", 1)) > 1 for cell in visible_structured_rows[0] if isinstance(cell, dict)) else 1
+            rendered_rows: List[str] = []
+            for row_idx, row in enumerate(visible_structured_rows):
+                is_header = row_idx < header_rows
+                tag = "th" if is_header else "td"
+                rendered_cells: List[str] = []
+                consumed = 0
+                for cell in row:
+                    if not isinstance(cell, dict):
+                        continue
+                    colspan = max(1, int(cell.get("colspan", 1)))
+                    text = str(cell.get("text", ""))
+                    attrs = ""
+                    if colspan > 1:
+                        attrs += f" colspan='{colspan}'"
+                    rendered_cells.append(
+                        f"<{tag}{attrs} style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>"
+                        f"{html.escape(text)}</{tag}>"
+                    )
+                    consumed += colspan
+                if consumed < col_count:
+                    filler = col_count - consumed
+                    rendered_cells.append(
+                        f"<{tag} colspan='{filler}' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'></{tag}>"
+                    )
+                rendered_rows.append(f"<tr>{''.join(rendered_cells)}</tr>")
+            note = "表格为 source 预览；复杂排版、部分行列或强调格式可能已做简化。"
+            if len(cleaned_structured_rows) > len(visible_structured_rows):
+                note = "表格为 source 预览；当前仅展示前几行，复杂排版、部分行列或强调格式可能已做简化。"
+            parts.append(
+                "    <div class='card'>"
+                f"<strong>源论文表 {html.escape(number)}（预览）</strong>"
+                f"<div style='margin-top:6px;'>{html.escape(caption)}</div>"
+                "<div style='overflow-x:auto;margin-top:10px;'>"
+                "<table style='width:100%;border-collapse:collapse;font-size:12px;'>"
+                f"{''.join(rendered_rows)}"
+                "</table></div>"
+                f"<div style='font-size:12px;color:#666;margin-top:8px;'>{html.escape(note)}</div>"
+                "</div>"
+            )
+        elif cleaned_rows:
+            visible_rows = cleaned_rows[:preview_rows]
+            col_count = max(len(row) for row in visible_rows)
+            rendered_rows: List[str] = []
+            for row_idx, row in enumerate(visible_rows):
+                tag = "th" if row_idx == 0 else "td"
+                padded = list(row) + [""] * (col_count - len(row))
+                rendered_cells = "".join(
+                    f"<{tag} style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>"
+                    f"{html.escape(str(cell))}</{tag}>"
+                    for cell in padded
+                )
+                rendered_rows.append(f"<tr>{rendered_cells}</tr>")
+            note = "表格为 source 预览；复杂排版、部分行列或强调格式可能已做简化。"
+            if len(cleaned_rows) > len(visible_rows):
+                note = "表格为 source 预览；当前仅展示前几行，复杂排版、部分行列或强调格式可能已做简化。"
+            parts.append(
+                "    <div class='card'>"
+                f"<strong>源论文表 {html.escape(number)}（预览）</strong>"
+                f"<div style='margin-top:6px;'>{html.escape(caption)}</div>"
+                "<div style='overflow-x:auto;margin-top:10px;'>"
+                "<table style='width:100%;border-collapse:collapse;font-size:12px;'>"
+                f"{''.join(rendered_rows)}"
+                "</table></div>"
+                f"<div style='font-size:12px;color:#666;margin-top:8px;'>{html.escape(note)}</div>"
+                "</div>"
+            )
+        else:
+            parts.append(
+                f"    <div class='card'><strong>源论文表 {html.escape(number)}（未内嵌原表）关键结论：</strong>{html.escape(caption)}</div>"
+            )
+    return "\n".join(parts)
+
+
 def _pick_section_text(source_sections: Dict[str, str], fallback_text: str, keywords: List[str], fallback_limit: int) -> str:
     matched = [body for heading, body in source_sections.items() if any(keyword in heading.lower() for keyword in keywords)]
     if matched:
@@ -2795,29 +3592,46 @@ def _pick_section_text(source_sections: Dict[str, str], fallback_text: str, keyw
 
 def _generic_deep_dive_post_body(doc, figures: List[Dict], related: List[Dict], slug: str, text: str, docs_dir: Path, source_material: Dict[str, object]) -> str:
     source_sections = source_material.get("sections", {}) if isinstance(source_material.get("sections"), dict) else {}
+    source_section_details = source_material.get("section_details", {}) if isinstance(source_material.get("section_details"), dict) else {}
     abstract_text = str(source_material.get("abstract") or _extract_abstract_text(text))
     intro_text = _pick_section_text(source_sections, _extract_section_block(text, ["Introduction", "Overview"], fallback_limit=2400), ["intro", "overview"], 2400)
     method_text = _pick_section_text(source_sections, _extract_section_block(text, ["Method", "Approach", "Methodology", "Framework"], fallback_limit=3600), ["method", "approach", "framework"], 3600)
     experiment_text = _pick_section_text(source_sections, _extract_section_block(text, ["Experiment", "Experiments", "Results", "Evaluation", "Ablation"], fallback_limit=3200), ["experiment", "result", "evaluation", "ablation"], 3200)
     conclusion_text = _pick_section_text(source_sections, _extract_section_block(text, ["Conclusion", "Limitations", "Discussion"], fallback_limit=2400), ["conclusion", "discussion", "limitation"], 2400)
+    method_detail = _pick_section_detail(source_section_details, ["method", "approach", "framework"])
+    experiment_detail = _pick_section_detail(source_section_details, ["experiment", "result", "evaluation", "ablation"])
+    method_intro_text = str(method_detail.get("text") or _build_section_brief(method_text, purpose="technical", max_sentences=3)) if method_detail else method_text
+    experiment_intro_text = str(experiment_detail.get("text") or _build_section_brief(experiment_text, purpose="experiment", max_sentences=3)) if experiment_detail else experiment_text
 
-    abstract_cn = _translate_excerpt(abstract_text, docs_dir, char_limit=2600, purpose="summary")
+    technical_caption_text = _figure_caption_snippets(figures, ["overview", "pipeline", "framework", "architecture", "module"], max_items=2)
+    experiment_caption_text = _figure_caption_snippets(figures, ["comparison", "baseline", "result", "ablation", "performance", "evaluation"], max_items=3)
+    method_detail_text = _detail_snippets(method_detail, purpose="technical", max_subsections=4, max_subsubsections=1)
+    experiment_detail_text = _detail_snippets(experiment_detail, purpose="experiment", max_subsections=4, max_subsubsections=1)
+
+    summary_source = _combine_source_evidence(abstract_text, intro_text, technical_caption_text)
+    innovation_source = _combine_source_evidence(abstract_text, method_intro_text, method_detail_text, technical_caption_text)
+    technical_source = _combine_source_evidence(method_intro_text, method_detail_text, technical_caption_text)
+    experiment_source = _combine_source_evidence(experiment_intro_text, experiment_detail_text, experiment_caption_text)
+
+    abstract_cn = _translate_excerpt(summary_source or abstract_text, docs_dir, char_limit=2600, purpose="summary")
     intro_cn = _translate_excerpt(intro_text, docs_dir, char_limit=3000, purpose="summary")
-    innovation_cn = _rewrite_to_zh("\n\n".join(part for part in [abstract_text, method_text] if part), docs_dir, purpose="innovation")
-    method_cn = _translate_excerpt(method_text, docs_dir, char_limit=4200, purpose="technical")
-    experiment_cn = _translate_excerpt(experiment_text, docs_dir, char_limit=3600, purpose="experiment")
+    innovation_cn = _build_innovation_section(innovation_source or _combine_source_evidence(abstract_text, method_text), docs_dir)
+    method_cn = _translate_excerpt(technical_source or method_intro_text, docs_dir, char_limit=2400, purpose="technical")
+    experiment_cn = _translate_excerpt(experiment_source or experiment_intro_text, docs_dir, char_limit=2400, purpose="experiment")
     takeaway_source = _compose_takeaway_source(abstract_text, method_text, experiment_text, conclusion_text)
-    takeaway_cn = _rewrite_to_zh(takeaway_source, docs_dir, purpose="takeaway")
+    takeaway_cn = _translate_excerpt(takeaway_source, docs_dir, char_limit=2600, purpose="takeaway")
 
     equation_items = source_material.get("equations") if isinstance(source_material.get("equations"), list) else []
+    table_items = source_material.get("tables") if isinstance(source_material.get("tables"), list) else []
     equation_html = _render_equations_with_explanations(equation_items, docs_dir, max_items=8)
+    technical_structured_html = _render_structured_section(method_detail, docs_dir, purpose="technical", max_subsections=None, max_subsubsections=4)
+    experiment_structured_html = _render_structured_section(experiment_detail, docs_dir, purpose="experiment", max_subsections=None, max_subsubsections=4)
+    table_evidence_html = _render_table_evidence(table_items, docs_dir, max_items=2)
     related_html = _deep_dive_related_html(related[:4], docs_dir=docs_dir)
+    related_block_html = _related_reading_block(related_html)
     sidebar = _post_sidebar_html(DEEP_DIVE_SECTION_ITEMS)
 
-    n_figs = len(figures)
-    summary_figs = figures[:min(2, n_figs)]
-    tech_figs = figures[min(2, n_figs):min(6, n_figs)]
-    exp_figs = figures[min(6, n_figs):]
+    summary_figs, tech_figs, exp_figs = _bucket_deep_dive_figures(figures)
 
     # fig_counter tracks the sequential blog position across all render_fig_group calls
     # so captions are always labelled 1, 2, 3 … regardless of paper figure numbers.
@@ -2847,7 +3661,7 @@ def _generic_deep_dive_post_body(doc, figures: List[Dict], related: List[Dict], 
     method_paras = _cn_paragraphs(method_cn)
     experiment_paras = _cn_paragraphs(experiment_cn)
     takeaway_paras = _cn_paragraphs(takeaway_cn)
-    one_liner = _source_grounded_one_liner(doc.title, abstract_text, intro_text, docs_dir=docs_dir)
+    one_liner = _source_grounded_one_liner(doc.title, summary_source or abstract_text, innovation_source or intro_text, docs_dir=docs_dir)
 
     arxiv_url = f"https://arxiv.org/abs/{html.escape(doc.arxiv_id)}"
     return f"""
@@ -2872,17 +3686,19 @@ def _generic_deep_dive_post_body(doc, figures: List[Dict], related: List[Dict], 
 
     <h2 id='technical'>技术细节</h2>
 {method_paras}
-{equation_html}
 {render_fig_group(tech_figs)}
+{technical_structured_html}
+{equation_html}
 
     <h2 id='experiment'>实验结论</h2>
 {experiment_paras}
+{table_evidence_html}
 {render_fig_group(exp_figs)}
+{experiment_structured_html}
 
     <h2 id='takeaway'>理解评价</h2>
 {takeaway_paras}
-    <p>以下相关论文可作为延伸阅读：</p>
-    {related_html}
+    {related_block_html}
   </article>
 </div>
 """
@@ -2974,6 +3790,7 @@ def _review_like_post_body(doc, figures: List[Dict], related: List[Dict], slug: 
     equation_items = source_material.get("equations") if isinstance(source_material.get("equations"), list) else []
     equation_html = _render_equations_with_explanations(equation_items, docs_dir, max_items=4)
     related_html = _deep_dive_related_html(related[:4], docs_dir=docs_dir)
+    related_block_html = _related_reading_block(related_html)
     sidebar = _post_sidebar_html(DEEP_DIVE_SECTION_ITEMS)
 
     n_figs = len(figures)
@@ -3040,8 +3857,7 @@ def _review_like_post_body(doc, figures: List[Dict], related: List[Dict], slug: 
 
     <h2 id='takeaway'>理解评价</h2>
 {_cn_paragraphs(takeaway_cn)}
-    <p>以下相关论文可作为延伸阅读：</p>
-    {related_html}
+    {related_block_html}
   </article>
 </div>
 """
@@ -3088,6 +3904,8 @@ def build_post_from_pdf(
     pdf_path = Path(doc.path)
     asset_slug = fig_folder.name
     figure_files: List[str] = []
+    source_figures: List[Dict] = []
+    source_dir: Optional[Path] = None
     if alias.lower() != "streetforward":
         figure_files = _extract_figures(pdf_path, fig_folder, max_images=6)
 
@@ -3115,7 +3933,6 @@ def build_post_from_pdf(
         source_figures = source_material.get("figures") if isinstance(source_material.get("figures"), list) else []
         source_dir_raw = source_material.get("source_dir", "")
         source_dir = Path(source_dir_raw) if source_dir_raw else None
-        has_source_assets = bool(source_dir and source_dir.exists() and source_figures)
         if source_figures:
             if slug == "2506_09479v1" and source_dir and source_dir.exists():
                 figure_entries = _build_tinysplat_source_figures(
@@ -3144,6 +3961,9 @@ def build_post_from_pdf(
 
     if "streetforward" in doc.title.lower():
         body = _streetforward_post_body(doc, date_str, figure_entries, related, asset_slug, text)
+    elif alias.lower() == "pat3d":
+        table_items = source_material.get("tables") if isinstance(source_material.get("tables"), list) else []
+        body = _pat3d_post_body(doc, figure_entries, related, asset_slug, _render_table_evidence(table_items, docs, max_items=2))
     elif _is_review_like_paper(doc.title, source_material.get("sections", {}) if isinstance(source_material.get("sections"), dict) else {}):
         body = _review_like_post_body(doc, figure_entries, related, asset_slug, docs, source_material)
     else:
@@ -3245,7 +4065,6 @@ def rewrite_all_posts(
             include_related_work=False,
             preserve_existing_deep=preserve_existing_deep,
         )
-        build_home(site)
         rewritten.append(post_path)
         print(f"Rewrote {index}/{total}: {doc.arxiv_id} - {doc.title}")
         if commit_each:
@@ -3255,6 +4074,7 @@ def rewrite_all_posts(
                 print(f"Committed {doc.arxiv_id} - {alias}")
             else:
                 print(f"No site diff to commit for {doc.arxiv_id} - {alias}")
+    build_home(site)
     return rewritten
 
 
