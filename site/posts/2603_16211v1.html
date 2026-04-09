@@ -167,18 +167,18 @@
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      在这项工作中，我们引入了 Leveling3D，这是一种新颖的管道，它将前馈 3D 重建与几何一致生成相结合，以实现整体同步重建和生成；我们提出了一种几何感知的调平适配器，这是一种轻量级技术，可将扩散模型中的内部知识与前馈模型中的先验几何结构对齐，并在实验中证明 虽然现有的工作提出了一些新颖的技术来解决 3DGS 的渲染伪影，但它们主要采用扩散模型作为 2D 渲染校正的后处理工具。
+      前馈 3D 重建彻底改变了 3D 视觉，为下游任务（例如使用 3D 高斯分布进行新颖视图合成）提供了强大的基线。之前的作品探索使用扩散模型修复损坏的渲染结果。
     </div>
 
     <h2 id='summary'>简单摘要</h2>
-    <p>之前的作品探索使用扩散模型修复损坏的渲染结果。在这项工作中，我们引入了 Leveling3D，这是一种新颖的管道，它将前馈 3D 重建与几何一致生成相结合，以实现整体同步重建和生成。</p>
-<figure><img class='paper-fig' src='../assets/2603_16211v1/fig_1.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：我们提出了 Leveling3D，这是一种用于稀疏输入的前馈 3DGS 外推视图细化的新方法；以前使用简单参考或文本提示作为扩散控制的 3DGS 细化方法在外推视图中的工件区域内的几何概括能力有限</figcaption></figure>
-    <p>具体来说，当渲染外推视图具有输入边界之外的大面积时，3DGS 的渲染结果会表现出严重的伪影，例如不完整的几何图形、纹理损坏、。虽然现有作品提出了一些新颖的技术来解决 3DGS 的渲染伪影，但它们主要采用扩散模型作为 2D 渲染校正的后处理工具。</p>
+    <p>之前的作品探索使用扩散模型修复损坏的渲染结果。我们提出了一种几何感知的调平适配器，这是一种轻量级技术，可以将扩散模型中的内部知识与前馈模型中的先验几何结构对齐。</p>
+<figure><img class='paper-fig' src='../assets/2603_16211v1/fig_1.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：以前使用简单参考或文本提示作为扩散控制的 3DGS 细化方法在外推视图中的工件区域内的几何概括能力有限</figcaption></figure>
+    <p>虽然现有作品提出了一些新颖的技术来解决 3DGS 的渲染伪影，但它们主要采用扩散模型作为 2D 渲染校正的后处理工具。</p>
 
     <h2 id='innovation'>核心创新</h2>
     <p>第一，前馈 3D 重建彻底改变了 3D 视觉，为下游任务（例如使用 3D 高斯分布进行新颖视图合成）提供了强大的基线。</p>
-    <p>第二，在这项工作中，我们引入了 Leveling3D，这是一种新颖的管道，它将前馈 3D 重建与几何一致生成相结合，以实现整体同步重建和生成。</p>
-    <p>第三，我们提出了一种几何感知的调平适配器，这是一种轻量级技术，可将扩散模型中的内部知识与前馈模型中的先验几何结构对齐。</p>
+    <p>第二，我们提出了一种几何感知的调平适配器，这是一种轻量级技术，可将扩散模型中的内部知识与前馈模型中的先验几何结构对齐。</p>
+    <p>第三，调平适配器能够在由 3D 表示的欠约束区域引起的外推新颖视图的伪像区域上生成。</p>
 
     <h2 id='technical'>技术细节</h2>
     <p>前馈 3D 重建已成为逐场景优化的强大替代方案，可在单次前向传递中实现可概括的新颖视图合成。这种设计将信息从自信的、重建良好的几何图形传播到带有伪影的外推区域。</p>
@@ -191,46 +191,43 @@
     <h3>3.3 培训和测试</h3>
     <p>然后，将选定的序列输入前馈重建基线以生成相应的 3DGS 表示。对于每个序列，我们在 的间隔内渲染了一组与真实情况配对的小说视图图像。对于每个小说视图渲染，我们获得一个透射率图。</p>
     <h3>3.4 通过生成优化 3D 重建</h3>
-    <p>Leveling3D 的关键见解是，生成增强视图可以作为细化输入，通过升级过程改进前馈 3DGS 重建。(i) 对于远离输入视图的新颖外推视图，渲染修复失败，其中几何先验变得不可靠。接下来，我们对稀疏输入之间和附近的一组外推姿势进行二次采样，以渲染一组粗略外推的 NVS 结果。</p>
+    <p>(i) 对于远离输入视图的新颖外推视图，渲染修复失败，其中几何先验变得不可靠。接下来，我们对稀疏输入之间和附近的一组外推姿势进行二次采样，以渲染一组粗略外推的 NVS 结果。然后，此反馈会细化几何形状和外观，从而产生更完整的 3DGS 表示。</p>
     <p>$$ f_{\boldsymbol{\theta}}:\{I_i\}_{i=1}^N \;\mapsto\; \Bigl\{ \boldsymbol{\mu}, \sigma, \boldsymbol{r}, \boldsymbol{s}, \boldsymbol{c} \Bigr\}^\mathcal{G} \cup \{p_i\}_{i=1}^N. $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 boldsymbol、theta、i、N 如何共同构成这个结果。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 boldsymbol、theta、i、N 等量如何共同决定这个结果在方法链路中的作用。</p>
     <p>$$ \mathcal{C}(x_p) = \sum_{i\in K} \mathbf{c}i \alpha_i \prod_{j=1}^{i-1}(1 - \alpha_j), \; \alpha_i=\sigma_i\mathcal{G}^\prime(x_p) $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 C、in、K、c 如何共同构成这个结果。</p>
+    <p>这条式子对应的方法环节是：equation Each Gaussian primitive includes center , scaling factor , rotation , opacity , and color。As in , given 相机 intrinsics and extrinsics, the 3DGS primitives are rasterized into per-pixel colors by:。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
     <p>$$ \mathbf{Z}_t = \sqrt{\bar{\alpha}_t} \mathbf{Z}_0 + \sqrt{1 - \bar{\alpha}_t} \boldsymbol{\epsilon}, \quad \boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I}) $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 Z、t、sqrt、bar 如何共同构成这个结果。</p>
+    <p>这条式子对应的方法环节是：ixel position , is the projected 2D Gaussian on image plane, is the number of Gaussians correspond to the pixel。\\ \\ Stable 扩散 with Adapter 控制。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
     <p>$$ \mathcal{L} = \mathbb{E}_{\mathbf{Z}_t,\mathbf{C}, t, \boldsymbol{\epsilon}} \left[ ||\boldsymbol{\epsilon} - \boldsymbol{\epsilon}_\theta(\mathbf{Z}_t, \mathbf{C})||_2^2 \right], $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 L、mathbb、E、Z 如何共同构成这个结果。</p>
+    <p>这条式子对应的方法环节是：he forward 扩散 process progressively adds noise over timesteps:。where defines the noise schedule。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
     <p>$$ \hat{\mathbf{F}}_{\text{enc}}^i = \mathbf{F}_{\text{enc}}^i + \mathbf{F}_c^i, \; \text{for } i \in {1,2,3,4}, \; \mathbf{F}_c = \mathcal{F}_{AD}(\mathbf{C}) $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 hat、F、enc、i 如何共同构成这个结果。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 hat、F、enc、i 等量如何共同决定这个结果在方法链路中的作用。</p>
     <p>$$ \begin{split} \mathbf{C}_{res} &= \text{Unpatch}\bigl( \text{Attention}(\mathbf{Q}, \mathbf{K}, \mathbf{V}) \bigr) \end{split} $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 split、C、res、Unpatch 如何共同构成这个结果。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 split、C、res、Unpatch 等量如何共同决定这个结果在方法链路中的作用。</p>
     <p>$$ \hat{\mathbf{F}}_{\text{enc}}^i = \mathbf{F}_{\text{enc}}^i + \hat{\mathbf{F}}_c^i, \; \text{for } i \in {1,2,3,4}, \; \hat{\mathbf{F}}_c = \mathcal{F}_{level}(\hat{\mathbf{C}}) $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 hat、F、enc、i 如何共同构成这个结果。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 hat、F、enc、i 等量如何共同决定这个结果在方法链路中的作用。</p>
     <p>$$ \mathcal{S}_{\text{p}} = \frac{1}{|\bar{M}|} \sum_{\mathbf{p} \in \bar{M}} \mathbf{1} \left[ \big| I_{\text{int}}(\mathbf{p}) - \mu \big| < \sigma \right], $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 S、p、bar、M 如何共同构成这个结果。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 S、p、bar、M 等量如何共同决定这个结果在方法链路中的作用。</p>
 
     <h2 id='experiment'>实验结论</h2>
-    <p>实验部分首先关心的是：如表所示，我们的方法实现了所有指标的所有 SOTA 结果，在 MipNeRF360 上优于 AnySplat 7.5% / 在 VRNeRF 上优于 AnySplat 15.5%，基于图像扩散的方法（Difix3D+ 和 GSFix3D）在 MipNeRF360 上优于 AnySplat 至少 6.8% / 在 VRNeRF 和视频扩散上优于 AnySplat 13.1%。</p>
-    <p>对比结果表明，此外，我们的方法在两个数据集上实现了最低的 Met3R 分数（TartanAir 上为 0.0614，ScanNet 上为 0.0376），这表明我们的方法在生成的视图中实现了卓越的多视图几何一致性。进一步结合定性现象和消融分析，可以看出：对于每个稀疏级别，我们评估从精炼的前馈 3DGS 渲染的所有外推视图的平均值的所有指标。</p>
+    <p>实验部分主要围绕 此外，我们的方法在两个数据集上获得了最低的 Met3R 分数（TartanAir 上为 0.0614，ScanNet 上为 0.0376） 展开。结果表明，对于每个稀疏级别，我们评估从精炼的前馈 3DGS 渲染的所有外推视图的平均值的所有指标。</p>
 
 <figure><img class='paper-fig' src='../assets/2603_16211v1/fig_4.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：该图展示了论文中的关键模块、实验设置或可视化效果</figcaption></figure>
 <figure><img class='paper-fig' src='../assets/2603_16211v1/fig_5.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：该图展示了论文中的关键模块、实验设置或可视化效果</figcaption></figure>
 <figure><img class='paper-fig' src='../assets/2603_16211v1/fig_6.png' alt='Figure 6:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 6：该图展示了论文中的关键模块、实验设置或可视化效果</figcaption></figure>
     <h3>4.1 设置</h3>
-    <p>实验部分首先关心的是：我们使用通用指标（例如 NVS 的 PSNR、SSIM 和 LPIPS）进行所有实验。</p>
-    <p>对比结果表明，我们根据最先进的基于扩散的增强管道评估我们的方法，分为图像扩散和视频扩散方法。进一步结合定性现象和消融分析，可以看出：对于前者，我们与 Difix3D+ 和 GSFix3D 进行比较；。</p>
+    <p>实验部分主要围绕 我们使用通用指标（例如 NVS 的 PSNR、SSIM 和 LPIPS）进行所有实验 展开。结果表明，我们根据最先进的基于扩散的增强管道评估我们的方法，分为图像扩散和视频扩散方法。</p>
     <h3>4.2 主要结果</h3>
-    <p>实验部分首先关心的是：我们在来自未见过的 MipNeRF360 和 VRNeRF 数据集子集的真实世界稀疏捕获上评估 Leveling3D。</p>
-    <p>对比结果表明，如表所示，我们的方法实现了所有指标的所有 SOTA 结果，在 MipNeRF360 上优于 AnySplat 7.5% / 在 VRNeRF 上优于 AnySplat 15.5%，基于图像扩散的方法（Difix3D+ 和 GSFix3D）在 MipNeRF360 上优于 AnySplat 至少 6.8% / 在 VRNeRF 和视频扩散上优于 AnySplat 13.1%。进一步结合定性现象和消融分析，可以看出：我们还评估了具有稀疏双视图输入设置的新颖视图深度估计。</p>
+    <p>实验部分主要围绕 我们还评估了具有稀疏两视图输入设置的新颖视图深度估计 展开。结果表明，此外，我们的方法在两个数据集上获得了最低的 Met3R 分数（TartanAir 上为 0.0614，ScanNet 上为 0.0376）。</p>
     <h3>4.3 不同稀疏度数的比较</h3>
-    <p>实验主要验证：对于每个稀疏级别，我们评估从精炼的前馈 3DGS 渲染的所有外推视图的平均值的所有指标。结果上，我们的方法证明了与基线相比所有稀疏性都有所改善。</p>
+    <p>实验部分主要围绕 对于每个稀疏级别，我们评估从精炼的前馈 3DGS 渲染的所有外推视图的平均值的所有指标 展开。结果表明，我们的方法证明了与基线相比所有稀疏性都有所改善。</p>
     <h3>4.4 消融研究</h3>
-    <p>实验主要验证：为了研究掩模细化模块的影响，我们在 ScanNet 上对闭运算和膨胀运算的内核大小进行了消融研究（和）。结果上，这是因为大内核会导致掩模侵占最初由前馈 3DGS 渲染的高保真区域。</p>
+    <p>实验部分主要围绕 为了研究掩模细化模块的影响，我们在 ScanNet 上对闭运算和膨胀运算的内核大小进行了消融研究（和） 展开。结果表明，这是因为大内核会导致掩模侵占最初由前馈 3DGS 渲染的高保真区域。</p>
 
     <h2 id='takeaway'>理解评价</h2>
     <p>如果把这篇论文放回问题背景里看，它真正的价值在于：之前的作品探索使用扩散模型修复损坏的渲染结果。这说明作者不是只补一个局部模块，而是在重新组织问题该怎样被解决。</p>
-    <p>最能支撑这个判断的，还是实验给出的证据：在这项工作中，我们引入了 Leveling3D，这是一种新颖的管道，它将前馈 3D 重建与几何一致生成相结合，以实现整体同步重建和生成。换句话说，这些设计并不只是概念上更完整，而是实实在在改变了最终结果。</p>
-    <p>当然，它离真正成熟的方案还有距离：当前方案仍然受到计算资源、输入质量或场景复杂度的约束，离真正大规模稳定部署还有距离。后续更值得继续推进的方向，是 与基线​​相比，我们的方法证明了所有稀疏度的改进。</p>
+    <p>最能支撑这个判断的，还是实验给出的证据：我们提出了一种几何感知的调平适配器，这是一种轻量级技术，可以将扩散模型中的内部知识与前馈模型中的先验几何结构对齐。换句话说，这些设计并不只是概念上更完整，而是实实在在改变了最终结果。</p>
+    <p>当然，它离真正成熟的方案还有距离：当前方案的主要局限在于它仍然受到计算资源、输入质量或场景复杂度的约束，离真正大规模稳定部署还有距离。后续更值得继续推进的方向，是 与基线​​相比，我们的方法证明了所有稀疏度的改进。</p>
     
   </article>
 </div>

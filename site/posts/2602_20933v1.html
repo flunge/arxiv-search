@@ -167,7 +167,7 @@
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      为了解决这些问题，我们提出了一种新颖的基于锚的 Dropout 策略；实验结果表明，该方法明显优于现有的 Dropout 方法，计算开销可以忽略不计，并且可以轻松集成到各种 3DGS 变体中以增强其性能，并在实验中证明 为了解决这些限制，我们提出了一种新颖的 Dropout 正则化策略，称为。
+      最近的 3D 高斯分布 (3DGS) Dropout 方法通过随机消除高斯不透明度来解决稀疏视图条件下的过度拟合问题。但是，我们在这些方法中确定了邻居补偿效应。
     </div>
 
     <h2 id='summary'>简单摘要</h2>
@@ -195,20 +195,20 @@
     <h3>3.5 损失函数</h3>
     <p>我们提出的策略可以无缝集成到现有 3DGS 框架的训练流程中，而无需修改其目标函数。我们采用标准损失，结合 L1 Norm 和 SSIM 损失来最小化渲染图像和真实图像之间的差异。其中 是控制 L1 和 SSIM 项相对贡献的平衡权重。</p>
     <p>$$ C = \sum_{i=1}^{N} c_i \alpha_i \prod_{j=1}^{i-1} (1 - \alpha_j). $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 C、N、i 如何共同构成这个结果。</p>
+    <p>这条式子对应的方法环节是：For efficient optimization, the covariance is typically factorized into a scaling vector and a rotation quaternion。Given a 相机 view defined by a view matrix , the 3D Gaussians are projected onto the 2D image plane。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
     <p>$$ m_i = \begin{cases} 0 & \text{if } G_i \in \mathcal{D} \\ 1 & \text{otherwise} \end{cases}. $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 cases、if、in、D 如何共同构成这个结果。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 cases、if、in、D 等量如何共同决定这个结果在方法链路中的作用。</p>
     <p>$$ \hat{\alpha}_i = \alpha_i \cdot m_i. $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 hat、alpha、i、cdot 如何共同构成这个结果。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 hat、alpha、i、cdot 等量如何共同决定这个结果在方法链路中的作用。</p>
     <p>$$ \mathbf{c} = [\mathbf{c}^{(0)}, \mathbf{c}^{(1)}, \dots, \mathbf{c}^{(L)}], $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 c、c、c、dots 如何共同构成这个结果。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 c、c、c、dots 等量如何共同决定这个结果在方法链路中的作用。</p>
     <p>$$ \tilde{\mathbf{c}} = [\mathbf{c}^{(0)}, \dots, \mathbf{c}^{(l_\text{max})}, \mathbf{0}, \dots, \mathbf{0}]. $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 tilde、c、c、dots 如何共同构成这个结果。</p>
+    <p>这条式子对应的方法环节是：mathbfc = [c^(0), c^(1), , c^(L)], equation where denotes the SH coefficients of degree , comprising values per RGB channel。During 训练, we randomly select a subset of Gaussians with probability and set a maximum retained degree , then discard all SH coefficients of degree higher than。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
     <p>$$ \mathcal{L} = \mathcal{L}_{\text{L1}}(\hat{C}, C_{gt}) + \lambda \mathcal{L}_{\text{SSIM}}(\hat{C}, C_{gt}), $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 L、L、L、hat 如何共同构成这个结果。</p>
+    <p>这条式子对应的方法环节是：de-offs between performance and efficiency。Loss Function Our proposed strategies can be seamlessly integrated into the 训练 pipeline of existing 3DGS frameworks without modifying their objective functions。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
 
     <h2 id='experiment'>实验结论</h2>
-    <p>实验主要验证：为了综合评估渲染质量，我们采用三个广泛使用的指标。结果上，完整模型达到了最好的性能，说明Drop Anchor和Drop SH是互补的，共同提升模型的整体性能。</p>
+    <p>实验部分主要围绕 为了综合评估渲染质量，我们采用三个广泛使用的指标 展开。结果表明，完整模型达到了最好的性能，说明Drop Anchor和Drop SH是互补的，共同提升模型的整体性能。</p>
     <div class='card'><strong>源论文表 1（未内嵌原表）关键结论：</strong>LLFF 数据集的定量比较（3、6 和 9 个视图）。</div>
     <div class='card'><strong>源论文表 2（未内嵌原表）关键结论：</strong>MipNeRF-360（12 个视图）和 Blender（8 个视图）数据集的定量比较；SHn表示推理时只保留前n次SH系数。</div>
 <figure><img class='paper-fig' src='../assets/2602_20933v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：在LLFF数据集上，(a)在全视图条件下，适度增加球谐度可以提高3DGS模型的性能；然而，(b) 在稀疏视图设置下，使用高次球谐函数会导致性能下降和模型大小显着增加</figcaption></figure>
@@ -216,26 +216,26 @@
 <figure><img class='paper-fig' src='../assets/2602_20933v1/figure6_full.png' alt='Figure 6:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 6：Blender（8 个视图）和 MipNeRF-360（12 个视图）数据集的定性比较</figcaption></figure>
 <figure><img class='paper-fig' src='../assets/2602_20933v1/figure7_full.png' alt='Figure 7:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 7：与 LLFF 数据集上不同 3DGS 变体的兼容性（3 个视图）；所提出的方法可以轻松集成到其他基于 3DGS 的方法中并提高其性能</figcaption></figure>
     <h3>4.1 实施细节</h3>
-    <p>实验主要验证：LLFF 和 MipNeRF-360 的两个真实数据集，以及 Blender 的一个合成数据集。结果上，为了综合评估渲染质量，我们采用三个广泛使用的指标。</p>
+    <p>实验部分主要围绕 LLFF 和 MipNeRF-360 的两个真实数据集，以及 Blender 的一个合成数据集 展开。结果表明，为了综合评估渲染质量，我们采用三个广泛使用的指标。</p>
     <h3>4.2 比较结果</h3>
-    <p>实验主要验证：如图和所示，我们提供了不同场景的定性比较，说明了我们方法的优越性。结果上，这会导致更完整和一致的新颖视图合成，如图所示，与基线相比，我们的方法保留了更多的结构细节。</p>
+    <p>实验部分主要围绕 如图和所示，我们提供了不同场景的定性比较，说明了我们方法的优越性 展开。结果表明，这会导致更完整和一致的新颖视图合成，如图所示，与基线相比，我们的方法保留了更多的结构细节。</p>
     <h3>4.3 模型尺寸的压缩</h3>
-    <p>实验主要验证：我们方法的一个独特之处是 SH 系数的 Dropout，它使得场景外观能够从低阶项到高阶项增量存储。结果上，在推理时，可以通过删除高次 SH 系数来截断训练后的模型。</p>
+    <p>实验部分主要围绕 我们方法的一个独特之处是 SH 系数的 Dropout，它使得场景外观能够从低阶项到高阶项增量存储 展开。结果表明，在推理时，可以通过删除高次 SH 系数来截断训练后的模型。</p>
     <h3>4.4 兼容性</h3>
-    <p>实验部分首先关心的是：提议的 Dropout 框架是轻量级和模块化的，可以轻松插入其他 3DGS 变体。</p>
+    <p>实验部分主要围绕 提议的 Dropout 框架是轻量级和模块化的，可以轻松插入其他 3DGS 变体 展开。</p>
     <p>对比结果表明，如表和图所示，将我们的框架应用于 FSGS 、 Cor-GS 、 DNGaussian 和 Scaffold-GS 显着提高了它们在稀疏视图条件下的性能。进一步结合定性现象和消融分析，可以看出：这表明我们的方法具有广泛的适用性，并且可以增强其他 3DGS 框架在视图稀缺场景中的鲁棒性。</p>
     <h3>4.5 培训效率</h3>
-    <p>实验主要验证：我们在同一 NVIDIA H100 GPU 上运行我们的方法和普通 3DGS 10,000 次迭代，以比较它们在不同数据集上的总训练时间。结果上，如表所示，我们的方法仅导致训练时间略有增加（与 3DGS 相比不到 2.8%）。</p>
+    <p>实验部分主要围绕 我们在同一 NVIDIA H100 GPU 上运行我们的方法和普通 3DGS 10,000 次迭代，以比较它们在不同数据集上的总训练时间 展开。结果表明，如表所示，我们的方法仅导致训练时间略有增加（与 3DGS 相比不到 2.8%）。</p>
     <h3>4.6 消融研究</h3>
-    <p>实验部分首先关心的是：我们在表中进行了消融研究，揭示了以下内容。</p>
+    <p>实验部分主要围绕 我们在表中进行了消融研究，揭示了以下内容 展开。</p>
     <p>对比结果表明，(1) 删除“Drop Anchor”策略会导致所有指标的性能显着下降，这证实了我们基于空间 Anchor 的 Dropout 在打破正则化局部冗余方面的有效性。进一步结合定性现象和消融分析，可以看出：完整模型达到最佳性能，表明Drop Anchor和Drop SH是互补的，共同提升模型的整体性能。</p>
     <h3>4.7 超参数敏感性分析</h3>
-    <p>实验主要验证：我们对三个关键超参数进行敏感性分析。结果上，对于每次分析，我们都会改变目标超参数，同时保持其他超参数固定，以评估其对模型性能的影响。</p>
+    <p>实验部分主要围绕 我们对三个关键超参数进行敏感性分析 展开。结果表明，对于每次分析，我们都会改变目标超参数，同时保持其他超参数固定，以评估其对模型性能的影响。</p>
 
     <h2 id='takeaway'>理解评价</h2>
     <p>如果把这篇论文放回问题背景里看，它真正的价值在于：为了解决这些问题，我们提出了一种新颖的基于锚的 Dropout 策略。这说明作者不是只补一个局部模块，而是在重新组织问题该怎样被解决。</p>
     <p>最能支撑这个判断的，还是实验给出的证据：实验结果表明，其性能大大优于现有的 Dropout 方法，计算开销可以忽略不计，并且可以轻松集成到各种 3DGS 变体中以增强其性能。换句话说，这些设计并不只是概念上更完整，而是实实在在改变了最终结果。</p>
-    <p>当然，它离真正成熟的方案还有距离：为此，我们提出了一种新颖的 Dropout 策略，该策略丢弃整个空间区域而不是孤立的高斯分布，并有效地破坏局部信息依赖性，迫使模型学习更强大的全局场景表示。后续更值得继续推进的方向，是 完整模型达到最佳性能，表明Drop Anchor和Drop SH是互补的，共同提升模型的整体性能。</p>
+    <p>当然，它离真正成熟的方案还有距离：当前方案的局限在于它仍然受制于计算资源、输入质量或场景复杂度，距离真正稳健的大规模部署还有差距。后续更值得继续推进的方向，是 完整模型达到最佳性能，表明Drop Anchor和Drop SH是互补的，共同提升模型的整体性能。</p>
     
   </article>
 </div>

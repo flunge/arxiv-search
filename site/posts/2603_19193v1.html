@@ -167,7 +167,7 @@
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      在本文中，我们声称明确的 3D 表示对于准确的 BEV 感知很重要，并且我们提出了 Splat2BEV，一种用于 BEV 任务的高斯 Splatting 辅助框架；在本文中，我们提出了 Splat2BEV，一种用于 BEV 感知的高斯 Splatting 辅助框架，并在实验中证明 itemize We propose Splat2BEV, a novel 高斯泼溅-assisted framework for BEV perception,。
+      鸟瞰（BEV）感知是自动驾驶的基石，提供统一的空间表示，融合周围视图图像，从而能够对各种下游任务进行推理。然而，大多数现有的 BEV 感知框架采用端到端训练范例，其中图像特征直接转换到 BEV 空间，并仅通过下游任务监督进行优化。
     </div>
 
     <h2 id='summary'>简单摘要</h2>
@@ -200,44 +200,44 @@
     <h3>3.6 联合微调</h3>
     <p>经过任务head-only训练后，Splat2BEV已经具备了进行BEV分割的能力，并取得了可观的性能，详细结果请参考tab:frozen。为了进一步协调几何、语义和特定于任务的表示，我们以端到端的方式联合微调高斯生成器、BEV 编码器和分割头。此阶段使 BEV 分割损失的梯度能够流回高斯生成器，从而使重建的 3D 场景和特征场适应任务级目标。</p>
     <p>$$ \mathbf{C}(p) = \sum_{i=1}^{N} T_i \, \sigma_i \, \mathbf{c}_i, \ \text{where} \ T_i = \prod_{j < i} (1 - \sigma_j). $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 C、p、N、c 如何共同构成这个结果。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 C、p、N、c 等量如何共同决定这个结果在方法链路中的作用。</p>
     <p>$$ \mathcal{L}_{\text{render}} = \frac{1}{k} \sum_{i=1}^{k} \| \widehat{\mathbf{C}}_i - \mathbf{C}_i^{\text{gt}} \|_2^2, $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 L、render、k、k 如何共同构成这个结果。</p>
+    <p>这条式子对应的方法环节是：ng the corresponding 相机 parameters to obtain the mean positions of the Gaussians。Subsequently, separate prediction heads are employed to estimate additional Gaussian attributes (, opacity, covariance and color)。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
     <p>$$ \widehat{\mathbf{C}}_i = \mathcal{R}\big(\mathbf{G}; \mathbf{P}_i\big). $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 widehat、C、i、R 如何共同构成这个结果。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 widehat、C、i、R 等量如何共同决定这个结果在方法链路中的作用。</p>
     <p>$$ \mathcal{L}_{\text{depth}}^{L1} = \frac{1}{k} \sum_{i=1}^{k} \| \widehat{\mathbf{D}}_i - \mathbf{D}_i^{\text{ref}} \|_1, $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 L、depth、L、k 如何共同构成这个结果。</p>
+    <p>这条式子对应的方法环节是：sist the 重建 process, we employ the depth foundation model Metric3Dv2 to generate reference metric depth for additional supervision。The predicted depth is computed by accumulating the 相机-space depth ( ) values of all projected Gaussians along the viewing ray。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
     <p>$$ \mathcal{L}_{\text{depth}}^{\text{SILog}} = \frac{1}{k} \sum_{i=1}^{k} \Bigg[ \frac{1}{n} \sum_{p} \delta_i(p)^2 - \frac{1}{n^2} \Big( \sum_{p} \delta_i(p) \Big)^2 \Bigg], $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 L、depth、SILog、k 如何共同构成这个结果。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 L、depth、SILog、k 等量如何共同决定这个结果在方法链路中的作用。</p>
     <p>$$ \delta_i(p) = \log \widehat{\mathbf{D}}_i(p) - \log \mathbf{D}_i^{\text{ref}}(p), $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 p、log、widehat、D 如何共同构成这个结果。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 p、log、widehat、D 等量如何共同决定这个结果在方法链路中的作用。</p>
     <p>$$ \begin{gathered} \mathcal{G}_\theta(\mathbf{I}) = \mathbf{G},\\[2pt] \text{where }\mathbf{G} = \{\, G_j \mid G_j = (\boldsymbol{\mu}_j, \boldsymbol{\Sigma}_j, \boldsymbol{\sigma}_j, \mathbf{SH}_j, \mathbf{f}_j) \,\}. \end{gathered} $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 gathered、G、theta、I 如何共同构成这个结果。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 gathered、G、theta、I 等量如何共同决定这个结果在方法链路中的作用。</p>
     <p>$$ \mathcal{L}_{\text{feat}} = \frac{1}{k} \sum_{i=1}^{k} \Big( 1 - \cos\big( \widehat{\mathbf{F}}_i, \, \mathbf{F}^{\text{DINO}}_i \big) \Big). $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 L、feat、k、k 如何共同构成这个结果。</p>
+    <p>这条式子对应的方法环节是：gathered equation The 渲染 of feature also follows eq:alpha by substituting color with feature vector。For feature supervision, we employ a cosine similarity loss between the rendered feature map and the dense feature map extracted from the frozen DINO encoder :。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
 
     <h2 id='experiment'>实验结论</h2>
-    <p>实验主要验证：与基线​​方法相比，Splat2BEV 实现了 8% 的改进。结果上，我们的结果表明，将虚拟 BEV 相机高度设置为 3 米可实现最佳权衡，有效捕获必要的地面几何形状，同时抑制不相关的高空结构。</p>
+    <p>实验部分主要围绕 与基线​​方法相比，Splat2BEV 实现了 8% 的改进 展开。结果表明，我们的结果表明，将虚拟 BEV 相机高度设置为 3 米可实现最佳权衡，有效捕获必要的地面几何形状，同时抑制不相关的高空结构。</p>
 
 <figure><img class='paper-fig' src='../assets/2603_19193v1/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：对有和没有显式重建所学到的特征进行视觉比较；BEV特征是指BEV编码器产生的特征图，而投影特征表示直接从3D表示投影的特征</figcaption></figure>
 <figure><img class='paper-fig' src='../assets/2603_19193v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：左侧显示 3D 重建、其特征场以及相应的 BEV 图和投影 BEV 特征；右侧提供放大视图，突出显示细粒度细节，例如视图 1 中的斑马线、视图 2 中的垃圾箱、视图 3 中的人以及视图 4 中的禁止停车线</figcaption></figure>
     <h3>4.1 数据集和评估指标</h3>
-    <p>实验主要验证：我们在 nuScenes 数据集和 argoverse1 数据集上评估 Splat2BEV。结果上，NuScenes是自动驾驶综合基准测试，包括在波士顿和新加坡在不同天气和光照条件下收集的1000个驾驶场景，其中700个场景用于训练。</p>
+    <p>实验部分主要围绕 NuScenes是自动驾驶综合基准测试，包括在波士顿和新加坡在不同天气和光照条件下收集的1000个驾驶场景，其中700个场景用于训练 展开。结果表明，Argoverse 1是在匹兹堡和迈阿密收集的另一个大规模自动驾驶数据集。</p>
     <h3>4.2 实施细节</h3>
-    <p>实验主要验证：在我们的实验中，多视图输入图像的大小被调整为 224 480 或 448 800 分辨率，具体取决于实验设置。结果上，除非另有说明，默认输入分辨率为 224 480。</p>
+    <p>实验部分主要围绕 在我们的实验中，多视图输入图像的大小被调整为 224 480 或 448 800 分辨率，具体取决于实验设置 展开。结果表明，除非另有说明，默认输入分辨率为 224 480。</p>
     <h3>4.3 定量比较</h3>
-    <p>实验主要验证：与基线​​方法相比，Splat2BEV 实现了 8% 的改进。结果上，Splat2BEV 比之前的方法提高了 21.4%。</p>
+    <p>实验部分主要围绕 与基线​​方法相比，Splat2BEV 实现了 8% 的改进 展开。结果表明，Splat2BEV 比之前的方法提高了 21.4%。</p>
     <h3>4.4 重建的定性结果</h3>
-    <p>实验主要验证：为了定性评估高斯生成器的重建质量，我们在 Fig:reconstruction 中可视化重建的场景。结果上，在左侧，我们显示了重建的 3D 场景及其相应的特征字段。</p>
+    <p>实验部分主要围绕 为了定性评估高斯生成器的重建质量，我们在 Fig:reconstruction 中可视化重建的场景 展开。结果表明，在左侧，我们显示了重建的 3D 场景及其相应的特征字段。</p>
     <h3>4.5 学习的 BEV 表示分析</h3>
-    <p>实验主要验证：为了检查高斯生成器预训练（subsec:GS）期间学到的特征的质量，我们直接评估 Splat2BEV 的性能，无需联合微调。结果上，定量结果显示在 tab:frozen 中。</p>
+    <p>实验部分主要围绕 为了检查高斯生成器预训练（subsec:GS）期间学到的特征的质量，我们直接评估 Splat2BEV 的性能，无需联合微调 展开。结果表明，定量结果显示在 tab:frozen 中。</p>
     <h3>4.6 消融研究</h3>
-    <p>实验主要验证：我们对两种设计策略进行消融研究。结果上，提出的 3 阶段训练方案（与没有 subsec:task 的 2 阶段变体相比）和 DINO 特征蒸馏。</p>
+    <p>实验部分主要围绕 我们对两种设计策略进行消融研究 展开。结果表明，提出的 3 阶段训练方案（与没有 subsec:task 的 2 阶段变体相比）和 DINO 特征蒸馏。</p>
 
     <h2 id='takeaway'>理解评价</h2>
     <p>如果把这篇论文放回问题背景里看，它真正的价值在于：然而，大多数现有的 BEV 感知框架采用端到端训练范例，其中图像特征直接转换到 BEV 空间，并仅通过下游任务监督进行优化。这说明作者不是只补一个局部模块，而是在重新组织问题该怎样被解决。</p>
     <p>最能支撑这个判断的，还是实验给出的证据：在本文中，我们声称明确的 3D 表示对于准确的 BEV 感知很重要，并且我们提出了 Splat2BEV，一种用于 BEV 任务的高斯 Splatting 辅助框架。换句话说，这些设计并不只是概念上更完整，而是实实在在改变了最终结果。</p>
-    <p>当然，它离真正成熟的方案还有距离：当前方案仍然受到计算资源、输入质量或场景复杂度的约束，离真正大规模稳定部署还有距离。后续更值得继续推进的方向，是 与基线​​方法相比，Splat2BEV 实现了 8% 的改进。</p>
+    <p>当然，它离真正成熟的方案还有距离：当前方案的主要局限在于它仍然受到计算资源、输入质量或场景复杂度的约束，离真正大规模稳定部署还有距离。后续更值得继续推进的方向，是 与基线​​方法相比，Splat2BEV 实现了 8% 的改进。</p>
     
   </article>
 </div>

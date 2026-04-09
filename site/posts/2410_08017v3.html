@@ -167,7 +167,7 @@
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      Fast Feedforward 3D Gaussian Splatting Compression：尽管已经提出了各种压缩技术，但现有技术存在一个共同的限制；为了应对这一挑战，我们提出了一种新方法。
+      随着 3D 高斯泼溅 (3DGS) 推进新颖视图合成的实时和高保真渲染，存储要求对其广泛采用提出了挑战。尽管已经提出了各种压缩技术，但现有技术存在一个共同的限制。
     </div>
 
     <h2 id='summary'>简单摘要</h2>
@@ -182,44 +182,44 @@
 
     <h2 id='technical'>技术细节</h2>
     <p>这些压缩技术虽然有效，但有一个共同的局限性。与之前降低参数值或改变 3DGS 结构从而需要额外微调的方法相比，FCGS 旨在保留 3DGS 的值和结构完整性。多路径熵模块（MEM）根据基于值的原则设计，推导出掩码，确定属性是否应该直接量化以进行压缩或通过自动编码器进行处理。</p>
-<figure><img class='paper-fig' src='../assets/2410_08017v3/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：标有*和圆圈的方法是从这个常见的3DGS中微调的（我们的FCGS也压缩相同的3DGS）；；由于对结构的修改，标有**和三角形的方法是从头开始训练的</figcaption></figure>
+<figure><img class='paper-fig' src='../assets/2410_08017v3/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：标有**和三角形的方法由于对结构的修改而从头开始训练，用于说明这一类高效路线的关键结构与输入输出关系。</figcaption></figure>
 <figure><img class='paper-fig' src='../assets/2410_08017v3/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：我们建立在图像压缩的超先验设计（上）的基础上，并介绍我们的高斯间和内高斯上下文模型（中和下）；它们共同构成了 GMM，可以更准确地估计 y 的值分布概率（右）</figcaption></figure>
 
     <p>$$ G(\bm{l}) = \exp{\left(-\frac{1}{2}(\bm{l}-\bm{\mu}^\text{g})^\top\bm{\Sigma}^{-1}(\bm{l}-\bm{\mu}^\text{g})\right)}\;, $$</p>
-    <p>这条式子定义了单个 3D 高斯在空间位置上的密度分布：均值决定高斯中心，协方差决定它在各个方向上的扩散范围。FCGS 后续所有几何压缩和属性熵编码，都是围绕这类高斯基元展开的。</p>
+    <p>这条式子描述的是单个高斯基元在空间中的响应或密度分布：离中心越近，贡献越大；协方差则决定分布在不同方向上的扩张方式。它直接影响后续投影和渲染时每个高斯的覆盖范围。</p>
     <p>$$ \bm{C} = \sum_{i} {\bm{c}_i\alpha_i\prod_{j=1}^{i-1}\left(1-\alpha_j\right)} $$</p>
-    <p>这条式子是标准 3DGS 的颜色合成规则：按深度排序后的高斯依次把颜色和透明度贡献累积到像素上。FCGS 压缩的目标不是改变这套渲染模型，而是在尽量不破坏最终合成结果的前提下减少存储开销。</p>
+    <p>这条式子对应的方法环节是：tion where is a random 3D location, and is defined by a scaling matrix and a rotation matrix such that。To render a pixel value , the Gaussians are first splatted to 2D, and 渲染 is performed as follows:。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
     <p>$$ \hat{\bm{x}}_i = g_s(\texttt{Q}(g_a(\bm{x}_i)))\times m_i + \texttt{Q}(\bm{x}_i)\times (1-m_i), \; m_i=\texttt{Sig}(\text{MLP}_\text{m}(\bm{f}^{\text{gau}}_i)) > \epsilon_m $$</p>
-    <p>这条式子描述了颜色属性的双路径重建：一部分高斯颜色通过压缩网络重建，另一部分则直接保留量化值，再由掩码 m_i 决定当前高斯走哪条路径。这样做的目的，是把“值得高精度编码的高斯”和“可以便宜编码的高斯”区分开来。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 hat、bm、x、i 等量如何共同决定这个结果在方法链路中的作用。</p>
     <p>$$ \bm{f}^{\bm{v}}_i = \frac{\sum_{k: \hat{\bm{y}}_k \in \mathbb{Y}_{[0,n^\text{s}-1]}^{\bm{v}_i}} w_k\hat{\bm{y}}_k}{\sum_{k: \hat{\bm{y}}_k \in \mathbb{Y}_{[0,n^\text{s}-1]}^{\bm{v}_i}} w_k}, \quad\text{where}\; w_k=\prod_{\text{dim}\in\{x,y,z\}}\left(1-|\bm{\mu}^\text{g}_{k,\text{dim}}-\bm{v}_{i,\text{dim}}|\right) $$</p>
-    <p>这条式子把邻近体素中的潜变量按距离权重聚合成当前位置的上下文特征。作者这样做，是为了让熵模型在预测某个高斯的码率时，能够利用空间邻域中的统计相关性，而不是把每个高斯都当成独立样本。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 bm、f、bm、v 等量如何共同决定这个结果在方法链路中的作用。</p>
     <p>$$ \bm{\mu}^\text{s}_i, \bm{\sigma}^\text{s}_i, \bm{\pi}^\text{s}_i = \text{MLP}_\text{s} (\midoplus[\bm{f}^{\bm{\mu}^\text{g}}_i, \texttt{emb}(\bm{\mu}^\text{g}_i)]), \quad \text{where}\; \bm{f}^{\bm{\mu}^\text{g}}_i = \sum_{k: \bm{v}_k \in \mathbb{V}^{\bm{\mu}^\text{g}_i}}w_k \bm{f}^{\bm{v}}_k $$</p>
-    <p>这条式子给出了上下文模型输出的高斯混合分布参数：均值、方差和混合权重都由局部上下文特征预测得到。它的作用是更准确地估计待编码属性的概率分布，从而降低算术编码时的平均比特数。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 bm、mu、s、i 等量如何共同决定这个结果在方法链路中的作用。</p>
     <p>$$ L = L_{\text{fidelity}}(\hat{\bm{I}}, {\bm{I}}) + \lambda\frac{L_{\text{entropy}}}{N^\text{g}\times 56}, \; \text{where}\; L_{\text{entropy}} = \sum_{i=1}^{N^\text{g}} bit_i^{\text{geo}} + m_ibit_i^{\text{col} \mid m_i=1} + (1-m_i)bit_i^{\text{col} \mid m_i=0} $$</p>
-    <p>这条式子把失真项和码率项合并成最终训练目标：前者约束压缩后的渲染结果接近原始 3DGS，后者约束几何与颜色属性的编码成本。FCGS 本质上是在做 rate-distortion trade-off，也就是在“压得更小”和“损失更少”之间找平衡点。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 L、fidelity、hat、bm 等量如何共同决定这个结果在方法链路中的作用。</p>
 
     <h2 id='experiment'>实验结论</h2>
-    <p>实验主要验证：在这里，我们提出 PSNR 指标来评估由于页面限制而导致的保真度。结果上，与 Lightgaussian 相比，FCGS 实现了改进的 RD 性能，同时在 DL3DV-GS 数据集上需要更少的执行时间性能比较。</p>
+    <p>实验部分主要围绕 在这里，我们提出 PSNR 指标来评估由于页面限制而导致的保真度 展开。结果表明，与 Lightgaussian 相比，FCGS 实现了改进的 RD 性能，同时在 DL3DV-GS 数据集上需要更少的执行时间性能比较。</p>
 
 <figure><img class='paper-fig' src='../assets/2410_08017v3/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：现有的压缩方法需要对现有的3DGS进行优化，从而导致训练耗时的缺点；我们提出的 FCGS 通过在单个前馈通道中压缩 3DGS 表示来克服这个问题，从而显着减少压缩时间消耗</figcaption></figure>
 <figure><img class='paper-fig' src='../assets/2410_08017v3/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：我们在保持高保真度的同时实现了尺寸的大幅减小；由于篇幅限制，我们在这里仅介绍两种基线方法进行定性比较</figcaption></figure>
-<figure><img class='paper-fig' src='../assets/2410_08017v3/figure7_full.png' alt='Figure 7:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 6：将 m 设置为全 0 会导致比特消耗显著增加；由于缺乏相互依赖性，排除所提出的上下文模型会导致比特消耗大幅增加</figcaption></figure>
+<figure><img class='paper-fig' src='../assets/2410_08017v3/figure7_full.png' alt='Figure 7:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 6：将 m 设置为全 0 会导致比特消耗显着增加；由于缺乏相互依赖性，排除所提出的上下文模型会导致比特消耗大幅增加</figcaption></figure>
 <figure><img class='paper-fig' src='../assets/2410_08017v3/figure6_full.png' alt='Figure 6:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 7：MVSplat 是一个可推广的重建模型，其保真度是在渲染图像和真实图像之间进行测量的；LGM 是一种生成模型，其保真度是在压缩前后从 3DGS 渲染的图像之间测量的，因为由于其生成性质，没有无法测量的地面事实</figcaption></figure>
     <h3>4.1 实施细节</h3>
-    <p>实验主要验证：对于 ，几何尺寸、颜色 ( ) 和颜色 ( ) 的尺寸分别设置为 16、24 和 64。结果上，在这里，我们提出 PSNR 指标来评估由于页面限制而导致的保真度。</p>
+    <p>实验部分主要围绕 对于 ，几何尺寸、颜色 ( ) 和颜色 ( ) 的尺寸分别设置为 16、24 和 64 展开。结果表明，在这里，我们提出 PSNR 指标来评估由于页面限制而导致的保真度。</p>
     <h3>4.2 实验评价</h3>
-    <p>实验主要验证：这使我们能够对基于优化的方法进行基准测试，这种比较本质上对 FCGS 是不公平的。结果上，对于基线方法，我们比较基于普通 3DGS 结构的方法，包括从现有 3DGS 进行微调或从头开始训练。</p>
+    <p>实验部分主要围绕 这使我们能够对基于优化的方法进行基准测试，这种比较本质上对 FCGS 是不公平的 展开。结果表明，对于基线方法，我们比较基于普通 3DGS 结构的方法，包括从现有 3DGS 进行微调或从头开始训练。</p>
     <h3>4.3 消融研究</h3>
-    <p>实验主要验证：我们进行消融研究来评估我们提出的 MEM 和上下文模型的有效性。结果上，与完整 FCGS 模型相比，比特消耗是在类似保真度条件下针对基本模型的。</p>
+    <p>实验部分主要围绕 我们进行消融研究来评估我们提出的 MEM 和上下文模型的有效性 展开。结果表明，与完整 FCGS 模型相比，比特消耗是在类似保真度条件下针对基本模型的。</p>
     <h3>4.4 增强现有的压缩方法</h3>
-    <p>实验主要验证：普通 3DGS 有时会遇到致密化问题，导致保真度不佳。结果上，剪枝技术有效地消除了琐碎的高斯分布，在减小尺寸的同时增强了保真度，这在深度混合数据集上尤其明显。</p>
+    <p>实验部分主要围绕 普通 3DGS 有时会遇到致密化问题，导致保真度不佳 展开。结果表明，剪枝技术有效地消除了琐碎的高斯分布，在减小尺寸的同时增强了保真度，这在深度混合数据集上尤其明显。</p>
     <h3>4.5 编码渲染效率分析</h3>
-    <p>实验主要验证：我们的编码时间包括坐标的 GPCC 编码以及属性和掩码的算术编码。结果上，编码时间的详细分析请参见附录部分。</p>
+    <p>实验部分主要围绕 我们的编码时间包括坐标的 GPCC 编码以及属性和掩码的算术编码 展开。结果表明，编码时间的详细分析请参见附录部分。</p>
 
     <h2 id='takeaway'>理解评价</h2>
     <p>如果把这篇论文放回问题背景里看，它真正的价值在于：随着 3D 高斯泼溅 (3DGS) 推进新颖视图合成的实时和高保真渲染，存储要求对其广泛采用提出了挑战。这说明作者不是只补一个局部模块，而是在重新组织问题该怎样被解决。</p>
     <p>最能支撑这个判断的，还是实验给出的证据：尽管已经提出了各种压缩技术，但现有技术存在一个共同的限制。换句话说，这些设计并不只是概念上更完整，而是实实在在改变了最终结果。</p>
-    <p>当然，它离真正成熟的方案还有距离：当前方案仍然受制于计算资源、输入质量或场景复杂度，距离真正稳健的大规模部署还有差距。后续更值得继续推进的方向，是 为了提高压缩效率，我们提出了一种多路径熵模块，它将高斯属性分配给不同的熵约束路径，以在大小和保真度之间取得平衡。</p>
+    <p>当然，它离真正成熟的方案还有距离：当前方案的局限在于它仍然受制于计算资源、输入质量或场景复杂度，距离真正稳健的大规模部署还有差距。后续更值得继续推进的方向，是 后续更值得继续推进的方向，是未来继续提升效率、泛化能力以及在更复杂场景下的稳定性。</p>
     
   </article>
 </div>

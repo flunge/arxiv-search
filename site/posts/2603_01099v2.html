@@ -167,7 +167,7 @@
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      为了解决这个问题，我们提出了 HeroGS——鲁棒 3D 高斯分布的分层指导——一个统一的框架，可以跨图像、特征和参数级别建立分层指导；itemize 我们提出了 HeroGS，这是一种分层指导框架，可以在稀疏视图条件下实现紧凑且高保真的 3D 重建。
+      3D 高斯溅射 (3DGS) 最近已成为新颖视图合成中一种很有前景的方法，将照片级真实感渲染与实时效率相结合。为了解决这个问题，我们提出了 HeroGS——鲁棒 3D 高斯分布的分层指南——一个统一的 f。
     </div>
 
     <h2 id='summary'>简单摘要</h2>
@@ -184,49 +184,49 @@
     <p>这种增强的监督丰富了梯度传播，导致更加全局一致和结构​​良好的高斯场。由于观察到更密集的输入会产生更好的重建，我们建议在相邻训练视图之间生成中间视点，并将其相应的 RGB 图像合成为。与 类似，我们的训练目标集成了对生成图像的光度监督（通过 L1 和 D-SSIM 损失测量）以及对渲染深度图的几何监督。</p>
 <figure><img class='paper-fig' src='../assets/2603_01099v2/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：我们的框架始于 SfM，跨三个层面运行；一组中间 RGB 帧是从稀疏输入合成的，提供伪密集指导，全局正则化高斯分布，并且在特征级别</figcaption></figure>
 <figure><img class='paper-fig' src='../assets/2603_01099v2/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：分别是原始训练视图和帧插值伪标签；虽然伪标签提供了整体的监督信号，但它们可能缺乏细节的准确性，并且无法为高频几何结构提供精确的指导</figcaption></figure>
-<figure><img class='paper-fig' src='../assets/2603_01099v2/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：在极端视图稀疏的情况下，3DGS 会崩溃成严重的伪影和模糊的几何形状；相比之下，HeroGS 从互补级别引导模型提供明显更清晰的对象边界、更丰富的高频纹理、</figcaption></figure>
+<figure><img class='paper-fig' src='../assets/2603_01099v2/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：在极端视图稀疏的情况下，3DGS 会崩溃成严重的伪影和模糊的几何形状</figcaption></figure>
     <h3>3.1 图像级别</h3>
     <p>由于观察到更密集的输入会产生更好的重建，我们建议在相邻训练视图之间生成中间视点，并将其相应的 RGB 图像合成为。在训练阶段，从生成的视点渲染场景，并通过将结果与伪标记图像进行比较来应用监督。与 类似，我们的训练目标集成了对生成图像的光度监督（通过 L1 和 D-SSIM 损失测量）以及对渲染深度图的几何监督。</p>
     <h3>3.2 功能级别</h3>
     <p>虽然伪标签提供了有价值的全局监督，但它们在细节上的精度有限，使得很难准确地约束高频几何结构（图 1）。为了解决这个问题并增强几何细节，引入了特征自适应致密化和修剪（FADP）。本质上，前一阶段得到的全局细化的高斯分布提供了更完整的结构基础。</p>
     <h3>3.3 参数级别</h3>
     <p>CPG 包含两个辅助高斯场，它们与主场联合训练。为了促进更有效的共同剪枝，辅助高斯场的参数在预定义的训练迭代之后被冻结。通过比较所有三个字段中相应高斯的一致性，我们通过全面的联合剪枝策略识别并删除不一致的点。</p>
-    <p>$$ \small \mathbf{I}^{(\alpha)}_{n} = \mathrm{VFI}\big(\mathbf{I}_{n}, \mathbf{I}_{n+1},\alpha \big). $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 small、I、alpha、n 如何共同构成这个结果。</p>
-    <p>$$ \small \begin{split} \mathbf{R}^{(\alpha)}_n & = \mathrm{slerp}(\mathbf{R}_{n}, \mathbf{R}_{n+1}, \alpha), \\ \mathbf{T}^{(\alpha)}_n & = (1 - \alpha) \mathbf{T}_{n} + \alpha \mathbf{T}_{n+1}. \end{split} $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 small、split、R、alpha 如何共同构成这个结果。</p>
-    <p>$$ \small \hat{\mathbf{D}}_{n}^{(\alpha)} = \sum_{i=1}^{L} d_i o_i \prod_{j=1}^{i-1}(1-o_j). $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 small、hat、D、n 如何共同构成这个结果。</p>
-    <p>$$ \small \hat{\mathbf{A}} = \frac{\sum_{k=1}^{K} w_{k} \cdot \mathbf{A}_{k}}{\sum_{k=1}^{K} w_{k}}, \quad w_{k} = \frac{1}{d_{k} + \epsilon}, $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 small、hat、A、K 如何共同构成这个结果。</p>
-    <p>$$ \small \mathcal{C'} \leftarrow \text{round}\left( \mathcal{C'} \cdot \frac{\sum_i c_i}{\sum_i c_i'} \right). $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 small、C、leftarrow、round 如何共同构成这个结果。</p>
-    <p>$$ \small z^* = \arg\min_z \| \mathbf{p}_y^s - \mathbf{p}_z^t \|_2, $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 small、z、arg、p 如何共同构成这个结果。</p>
-    <p>$$ \small w_y = \| \mathbf{p}_y^s - \mathbf{p}_{z^*}^t \|_2. $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 small、p、y、s 如何共同构成这个结果。</p>
+    <p>$$ \mathbf{I}^{(\alpha)}_{n} = \mathrm{VFI}\big(\mathbf{I}_{n}, \mathbf{I}_{n+1},\alpha \big). $$</p>
+    <p>这条式子对应的方法环节是：) I I +1 (0,1) is the interpolation weight。In our 实验s, however, multiple intermediate frames are generated (see Sec。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
+    <p>$$ \begin{split} \mathbf{R}^{(\alpha)}_n & = \mathrm{slerp}(\mathbf{R}_{n}, \mathbf{R}_{n+1}, \alpha), \\ \mathbf{T}^{(\alpha)}_n & = (1 - \alpha) \mathbf{T}_{n} + \alpha \mathbf{T}_{n+1}. \end{split} $$</p>
+    <p>这条式子对应的方法环节是：es, i.e., Given that our pseudo-labeled images lack ground-truth extrinsic parameters, we initialize the 相机 pose for each generated image via interpolation。Specifically, spherical linear interpolation (slerp) is employed for rotation and linear interpolation for translation:。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
+    <p>$$ \hat{\mathbf{D}}_{n}^{(\alpha)} = \sum_{i=1}^{L} d_i o_i \prod_{j=1}^{i-1}(1-o_j). $$</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 hat、D、n、alpha 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>$$ \hat{\mathbf{A}} = \frac{\sum_{k=1}^{K} w_{k} \cdot \mathbf{A}_{k}}{\sum_{k=1}^{K} w_{k}}, \quad w_{k} = \frac{1}{d_{k} + \epsilon}, $$</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 hat、A、K、cdot 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>$$ \mathcal{C'} \leftarrow \text{round}\left( \mathcal{C'} \cdot \frac{\sum_i c_i}{\sum_i c_i'} \right). $$</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 C、leftarrow、round、left 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>$$ z^* = \arg\min_z \| \mathbf{p}_y^s - \mathbf{p}_z^t \|_2, $$</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 z、arg、p、y 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>$$ w_y = \| \mathbf{p}_y^s - \mathbf{p}_{z^*}^t \|_2. $$</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 p、y、s、p 等量如何共同决定这个结果在方法链路中的作用。</p>
 
     <h2 id='experiment'>实验结论</h2>
-    <p>实验主要验证：HeroGS 在多个指标上实现了卓越的性能。结果上，（在附录中）表明，HeroGS 实现了卓越的性能，证明解开的几何表示提高了重建精度和细节保留。</p>
+    <p>实验部分主要围绕 HeroGS 在多个指标上实现了卓越的性能 展开。结果表明，（在附录中）表明，HeroGS 实现了卓越的性能，证明解开的几何表示提高了重建精度和细节保留。</p>
     <div class='card'><strong>源论文表 2（未内嵌原表）关键结论：</strong>最好和第二好的条目分别用粗体和下划线表示；在2视图设置下，基线方法（FSGS）表现不佳，而我们的方法实现了显着的性能提升。</div>
     <div class='card'><strong>源论文表 5（未内嵌原表）关键结论：</strong>3 个训练视图的 LLFF 数据集上不同插值模型的比较。</div>
 <figure><img class='paper-fig' src='../assets/2603_01099v2/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：有和没有图像和特征级别指导的比较；基线与带有伪标签和 FADP 的基线生成的新颖视图渲染</figcaption></figure>
 <figure><img class='paper-fig' src='../assets/2603_01099v2/figure6_full.png' alt='Figure 6:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 6：训练期间我们的 HeroGS 与基线之间的 PSNR（左）和高斯数（右）的比较</figcaption></figure>
     <h3>4.1 设置</h3>
-    <p>实验部分首先关心的是：HeroGS 基于 FSGS 实现，并在 LLFF 和 Tanks&amp;Temples 数据集上进行评估。</p>
+    <p>实验部分主要围绕 HeroGS 基于 FSGS 实现，并在 LLFF 和 Tanks&amp;Temples 数据集上进行评估 展开。</p>
     <p>对比结果表明，在 LLFF 上，我们使用 2、3 和 6 个训练视图，分辨率下采样 8。进一步结合定性现象和消融分析，可以看出：对于 2 视图情况，由于 FSGS 需要基于 COLMAP 的多视图立体，但在 3 个场景上失败，因此我们对剩余 5 个场景进行评估。</p>
     <h3>4.2 比较</h3>
-    <p>实验部分首先关心的是：HeroGS 在多个指标上实现了卓越的性能。</p>
+    <p>实验部分主要围绕 HeroGS 在多个指标上实现了卓越的性能 展开。</p>
     <p>对比结果表明，说明，与 FSGS 和 HeroGS 相比，3DGS 难以恢复某些对象的结构，而 DRGS 倾向于合成缺乏高频细节的平滑视图。进一步结合定性现象和消融分析，可以看出：基本的 3DGS 很难在有限的监督下保持几何和纹理的保真度，而先前的方法引入了稀疏或噪声正则化，通常会导致几何形状过度平滑和明显的伪影。</p>
     <h3>4.3 消融研究</h3>
-    <p>实验主要验证：我们对 LLFF 数据集进行了全面的消融研究，包括定性和定量比较。结果上，这有助于提高几何保真度并保留高频细节。</p>
+    <p>实验部分主要围绕 我们对 LLFF 数据集进行了全面的消融研究，包括定性和定量比较 展开。结果表明，这有助于提高几何保真度并保留高频细节。</p>
     <h3>4.4 分析</h3>
-    <p>实验主要验证：随着训练的进行，我们的方法在 PSNR 上表现出稳定的改善，表明一致的收敛和稳定的优化。结果上，这种减少表明 HeroGS 实现了更紧凑的场景表示，从而提高了内存效率和更快的渲染速度。</p>
+    <p>实验部分主要围绕 随着训练的进行，我们的方法在 PSNR 上表现出稳定的改善，表明一致的收敛和稳定的优化 展开。结果表明，这种减少表明 HeroGS 实现了更紧凑的场景表示，从而提高了内存效率和更快的渲染速度。</p>
 
     <h2 id='takeaway'>理解评价</h2>
     <p>如果把这篇论文放回问题背景里看，它真正的价值在于：然而，它的成功在很大程度上依赖于密集的摄像头覆盖；。这说明作者不是只补一个局部模块，而是在重新组织问题该怎样被解决。</p>
     <p>最能支撑这个判断的，还是实验给出的证据：为了解决这个问题，我们提出了 HeroGS——鲁棒 3D 高斯分布的分层指导——一个统一的框架，在图像、特征和参数级别上建立分层指导。换句话说，这些设计并不只是概念上更完整，而是实实在在改变了最终结果。</p>
-    <p>当然，它离真正成熟的方案还有距离：当前方案仍然受制于计算资源、输入质量或场景复杂度，距离真正稳健的大规模部署还有差距。后续更值得继续推进的方向，是 后续更值得继续推进的方向，是同时提升效率、泛化能力以及在更复杂场景下的稳定性。</p>
+    <p>当然，它离真正成熟的方案还有距离：当前方案的局限在于它仍然受制于计算资源、输入质量或场景复杂度，距离真正稳健的大规模部署还有差距。后续更值得继续推进的方向，是 后续更值得继续推进的方向，是未来继续提升效率、泛化能力以及在更复杂场景下的稳定性。</p>
     
   </article>
 </div>

@@ -167,7 +167,7 @@
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      为了克服单一输入的新颖视图监督中固有的尺度模糊性和外推问题，我们引入了两种技术；我们提出了一个外推器，在计算新颖视图重建损失之前完成渲染中缺失的上下文，既执行外推又最小化失真。
+      前馈 3D 高斯分布的最新进展已经实现了显着的多视图 3D 场景重建或单视图 3D 对象重建，但单视图 3D 场景重建仍处于探索之中，因为。我们提出了 StudentSplat，一种用于场景重建的单视图 3D 高斯分布方法。
     </div>
 
     <h2 id='summary'>简单摘要</h2>
@@ -188,37 +188,36 @@
     <h3>3.2 师生模式</h3>
     <p>为了构造良好的 3D 高斯并最小化扭曲，我们还需要鼓励局部结构的一致性。因此，我们只需要一个输入视图，换句话说，我们放宽了对多个输入视图及其相应相机位姿的要求，来执行3D重建。更重要的是，生成的模型自然地可以作为单视图深度估计模型，将 3D 重建任务与单视图视觉任务连接起来。</p>
     <h3>3.3 外推法</h3>
-    <p>从方法链路看，系统首先处理的是：与多视图场景不同，在多视图场景中，光度新视图重建损失可以仅使用插值来制定（即，将新相机视图包含在上下文相机视图平截头体内），单视图 3D 重建不可避免地需要扩展。</p>
-    <p>在训练和推理阶段，论文还额外考虑了：此外， 的存在允许学生模型通过为置信度较低的区域生成较低的不透明度来平衡重建的完整性和置信度，因为仍然可以填充不太不透明的区域以最小化 l。</p>
+    <p>我们不是直接监督光栅化的新颖视图，而是通过网络进一步处理新颖视图重建，并使用光度损失监督输出。此外， 的存在允许学生模型通过为置信度较低的区域生成较低的不透明度来平衡重建的完整性和置信度。</p>
     <p>$$ f^{K}_{\bm \theta}: \{ ({\bm I}^{i}, {\bm P}^i) \}_{i=1}^K \mapsto \{(\bm{\mu}^j, \alpha^j, \bm{\Sigma}^j, \bm{c}^j )\}^{H \times W \times K}_{j=1}. $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 f、K、bm、theta 如何共同构成这个结果。</p>
+    <p>这条式子对应的方法环节是：I R W 3 P=\ P =1 P =K [R |t ] K R t f _ K is the number of views, maps images to 3D Gaussian parameters using On the other hand, the relaxed version, the single-view 3DGS model , performs the following:。Unlike the 多视角 3DGS model, the single-view 3DGS model is more prone to scale ambiguity a。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
     <p>$$ f^1_{\bm \theta}: {\bm I^i} \mapsto \{(\bm{\mu}^j, \alpha^j, \bm{\Sigma}^j, \bm{c}^j )\}^{H \times W \times 1}_{j=1}. $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 f、bm、theta、bm 如何共同构成这个结果。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 f、bm、theta、bm 等量如何共同决定这个结果在方法链路中的作用。</p>
     <p>$$ \mathcal{L}_{studentSplat}=\underbrace{\mathcal{L}_{geo}+\mathcal{L}_{grad}}_{\text{Teacher supervision}}+\underbrace{\mathcal{L}_{photo}}_{\text{Novel-view supervision}}. $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 L、studentSplat、underbrace、L 如何共同构成这个结果。</p>
+    <p>这条式子对应的方法环节是：Unlike the 多视角 3DGS model, the single-view 3DGS model is more prone to scale ambiguity and extrapolation issues。To train our studentSplat, we use both geometric and photometric supervisions:。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
 
     <h2 id='experiment'>实验结论</h2>
-    <p>实验主要验证：为了评估几何质量和作为自监督深度估计方法的潜力，我们使用 DA-2K 和 DIODE 的室内和室外注释。结果上，此外，我们的 StudentSplat 实现了最佳的单视图 3DGS 性能，并且尽管仅使用一个输入视图，但仍与多视图模型相当。</p>
+    <p>实验部分主要围绕 为了评估几何质量和作为自监督深度估计方法的潜力，我们使用 DA-2K 和 DIODE 的室内和室外注释 展开。结果表明，此外，我们的 StudentSplat 实现了最佳的单视图 3DGS 性能，并且尽管仅使用一个输入视图，但仍与多视图模型相当。</p>
     <div class='card'><strong>源论文表 4（预览）</strong><div style='margin-top:6px;'>我们将消融分为外推器和监督，其中我们消融了外推器中的组件，而监督则消融了几何监督损失。</div><div style='overflow-x:auto;margin-top:10px;'><table style='width:100%;border-collapse:collapse;font-size:12px;'><tr><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Ablation Module</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Setup</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>PSNR</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>SSIM</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>LPIPS</th></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Gray</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>GrayFinal</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Gray24.98</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Gray0.794</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Gray0.156</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Extrapolator</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>+w/o Composition</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>24.85</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.792</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.158</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'></td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>+w/o Extrapolation</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>21.38</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.741</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.208</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Supervision</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>+w/o Gradient Matching</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>21.57</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.741</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.211</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'></td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>+w/o Teacher</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>22.13</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.757</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.195</td></tr></table></div><div style='font-size:12px;color:#666;margin-top:8px;'>表格为 source 预览；复杂排版、部分行列或强调格式可能已做简化。</div></div>
     <div class='card'><strong>源论文表 1（预览）</strong><div style='margin-top:6px;'>单视图设置中的最佳性能是粗体，其次是下划线；包含原始插值性能以供参考。</div><div style='overflow-x:auto;margin-top:10px;'><table style='width:100%;border-collapse:collapse;font-size:12px;'><tr><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'></th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>[0pt]Method</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>[0pt]tabular[x]@c@Views</th></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>(#)</td><td colspan='2' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'></td></tr></table></div><div style='font-size:12px;color:#666;margin-top:8px;'>表格为 source 预览；复杂排版、部分行列或强调格式可能已做简化。</div></div>
 <figure><img class='paper-fig' src='../assets/2601_11772v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：外推设置中代表性方法之间的定性比较；顶部两行来自 RE10K，底部两行来自 ACID 多视图方法使用两个上下文视图，而单视图方法仅使用以绿色突出显示的上下文视图</figcaption></figure>
 <figure><img class='paper-fig' src='../assets/2601_11772v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：单视图跨数据集泛化设置中代表性方法之间的定性比较；上下文视图以绿色突出显示</figcaption></figure>
 <figure><img class='paper-fig' src='../assets/2601_11772v1/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：地面实况目标视图位于输入视图下方；我们放大了一些区域以便更好地比较</figcaption></figure>
     <h3>4.1 设置</h3>
-    <p>实验主要验证：为了评估新视图重建性能，我们使用 RealEstate10k (RE10k) 和 ACID 遵循之前的多视图方法。结果上，为了评估几何质量和作为自监督深度估计方法的潜力，我们使用 DA-2K 和 DIODE 的室内和室外注释。</p>
+    <p>实验部分主要围绕 这两个数据集包含多个视图以及使用针对不同室内和室外场景的运动结构算法生成的相应相机姿势 展开。结果表明，为了评估几何质量和作为自监督深度估计方法的潜力，我们使用 DA-2K 和 DIODE 的室内和室外注释。</p>
     <h3>4.2 定量比较</h3>
-    <p>实验主要验证：为了与当前最先进的（SOTA）方法在没有 3D 注释的 3D 场景重建性能上进行定量比较，我们按照以前的工作来评估新颖视图重建。结果上，此外，我们的 StudentSplat 实现了最佳的单视图 3DGS 性能，并且尽管仅使用一个输入视图，但仍与多视图模型相当。</p>
+    <p>实验部分主要围绕 为了与当前最先进的（SOTA）方法在没有 3D 注释的 3D 场景重建性能上进行定量比较，我们按照以前的工作来评估新颖视图重建 展开。结果表明，此外，我们的 StudentSplat 实现了最佳的单视图 3DGS 性能，并且尽管仅使用一个输入视图，但仍与多视图模型相当。</p>
     <h3>4.3 定性比较</h3>
-    <p>实验主要验证：在本节中，我们的目标是在外推性能、失真和重建质量方面可视化所提出的 StudentSplat。结果上，深度估计和与稳定扩散集成以生成文本到 3D 的定性比较在附录中。</p>
+    <p>实验部分主要围绕 在本节中，我们的目标是在外推性能、失真和重建质量方面可视化所提出的 StudentSplat 展开。结果表明，深度估计和与稳定扩散集成以生成文本到 3D 的定性比较在附录中。</p>
     <h3>4.4 消融研究</h3>
-    <p>实验主要验证：在这项消融研究中，我们的目标是通过迭代删除提议的模块来评估每个提议的模块如何对模型的性能做出贡献。结果上，因此，我们对模块进行定量和定性评估。</p>
+    <p>实验部分主要围绕 在这项消融研究中，我们的目标是通过迭代删除提议的模块来评估每个提议的模块如何对模型的性能做出贡献 展开。结果表明，因此，我们对模块进行定量和定性评估。</p>
     <h3>4.5 讨论与结论</h3>
-    <p>实验主要验证：我们的方法依赖于教师模型，因此继承了教师模型的局限性。结果上，消除对教师模型的需要以进一步提高单视图场景级 3DGS 的能力将会很有趣。</p>
+    <p>实验部分主要围绕 我们的方法依赖于教师模型，因此继承了教师模型的局限性 展开。结果表明，消除对教师模型的需要以进一步提高单视图场景级 3DGS 的能力将会很有趣。</p>
 
     <h2 id='takeaway'>理解评价</h2>
     <p>如果把这篇论文放回问题背景里看，它真正的价值在于：前馈 3D 高斯分布的最新进展已经实现了显着的多视图 3D 场景重建或单视图 3D 对象重建，但由于单视图中继承的模糊性，单视图 3D 场景重建仍未得到充分探索。这说明作者不是只补一个局部模块，而是在重新组织问题该怎样被解决。</p>
     <p>最能支撑这个判断的，还是实验给出的证据：我们提出了 StudentSplat，一种用于场景重建的单视图 3D 高斯分布方法。换句话说，这些设计并不只是概念上更完整，而是实实在在改变了最终结果。</p>
-    <p>当然，它离真正成熟的方案还有距离：因此，我们只需要一个输入视图，换句话说，我们放宽了对多个输入视图及其相应相机位姿的要求，以执行3D重建，这大大提高了泛化性。后续更值得继续推进的方向，是 同时提升效率、泛化能力以及在更复杂场景下的稳定性。</p>
+    <p>当然，它离真正成熟的方案还有距离：当前方案的主要局限在于它仍然受到计算资源、输入质量或场景复杂度的约束，离真正大规模稳定部署还有距离。后续更值得继续推进的方向，是 后续更值得继续推进的方向，是未来继续提升效率、泛化能力以及在更复杂场景下的稳定性。</p>
     
   </article>
 </div>

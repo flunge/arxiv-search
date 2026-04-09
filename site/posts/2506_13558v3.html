@@ -167,7 +167,7 @@
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      在这项工作中，我们解决了具有空间扩展的大规模场景生成问题，这提出了三个关键挑战；为了应对这些挑战，我们提出了一种用于大规模驾驶场景生成的新颖框架，其特点是，并在实验中证明 2mm itemize[align=right,itemindent=0em,labelsep=2pt,labelwidth=1em,leftmargin=*,itemsep=0em] We propose ,。
+      扩散模型通过实现真实的数据合成、预测性端到端规划和闭环仿真来推进自动驾驶，主要关注时间一致的生成。然而，需要空间一致性的大规模 3D 场景生成仍未得到充分探索。
     </div>
 
     <h2 id='summary'>简单摘要</h2>
@@ -183,39 +183,39 @@
     <h2 id='technical'>技术细节</h2>
     <p>为了减轻由于分辨率降低而导致的信息丢失，我们提出了一种新颖的三平面可变形注意机制，该机制为查询点聚合更丰富的特征，如下所示。然后，triplane-VAE 解码器根据聚合特征重建 3D 占用场。为了解决这个问题，我们通过显式调节和相机嵌入来微调扩散模型。</p>
 <figure><img class='paper-fig' src='../assets/2506_13558v3/fig_1.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：X-Scene 概述，这是一个统一的世界生成器，通过高级文本到布局生成和低级 BEV 布局调节来支持多粒度可控性；它执行联合占用、图像和视频生成，以实现高保真度的 3D 场景合成和重建</figcaption></figure>
-<figure><img class='paper-fig' src='../assets/2506_13558v3/fig_2.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：(a) 多粒度可控性同时支持高级文本提示和低级几何约束，以实现灵活规范；；(b) 联合占用-图像-视频生成通过 con 合成对齐的 3D 体素和多视图图像和视频</figcaption></figure>
-<figure><img class='paper-fig' src='../assets/2506_13558v3/fig_3.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：文本描述丰富和场景图到布局生成的管道；(a) 使用 RAG 增强的 LLM 丰富输入提示，以生成结构化场景描述；</figcaption></figure>
+<figure><img class='paper-fig' src='../assets/2506_13558v3/fig_2.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：(b) 联合占用-图像-视频生成通过 con 合成对齐的 3D 体素和多视图图像和视频</figcaption></figure>
+<figure><img class='paper-fig' src='../assets/2506_13558v3/fig_3.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：文本丰富和场景图到布局生成的管道</figcaption></figure>
     <h3>3.1 多粒度可控性</h3>
-    <p>每个实体都是使用收集的场景数据集之一自动构建的。检索增强生成（RAG）模块类似于从内存库中检索相关描述，然后由基于 LLM 的生成器将其组合成详细的、用户预期的场景描述。首先，我们构建一个场景图，其中节点表示场景实体（例如汽车、行人、道路车道），边表示空间关系（例如前面、顶部）。</p>
+    <p>每个实体都是使用收集的场景数据集之一自动构建的。检索增强生成（RAG）模块类似于从记忆库中检索相关描述，然后由基于 LLM 的生成器将其组合成详细的、用户预期的场景。首先，我们构建一个场景图，其中节点表示场景实体（例如汽车、行人、道路车道），边表示空间关系（例如前面、顶部）。</p>
     <h3>3.2 联合占用、图像和视频生成</h3>
     <p>为了减轻由于分辨率降低而导致的信息丢失，我们提出了一种新颖的三平面可变形注意机制，该机制为查询点聚合更丰富的特征，如下所示。然后，triplane-VAE 解码器根据聚合特征重建 3D 占用场。基于潜在三平面表示，我们引入了一种条件扩散模型，通过迭代去噪合成新颖的三平面。</p>
     <h3>3.3 大规模场景外推与重建</h3>
     <p>在单块生成的基础上，我们提出了一种渐进式外推方法，可以连贯地扩展多个块的占用和图像。然而，仅使用扭曲图像作为条件是不够的。为了解决这个问题，我们通过显式调节和相机嵌入来微调扩散模型。</p>
     <p>$$ \mathcal{D} = \mathcal{G}_\text{description}\big(\mathcal{T}_\mathcal{P}, \mathrm{RAG}(\mathcal{T}_\mathcal{P}, \mathcal{M})\big) $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 D、G、description、big 如何共同构成这个结果。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 D、G、description、big 等量如何共同决定这个结果在方法链路中的作用。</p>
     <p>$$ \mathbf{F}_\mathbf{q}(x, y, z) = \sum_{\mathcal{P} \in \{xy, xz, yz\}} \sum_{k=1}^K \sigma\big(\mathbf{W}_\omega^\mathcal{P} \cdot \text{PE}(x, y, z)\big)_k \cdot \mathbf{h}^\mathcal{P}\Big( \text{proj}_\mathcal{P}(x, y, z) + \Delta p_k^\mathcal{P} \Big) $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 F、q、x、y 如何共同构成这个结果。</p>
+    <p>这条式子是在把高斯的协方差从原始三维坐标系变换到相机或成像平面相关的坐标系中。这样后续光栅化时，模型才能正确知道每个高斯在当前视角下会拉伸成怎样的椭圆分布。</p>
     <p>$$ \mathbf{h}^{\text{new}}_{t-1} \gets \left( \sqrt{\bar{\alpha}_t}\mathbf{h}^{\text{ref}}_0 + \sqrt{1 - \bar{\alpha}_t} \boldsymbol{\epsilon} \right) \odot \mathbf{M} + \epsilon_{\theta}^{\textit{occ}}(\mathbf{h}^{\text{new}}_t, t) \odot (1 - \mathbf{M}) $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 h、new、t、gets 如何共同构成这个结果。</p>
+    <p>这条式子对应的方法环节是：decomposes the task into extrapolating three orthogonal 2D planes, as illustrated in Fig。The core idea is to generate a new latent plane by synchronizing its denoising process with the forward 扩散 of a known reference plane , guided by an overlap mask。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
 
     <h2 id='experiment'>实验结论</h2>
-    <p>实验主要验证：我们的方法始终在 2D 和 3D 指标上实现最佳性能。结果上，结果表明，实现了最佳 FID，比基线提高了 4.91%，表明具有出色的视觉真实感。</p>
+    <p>实验部分主要围绕 我们的方法始终在 2D 和 3D 指标上实现最佳性能 展开。结果表明，结果表明，实现了最佳 FID，比基线提高了 4.91%，表明具有出色的视觉真实感。</p>
 
 <figure><img class='paper-fig' src='../assets/2506_13558v3/fig_5.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：该图展示了论文中的关键模块、实验设置或可视化效果</figcaption></figure>
 <figure><img class='paper-fig' src='../assets/2506_13558v3/fig_6.png' alt='Figure 6:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 6：该图展示了论文中的关键模块、实验设置或可视化效果</figcaption></figure>
     <h3>4.1 实验设置</h3>
-    <p>实验主要验证：我们使用一系列指标从三个方面进行评估。结果上，我们用 IoU 和 mIoU 指标评估 VAE 的重建结果。</p>
+    <p>实验部分主要围绕 我们使用一系列指标从三个方面进行评估 展开。结果表明，我们用 IoU 和 mIoU 指标评估 VAE 的重建结果。</p>
     <h3>4.2 定性结果</h3>
-    <p>实验部分首先关心的是：图的上半部分展示了大规模场景生成结果。</p>
+    <p>实验部分主要围绕 图的下半部分展示了交互式场景生成的灵活性，支持用户提示生成和几何编辑 展开。结果表明，此外，给定现有场景，用户可以指定编辑意图（例如，“移走停放的汽车”）或调整低级几何属性。</p>
     <h3>4.3 主要结果比较</h3>
-    <p>实验主要验证：结果表明，该方法实现了卓越的重建性能，在类似的压缩设置下显着优于先前的方法（例如，与 UniScene 相比，+0.8% mIoU 和 +2.5% IoU）。结果上，我们的方法始终在 2D 和 3D 指标上实现最佳性能。</p>
+    <p>实验部分主要围绕 结果表明，该方法实现了卓越的重建性能，在类似的压缩设置下显着优于先前的方法（例如，与 UniScene 相比，+0.8% mIoU 和 +2.5% IoU） 展开。结果表明，我们的方法始终在 2D 和 3D 指标上实现最佳性能。</p>
     <h3>4.4 消融研究</h3>
-    <p>实验主要验证：正如表所示，所提出的三平面可变形注意模块提高了性能，特别是在较低分辨率下。结果上，这些条件提供了必要的细粒度几何线索，指导模型更好地捕捉场景结构和空间背景，最终提高占用场的准确性。</p>
+    <p>实验部分主要围绕 正如表所示，所提出的三平面可变形注意模块提高了性能，特别是在较低分辨率下 展开。结果表明，这些条件提供了必要的细粒度几何线索，指导模型更好地捕捉场景结构和空间背景，最终提高占用场的准确性。</p>
 
     <h2 id='takeaway'>理解评价</h2>
     <p>如果把这篇论文放回问题背景里看，它真正的价值在于：生成的场景被提升为高质量的 3DGS 表示，支持模拟和场景探索等多种应用。这说明作者不是只补一个局部模块，而是在重新组织问题该怎样被解决。</p>
     <p>最能支撑这个判断的，还是实验给出的证据：结果表明，实现了卓越的重建性能，在类似的压缩设置下显着优于先前的方法（例如，与 UniScene 相比，+0.8% mIoU 和 +2.5% IoU）。换句话说，这些设计并不只是概念上更完整，而是实实在在改变了最终结果。</p>
-    <p>当然，它离真正成熟的方案还有距离：在本节中，我们讨论我们工作的潜在社会影响并概述其可能的局限性。后续更值得继续推进的方向，是 同时提升效率、泛化能力以及在更复杂场景下的稳定性。</p>
+    <p>当然，它离真正成熟的方案还有距离：在本节中，我们讨论我们工作的潜在社会影响并概述其可能的局限性。后续更值得继续推进的方向，是 未来继续提升效率、泛化能力以及在更复杂场景下的稳定性。</p>
     
   </article>
 </div>

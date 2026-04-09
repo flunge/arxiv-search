@@ -167,7 +167,7 @@
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      我们引入了一个统一的前馈框架，可以从一对未摆出的图像中重建密集、明确的 4D 表示；我们引入了 UFO-4D，这是一个统一的前馈框架，可以仅从一对未摆出的图像中重建密集、明确的 4D 表示。
+      从未摆出的图像进行密集 4D 重建仍然是一个严峻的挑战，当前的方法依赖于缓慢的测试时间优化或碎片化的、特定于任务的前馈模型。我们引入了一个统一的前馈框架，可以从一对未摆出的图像中重建密集、明确的 4D 表示。
     </div>
 
     <h2 id='summary'>简单摘要</h2>
@@ -182,33 +182,33 @@
 
     <h2 id='technical'>技术细节</h2>
     <p>摘要 从未摆出的图像进行密集 4D 重建仍然是一个严峻的挑战，当前的方法依赖于缓慢的测试时间优化或碎片化的、特定于任务的前馈模型。我们引入了 UFO-4D，这是一个统一的前馈框架，可以仅从一对未摆出的图像中重建密集、明确的 4D 表示。我们的核心见解是，从单个动态 3D 高斯表示中差异化地渲染多个信号可提供主要的训练优势。</p>
-<figure><img class='paper-fig' src='../assets/2602_24290v2/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：给定一对输入图像 I 和 I+1 以及相机内在函数 K，以前馈方式输出动态 3D 高斯和相对相机姿势的参数；根据估计，可以在任何插值时间和视图处渲染图像、点和运动</figcaption></figure>
+<figure><img class='paper-fig' src='../assets/2602_24290v2/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：给定一对输入图像 I 和 I+1 以及相机内在函数 K，以前馈方式输出动态 3D 高斯和相对相机姿势的参数；给定估计值，可以在任何插值时间和视图处渲染图像、点和运动</figcaption></figure>
 <figure><img class='paper-fig' src='../assets/2602_24290v2/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：(a) 每个高斯均以其运动进行平移以表示时间 t+t 的 3D 场景；(b) 点和运动以及图像一起光栅化</figcaption></figure>
 
     <p>$$ \hat{\mathbf{I}}_{t'}(\mathbf{p}) = \sum_{i \in \mathcal{N}^{t'}_{\mathbf{p}}}{\mathbf{c}_i}{o_i \prod_{j=1}^{i-1}{(1-o_j)}}, $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 hat、I、t、p 如何共同构成这个结果。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 hat、I、t、p 等量如何共同决定这个结果在方法链路中的作用。</p>
     <p>$$ L_\text{total} = L_\text{sup} + L_\text{self}. $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 L、total、L、sup 如何共同构成这个结果。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 L、total、L、sup 等量如何共同决定这个结果在方法链路中的作用。</p>
     <p>$$ f_{\theta}(\mathbf{I}_t, \mathbf{I}_{t+1}) \mapsto (\mathcal{G}, \mathbf{P}), \;\; \text{with} \;\; \mathcal{G} = \{ ( \boldsymbol\mu, \, \mathbf{v}, \, \mathbf{r}, \, \mathbf{s}, \, \mathbf{h}, \, o)_{\mathbf{p}} \, | \, \mathbf{p}\in \gD( \mathbf{I}_{t}) \cup \gD(\mathbf{I}_{t+1}) \}, $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 theta、I、t、I 如何共同构成这个结果。</p>
+    <p>这条式子对应的方法环节是：As a result, we can leverage both view synthesis and downstream 重建 tasks for supervision。Given input unposed images and , our model maps them to the scene representation ( , ), consisting of a set of dynamic 3D Gaussians and a relative 相机 pose :。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
     <p>$$ \mathcal{G}(t') = \{ ( \boldsymbol\mu+\Delta t {\cdot} \mathbf{v},\, \mathbf{v},\, \mathbf{r},\, \mathbf{s},\, \mathbf{h},\, \mathbf{c},\, o)_{\mathbf{p}} \}, $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 G、t、boldsymbol、mu 如何共同构成这个结果。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 G、t、boldsymbol、mu 等量如何共同决定这个结果在方法链路中的作用。</p>
 
     <h2 id='experiment'>实验结论</h2>
-    <p>实验主要验证：我们应用光度增强和几何增强，例如随机尺度裁剪、水平翻转和时间翻转。结果上，我们的方法在所有指标上都达到了最佳准确度，特别是在 Stereo4D 和 KITTI 上，EPE 比最佳方法低三倍以上。</p>
-    <div class='card'><strong>源论文表 4（未内嵌原表）关键结论：</strong>实验主要验证：We report image 重建 in PSNR and accuracy of Gaussian center (Point), rasterized point (Point rast.), Gaussian velocity (Motion), and rasterized motion (Motion rast.) in end-point error (EPE)。结果上，将光度损失梯度 (eq:loss:self) 与所有头集成可提高整体性能。</div>
+    <p>实验部分主要围绕 我们应用光度增强和几何增强，例如随机尺度裁剪、水平翻转和时间翻转 展开。结果表明，我们评估各种 2D 和 3D 几何和运动任务，例如深度、点和场景流，并将其与专门为关节几何和运动估计设计的最新方法进行比较。</p>
+    <div class='card'><strong>源论文表 4（未内嵌原表）关键结论：</strong>该表展示论文在关键任务上的定量比较结果，并汇总了核心指标与基线方法的差异。</div>
     <div class='card'><strong>源论文表 5（未内嵌原表）关键结论：</strong>为了进行同类比较，我们在训练协议上训练具有不同输出表示的其他方法；我们的方法在点误差和运动终点误差上实现了除波恩之外的最佳精度（越低越好）。</div>
 <figure><img class='paper-fig' src='../assets/2602_24290v2/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：不透明度贴图显示模型在遮挡（解除）场景中的行为；我们的模型学习为不遮挡区域分配高置信度（不透明度），并且对于相互可见的区域，它仅从两个视图中选择一个相应的高斯分布</figcaption></figure>
 <figure><img class='paper-fig' src='../assets/2602_24290v2/figure7_full.png' alt='Figure 7:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：给定左侧的输入对，右侧显示在两个输入帧之间的插值时间处的规范相机坐标处的光栅化图像、深度和运动图；我们的方法还清楚地分割出移动物体</figcaption></figure>
     <h3>4.1 2D 和 3D 任务评估</h3>
-    <p>实验主要验证：我们评估各种 2D 和 3D 几何和运动任务，例如深度、点和场景流，并将其与专门为关节几何和运动估计设计的最新方法进行比较。结果上，我们的方法在所有指标上都达到了最佳准确度，特别是在 Stereo4D 和 KITTI 上，EPE 比最佳方法低三倍以上。</p>
+    <p>实验部分主要围绕 我们评估各种 2D 和 3D 几何和运动任务，例如深度、点和场景流，并将其与专门为关节几何和运动估计设计的最新方法进行比较 展开。结果表明，这些指标包括地面实况和预测估计之间的 3D 端点误差 (EPE)，以及与地面实况相比运动误差在 5 厘米 ( ) 以内的 3D 点的比例。</p>
     <h3>4.2 分析</h3>
-    <p>实验主要验证：我们模型的一个值得注意的新特性是不透明度可以作为一种可学习的置信度度量。结果上，当从光度损失到高斯中心和速度的梯度被移除时 ((a) (b))，点和运动精度显着下降，突出了我们的光度损失 (eq:loss:self) 的重要性。</p>
+    <p>实验部分主要围绕 我们模型的一个值得注意的新特性是不透明度可以作为一种可学习的置信度度量 展开。结果表明，当从光度损失到高斯中心和速度的梯度被移除时 ((a) (b))，点和运动精度显着下降，突出了我们的光度损失 (eq:loss:self) 的重要性。</p>
 
     <h2 id='takeaway'>理解评价</h2>
     <p>如果把这篇论文放回问题背景里看，它真正的价值在于：从未摆出的图像进行密集 4D 重建仍然是一个严峻的挑战，当前的方法依赖于缓慢的测试时间优化或碎片化的、特定于任务的前馈模型。这说明作者不是只补一个局部模块，而是在重新组织问题该怎样被解决。</p>
     <p>最能支撑这个判断的，还是实验给出的证据：我们引入了一个统一的前馈框架，可以从一对未摆出的图像中重建密集、明确的 4D 表示。换句话说，这些设计并不只是概念上更完整，而是实实在在改变了最终结果。</p>
-    <p>当然，它离真正成熟的方案还有距离：当前方案仍然受制于计算资源、输入质量或场景复杂度，距离真正稳健的大规模部署还有差距。后续更值得继续推进的方向，是 后续更值得继续推进的方向，是同时提升效率、泛化能力以及在更复杂场景下的稳定性。</p>
+    <p>当然，它离真正成熟的方案还有距离：当前方案的局限在于它仍然受制于计算资源、输入质量或场景复杂度，距离真正稳健的大规模部署还有差距。后续更值得继续推进的方向，是 后续更值得继续推进的方向，是未来继续提升效率、泛化能力以及在更复杂场景下的稳定性。</p>
     
   </article>
 </div>

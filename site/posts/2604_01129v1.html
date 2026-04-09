@@ -167,7 +167,7 @@
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      我们推出了 ReinDriveGen，这是一个能够完全控制动态驾驶场景的框架，允许用户自由编辑演员轨迹来模拟安全关键的极端情况，例如前车；为了应对这一根本挑战，我们提出了 ReinDriveGen，这是一个统一的框架，其核心见解是利用基于强化学习 (RL) 的后训练来提高 OOD 条件下的发电质量，并在实验中证明 为了解决这个限制，我们提出了一种基于强化学习的后训练框架，该框架可以直接优化 OOD 条件下的车辆生成质量，而不需要配对的地面实况监督。
+      我们推出了 ReinDriveGen，这是一个能够完全可控动态驾驶场景的框架，允许用户自由编辑演员轨迹来模拟安全关键的极端情况，例如前车。我们的方法根据多帧 LiDAR 数据构建动态 3D 点云场景，引入车辆完成模块以根据部分观测重建完整的 360° 几何形状，以及。
     </div>
 
     <h2 id='summary'>简单摘要</h2>
@@ -189,9 +189,9 @@
     <h4>3.1.1 动态 3D 点云构建</h4>
     <p>单个 LiDAR 扫描太稀疏，无法作为可靠的条件。因此，我们利用 Waymo 为所有动态参与者（车辆、行人和骑自行车者）提供的带注释的 3D 边界框，以类别感知的方式跨帧聚合点。对于每辆车，我们使用带注释的边界框将其每帧 LiDAR 点转换为对象的规范帧，并聚合所有帧。</p>
     <h4>3.1.2 车辆完成</h4>
-    <p>即使在多帧聚合之后，由于遮挡和有限的记录视点，车辆通常也只能被部分观察到。我们应用 AdaPoinTr（一种点云补全方法）来重建完整的 360° 车辆几何形状。请注意，完成的点不带有颜色信息，并被指定为黑色；。</p>
+    <p>即使在多帧聚合之后，由于遮挡和有限的记录视点，车辆通常也只能被部分观察到。我们应用 AdaPoinTr（一种点云补全方法）来重建完整的 360° 车辆几何形状。</p>
     <h4>3.1.3 场景编辑和渲染</h4>
-    <p>通过完成车辆增强的动态 3D 点云，我们可以在重建场景中自由编辑演员轨迹和自我车辆视点。将编辑后的点云通过投影渲染成二维伪图像；。未被任何 LiDAR 点覆盖的区域保留为黑色。</p>
+    <p>通过完成车辆增强的动态 3D 点云，我们可以在重建场景中自由编辑演员轨迹和自我车辆视点。未被任何 LiDAR 点覆盖的区域保留为黑色。</p>
     <h4>3.1.4 条件视频生成</h4>
     <p>从编辑的点云渲染的伪图像提供了几何指导，但由于 LiDAR 稀疏性、多帧累积伪影和无纹理的完整表面，不可避免地存在噪声和不完整。采用视频扩散模型将这些粗略渲染转换为逼真的驾驶视频。以参考图像和渲染的伪图像序列为条件，视频扩散模型填充由参考图像引导的 LiDAR 未观察到的区域，校正多帧累积伪影。</p>
     <h3>3.2 基于强化学习的后期训练</h3>
@@ -201,18 +201,18 @@
     <h4>3.2.2 成对偏好模型</h4>
     <p>RL 后训练的一个关键组成部分是奖励模型，用于评估生成的驾驶视频中车辆的质量。当使用 SFT 模型生成视频时，对伪图像调节进行二次采样（每帧而不是每帧提供渲染的伪图像）会逐渐降低视频的视觉质量。这提供了一种自然且可控的机制来构建偏好对，而无需手动注释。</p>
     <h4>3.2.3 成对奖励机制</h4>
-    <p>给定经过训练的成对偏好模型，我们提出了一种成对奖励机制，将成对比较结果聚合为每个组内每个候选者的奖励。有了成对奖励机制，我们现在可以在 OOD 条件下进行 RL 后训练，例如引导车碰撞、漂移、旋转、。在每次迭代中，参考策略根据条件生成候选视频，成对奖励机制为每个候选生成标量奖励。</p>
+    <p>给定经过训练的成对偏好模型，我们提出了一种成对奖励机制，将成对比较结果聚合为每个组内每个候选者的奖励。在每次迭代中，参考策略根据条件生成候选视频，成对奖励机制为每个候选生成标量奖励。</p>
     <p>$$ \mathcal{L}(\theta) = \mathbb{E}_{\mathbf{c},\; \pi^{\mathrm{old}}(\mathbf{x}_0|\mathbf{c}),\; t} \Big[\, r\,\big\lVert v_\theta^{+}(\mathbf{x}_t,\mathbf{c},t)-\mathbf{v} \big\rVert_2^{2} + (1-r)\,\big\lVert v_\theta^{-}(\mathbf{x}_t,\mathbf{c},t)-\mathbf{v} \big\rVert_2^{2} \,\Big], $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 L、theta、mathbb、E 如何共同构成这个结果。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 L、theta、mathbb、E 等量如何共同决定这个结果在方法链路中的作用。</p>
     <p>$$ P(I_1 \succ I_2) = \sigma\!\Bigl(\frac{s_{12} - s_{21}}{2}\Bigr), $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 P、succ、sigma、Bigl 如何共同构成这个结果。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 P、succ、sigma、Bigl 等量如何共同决定这个结果在方法链路中的作用。</p>
     <p>$$ R_m^i = \frac{1}{N-1}\sum_{j\neq i} \mathds{1}\!\Big[P(a_m^i\!\succ\!a_m^j)>\tau\Big], $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 i、N、neq、i 如何共同构成这个结果。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 i、N、neq、i 等量如何共同决定这个结果在方法链路中的作用。</p>
     <p>$$ E(\mathbf{c}) = \frac{\sum_{m=1}^{M} w_m \cdot P(a_m^{\mathrm{rl}}\!\succ\!a_m^{\mathrm{sft}})} {\sum_{m=1}^{M} w_m}, $$</p>
-    <p>这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果，再看右侧由 E、c、M、cdot 如何共同构成这个结果。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 E、c、M、cdot 等量如何共同决定这个结果在方法链路中的作用。</p>
 
     <h2 id='experiment'>实验结论</h2>
-    <p>实验主要验证：我们的方法在所有指标上都实现了最佳性能。结果上，我们的方法在FID、图像质量和背景一致性方面实现了最佳性能。</p>
+    <p>实验部分主要围绕 我们的方法在所有指标上都实现了最佳性能 展开。结果表明，我们的方法在FID、图像质量和背景一致性方面实现了最佳性能。</p>
     <div class='card'><strong>源论文表 1（预览）</strong><div style='margin-top:6px;'>轨迹逐渐向左移动4 m的换道场景的定量比较。</div><div style='overflow-x:auto;margin-top:10px;'><table style='width:100%;border-collapse:collapse;font-size:12px;'><tr><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Models</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>PVG</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>DD4D w/.</th><th colspan='8' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'></th></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>PVG</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Recon. w/.</td><td colspan='9' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'></td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>PVG</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>S^3Gauss.</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>DD4D w/.</td><td colspan='8' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'></td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>S^3Gauss.</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Recon. w/.</td><td colspan='9' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'></td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>S^3Gauss.</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Deform.-GS</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>DD4D w/.</td><td colspan='8' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'></td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Deform.-GS</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Recon. w/.</td><td colspan='9' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'></td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Deform.-GS</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Ours</td><td colspan='9' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'></td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>NTA-IoU</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.256</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.438</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.464</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.175</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.495</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.413</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.240</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.335</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.443</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.549</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>NTL-IoU</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>50.70</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>53.06</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>53.21</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>49.05</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>53.42</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>51.62</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>51.62</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>52.93</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>53.78</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>56.13</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>FID</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>105.29</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>71.52</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>74.32</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>124.90</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>66.93</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>123.61</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>92.24</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>77.32</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>76.24</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>51.99</td></tr></table></div><div style='font-size:12px;color:#666;margin-top:8px;'>表格为 source 预览；复杂排版、部分行列或强调格式可能已做简化。</div></div>
     <div class='card'><strong>源论文表 2（预览）</strong><div style='margin-top:6px;'>横向移动5m的车辆轨迹编辑场景的定量对比。</div><div style='overflow-x:auto;margin-top:10px;'><table style='width:100%;border-collapse:collapse;font-size:12px;'><tr><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Method</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Motion smoothness</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Background consistency</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Image quality</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>FID</th></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Street Gauss.</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.981111</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.930975</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.639775</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>84.7970</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>StreetCrafter</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.981715</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.906872</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.650856</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>83.6278</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Ours</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.977355</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.939697</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.692809</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>80.6267</td></tr></table></div><div style='font-size:12px;color:#666;margin-top:8px;'>表格为 source 预览；复杂排版、部分行列或强调格式可能已做简化。</div></div>
 <figure><img class='paper-fig' src='../assets/2604_01129v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：变道场景中新轨迹的定性比较</figcaption></figure>
@@ -221,32 +221,31 @@
 <figure><img class='paper-fig' src='../assets/2604_01129v1/figure7_full.png' alt='Figure 7:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 7：车辆速度加倍、原地旋转和车辆侧翻；随着 RL 训练步骤的增加，生成的车辆逐渐表现出更好的几何形状、纹理保真度和照明合理性</figcaption></figure>
 <figure><img class='paper-fig' src='../assets/2604_01129v1/figure8_full.png' alt='Figure 8:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 8：(a) 所有 OOD 条件下的总体评估分数的平均值；(b)--(d) 分别针对加倍速度、原地旋转和车辆侧翻的每个场景得分</figcaption></figure>
     <h3>4.1 演员和视角操纵的演示</h3>
-    <p>实验部分首先关心的是：证明我们的方法可以操纵车辆、行人和骑自行车的人，包括训练分布之外的操作，例如原地旋转、转弯、车辆侧翻和横向移动自我车辆视点。</p>
+    <p>证明我们的方法可以操纵车辆、行人和骑自行车的人，包括训练分布之外的操作，例如原地旋转、转弯、车辆侧翻和横向移动自我车辆视点。</p>
     <h3>4.2 实施细节</h3>
     <h4>4.2.1 条件视频扩散模型</h4>
-    <p>实验主要验证：我们在 Waymo 数据集中的 1,000 个场景上微调视频扩散模型。结果上，我们仅使用前视图、左前视图和右前视图进行训练。</p>
+    <p>实验部分主要围绕 我们在 Waymo 数据集中的 1,000 个场景上微调视频扩散模型 展开。结果表明，我们仅使用前视图、左前视图和右前视图进行训练。</p>
     <h4>4.2.2 基于强化学习的后训练</h4>
-    <p>实验主要验证：我们策划了 20 个具有代表性的 OOD 条件，涵盖原地旋转、左/右转、车辆侧翻和自我车辆视角横向移动。结果上，对于每种条件，我们每次推出都会生成一组候选视频以进行策略优化。</p>
+    <p>实验部分主要围绕 我们策划了 20 个具有代表性的 OOD 条件，涵盖原地旋转、左/右转、车辆侧翻和自我车辆视角横向移动 展开。结果表明，对于每种条件，我们每次推出都会生成一组候选视频以进行策略优化。</p>
     <h3>4.3 比较</h3>
-    <p>实验部分首先关心的是：我们在两种评估设置下将我们的方法与现有方法进行比较。</p>
-    <p>对比结果表明，新颖的自我车辆轨迹和车辆轨迹编辑。</p>
+    <p>实验部分主要围绕 我们在两种评估设置下将我们的方法与现有方法进行比较 展开。结果表明，新颖的自我车辆轨迹和车辆轨迹编辑。</p>
     <h4>4.3.1 新颖的自我车辆轨迹</h4>
-    <p>实验主要验证：我们与 PVG 、 DriveDreamer4D 、 ReconDreamer 、 S3Gaussian 和 Deformable-GS 进行比较。结果上，我们还报告了原始轨迹和新颖轨迹图像之间的 FID，以评估真实感。</p>
+    <p>实验部分主要围绕 我们还报告了原始轨迹和新颖轨迹图像之间的 FID，以评估真实感 展开。结果表明，我们的方法在所有指标上都实现了最佳性能。</p>
     <h4>4.3.2 车辆轨迹编辑</h4>
-    <p>实验主要验证：由于最近的几种方法，包括 DriveDreamer4D 、 ReconDreamer 和 FreeSim ，尚未发布其源代码，因此我们在此设置上与 Street Gaussians 和 StreetCrafter 进行比较。结果上，在定量评估方面，我们采用VBench中的三个指标，即图像质量、背景一致性和运动平滑度，并对StreetCrafter发布的5个场景进行评估，评分为5。</p>
+    <p>实验部分主要围绕 我们保持自我车辆轨迹固定并手动编辑目标车辆的轨迹，以评估每种方法处理修改场景的能力 展开。结果表明，在定量评估方面，我们采用VBench中的三个指标，即图像质量、背景一致性和运动平滑度，并对StreetCrafter发布的5个场景进行评估，评分为5。</p>
     <h3>4.4 消融研究</h3>
-    <p>实验部分首先关心的是：我们进行消融研究，以验证我们框架的两个关键组成部分的有效性。</p>
+    <p>实验部分主要围绕 我们进行消融研究，以验证我们框架的两个关键组成部分的有效性 展开。</p>
     <h4>4.4.1 车辆完工的影响</h4>
-    <p>实验主要验证：为了隔离车辆完成的贡献，我们评估车辆轨迹编辑场景，其中目标车辆沿着修改后的路径重新定位。结果上，此设置是专门选择的，因为重新定位的车辆是从新颖的角度观看的，因此几何完整性至关重要。</p>
+    <p>实验部分主要围绕 为了隔离车辆完成的贡献，我们评估车辆轨迹编辑场景，其中目标车辆沿着修改后的路径重新定位 展开。结果表明，此设置是专门选择的，因为重新定位的车辆是从新颖的角度观看的，因此几何完整性至关重要。</p>
     <h4>4.4.2 基于强化学习的后期训练的效果</h4>
-    <p>实验主要验证：\,(a) 显示了 RL 训练过程中的总体评估分数，表明随着训练的进展稳步提高。结果上，视觉结果清楚地显示了随着 RL 训练的进行，车辆几何形状、纹理保真度和照明合理性的逐步改进。</p>
+    <p>实验部分主要围绕 \,(a) 显示了 RL 训练过程中的总体评估分数，表明随着训练的进展稳步提高 展开。结果表明，视觉结果清楚地显示了随着 RL 训练的进行，车辆几何形状、纹理保真度和照明合理性的逐步改进。</p>
     <h3>4.5 局限性和结论</h3>
-    <p>实验主要验证：我们推出了 ReinDriveGen，这是一个用于逼真且可自由编辑的驾驶场景模拟的统一框架，它将显式 3D 点云编辑与基于扩散的视频合成相结合。结果上，车辆完成模块可以对车辆轨迹进行自由形式的操纵，而不会产生几何伪影。</p>
+    <p>实验部分主要围绕 我们推出了 ReinDriveGen，这是一个用于逼真且可自由编辑的驾驶场景模拟的统一框架，它将显式 3D 点云编辑与基于扩散的视频合成相结合 展开。结果表明，车辆完成模块可以对车辆轨迹进行自由形式的操纵，而不会产生几何伪影。</p>
 
     <h2 id='takeaway'>理解评价</h2>
     <p>如果把这篇论文放回问题背景里看，它真正的价值在于：由于此类经过编辑的场景不可避免地会落在训练分布之外，因此我们进一步提出了一种基于 RL 的训练后策略，具有成对偏好模型和成对奖励机制，从而能够在分布外情况下实现稳健的质量改进。这说明作者不是只补一个局部模块，而是在重新组织问题该怎样被解决。</p>
     <p>最能支撑这个判断的，还是实验给出的证据：大量实验表明，ReinDriveGen 在编辑驾驶场景方面优于现有方法，并在新颖的自我观点合成方面取得了最先进的结果。换句话说，这些设计并不只是概念上更完整，而是实实在在改变了最终结果。</p>
-    <p>当然，它离真正成熟的方案还有距离：当前方案仍然受到计算资源、输入质量或场景复杂度的约束，离真正大规模稳定部署还有距离。后续更值得继续推进的方向，是 同时提升效率、泛化能力以及在更复杂场景下的稳定性。</p>
+    <p>当然，它离真正成熟的方案还有距离：当前方案的主要局限在于它仍然受到计算资源、输入质量或场景复杂度的约束，离真正大规模稳定部署还有距离。后续更值得继续推进的方向，是 未来继续提升效率、泛化能力以及在更复杂场景下的稳定性。</p>
     
   </article>
 </div>
