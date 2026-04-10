@@ -91,7 +91,7 @@
 
 ### 3.5 文本重写
 
-- 重写风格版本 `REWRITE_STYLE_VERSION = "v6"`，修改此常量会使缓存失效并触发全量重写。
+- 重写风格版本 `REWRITE_STYLE_VERSION = "v27"`，修改此常量会使缓存失效并触发全量重写。
 - 重写 `purpose` 类型：`summary` / `innovation` / `technical` / `experiment` / `takeaway` / `equation` / `caption`。
 - Takeaway 使用 `_compose_takeaway_source` 组合摘要 + 方法 + 实验 + 结论四段内容，再传给 LLM。
 - 段落后处理 `_postprocess_rewrite_output` 会过滤直译痕迹句和截断句。

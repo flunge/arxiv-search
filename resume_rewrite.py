@@ -11,8 +11,9 @@ commit-each + push-each，跳过已在 rewrite_push_force_resume.log 中完成�
 from __future__ import annotations
 
 import argparse
-import subprocess
+import os
 import sys
+import re
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -29,6 +30,25 @@ DOCS_DIR = Path(__file__).parent / "docs"
 SITE_DIR = Path(__file__).parent / "site"
 
 
+def _extract_last_rewritten_id(log_path: Path) -> str | None:
+    if not log_path.exists():
+        return None
+    try:
+        raw = log_path.read_bytes()
+    except Exception:
+        return None
+    text = ""
+    for encoding in ("utf-8", "utf-16", "utf-16-le", "utf-16-be", "utf-8-sig"):
+        try:
+            text = raw.decode(encoding, errors="ignore")
+            if "Rewrote" in text:
+                break
+        except Exception:
+            continue
+    matches = re.findall(r"Rewrote\s+\d+/\d+:\s+([0-9]{4}\.[0-9]{5}v\d+)", text)
+    return matches[-1] if matches else None
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Resume rewrite_all_posts from a given arXiv ID")
     parser.add_argument(
@@ -38,6 +58,8 @@ def main() -> None:
     )
     parser.add_argument("--dry-run", action="store_true", help="Print plan without committing or pushing")
     parser.add_argument("--no-push", action="store_true", help="Commit but do not push")
+    parser.add_argument("--no-llm", action="store_true", help="Disable OPENAI_* env vars and use rule-based rewrite path")
+    parser.add_argument("--from-log", default="", help="Infer --start-after from the last rewritten arXiv ID in a log file")
     parser.add_argument("--docs-dir", default=str(DOCS_DIR))
     parser.add_argument("--site-dir", default=str(SITE_DIR))
     args = parser.parse_args()
@@ -45,22 +67,35 @@ def main() -> None:
     docs = Path(args.docs_dir)
     site = Path(args.site_dir)
 
+    if args.no_llm:
+        for key in ["OPENAI_API_KEY", "OPENAI_BASE_URL", "OPENAI_MODEL"]:
+            os.environ.pop(key, None)
+
+    start_after_value = args.start_after
+    if args.from_log:
+        inferred = _extract_last_rewritten_id(Path(args.from_log))
+        if inferred:
+            start_after_value = inferred
+            print(f"Inferred --start-after from log: {start_after_value}")
+        else:
+            print(f"WARNING: failed to infer start point from log: {args.from_log}")
+
     reader = PdfReaderTool(docs_dir=docs)
     documents = reader.index_pdfs(refresh=False)
     # Same sort as rewrite_all_posts
     documents = sorted(documents, key=lambda doc: (doc.arxiv_id, doc.modified_time), reverse=True)
 
     # Find the starting position
-    start_after = args.start_after.replace(".", "_")  # normalize to slug style
+    start_after = start_after_value.replace(".", "_")  # normalize to slug style
     start_idx = None
     for idx, doc in enumerate(documents):
         slug = doc.arxiv_id.replace(".", "_")
-        if slug == start_after or doc.arxiv_id == args.start_after:
+        if slug == start_after or doc.arxiv_id == start_after_value:
             start_idx = idx + 1  # start AFTER this paper
             break
 
     if start_idx is None:
-        print(f"WARNING: --start-after '{args.start_after}' not found. Starting from beginning.")
+        print(f"WARNING: --start-after '{start_after_value}' not found. Starting from beginning.")
         start_idx = 0
 
     remaining = documents[start_idx:]

@@ -4,9 +4,14 @@ import argparse
 import json
 import math
 import re
+import sys
 from collections import Counter
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, cast
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from build_blog import (
     PdfReaderTool,
@@ -14,13 +19,14 @@ from build_blog import (
     _extract_source_material,
     _is_review_like_paper,
     _normalize_equation_latex,
+    _review_scope_headings,
     _strip_html_tags,
 )
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
 DOCS_DIR = REPO_ROOT / "docs"
 SITE_DIR = REPO_ROOT / "site"
 POSTS_DIR = SITE_DIR / "posts"
+SOURCE_CACHE_DIR = DOCS_DIR / ".arxiv_source_cache"
 
 _SCOPE_STOP_TOKENS = [
     "experiment",
@@ -141,41 +147,6 @@ def _find_blog_equations(section_html: str) -> List[str]:
     return hits
 
 
-def _choose_scope_headings(headings: List[str]) -> List[str]:
-    if not headings:
-        return []
-
-    start_idx: Optional[int] = None
-    for idx, heading in enumerate(headings):
-        low = heading.lower()
-        if any(token in low for token in _SCOPE_START_PRIORITY):
-            start_idx = idx
-            break
-
-    if start_idx is None:
-        for idx, heading in enumerate(headings):
-            low = heading.lower()
-            if any(token in low for token in _SCOPE_SKIP_TOKENS):
-                continue
-            if any(token in low for token in _SCOPE_STOP_TOKENS):
-                break
-            start_idx = idx
-            break
-
-    if start_idx is None:
-        return []
-
-    scope: List[str] = []
-    for heading in headings[start_idx:]:
-        low = heading.lower()
-        if any(token in low for token in _SCOPE_STOP_TOKENS):
-            break
-        if any(token in low for token in _SCOPE_SKIP_TOKENS):
-            continue
-        scope.append(heading)
-    return scope
-
-
 def _heading_aliases(heading: str) -> List[str]:
     low = heading.lower()
     aliases = [heading, low]
@@ -212,16 +183,27 @@ def _heading_is_covered(heading: str, blog_headings: List[str], blog_technical_t
 def _collect_scope_text(detail: Dict[str, object]) -> str:
     parts: List[str] = []
     parts.append(str(detail.get("text", "")))
-    for subsection in detail.get("subsections", []) if isinstance(detail.get("subsections"), list) else []:
-        parts.append(str(subsection.get("heading", "")))
-        parts.append(str(subsection.get("text", "")))
-        for subsub in subsection.get("subsubsections", []) if isinstance(subsection.get("subsubsections"), list) else []:
-            parts.append(str(subsub.get("heading", "")))
-            parts.append(str(subsub.get("text", "")))
+    raw_subsections = detail.get("subsections")
+    if isinstance(raw_subsections, list):
+        for subsection in raw_subsections:
+            if not isinstance(subsection, dict):
+                continue
+            parts.append(str(subsection.get("heading", "")))
+            parts.append(str(subsection.get("text", "")))
+            raw_subsubs = subsection.get("subsubsections")
+            if isinstance(raw_subsubs, list):
+                for subsub in raw_subsubs:
+                    if not isinstance(subsub, dict):
+                        continue
+                    parts.append(str(subsub.get("heading", "")))
+                    parts.append(str(subsub.get("text", "")))
     return _clean_text("\n".join(parts))
 
 
 def _guess_equation_owner(equation: Dict[str, str], scope_corpora: Dict[str, str]) -> str:
+    source_heading = _clean_text(equation.get("section_heading", ""))
+    if source_heading and source_heading in scope_corpora:
+        return source_heading
     context = _clean_text(equation.get("context_en", "")).lower()
     if not context:
         return "UNKNOWN"
@@ -259,13 +241,12 @@ def _analyze_post(post_path: Path, reader: PdfReaderTool, docs_dir: Path) -> Opt
         return None
 
     source_material = _extract_source_material(doc.arxiv_id, doc.title, docs_dir)
-    source_sections = source_material.get("sections") if isinstance(source_material.get("sections"), dict) else {}
-    source_details = source_material.get("section_details") if isinstance(source_material.get("section_details"), dict) else {}
+    source_sections = cast(Dict[str, str], source_material.get("sections") if isinstance(source_material.get("sections"), dict) else {})
+    source_details = cast(Dict[str, Dict[str, Any]], source_material.get("section_details") if isinstance(source_material.get("section_details"), dict) else {})
     if not source_sections or not source_details:
         return None
 
-    headings = list(source_details.keys())
-    scope_headings = _choose_scope_headings(headings)
+    scope_headings = _review_scope_headings(source_details)
     if not scope_headings:
         return None
 
@@ -282,14 +263,14 @@ def _analyze_post(post_path: Path, reader: PdfReaderTool, docs_dir: Path) -> Opt
     scope_chars = sum(len(text) for text in scope_corpora.values())
     scope_subsection_count = 0
     for heading in scope_headings:
-        detail = source_details.get(heading, {}) if isinstance(source_details.get(heading), dict) else {}
-        subsections = detail.get("subsections") if isinstance(detail.get("subsections"), list) else []
+        detail: Dict[str, Any] = source_details.get(heading, {}) if isinstance(source_details.get(heading), dict) else {}
+        subsections = cast(List[Dict[str, Any]], detail.get("subsections") if isinstance(detail.get("subsections"), list) else [])
         scope_subsection_count += len(subsections)
 
     covered_headings = [heading for heading in scope_headings if _heading_is_covered(heading, blog_headings, technical_text)]
     missing_headings = [heading for heading in scope_headings if heading not in covered_headings]
 
-    source_equations = source_material.get("equations") if isinstance(source_material.get("equations"), list) else []
+    source_equations = cast(List[Dict[str, str]], source_material.get("equations") if isinstance(source_material.get("equations"), list) else [])
     source_eq_owner_map: Dict[str, str] = {}
     source_eq_owners: List[str] = []
     for eq in source_equations:
@@ -316,7 +297,14 @@ def _analyze_post(post_path: Path, reader: PdfReaderTool, docs_dir: Path) -> Opt
         issues.append(
             f"技术细节结构压缩过度：source 子章节 {scope_subsection_count} 个，blog 仅 {len(blog_headings)} 个小标题"
         )
-    if scope_chars >= 2400 and compression_ratio < 0.18:
+    compression_floor = 0.18
+    if (
+        not missing_headings
+        and len(blog_headings) >= len(scope_headings) + max(4, math.ceil(scope_subsection_count * 0.7))
+        and len(blog_equations) >= max(6, math.ceil(source_scope_equation_count * 0.9))
+    ):
+        compression_floor = 0.095
+    if scope_chars >= 2400 and compression_ratio < compression_floor:
         issues.append(f"技术细节篇幅显著压缩：blog/source 比例仅 {compression_ratio:.2f}")
     if source_scope_equation_count >= 6 and equation_ratio < 0.6:
         issues.append(
@@ -350,7 +338,7 @@ def _analyze_post(post_path: Path, reader: PdfReaderTool, docs_dir: Path) -> Opt
     }
 
 
-def run_audit(selector: str = "", only_review_like: bool = False) -> Dict[str, object]:
+def run_audit(selector: str = "", only_review_like: bool = False, cached_only: bool = False) -> Dict[str, object]:
     reader = PdfReaderTool(docs_dir=DOCS_DIR)
     targets: Iterable[Path]
     if selector:
@@ -358,12 +346,17 @@ def run_audit(selector: str = "", only_review_like: bool = False) -> Dict[str, o
     else:
         targets = sorted(POSTS_DIR.glob("*.html"))
 
-    rows: List[Dict[str, object]] = []
+    rows: List[Dict[str, Any]] = []
     skipped: List[str] = []
     for post_path in targets:
         if not post_path.exists():
             skipped.append(post_path.name)
             continue
+        if cached_only:
+            extracted_dir = SOURCE_CACHE_DIR / post_path.stem / "extracted"
+            if not extracted_dir.exists():
+                skipped.append(post_path.name)
+                continue
         result = _analyze_post(post_path, reader, DOCS_DIR)
         if not result:
             skipped.append(post_path.name)
@@ -377,7 +370,7 @@ def run_audit(selector: str = "", only_review_like: bool = False) -> Dict[str, o
     for row in rows:
         if row["issues"]:
             bad_rows.append(row)
-            for issue in row["issues"]:
+            for issue in row.get("issues", []):
                 issue_counter[issue.split("：", 1)[0]] += 1
 
     summary = {
@@ -396,10 +389,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Audit whether technical sections cover the full source scope and keep equations near their source context.")
     parser.add_argument("--selector", default="", help="Optional slug or arXiv id, e.g. 2603_28489v1 or 2603.28489v1")
     parser.add_argument("--only-review-like", action="store_true", help="Only report papers detected as review-like")
+    parser.add_argument("--cached-only", action="store_true", help="Only audit posts whose arXiv source cache already exists locally")
     parser.add_argument("--json", action="store_true", help="Print JSON output")
     args = parser.parse_args()
 
-    summary = run_audit(selector=args.selector, only_review_like=args.only_review_like)
+    summary = run_audit(selector=args.selector, only_review_like=args.only_review_like, cached_only=args.cached_only)
     if args.json:
         print(json.dumps(summary, ensure_ascii=False, indent=2))
         return
@@ -409,16 +403,18 @@ def main() -> None:
     print(f"passed_posts={summary['passed_posts']}")
     print(f"review_like_posts={summary['review_like_posts']}")
     print("top_issue_prefixes=")
-    for key, value in summary["top_issue_prefixes"]:
+    top_issue_prefixes = cast(List[tuple[str, int]], summary.get("top_issue_prefixes", []))
+    for key, value in top_issue_prefixes:
         print(f"- {key}: {value}")
-    for row in summary["results"]:
+    results = cast(List[Dict[str, Any]], summary.get("results", []))
+    for row in results:
         print(f"\n## {row['slug']} :: {row['title']}")
         print(f"source_scope_headings={row['source_scope_headings']}")
         print(f"blog_technical_headings={row['blog_technical_headings']}")
         print(f"compression_ratio={row['compression_ratio']}")
         print(f"equation_ratio={row['equation_ratio']}")
         print(f"blog_equation_owner_histogram={row['blog_equation_owner_histogram']}")
-        for issue in row['issues']:
+        for issue in row.get('issues', []):
             print(f"- {issue}")
 
 

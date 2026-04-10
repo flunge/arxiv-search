@@ -26,7 +26,7 @@ _CRITICAL_ISSUE_KEYWORDS = [
 RECENTLY_FIXED_FULL_CLEAN = [
     "2410_08017v3",
     "2506_09479v1",
-    "2603_25741v2",
+    "2603_28489v1",
     "2503_02279v1",
     "2506_14229v1",
     "2603_22102v1",
@@ -214,6 +214,25 @@ def test_validator_flags_adjacent_duplicate_equation_explanations() -> None:
 
     issues = validate_post_html(html_dup_equations)
     assert any("相邻公式解读重复" in issue for issue in issues)
+
+
+def test_validator_flags_missing_review_scope_coverage() -> None:
+    html_review_bad = """
+    <html><body><article>
+      <!-- source-grounding: arxiv_id=2603.28489v1; pdf=dummy.pdf; source_dir=dummy; sections=7; figures=3; equations=8 -->
+      <!-- review-tech-scope: source=Background||Efficient Modeling||Efficient Architecture||Efficient Inference||Applications; rendered=Efficient Modeling||Efficient Architecture; missing=Background||Efficient Inference||Applications; source_eq=8; rendered_eq=3; rendered_eq_sections=Efficient Modeling:2||Efficient Architecture:1 -->
+      <div class='tip'><strong>一句话总结：</strong>这是一个包含具体问题、方法和结果的完整一句话总结，不会触发其他规则。</div>
+      <h2 id='summary'>简单摘要</h2><p>摘要内容完整，足够长，并且是正常中文描述。</p>
+      <h2 id='innovation'>核心创新</h2><p>创新内容完整描述，能够说明论文贡献。</p>
+      <h2 id='technical'>技术细节</h2><p>这里有一段完整的技术描述，用于避免其他检查项误报，同时保留 review-scope 元数据让 validator 能检测缺口。</p>
+      <h2 id='experiment'>实验结论</h2><p>实验内容完整，比较对象、指标和结论都比较清楚。</p>
+      <h2 id='takeaway'>理解评价</h2><p>这篇论文存在明显局限，未来可以继续改进和扩展方向。</p>
+    </article></body></html>
+    """
+
+    issues = validate_post_html(html_review_bad)
+    assert any("review 技术细节未覆盖完整 source 范围" in issue for issue in issues)
+    assert any("review 技术细节公式覆盖不足" in issue for issue in issues)
 
 
 @pytest.mark.parametrize("slug", RECENTLY_FIXED_FULL_CLEAN)

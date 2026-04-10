@@ -425,6 +425,8 @@ def _clean_cn_sentence(text: str) -> str:
 _LAYOUT_NOISE_PATTERNS = [
     r"(?<![A-Za-z0-9])-\d+(?:\.\d+)?\s*(?:mm|cm|pt|in)\b",
     r"(?m)^\s*\d+(?:\.\d+)?\s*(?:mm|cm|pt|in)\b\s*",
+    r"\b(?:sec|fig|tab|eq|app|appendix)\s*[:.]\s*[A-Za-z0-9_:\-]+\b",
+    r"\b\d+em\b",
 ]
 
 _LAYOUT_NOISE_TOKENS = {
@@ -458,6 +460,7 @@ def _strip_layout_noise(text: str) -> str:
         flags=re.IGNORECASE,
     )
     cleaned = re.sub(r"\b(?:quad|qquad|small)\b", " ", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"[\\]{1,}(?=[A-Za-z])", " ", cleaned)
     cleaned = re.sub(r"\s{2,}", " ", cleaned)
     return cleaned.strip()
 
@@ -3627,6 +3630,10 @@ def _equation_structure_explanation(latex: str) -> str:
         return "这条式子把当前控制点特征与参考特征之间的差异，转换成可编码的运动残差表示。它对应的核心思想是：真正需要压缩的不是绝对状态，而是相邻帧之间的变化量。"
     if "attn" in low and all(token in low for token in ["q", "k", "v", r"\mathbf{d}"]):
         return "这条式子把相机相关的几何编码直接注入注意力计算：查询、键和值都会先经过与视角有关的变换，再执行注意力聚合。这样模型在跨视图建模时，学到的就不只是外观相似性，还包含明确的相机几何关系。"
+    if low.startswith("{o} = \\mathbf{d}") and "attn" in low and all(token in low for token in ["q", "k", r"\mathbf{d}^{-1}"]):
+        return "这条式子是在前一条相机条件注意力的基础上，再把输出特征重新乘回目标视角对应的几何变换。这样聚合后的表示会被重新拉回当前视角坐标系，方便后续生成模块直接使用。"
+    if all(token in low for token in [r"\boldsymbol{d}_{", r"\boldsymbol{o}_{", r"\mathbf{r}"]):
+        return "这条并列公式把像素对应的相机射线方向先旋转到世界坐标系，再把射线起点设为相机平移向量。它说明后续相机编码不是抽象地处理姿态参数，而是直接建立在每条射线的几何表达上。"
     if low.startswith(r"\mathbf{d}_{t}") and any(token in low for token in [r"\otimes", r"\mathbf{t}", r"\textrm{cw}"]):
         return "这条式子把当前相机的坐标变换按特征维度展开成块状矩阵，用来统一作用到注意力特征上。它相当于把相机位姿从几何空间搬到网络特征空间，让后续注意力层都能共享同一套相机条件。"
     if any(token in low for token in [r"\boldsymbol{r}_t", r"\mathbf{r}_t"]) and all(token in low for token in [r"\boldsymbol{o}_t", r"\boldsymbol{d}_t"]):
@@ -3649,16 +3656,34 @@ def _equation_structure_explanation(latex: str) -> str:
         return "这条式子把相对位置分别投影到自车和目标的速度方向上，用来衡量双方是否正在朝彼此逼近。它本质上是在把二维或三维位移关系压缩成更直接的纵向交互风险信号。"
     if r"\begin{cases}" in low and any(token in low for token in [r"\omega_{\mathrm{bi}}", r"\omega_{\mathrm{agent}}", r"\omega_{\mathrm{ego}}", r"\omega_{\mathrm{away}}"]):
         return "这条分段式会根据双方是否相向接近，把交互关系划分成双向逼近、仅目标逼近、仅自车逼近或彼此远离几类情形。作者这样做，是为了让后续风险计算先区分交互类型，再决定每类场景应该赋予多大权重。"
+    if r"\begin{cases}" in low and any(token in low for token in [r"\omega_{\mathrm{bi}}", r"\omega_{\mathrm{agent}}", r"\omega_{\mathrm{ego}}", r"\omega_{\mathrm{away}}"]):
+        return "这条分段式会根据双方是否相向接近，把交互关系划分成双向逼近、仅目标逼近、仅自车逼近或彼此远离几类情形。作者这样做，是为了让后续风险计算先区分交互类型，再决定每类场景应该赋予多大权重。"
     if "typecoeff" in low and "cls_i" in low:
         return "这条式子是按目标类别查表得到类型系数。作者这样做，是为了让不同交通参与体在风险评估里拥有不同基础权重，而不是把行人、车辆和其他目标一概而论。"
     if r"\max" in low and any(token in low for token in [r"\mathbf{v}_e", r"\mathbf{v}_i"]) and r"\hat{\mathbf{r}}" in low:
         return "这条式子只保留朝向彼此接近的相对速度分量，并把负值截断为 0。这样定义的好处是，只有真正形成逼近趋势的运动才会抬高风险分数，远离或错向运动不会被误判。"
     if "exp(-\\frac{1}{2}" in low and any(token in low for token in [r"\sigma_i^{-1}", r"\sigma^{-1}", r"\Sigma_i^{-1}", r"\Sigma^{-1}"]):
         return "这条式子给出了单个高斯核在空间或图像平面上的响应函数：离中心越近，权重越高；协方差决定它沿不同方向扩散得多宽。它直接决定单个高斯会怎样影响周围区域的渲染或重建。"
+    if low.startswith("g(") and any(token in low for token in [r"\mathbf{x}", r"\textbf{x}"]) and any(token in low for token in [r"\sigma_i^{-1}", r"\Sigma_i^{-1}", r"\Sigma^{-1}"]):
+        return "这条式子给出了高斯面元在原始三维空间中的响应函数：离中心越近，权重越高；协方差则控制它沿不同方向扩散得多宽。它是后续投影、渲染和几何约束建立的基础。"
+    if low.startswith("g'(") and any(token in low for token in [r"\mathbf{u}", r"\textbf{u}"]) and any(token in low for token in [r"\sigma'_i", r"\Sigma'_i", r"\Sigma'_i^{-1}"]):
+        return "这条式子给出了高斯面元投影到图像平面后的二维响应形式。相比三维空间核，它更直接决定某个高斯会如何覆盖像素邻域以及以什么权重参与屏幕空间合成。"
+    if any(token in low for token in [r"\tilde{d}", r"\tilde{d}="]) and r"d_i(" in low and r"\sum" in low:
+        return "这条式子是在把所有可见高斯提供的局部深度值按透射率和透明度加权平均，得到最终渲染深度。它的作用是把分散在多个高斯上的几何信息汇总成单个像素的稳定深度估计。"
+    if any(token in low for token in [r"\tilde{n}", r"\tilde{n}="]) and any(token in low for token in [r"[:,2]", r"\mathbf{r}_i", r"\mathbf{R}_i"]) and r"\sum" in low:
+        return "这条式子是在聚合多个高斯的局部朝向，得到最终像素对应的表面法线。作者这样做，是为了让法线估计跟可见性和混合权重保持一致，而不是单独从某个高斯硬性读取方向。"
     if any(token in low for token in [r"\sigma_i", r"\Sigma_i", r"\Sigma"]) and "diag" in low and any(token in low for token in [r"\mathbf{r}", r"\textbf{r}"]):
         return "这条式子是在构造高斯的协方差：先用各方向尺度定义局部形状，再通过旋转矩阵把它转到目标朝向。这样每个高斯既能表达表面的拉伸方向，也能表达局部法线朝向。"
     if low.startswith("q^") and "mlp" in low and "gamma(t)" in low:
         return "这条式子表示作者把时间编码送入一个小型网络，直接预测当前时刻的姿态参数或关节变量。这样模型在未见时间步也能先得到一个连续、可插值的运动骨架。"
+    if low.startswith("0 = ") and "implies" in low and "c^{t" in low:
+        return "这条式子是在从世界到相机变换里反推出目标相机中心的世界坐标。得到相机中心后，模型才能继续构造目标视角相关的方向和距离特征。"
+    if any(token in low for token in [r"\mathbf{u}^v_j", r"l^v_j"]) and "log(" in low and any(token in low for token in [r"\mathbf{d}^v_j", r"\|\mathbf{d}^v_j\|"]):
+        return "这条并列公式把相对位移分解成单位观察方向和对数尺度距离，组成视图相关 MLP 的 4D 输入。这样模型既知道目标相机朝哪个方向看，也知道高斯离相机有多远。"
+    if low.startswith(r"\mathcal{l}_{render}") and any(token in low for token in ["mse", "lpips", r"\hat{i}^t"]):
+        return "这条式子把像素级重建误差和感知相似度损失组合成渲染目标。作者希望模型不仅在数值上贴近目标图像，也在视觉纹理和结构上保持一致。"
+    if low.startswith(r"\mathcal{l}_{total}") and all(token in low for token in [r"\mathcal{l}_{render}", r"\mathcal{l}_{reproj}"]):
+        return "这条式子把渲染损失和重投影约束合并成最终训练目标。这样模型既要把图像渲染对，又要让学到的规范空间几何和估计位姿在投影关系上保持一致。"
     if any(token in low for token in [r"w_{i,j}", r"\hat{w_{i,j}}", r"\hat{w}_{i,j}"]) and r"\sum" in low:
         return "这条式子把每个骨骼对高斯的影响归一化成权重分布。归一化之后，各骨骼的贡献可以直接拿来做线性蒙皮，不会因为绝对尺度不同而破坏整体变形稳定性。"
     if any(token in low for token in [r"\Delta w_{i,j}", r"\Delta w", r"\hat{w_{i,j}}", r"\hat{w}"]) and "exp(-" in low and any(token in low for token in [r"d_{i,j}", r"r_j"]):
@@ -3681,7 +3706,7 @@ def _equation_structure_explanation(latex: str) -> str:
         return "这条式子把反向分布的均值写成“干净样本锚点”和“当前噪声状态”的线性组合。这样作者就能明确地区分哪一部分负责往数据流形回归，哪一部分负责保留当前采样轨迹的惯性。"
     if low.startswith("x_{t-1}") and all(token in low for token in ["a_t", "c_t", r"\tilde{x}_0", "noise term"]):
         return "这条式子把一次采样更新显式拆成回归项、惯性项和噪声项三部分。这样的分解很关键，因为 OMEGA 后续正是围绕“该改哪一部分、改多少”来做优化引导。"
-    if low.startswith("p_t(") and "\\mathcal{n}(a_t" in low and "\\mathrm{kl}" in low and "\\kappa_t" in low:
+    if "p_t(" in low and "\\mathcal{n}(a_t" in low and "\\mathrm{kl}" in low and "\\kappa_t" in low:
         return "这条式子定义了一个受 KL 约束的候选锚点分布：新锚点可以朝奖励更高的方向调整，但又不能离原始扩散分布偏得太远。它相当于给优化引导设定了一个可信赖的搜索半径。"
     if "\\arg\\max" in low and "\\lambda_t r(x)" in low and "\\mathrm{kl}" in low:
         return "这条优化目标是在奖励和分布偏移之间做权衡：一方面希望新锚点提升目标行为，另一方面又要求它保持在当前扩散分布允许的范围内。这样生成结果才不会为了追求某个约束而彻底偏离真实场景流形。"
@@ -3699,6 +3724,16 @@ def _equation_structure_explanation(latex: str) -> str:
         return "这条式子比较同一个源节点分配给两个邻居的相对注意力强度。它直接说明该机制更偏向低不确定性的邻居，因此单调性约束真正被写进了注意力比值里。"
     if any(token in low for token in [r"\sigma_{\text{total}}^2", r"\sigma_{total}^2"]) and all(token in low for token in [r"\sigma_{\text{trend}}^2", r"\sigma_{\text{res}}^2", r"\rho"]):
         return "这条式子把趋势分支和残差分支的不确定性合成为总方差，并显式保留两者相关性项。这样模型在做后续异常检测和安全控制时，用到的是完整的不确定性，而不是把多个来源简单相加。"
+    if low.startswith(r"\mathcal{g}_k(") and any(token in low for token in [r"\boldsymbol{\upmu}_k", r"\mathbf{\Sigma}_k", r"\Sigma}_k^{-1}"]):
+        return "这条式子给出了单个高斯基元在三维空间里的标准响应函数。AA-Splat 后续所有关于带限、投影和抗锯齿的处理，都是在这类基础高斯之上做重新参数化。"
+    if all(token in low for token in [r"\boldsymbol{\upmu}_k^\text{cam}", r"\mathbf{\Sigma}_k^\text{cam}", r"\mathbf{r}", r"\mathbf{t}"]):
+        return "这条并列公式把高斯中心和协方差一起从世界坐标系变换到当前相机坐标系。这样后面做屏幕空间投影时，位置和形状都会与目标视角保持一致。"
+    if low.startswith(r"\hat{\nu}_j") and "max" in low and any(token in low for token in [r"f^{(i)}", r"d_j^{(i)}"]):
+        return "这条式子是在跨多个上下文视图估计第 j 个高斯所需满足的最小带限尺度。作者取各视图约束里的最大值，是为了保证无论从哪个视角看，这个高斯都不会细到超出采样极限。"
+    if any(token in low for token in [r"\mathcal{g}_{j}^\text{low}", r"\mathcal{g}_j^\text{low}"]) and any(token in low for token in [r"\sigma_s", r"\hat{\nu}_j", r"\mathbf{i}"]):
+        return "这条式子定义了与当前高斯对应的低通带限核。它相当于给每个高斯补上一层最小可采样尺度，防止投影后出现比像素还细的退化尖峰。"
+    if any(token in low for token in [r"\mathcal{g}_{j}^\text{reg}", r"\mathcal{g}_j^\text{reg}"]) and any(token in low for token in [r"\otimes", r"\mathcal{g}_{j}^\text{low}", r"\mathcal{g}_j^\text{low}"]):
+        return "这条式子把原始高斯和低通带限核做卷积，得到再生后的规则化高斯。这样处理后，高斯既保留原有场景信息，又满足抗锯齿渲染所需的最小尺度约束。"
     if re.search(r"^[^=]+?=\s*[A-Za-z][A-Za-z0-9_]*\(", compact) and any(token in low for token in [r"\hat{", r"\mathbf{", r"\boldsymbol{"]):
         return "这条式子把前面若干观测、条件或中间特征，经过一个显式模块映射成新的状态变量。它的意义在于把复杂流程压缩成清晰的函数接口，方便后续模块继续消费这个中间结果。"
     if re.search(r"^[^=]+?=\s*[^=]+$", compact) and any(token in compact for token in ["-", "+", r"\frac", r"/", r"\cdot", r"^\top"]):
