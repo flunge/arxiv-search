@@ -3888,6 +3888,39 @@ def _equation_structure_explanation(latex: str) -> str:
         return ""
     low = compact.lower()
 
+    if any(token in low for token in [r"\mathrm{fvd}", "fvd(", r"\mathrm{fid}", "fid("]) and all(token in low for token in [r"\mu", r"\sigma", "tr"]):
+        return "这条式子定义了生成分布与真实分布之间的特征距离：先比较两组视频特征均值的偏差，再比较协方差结构是否一致。作者用它衡量的不是单帧像素差，而是整段视频在动态统计特征上离真实数据还有多远。"
+    if any(token in low for token in [r"\mathcal{m}", "=(", r"\mathcal{s}", r"\mathcal{a}", r"\mathcal{p}", "gamma"]):
+        if all(token in low for token in [r"\mathcal{s}", r"\mathcal{a}", r"\mathcal{p}", "gamma"]):
+            return "这条式子是在把任务形式化成马尔可夫决策过程：状态、动作、转移规律、奖励和折扣因子都被放进同一个接口里。这样后面的世界模型学习和规划模块就能明确知道自己在近似哪一个决策问题。"
+    if any(token in low for token in [r"\bar{\theta}", r"\tau", "theta"]) and any(token in compact for token in ["arrow", "←"]):
+        return "这条式子是目标网络的指数滑动平均更新：旧的目标参数保留大部分历史信息，再混入一小部分当前网络参数。这样做可以让训练目标变化更平稳，减少表示学习里的震荡。"
+    if "h_t" in low and "f_\\theta" in low and "z_{t-1}" in low and "a_{t-1}" in low:
+        return "这组并列公式给出了世界模型的递推链路：先根据上一步隐状态、潜变量和动作更新当前隐状态，再在这个隐状态上预测潜变量、观测或奖励。它把环境演化压缩成可以逐步 rollout 的潜空间动力系统。"
+    if "c_t" in low and "p_\\theta(c_t" in low:
+        return "这条式子定义了 continuation 预测头：模型根据当前潜状态判断这一时刻是否仍处在同一段有效轨迹中。这个量后面会直接影响值函数累计和长时规划边界。"
+    if any(token in low for token in [r"l_o(", r"l_{o}", r"l_i(", r"\omega _{i}", r"\omega _{o}"]) and "int" in low:
+        return "这条式子就是渲染方程：出射光由所有入射方向的光照、材质反射函数以及与法线夹角共同积分得到。作者把它写出来，是为了说明夜间场景里的亮度不是直接回归出来的，而是受物理光照传输约束。"
+    if any(token in low for token in [r"y^{l}_{m}", r"a_{l}", r"c^{l}_{m}"]) and "sum" in low:
+        return "这条式子是在用球谐基展开漫反射照明：每个基函数系数负责描述一种低频光照方向分量，最后在当前法线方向上求值。这样全局光照就能用一组紧凑系数表示，而不用每次都显式采样整张环境图。"
+    if low.startswith("g(v;") and any(token in low for token in [r"\lambda", r"\mu", r"e^{-"]):
+        return "这条式子定义了一个各向异性镜面波瓣：沿两个主方向的衰减速度分别由 λ 和 μ 控制，系数 c 决定整体强度。它的作用是让单个高斯能够表达方向性很强的高光，而不是只有模糊的漫反射。"
+    if low.startswith("f_s(") and all(token in low for token in ["d(", "f(", "g(", r"n \cdot w_i"]):
+        return "这条式子给出了镜面 BRDF 的分解形式：法线分布、菲涅耳项和几何遮挡项共同决定某个入射方向会反射出多强的高光。作者借它把镜面反射建模成可解释的物理项，而不是直接让网络黑盒拟合。"
+    if any(token in low for token in [r"l_{\text{hdr}}", r"l_{hdr}"]) and all(token in low for token in [r"l_{d}", r"l_{s}"]):
+        return "这条式子把漫反射和镜面反射相加成最终 HDR 光照结果。它说明前面分别建模的两类照明分支，最终会在这里重新汇合成可渲染的每高斯颜色。"
+    if any(token in low for token in [r"l_{\text{ldr}}", r"l_{ldr}"]) and "/" in compact and "+ l_" in low:
+        return "这条式子是在做 tone mapping：把动态范围更高的 HDR 亮度压缩回普通图像可以表示的 LDR 区间。这样可以在保留高光层次的同时，避免亮度值直接溢出到不可显示的范围。"
+
+    if low.startswith("q(") and "\\mathcal{n}" in low and any(token in low for token in [r"\alpha_t", r"\sigma_t", r"\sigma^2_t"]):
+        if any(token in low for token in [r"x_s", r"\boldsymbol{x}_s", r"\mathbf{x}_s"]):
+            return "这条式子定义了两个带噪状态之间的条件转移分布：已知较早时间步的噪声状态，模型可以直接写出更晚时间步会落到什么分布里。作者需要这一步，是为了把顺序噪声建模从单步加噪扩展到跨时间跳转。"
+        return "这条式子定义了前向扩散里的加噪分布：真实样本会先按系数保留主体结构，再叠加与时间步相关的高斯噪声。它对应的是把原始 LiDAR 表示逐步推向噪声空间的起点。"
+    if low.startswith("p(") and "\\mathcal{n}" in low and any(token in low for token in [r"\mu_t", r"\boldsymbol{\mu}_t", r"\sigma_t", r"\Sigma_t", r"\Sigma^2_t"]):
+        return "这条式子定义了反向去噪时的条件分布：给定当前更噪的状态，模型要预测较干净状态最可能落在哪个高斯分布里。它把生成过程写成可逐步回退的概率更新规则。"
+    if any(token in low for token in [r"\mathcal{l}", r"\mathcal{l}_{", r"\mathcal{l}="]) and any(token in low for token in [r"\hat{\boldsymbol{\epsilon}}", r"\hat{\epsilon}", r"\epsilon -", r"\| "]):
+        return "这条式子给出了噪声预测训练目标：模型在随机时间步接收带噪输入和条件信息，然后尽量把真实噪声估计准确。训练好这一项之后，反向采样时才能稳定地把噪声状态一步步拉回真实场景分布。"
+
     if "fps(" in low and any(token in low for token in [r"\mu", r"\boldsymbol{\mu}"]):
         return "这条式子是在从整组高斯中心里挑出更少但更有代表性的控制点。作者用最远点采样先保住空间覆盖范围，再把后续运动建模压缩到这些关键点上，从而减少需要编码和传输的自由度。"
     if "index(" in low and any(token in low for token in [r"\boldsymbol{x}", r"\mathbf{x}"]):
@@ -4143,16 +4176,12 @@ def _specialize_equation_explanation(explain: str, item: Dict[str, object], docs
         return ""
     heading = _clean_text_block(str(item.get("section_heading", "")))
     heading_cn = _translate_heading_to_zh(heading, docs_dir) if heading else ""
-    context_en = _clean_text_block(_strip_layout_noise(_strip_inline_latex_from_prose(str(item.get("context_en", "")))))
-    context_cn = _translate_line_to_cn(_clip_text_to_boundary(context_en, 180), docs_dir).rstrip("。") if context_en else ""
     prefix_parts: List[str] = []
     if heading_cn:
         prefix_parts.append(f"放在“{heading_cn}”这一部分看")
     target_hint = _equation_target_hint(str(item.get("latex", "")))
     if target_hint and target_hint not in base:
         prefix_parts.append(target_hint)
-    if context_cn and context_cn not in base:
-        prefix_parts.append(context_cn)
     if not prefix_parts:
         return base + "。"
     prefix = "，".join(part for part in prefix_parts if part)
@@ -4173,6 +4202,10 @@ def _render_equations_with_explanations(equations: List[Dict[str, str]], docs_di
             structural = _equation_structure_explanation(latex)
             if structural and not _equation_explanation_is_bad(structural):
                 explain = structural
+            else:
+                specialized = _specialize_equation_explanation(explain, item, docs_dir)
+                if specialized and not _equation_explanation_is_bad(specialized):
+                    explain = specialized
         compact = re.sub(r"\s+", " ", _clean_text_block(explain))
         signature = _equation_explanation_signature(compact)
         if signature and signature in recent_explains:
@@ -4220,6 +4253,10 @@ def _render_equation_items(
             structural = _equation_structure_explanation(latex)
             if structural and not _equation_explanation_is_bad(structural):
                 explain = structural
+            else:
+                specialized = _specialize_equation_explanation(explain, item, docs_dir)
+                if specialized and not _equation_explanation_is_bad(specialized):
+                    explain = specialized
         compact = re.sub(r"\s+", " ", _clean_text_block(explain))
         signature = _equation_explanation_signature(compact)
         if signature and signature in recent_equation_explains:
@@ -4422,6 +4459,38 @@ def _figure_bucket_name(item: Dict) -> str:
     if any(token in caption for token in ["teaser", "simulation-ready", "intersection-free"]):
         return "summary"
     return "other"
+
+
+def _summary_figure_priority(item: Dict) -> int:
+    caption = _clean_caption_text(str(item.get("caption_en", ""))).lower()
+    label = _clean_text_block(str(item.get("label", ""))).lower()
+    number = str(item.get("number", "")).strip()
+    score = 0
+    if any(token in caption for token in ["overview", "overall pipeline", "framework", "architecture", "method overview", "system overview"]):
+        score += 100
+    if any(token in caption for token in ["pipeline", "training phase", "inference phase", "workflow", "module"]):
+        score += 35
+    if any(token in caption for token in ["teaser", "simulation-ready", "intersection-free"]):
+        score += 25
+    if number == "1" or "figure 1" in label:
+        score += 20
+    if any(token in caption for token in ["comparison", "baseline", "quantitative", "evaluation", "ablation", "results", "performance"]):
+        score -= 40
+    return score
+
+
+def _select_summary_hero_figures(figures: List[Dict], max_items: int = 1) -> Tuple[List[Dict], List[Dict]]:
+    indexed = [(idx, item) for idx, item in enumerate(figures) if item.get("path")]
+    if not indexed or max_items <= 0:
+        return [], list(figures)
+    ranked = sorted(indexed, key=lambda pair: (-_summary_figure_priority(pair[1]), pair[0]))
+    selected_indices = {
+        idx for idx, item in ranked[:max_items]
+        if _summary_figure_priority(item) > 0
+    }
+    selected = [item for idx, item in indexed if idx in selected_indices]
+    remaining = [item for idx, item in enumerate(figures) if idx not in selected_indices]
+    return selected, remaining
 
 
 def _bucket_deep_dive_figures(figures: List[Dict]) -> Tuple[List[Dict], List[Dict], List[Dict]]:
@@ -4646,9 +4715,12 @@ def _generic_deep_dive_post_body(doc, figures: List[Dict], related: List[Dict], 
             subsubsections = subsection.get("subsubsections") if isinstance(subsection.get("subsubsections"), list) else []
             for subsub in subsubsections:
                 structured_owner_keys.add(str(subsub.get("number", "")).strip())
-    renderable_owned_figures = [item for item in figures if item.get("path") and _has_structured_owner(item)]
-    fallback_figures = [item for item in figures if item not in renderable_owned_figures]
+    summary_hero_figs, figures_after_summary_pick = _select_summary_hero_figures(figures, max_items=1)
+    renderable_owned_figures = [item for item in figures_after_summary_pick if item.get("path") and _has_structured_owner(item)]
+    fallback_figures = [item for item in figures_after_summary_pick if item not in renderable_owned_figures]
     summary_figs, tech_fallback_figs, exp_fallback_figs = _bucket_deep_dive_figures(fallback_figures)
+    if summary_hero_figs:
+        summary_figs = (summary_hero_figs + [item for item in summary_figs if item not in summary_hero_figs])[:2]
     figures_by_owner = _group_items_by_owner(renderable_owned_figures)
     technical_figures = [item for item in renderable_owned_figures if _owner_in_scope(item, method_section_number)]
     experiment_figures = [item for item in renderable_owned_figures if _owner_in_scope(item, experiment_section_number)]
@@ -4666,6 +4738,7 @@ def _generic_deep_dive_post_body(doc, figures: List[Dict], related: List[Dict], 
     fig_counter = [0]
     rendered_figure_sequence: List[str] = []
     rendered_table_sequence: List[str] = []
+    summary_figure_html = _render_figure_items(summary_figs, slug, fig_counter)
     technical_intro_figures = technical_figures_by_owner.get(method_section_number, []) if method_section_number else []
     experiment_intro_figures = experiment_figures_by_owner.get(experiment_section_number, []) if experiment_section_number else []
     technical_intro_figure_html = _render_figure_items(technical_intro_figures, slug, fig_counter)
@@ -4869,7 +4942,7 @@ def _generic_deep_dive_post_body(doc, figures: List[Dict], related: List[Dict], 
 
     <h2 id='summary'>简单摘要</h2>
 {abstract_paras}
-{_render_figure_items(summary_figs, slug, fig_counter)}
+{summary_figure_html}
 {intro_paras}
 
     <h2 id='innovation'>核心创新</h2>
@@ -4974,10 +5047,16 @@ def _review_like_post_body(doc, figures: List[Dict], related: List[Dict], slug: 
     related_block_html = _related_reading_block(related_html)
     sidebar = _post_sidebar_html(DEEP_DIVE_SECTION_ITEMS)
 
-    n_figs = len(figures)
-    summary_figs = figures[:min(2, n_figs)]
-    tech_figs = figures[min(2, n_figs):min(6, n_figs)]
-    exp_figs = figures[min(6, n_figs):]
+    summary_hero_figs, figures_after_summary_pick = _select_summary_hero_figures(figures, max_items=1)
+    summary_figs = list(summary_hero_figs)
+    for item in figures_after_summary_pick:
+        if len(summary_figs) >= 2:
+            break
+        if item.get("path"):
+            summary_figs.append(item)
+    remaining_figs = [item for item in figures_after_summary_pick if item not in summary_figs]
+    tech_figs = [item for item in remaining_figs[:4] if item.get("path")]
+    exp_figs = [item for item in remaining_figs[4:] if item.get("path")]
     fig_counter = [0]
 
     def render_fig_group(fig_list: List[Dict]) -> str:
