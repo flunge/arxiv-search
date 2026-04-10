@@ -187,29 +187,28 @@
     <h3>3.1 双动态范围高斯点云模型</h3>
     <p>其中心位置、协方差、不透明度、LDR 颜色和 HDR 颜色分别表示为 、 、 、 和。除了这些属性之外，每个属性还包含控制 LDR 视图的光强度的曝光时间和三个带有参数的全局共享 MLP。我们建议使用 MLP 来学习色调映射过程。</p>
     <h3>3.2 并行可微光栅化</h3>
-    <p>高斯点云的 eq:ldr 被输入到两个并行的可微光栅化过程中，以联合渲染 HDR 和 LDR 视图，如图 2 所示。然后我们介绍并行光栅化过程的细节。首先，我们推导该点位置处的第-3D高斯分布的可能性值为： 随后，喷射操作将3D高斯分布投影到2D成像平面。</p>
+    <p>高斯点云的 eq:ldr 被馈送到两个并行的可微光栅化过程中，以联合渲染 HDR 和 LDR 视图，如图 2 所示。然后我们介绍并行光栅化过程的细节。</p>
     <h3>3.3 初始化和优化</h3>
     <p>曝光条件的变化可能会降低 SfM 的准确性。与HDR-NeRF类似，使用groundtruth CRF校正系数来限制合成场景上的HDR颜色。并表示在第 - 个视点处渲染的真实 HDR 图像。</p>
     <p>$$ \mathcal{G} = \{G_i(\bm{\mu}_i, \mathbf{\Sigma}_i, \alpha_i, \bm{c}_i^l, \bm{c}_i^h, \Delta t, \theta)~|~i = 1, 2, \dots, N_p\}, $$</p>
-    <p>这条式子在定义整组高斯表示：对象不再看成单一体素网格，而是写成由多个高斯基元组成的集合。后续的位置、形状、强度或特征预测，都是围绕这组基元展开。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时重点看左侧最终输出是什么，以及右侧各部分分别承担什么作用。</p>
     <p>$$ \mathrm{\bf \Sigma}_i = \mathbf{R}_i \mathbf{S}_i \mathbf{S}_i^\top \mathbf{R}_i^\top. $$</p>
-    <p>这条式子对应的方法环节是：Besides these attributes, each also contains an exposure time that 控制s the light intensity of the LDR view and three global-shared MLPs with parameters。is represented by a rotation matrix and a scaling matrix as , , , , and are learnable parameters。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
+    <p>这条式子用旋转矩阵和尺度矩阵来构造高斯的协方差。它把“方向”和“尺度”拆开建模，再组合成最终的椭球形状，方便模型稳定控制每个高斯在空间中的拉伸方式。</p>
     <p>$$ \bm{c}_i^l = f_{TM} (\bm{c}_i^h \cdot \Delta t), $$</p>
-    <p>这条式子给出了渲染/成像算子的整体输入输出：模型把相机参数与场景表示一起送入渲染器，得到最终图像或投影结果。它相当于把整条前向生成链路压缩成一个明确的计算接口。</p>
+    <p>这条式子描述了 HDR 颜色到 LDR 颜色的色调映射过程：先把 HDR 辐照度与曝光时间结合，再通过色调映射器得到对应曝光下的 LDR 观测。它是论文把多曝光输入统一到同一高斯表示里的关键一环。</p>
     <p>$$ \text{log}~f_{TM}^{-1} (\bm{c}_i^l) = \text{log}~\bm{c}_i^h + \text{log}~\Delta t, $$</p>
-    <p>这条式子对应的方法环节是：also exacerbates the 训练 instability。The second option is following the traditional non-parametric CRF calibration method of Debevec and Malik that transforms from linear domain to logarithmic domain to enhance the stability of MLP 训练。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
+    <p>这条式子把色调映射关系改写到对数域中。这样做的目的，是把曝光时间与 HDR 颜色的乘法关系转成更稳定的加法形式，从而减轻训练时的数值不稳定问题。</p>
     <p>$$ \bm{c}_i^l = (\text{log}~f_{TM}^{-1})^{-1}(\text{log}~\bm{c}_i^h + \text{log}~\Delta t). $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 bm、c、i、l 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>这条式子表示作者在对数域里完成曝光补偿和颜色映射后，再通过逆变换回到 LDR 空间。相比直接在原始亮度空间建模，这样更容易稳定学习不同曝光之间的对应关系。</p>
     <p>$$ \bm{c}_i^l = g_{\theta}(\text{log}~\bm{c}_i^h + \text{log}~\Delta t), $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 bm、c、i、l 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>这条式子表示作者用一个可学习的色调映射网络来生成 LDR 颜色。输入既包含 HDR 颜色，也包含曝光条件，因此模型可以在统一框架下适配不同曝光下的观测亮度。</p>
     <p>$$ \begin{aligned} \bm{c}_i^h (\mathbf{d}, \mathbf{k}) &= \text{exp}(\sum_{l = 0}^{L} \sum_{m = -l}^{l} k_l^m~Y_l^m(\theta, \phi)), \\ \end{aligned} $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 aligned、bm、c、i 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>这条式子是在用球谐系数表示视角相关的 HDR 颜色。作者先在高动态范围空间里建模方向相关外观，再把曝光和色调映射单独处理，这样能更好保留亮暗区域的细节。</p>
     <p>$$ \bm{c}_i^l (\mathbf{d}, \mathbf{k}, \Delta t) = g_{\theta}(\sum_{l = 0}^{L} \sum_{m = -l}^{l} k_l^m~Y_l^m(\theta, \phi) + \text{log}~\Delta t + b), $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 bm、c、i、l 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>这条式子把视角相关 HDR 外观与曝光条件一起送入可学习映射器，直接预测目标视角下的 LDR 颜色。它体现了论文希望统一处理方向相关外观和曝光变化的设计思路。</p>
 
     <h2 id='experiment'>实验结论</h2>
-    <p>实验部分主要围绕 与 类似，我们还定量评估色调映射域中渲染的 HDR 图像，并定性显示由 Photomatix pro 色调映射的 HDR 结果 展开。</p>
-    <p>对比结果表明，(i) 与最近最好的方法 HDR-NeRF 相比，我们的 HDR-GS 在 LDR-OE 和 HDR 轨道上的性能优于它 2.03 和 1.91 dB，同时享受快 1000 倍的推理速度，并且只花费 6.3% 的训练时间。进一步结合定性现象和消融分析，可以看出：与最近最好的方法 HDR-NeRF 相比，我们的 HDR-GS 在 LDR-OE 和 LDR-NE 上的 PSNR 高出 3.84 和 0.23 dB。</p>
+    <p>实验部分主要围绕 (i) 与最近最好的方法 HDR-NeRF 相比，我们的 HDR-GS 在 LDR-OE 和 HDR 轨道上的性能优于它 2.03 和 1.91 dB，同时享受快 1000 倍的推理速度，并且只花费 6.3% 的训练时间 展开。结果表明，与最近最好的方法 HDR-NeRF 相比，我们的 HDR-GS 在 LDR-OE 和 LDR-NE 上的 PSNR 高出 3.84 和 0.23 dB。</p>
     <div class='card'><strong>源论文表 4（预览）</strong><div style='margin-top:6px;'>报告 HDR、LDR-OE 和 LDR-NE 的 PSNR 结果。</div><div style='overflow-x:auto;margin-top:10px;'><table style='width:100%;border-collapse:collapse;font-size:12px;'><tr><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>color3Method</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Baseline</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>+ Camera Recalibration</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>+ SfM Points</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>+ DDR Model</th></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>HDR</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>-</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>-</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>-</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>38.31</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>LDR-OE</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>12.35</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>14.62</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>19.46</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>41.10</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>LDR-NE</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>11.83</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>14.41</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>18.97</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>36.33</td></tr></table></div><div style='font-size:12px;color:#666;margin-top:8px;'>表格为 source 预览；复杂排版、部分行列或强调格式可能已做简化。</div></div>
     <div class='card'><strong>源论文表 1（预览）</strong><div style='margin-top:6px;'>比较合成数据集上的训练时间（以分钟为单位）和推理速度（以 fps 为单位）；与 SOTA 算法相比，我们的 HDR-GS 需要更少的训练成本并实现更快的推理速度。</div><div style='overflow-x:auto;margin-top:10px;'><table style='width:100%;border-collapse:collapse;font-size:12px;'><tr><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>#1@#2</th></tr></table></div><div style='font-size:12px;color:#666;margin-top:8px;'>表格为 source 预览；复杂排版、部分行列或强调格式可能已做简化。</div></div>
 <figure><img class='paper-fig' src='../assets/2405_15125v4/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：以前的方法会引入令人不快的黑点或渲染模糊的图像；我们的方法可以更好地控制曝光，同时重建更详细的结构</figcaption></figure>
@@ -218,8 +217,7 @@
     <h3>4.1 实验设置</h3>
     <p>实验部分主要围绕 我们采用峰值信噪比PSNR（越高越好）和结构相似性指标度量SSIM（越高越好）来定量评估客观性能 展开。结果表明，采用学习的感知图像块相似度 LPIPS（越低越好）作为感知度量。</p>
     <h3>4.2 定量结果</h3>
-    <p>实验部分主要围绕 我们将 HDR-GS 与三种基于 NeRF 的方法（NeRF 、 NeRF-W 和 HDR-NeRF ）以及原始 3DGS 进行比较 展开。</p>
-    <p>对比结果表明，(i) 与最近最好的方法 HDR-NeRF 相比，我们的 HDR-GS 在 LDR-OE 和 HDR 轨道上的性能优于它 2.03 和 1.91 dB，同时享受快 1000 倍的推理速度，并且只花费 6.3% 的训练时间。进一步结合定性现象和消融分析，可以看出：(ii) 与原始 3DGS 相比，我们的 HDR-GS 在 LDR-OE 和 LDR-NE 上分别高出 21.64 和 17.36 dB。</p>
+    <p>实验部分主要围绕 我们将 HDR-GS 与三种基于 NeRF 的方法（NeRF、NeRF-W 和 HDR-NeRF）以及原始 3DGS 进行比较 展开。结果表明，(i) 与最近最好的方法 HDR-NeRF 相比，我们的 HDR-GS 在 LDR-OE 和 HDR 轨道上的性能优于它 2.03 和 1.91 dB，同时享受快 1000 倍的推理速度，并且只花费 6.3% 的训练时间。</p>
     <h3>4.3 定性结果</h3>
     <p>实验部分主要围绕 LDR小说视图渲染在合成（狗和沙发）和真实（盒子和幸运猫）场景上不同曝光时间的比较如图1所示 展开。结果表明，可以看出NeRF、3DGS和NeRF-W无法控制曝光。</p>
     <h3>4.4 消融研究</h3>

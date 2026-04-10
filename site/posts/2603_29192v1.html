@@ -157,7 +157,7 @@
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
-<!-- source-grounding: arxiv_id=2603.29192v1; pdf=2603_29192v1_Efficient Camera Pose Augmentation for View Generalization in Robotic Policy Lea.pdf; source_dir=docs\.arxiv_source_cache\2603_29192v1\extracted; sections=5; figures=8; equations=8 -->
+<!-- source-grounding: arxiv_id=2603.29192v1; pdf=2603_29192v1_Efficient Camera Pose Augmentation for View Generalization in Robotic Policy Lea.pdf; source_dir=C:\Users\XPENG_USER\Documents\docs\文献\feedforward\docs\.arxiv_source_cache\2603_29192v1\extracted; sections=5; figures=8; equations=8 -->
 
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
@@ -196,21 +196,21 @@
     <h3>3.5 训练设置</h3>
     <p>GenSplat 通过最小化光度、几何和蒸馏目标的协同组合进行端到端优化。对于每个输入视图，光度渲染管道通过惩罚和感知 LPIPS 正则化器的组合受到严格监督。其中 是表示有效像素的二值掩码，表示渲染深度，预测深度是从点图的 z 分量获得的。</p>
     <p>$$ \begin{cases} (\boldsymbol{P}_i, \boldsymbol{C}_i) = D_{\text{p}}(\boldsymbol{h}_i),\; \boldsymbol{\mu}_g = \text{trans}(\boldsymbol{P}_i, \boldsymbol{p}_i), \\ (\sigma_g, \boldsymbol{r}_g, \boldsymbol{s}_g, \boldsymbol{c}_g) = H_\text{G}(F_{\text{DPT}}(\boldsymbol{h}_i) + F_{\text{RGB}}(I_i)). \end{cases} $$</p>
-    <p>这条式子给出了渲染/成像算子的整体输入输出：模型把相机参数与场景表示一起送入渲染器，得到最终图像或投影结果。它相当于把整条前向生成链路压缩成一个明确的计算接口。</p>
-    <p>$$ \mathcal{L}_{\text{3D}} = \frac{1}{HW} \sum_{u,v} \left\| \hat{\boldsymbol{P}}(u,v) - \boldsymbol{P}(u,v) \right\|_2^2, $$</p>
-    <p>这条式子对应的方法环节是：Specifically, to parameterize these spatial priors, we regress per-pixel 3D coordinates in the 相机 frame using pseudo-ground-truth from the foundation model, as detailed in fig:pipeline。The point map loss is then computed as the mean squared Euclidean distance between the predicte。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
-    <p>$$ \mathcal{L}_{\text{cam}} \!=\! \sum_{i \neq j} \Big( \ell_{\text{rot}}(\boldsymbol{\hat{R}}_{i\leftarrow j}, \boldsymbol{R}_{i\leftarrow j}) + \mathcal{H}_{\delta}(\boldsymbol{\hat{T}}_{i\leftarrow j} - \boldsymbol{T}_{i\leftarrow j})\Big). $$</p>
-    <p>这条式子对应的方法环节是：cking data, we distill 相机-pose priors to obtain relative affine-invariant transformations。For the relative pose between views and , rotational alignment is supervised via the geodesic distance on the manifold , and translational alignment is constrained using a robust Huber loss applied to the relative translation。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时重点看左侧最终输出是什么，以及右侧各部分分别承担什么作用。</p>
+    <p>$$ \mathcal{L}_{\text{3D}} = \frac{1}{HW} \sum_{u,v} \| \hat{\boldsymbol{P}}(u,v) - \boldsymbol{P}(u,v) \|_2^2, $$</p>
+    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
+    <p>$$ \mathcal{L}_{\text{cam}} = \sum_{i \neq j} \Big( \ell_{\text{rot}}(\boldsymbol{\hat{R}}_{iarrow j}, \boldsymbol{R}_{iarrow j}) + \mathcal{H}_{\delta}(\boldsymbol{\hat{T}}_{iarrow j} - \boldsymbol{T}_{iarrow j})\Big). $$</p>
+    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
     <p>$$ \mathcal{L}_{\text{3D-prior}} = \lambda_{\text{3D}} \mathcal{L}_{\text{3D}} + \lambda_{\text{cam}} \mathcal{L}_{\text{cam}}. $$</p>
-    <p>这条式子对应的方法环节是：abeleq:cam equation This affine-invariant pose supervision exploits the inherent low-dimensional manifold of real-world 相机 trajectories , regularizing 几何, suppressing drift and degeneracies, and stabilizing novel-view synthesis from sparse inputs。The complete loss is defined as the weighted sum of the p。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
+    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
     <p>$$ \max_{\theta}\sum_{(\boldsymbol{o},\,\boldsymbol{a}) \in \mathcal{D}_{\text{train}}} \log \pi_{\theta}(\boldsymbol{a}\mid \boldsymbol{o}), $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 theta、boldsymbol、o、boldsymbol 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>这条式子描述了多个分量的聚合或逐步合成过程。它通常表示模型如何把局部贡献、概率权重或多项损失累积成最终结果。</p>
     <p>$$ \mathcal{L} = \mathcal{L}_{\text{rgb}} + \lambda_{\text{depth}} \mathcal{L}_{\text{depth}} + \mathcal{L}_{\text{3D-prior}}. $$</p>
-    <p>这条式子对应的方法环节是：ymbolo), equation where denotes the learnable parameters of the policy network。Comprehensive 训练 configurations and architectural details are deferred to Appendix redA.1。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
+    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
     <p>$$ \mathcal{L}_{\text{rgb}} = \lambda_{\text{1}}\| I - \hat{I} \|_1 + \lambda_{\text{2}} \, \mathtt{LPIPS}(I,\hat{I}), $$</p>
-    <p>这条式子对应的方法环节是：of photometric, geometric, and distillation objectives:。For each input view, the photometric 渲染 pipeline is strictly supervised via a combination of an penalty and a perceptual LPIPS regularizer :。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
-    <p>$$ \mathcal{L}_{\text{depth}} = \frac{1}{\lVert M \rVert_{1}} \left\lVert\, M \odot \big( \boldsymbol{P}_{...,\;2} - \hat{D} \big) \,\right\rVert_{2}^{2}, $$</p>
-    <p>这条式子对应的方法环节是：equation where denotes the novel view synthesized via the differentiable splatting process。To mitigate the subtle ambiguities that arise during 多视角 alignment and aggregation , we introduce a depth alignment loss that enforces alignment between the Gaussian primitives and the predicted point map, promoting geome。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
+    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
+    <p>$$ \mathcal{L}_{\text{depth}} = \frac{1}{\lVert M \rVert_{1}} \lVert\, M \odot \big( \boldsymbol{P}_{...,\;2} - \hat{D} \big) \,\rVert_{2}^{2}, $$</p>
+    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
 
     <h2 id='experiment'>实验结论</h2>
     <p>实验部分主要围绕 如选项卡：RQ4 中详述，GenSplat 在大相机扰动下实现了 62.2% 的最高平均成功率，显着优于所有竞争的 NVS 范例 展开。结果表明，最终，GenSplat 在不牺牲几何一致性的情况下实现了显着的生成速度，将我们的框架定位为用于学习视图广义机器人策略的高度可扩展的引擎。</p>
@@ -222,8 +222,7 @@
     <h3>4.1 RQ1：对相机扰动的鲁棒性</h3>
     <p>实验部分主要围绕 该实验定量研究通过 GenSplat 密集化空间支持是否系统地提高了针对不同程度的相机扰动的策略稳健性 展开。结果表明，我们将严格根据源数据训练的基线与我们在扩展流形上训练的策略进行比较。</p>
     <h3>4.2 RQ2：与SOTA的综合比较</h3>
-    <p>实验部分主要围绕 我们将 GenSplat 与领先的 NVS 方法进行比较，包括 ZeroNVS、VISTA、SEVA、InstantSplat、NoPoSplat 和 AnySplat 展开。</p>
-    <p>对比结果表明，虽然蒸馏的伪标签本质上会受到过度平滑的影响，但我们统一的光度和几何优化有效地恢复了清晰的对象边界和细粒度的拓扑。进一步结合定性现象和消融分析，可以看出：如选项卡：RQ4 中所述，GenSplat 在大相机扰动下实现了 62.2% 的最高平均成功率，显着优于所有竞争的 NVS 范例。</p>
+    <p>实验部分主要围绕 我们将 GenSplat 与领先的 NVS 方法（包括 ZeroNVS、VISTA、SEVA、InstantSplat、NoPoSplat 和 AnySplat）进行比较 展开。结果表明，如选项卡：RQ4 中详述，GenSplat 在大相机扰动下实现了 62.2% 的最高平均成功率，显着优于所有竞争的 NVS 范例。</p>
     <h3>4.3 RQ3：3D 预先蒸馏的消融</h3>
     <p>实验部分主要围绕 为了解决 RQ3，我们进行了一项消融研究，将排列等变 (P.E.) 架构和核心 3D 先验蒸馏模块的贡献分开 展开。结果表明，tab:ablation 详细说明了在具有挑战性的观点转变下这些组成部分对新颖观点合成保真度和下游政策稳健性的定量影响。</p>
     <h3>4.4 RQ4：渲染视图数量的影响</h3>

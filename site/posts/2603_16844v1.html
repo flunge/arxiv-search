@@ -157,7 +157,7 @@
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
-<!-- source-grounding: arxiv_id=2603.16844v1; pdf=2603_16844v1_M^3 Dense Matching Meets Multi-View Foundation Models for Monocular Gaussian Spl.pdf; source_dir=docs\.arxiv_source_cache\2603_16844v1\extracted; sections=6; figures=5; equations=7 -->
+<!-- source-grounding: arxiv_id=2603.16844v1; pdf=2603_16844v1_M^3 Dense Matching Meets Multi-View Foundation Models for Monocular Gaussian Spl.pdf; source_dir=C:\Users\XPENG_USER\Documents\docs\文献\feedforward\docs\.arxiv_source_cache\2603_16844v1\extracted; sections=6; figures=5; equations=7 -->
 
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
@@ -206,19 +206,19 @@
     <h4>3.2.4 神经高斯重建</h4>
     <p>每个 3D 高斯基元均通过其空间中心、旋转、缩放、不透明度、球谐 (SH) 系数进行参数化，并用于 LoD 渲染。为了促进全球一致性，同时保留局部独特性，我们进一步结合了个体特征和编码局部体素上下文的区域特征。受 的启发，这些基元是通过应用高斯拉普拉斯 (LoG) 概率图来从关键帧和映射器帧初始化，以优先考虑高频细节和重建不良的区域。</p>
     <p>$$ (\mathbf{D}, \mathbf{Q}) = \mathrm{MLP_{desc}}(\mathrm{DPT_{desc}}(\mathbf{H})), $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 D、Q、mathrm、mathrm 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时重点看左侧最终输出是什么，以及右侧各部分分别承担什么作用。</p>
     <p>$$ \mathcal{L} \;=\; -\frac{1}{N-1}\sum_{k=2}^{N}\Big( \mathbf{Q}_k\,\mathcal{L}^{k}_{\text{match}}-\alpha \log \mathbf{Q}_k \Big), $$</p>
-    <p>这条式子对应的方法环节是：\ (u,v)\ |\ X ,u =X ,v \, u v I I , respectively。The overall 训练 objective is a weighted combination of the matching loss and a confidence regularization term:。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
-    <p>$$ \mathcal{L}^{k}_{\text{match}} \;=\; -\sum_{(u,v)\in \hat{\mathcal{M}}_k} \left( \log \frac{s_{\tau}(u,v)}{\sum_{w \in \mathcal{P}_{1}} s_{\tau}(w,v)} \;+\; \log \frac{s_{\tau}(u,v)}{\sum_{w \in \mathcal{P}_{k}} s_{\tau}(u,w)} \right), $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 L、k、match、u 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>这条式子给出了训练阶段的优化目标。阅读时可以先看左侧到底在约束什么，再区分右侧每一项对应的是重建误差、正则项还是辅助监督。</p>
+    <p>$$ \mathcal{L}^{k}_{\text{match}} \;=\; -\sum_{(u,v)\in \hat{\mathcal{M}}_k} ( \log \frac{s_{\tau}(u,v)}{\sum_{w \in \mathcal{P}_{1}} s_{\tau}(w,v)} \;+\; \log \frac{s_{\tau}(u,v)}{\sum_{w \in \mathcal{P}_{k}} s_{\tau}(u,w)} ), $$</p>
+    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
     <p>$$ \mathbf{p}^* = \argmax_{\|\mathbf{p} - \phi(\mathbf{X}_i^j(\mathbf{q}))\| \le r} \langle \mathbf{D}_i(\mathbf{q}), \mathbf{D}_j(\mathbf{p}) \rangle, $$</p>
-    <p>这条式子对应的方法环节是：The pose-guided transformation provides a 几何-aware initialization that restricts the correspondence search to a spatial region, eliminating the need for exhaustive global matching。We then refine the correspondence by searching within a local neighborhood of radius around the projected loc。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
+    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
     <p>$$ \mathbf{M}_i = \langle \mathbf{D}_k^i, \mathbf{D}^i_i \rangle \odot \mathbf{M}_k^i, $$</p>
-    <p>这条式子对应的方法环节是：where denotes pixel-wise dot product and is the motion map of the last keyframe warped into frame。Pixels with low consistency are down-weighted during optimization, reducing trajectory drift and 重建 artifacts。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
-    <p>$$ E_{t} = \sum_{(m,n) \in \mathcal{M}(I_f, I_k)} \mathbf{M}_k \left\| \frac{\mathbf{p}_{k,n} - \phi \left( \mathbf{T}_{kf}\mathbf{X}^f_{f,m} \right)} {w(q_{m,n})} \right\|_\rho , $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 m、n、in、M 等量如何共同决定这个结果在方法链路中的作用。</p>
-    <p>$$ E_{g} = \sum_{(i,j) \in \mathcal{E}} \sum_{(m, n) \in \mathcal{M}(I_j, I_i)} \mathbf{M}_i \left\| \frac{\mathbf{p}_{i,n} - \phi \left( \mathbf{T}_{ij}\tilde{\mathbf{X}}^j_{j,m} \right)}{w(q_{m,n})} \right\|_\rho, $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 i、j、in、E 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时重点看左侧最终输出是什么，以及右侧各部分分别承担什么作用。</p>
+    <p>$$ E_{t} = \sum_{(m,n) \in \mathcal{M}(I_f, I_k)} \mathbf{M}_k \| \frac{\mathbf{p}_{k,n} - \phi ( \mathbf{T}_{kf}\mathbf{X}^f_{f,m} )} {w(q_{m,n})} \|_\rho , $$</p>
+    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
+    <p>$$ E_{g} = \sum_{(i,j) \in \mathcal{E}} \sum_{(m, n) \in \mathcal{M}(I_j, I_i)} \mathbf{M}_i \| \frac{\mathbf{p}_{i,n} - \phi ( \mathbf{T}_{ij}\tilde{\mathbf{X}}^j_{j,m} )}{w(q_{m,n})} \|_\rho, $$</p>
+    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
 
     <h2 id='experiment'>实验结论</h2>
     <p>实验部分主要围绕 我们根据涵盖室内和室外环境的多种公共基准来评估我们的方法 展开。结果表明，我们的方法在大多数评估序列上实现了最低的 ATE。</p>
@@ -232,8 +232,7 @@
     <h4>4.1.2 指标</h4>
     <p>实验部分主要围绕 我们评估姿态估计准确性、渲染质量和效率 展开。结果表明，渲染质量通过 PSNR、SSIM 和 LPIPS 进行评估。</p>
     <h4>4.1.3 基线</h4>
-    <p>实验部分主要围绕 对于姿态估计，我们针对多个 SLAM 框架进行评估，包括 DROID-SLAM 、 MASt3R-SLAM 、 VGGT-SLAM 、 VGGT-SLAM 2.0 和 ARTDECO 展开。</p>
-    <p>对比结果表明，我们还包括没有增强功能的基本模型 Pi3X 作为附加基线来评估拟议修改的影响。进一步结合定性现象和消融分析，可以看出：对于场景重建，我们与基于 Gaussian Splatting 的流方法进行比较，包括 MonoGS 、 S3PO-GS 、 HI-SLAM2 、 OnTheFly-NVS 和 ARTDECO。</p>
+    <p>实验部分主要围绕 对于姿态估计，我们针对多个 SLAM 框架进行评估，包括 DROID-SLAM 、 MASt3R-SLAM 、 VGGT-SLAM 、 VGGT-SLAM 2.0 和 ARTDECO 展开。结果表明，我们还包括没有增强功能的基本模型 Pi3X，作为评估拟议修改的影响的附加基线。</p>
     <h3>4.2 实施细节</h3>
     <p>实验部分主要围绕 每个训练批次包含帧，训练目标中的平衡权重设置为 展开。结果表明，在M框架中，我们使用滑动帧窗口，最多有四个历史关键帧。</p>
     <h3>4.3 比较</h3>

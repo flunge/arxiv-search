@@ -157,7 +157,7 @@
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
-<!-- source-grounding: arxiv_id=2602.13549v1; pdf=2602_13549v1_Nighttime Autonomous Driving Scene Reconstruction with Physically-Based Gaussian.pdf; source_dir=docs\.arxiv_source_cache\2602_13549v1\extracted; sections=5; figures=7; equations=10 -->
+<!-- source-grounding: arxiv_id=2602.13549v1; pdf=2602_13549v1_Nighttime Autonomous Driving Scene Reconstruction with Physically-Based Gaussian.pdf; source_dir=C:\Users\XPENG_USER\Documents\docs\文献\feedforward\docs\.arxiv_source_cache\2602_13549v1\extracted; sections=5; figures=7; equations=10 -->
 
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
@@ -195,29 +195,27 @@
     <h3>3.4 全局照明模块</h3>
     <p>之前的工作使用环境贴图对全局入射光进行建模，这需要对每个渲染步骤进行采样。为了解决这些限制，我们提出了一个全局照明模块，该模块可以根据标准化时间步长和相机嵌入来预测场景照明。其中 是将入射辐射度 SH 转换为朗伯辐射度 SH 的余弦核卷积因子，表示在高斯法线下评估的真实 SH 基。</p>
     <h3>3.5 镜面光建模</h3>
-    <p>从方法链路看，系统首先处理的是：夜间驾驶场景通常包含人工照明和逆反射器的强烈反射。</p>
-    <p>在训练和推理阶段，论文还额外考虑了：每个高斯被分配一组 ASG 波瓣（在我们的例子中为四个），并且它们的镜面反射贡献在渲染期间通过 BRDF 约束的 PBR 进行评估。</p>
+    <p>夜间驾驶场景通常包含人工照明和逆反射器的强烈反射。为了更好地处理这些情况，我们在渲染管道中使用了 ASG，因为它们已被证明比基于 SH 的方法更有效地捕获镜面高光。每个高斯都被分配了一组 ASG 波瓣（在我们的例子中为四个），并且它们的镜面反射贡献在渲染期间通过 BRDF 约束的 PBR 进行评估。</p>
     <h3>3.6 最终灯光和色调映射</h3>
-    <p>从方法链路看，系统首先处理的是：将漫反射和镜面反射光照相加，生成 HDR 中每个高斯的最终重新光照值。</p>
-    <p>接下来真正起关键作用的是：由于图像像素值以 LDR 值表示，因此我们应用 Reinhard 色调映射来生成 LDR 值。这样安排直接带来的收益是：结果作为用于标准光栅化的每高斯颜色。</p>
+    <p>将漫反射和镜面反射光照相加，生成 HDR 中每个高斯的最终重新光照值。由于图像像素值以 LDR 值表示，因此我们应用 Reinhard 色调映射来生成 LDR 值。结果作为用于标准光栅化的每高斯颜色。</p>
     <h3>3.7 优化</h3>
     <p>为了获得真实的光照效果，准确的表面法线对于每个高斯来说至关重要。在光栅化期间，累积每高斯法线以生成渲染的法线贴图。此外，我们从渲染的深度图导出基于深度的法线，并计算置信度权重来衡量与先前法线之间的一致性。</p>
-    <p>$$ G(x) = \exp\left(-\tfrac{1}{2}(x-\mu)^{T}\Sigma^{-1}(x-\mu)\right). $$</p>
-    <p>这条式子描述的是单个高斯基元在空间中的响应或密度分布：离中心越近，贡献越大；协方差则决定分布在不同方向上的扩张方式。它直接影响后续投影和渲染时每个高斯的覆盖范围。</p>
+    <p>$$ G(x) = \exp(-\tfrac{1}{2}(x-\mu)^{T}\Sigma^{-1}(x-\mu)). $$</p>
+    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
     <p>$$ C = \sum_{i \in N} c_i \alpha_i \prod_{j=1}^{i-1} (1 - \alpha_j), $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 C、in、N、i 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>这条式子描述了多个分量的聚合或逐步合成过程。它通常表示模型如何把局部贡献、概率权重或多项损失累积成最终结果。</p>
     <p>$$ L_{o}(\boldsymbol {\omega _{o}}, \boldsymbol {x}) = \int _{\Omega }f(\boldsymbol {\omega _{o}}, \boldsymbol {\omega _{i}}, \boldsymbol {x})L_{i}(\boldsymbol {\omega _{i}}, \boldsymbol {x})(\boldsymbol {\omega _{i}}\cdot \boldsymbol {n})d\boldsymbol {\omega _{i}}, \label {eq:rendering_equation} $$</p>
-    <p>这条式子对应的方法环节是：additional material attributes to produce HDR radiance, which is tone-mapped to LDR via Reinhard and rendered with the standard differentiable 3DGS rasterizer。BRDF Modeling Our lighting method utilizes the physically based 渲染 equation to compute the interaction between the lighting of the scene and the Gaussian。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
+    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
     <p>$$ L_d = \frac{b}{\pi}\sum_{l=0}^{2}A_{l}\sum_{m=-l}^{l}c^{l}_{m}Y^{l}_{m}(n), $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 b、pi、l、l 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>这条式子给出了训练阶段的优化目标。阅读时可以先看左侧到底在约束什么，再区分右侧每一项对应的是重建误差、正则项还是辅助监督。</p>
     <p>$$ G(v; [x, y, z], [\lambda, \mu], c) = c \cdot S(v; z) \cdot e^{-\lambda (v \cdot x)^2 - \mu (v \cdot y)^2}, $$</p>
-    <p>这条式子对应的方法环节是：Specular Light Modeling Nighttime driving scenes often contain artificial lighting and intense reflections from retro reflectors。To better handle these situations, we employ ASGs within our 渲染 pipeline, as they have been shown to capture specular highlights more effectively than SH-based approaches。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
+    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
     <p>$$ f_s(w_o, w_i) = \frac{D(h;r) \cdot F(w_o, h; b, m) \cdot G(w_i, w_o, h; r)}{(n \cdot w_i) \cdot (n \cdot w_o)}, $$</p>
-    <p>这条式子对应的方法环节是：a latent representation passed to an MLP for the final RGB contribution like , our framework uses ASGs to model incident specular lighting。Each Gaussian is assigned a set of ASG lobes (four in our case), and their specular contribution is evaluated during 渲染 via a BRDF-constrained PBR。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
-    <p>$$ \begin{split} L_s &= G(\omega_i,\omega_0,h; r) \cdot F(\omega_o,h; b,m) \cdot \sum_{i} A_i \cdot s_i \cdot \\ &ASG_i\!\left(w_r,[x_i,y_i,z_i], \left[\tfrac{\nu\lambda_i}{\nu+\lambda_i}, \tfrac{\nu\mu_i}{\nu+\mu_i}\right],\, a_{\text{ndf}} \tfrac{\pi}{\sqrt{(\nu+\lambda_i)(\nu+\mu_i)}}\right), \end{split} $$</p>
-    <p>这条式子对应的方法环节是：tion where the represents the half vector between incoming and outcoming radiance, and , and indicate the normal distribution function, the Fresnel term, and the 几何 term respectively。As the normal distribution can be modeled as a spherical Gaussian (SG) , the convolution of the SG and ASG product inside the PBR。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
+    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
+    <p>$$ \begin{split} L_s &= G(\omega_i,\omega_0,h; r) \cdot F(\omega_o,h; b,m) \cdot \sum_{i} A_i \cdot s_i \cdot \\ &ASG_i(w_r,[x_i,y_i,z_i], [\tfrac{\nu\lambda_i}{\nu+\lambda_i}, \tfrac{\nu\mu_i}{\nu+\mu_i}],\, a_{\text{ndf}} \tfrac{\pi}{\sqrt{(\nu+\lambda_i)(\nu+\mu_i)}}), \end{split} $$</p>
+    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
     <p>$$ L_{\text{HDR}} = L_{d} + L_{s}. $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 HDR 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
 
     <h2 id='experiment'>实验结论</h2>
     <p>实验部分主要围绕 对于评估指标，接下来，我们评估像素级的 PSNR、结构级的 SSIM 和感知相似性的 LPIPS 展开。结果表明，与第二好的基线 OmniRe 相比，这对应于 PSNR 大约 1.0 dB 的改进以及 LPIPS 的显着降低，表明重建更加清晰和稳健。</p>
@@ -244,8 +242,7 @@
     <h4>4.6.2 镜面建模中 ASG 与 SH 的分析</h4>
     <p>实验部分主要围绕 定性地，如图所示：sh，我们观察到 SH 无法捕捉锐利的镜面高光，而是产生更平滑、过度漫反射的反射 展开。结果表明，ASG 具有各向异性，可以更准确地再现高频镜面反射效果，使其更适合镜面反射建模。</p>
     <h4>4.6.3 BRDF约束分析</h4>
-    <p>实验部分主要围绕 具体来说，PSNR 下降 1.0 dB，LPIPS 显着增加 展开。</p>
-    <p>对比结果表明，此外，BRDF 约束和 ASG 直接评估的比较如图：brdf 所示。进一步结合定性现象和消融分析，可以看出：这证实了使用基于物理的 BRDF 框架约束镜面反射分量对于产生真实且物理一致的光照至关重要，而不是像图：brdf 中那样任意高光模式。</p>
+    <p>实验部分主要围绕 具体而言，PSNR 下降 1.0 dB，LPIPS 显着增加 展开。结果表明，此外，BRDF 约束和 ASG 直接评估的比较如图：brdf 所示。</p>
     <h4>4.6.4 照明组件分解的可视化</h4>
     <p>实验部分主要围绕 我们在图：结果中展示了照明组件分解的可视化 展开。结果表明，我们可以看到反照率代表了没有任何光照或阴影的场景的基色。</p>
 

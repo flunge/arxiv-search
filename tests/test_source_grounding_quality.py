@@ -2,6 +2,7 @@ from pathlib import Path
 import re
 
 from build_blog import _extract_source_material, _parse_latex_tabular_rows, _source_grounded_equation_explanation, validate_post_file
+from scripts.audit_technical_scope import run_audit
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DOCS_DIR = REPO_ROOT / "docs"
@@ -246,5 +247,93 @@ def test_freeartgs_post_keeps_source_grounded_equation_and_takeaway_quality() ->
     assert "最终图像由融合后的高斯集合经过相机内外参渲染得到" in html
     assert "如果把问题背景说透，FreeArtGS 最重要的价值在于" in html
     assert "它的局限也很明确" in html
+
+
+def test_riskmvdpo_equations_get_structural_explanations() -> None:
+    control_set = _source_grounded_equation_explanation(
+        r"\mathbf{U}=\Big\{\big(\mathbf{x}^{a}_{1:H},\mathbf{b}^{a}_{1:H}\big)\Big\}_{a\in\mathcal{A}}",
+        "the planner outputs future trajectories and 3D boxes for all agents as structured conditions for downstream generation.",
+    )
+    assert "结构化控制集合 U" in control_set
+    assert "未来轨迹" in control_set
+    assert "3D 框" in control_set
+
+    risk_projection = _source_grounded_equation_explanation(
+        r"d_{e\rightarrow i}^t = (\mathbf{v}_e^t)^\top \mathbf{r}_i^t, \qquad d_{i\rightarrow e}^t = (\mathbf{v}_i^t)^\top (-\mathbf{r}_i^t)",
+        "we project relative positions onto the ego and agent velocities to measure whether they are moving toward one another.",
+    )
+    assert "投影" in risk_projection
+    assert ("逼近" in risk_projection) or ("接近" in risk_projection)
+
+
+def test_dfcgs_equations_get_structural_explanations() -> None:
+    sampled = _source_grounded_equation_explanation(
+        r"\boldsymbol{\mu^c} = FPS(\{\mu_i\}_{i\in N}, \frac{N}{M})",
+        "we sparsify the Gaussian set by choosing representative control points before motion compression.",
+    )
+    assert "控制点" in sampled
+    assert ("最远点采样" in sampled) or ("代表性" in sampled)
+
+    motion_delta = _source_grounded_equation_explanation(
+        r"\boldsymbol{m^c_t} = Converter (\boldsymbol{y^c_t} - \boldsymbol{\hat{y}^c_{t-1}})",
+        "the converter turns feature differences between the current and reference control points into a compact motion representation.",
+    )
+    assert "运动残差" in motion_delta or "变化量" in motion_delta
+    assert "可编码" in motion_delta or "压缩" in motion_delta
+
+
+def test_ucpe_and_diffusion_equations_get_non_generic_explanations() -> None:
+    ucpe_attn = _source_grounded_equation_explanation(
+        r"{O} = \operatorname{Attn}(\mathbf{D}^{\top}\odot Q,\; \mathbf{D}^{-1}\odot K,\; V)",
+        "the camera-conditioned branch injects relative ray geometry directly into attention so cross-view reasoning respects camera structure.",
+    )
+    assert "注意力" in ucpe_attn
+    assert ("相机" in ucpe_attn) or ("几何" in ucpe_attn)
+
+    omega_guidance = _source_grounded_equation_explanation(
+        r"\hat{x}_0 = \arg\max_x \big[ \lambda_t R(x) - \mathrm{KL}(P_t(x) \Vert Q_t(\tilde{x}_0)) \big]",
+        "the optimized anchor should improve the reward while staying close to the current diffusion trajectory.",
+    )
+    assert "奖励" in omega_guidance
+    assert ("偏离" in omega_guidance) or ("范围" in omega_guidance)
+
+
+def test_streamrl_and_riskmvdpo_equations_get_non_generic_explanations() -> None:
+    conformal_p = _source_grounded_equation_explanation(
+        r"p_t^{(i)} = \frac{1 + \sum_{j \in \mathcal{C}_{\text{trim}}} \mathbf{1}[s_j \geq s_t^{(i)}]}{1 + |\mathcal{C}_{\text{trim}}|}",
+        "we turn anomaly scores into conformal p-values using the trimmed calibration set.",
+    )
+    assert "保形 p 值" in conformal_p
+    assert ("校准" in conformal_p) or ("统计保证" in conformal_p)
+
+    risk_case = _source_grounded_equation_explanation(
+        r"\omega_i^t = \begin{cases} \omega_{\mathrm{bi}}, & d_{e\rightarrow i}^t>0 \wedge d_{i\rightarrow e}^t>0,\\ \omega_{\mathrm{away}}, & \text{otherwise}. \end{cases}",
+        "we categorize each interaction according to whether ego and agent move toward one another before assigning risk weights.",
+    )
+    assert "分段式" in risk_case
+    assert ("交互关系" in risk_case) or ("权重" in risk_case)
+
+
+def test_review_like_world_model_post_keeps_full_scope_metadata_and_passes_scope_audit() -> None:
+    html = (REPO_ROOT / "site" / "posts" / "2603_28489v1.html").read_text(encoding="utf-8")
+    match = re.search(r"<!--\s*review-tech-scope:\s*(.*?)-->", html, flags=re.IGNORECASE | re.DOTALL)
+    assert match, "2603_28489v1 should expose review-tech-scope metadata"
+
+    meta = {}
+    for field in match.group(1).split(";"):
+        if "=" not in field:
+            continue
+        key, value = field.split("=", 1)
+        meta[key.strip()] = value.strip()
+
+    assert "Background" in meta.get("source", "")
+    assert "Applications" in meta.get("source", "")
+    assert meta.get("missing", "") == ""
+    assert int(meta.get("source_eq", "0") or 0) >= 6
+    assert int(meta.get("rendered_eq", "0") or 0) >= 6
+
+    summary = run_audit(selector="2603_28489v1")
+    assert summary["audited_posts"] == 1
+    assert summary["failed_posts"] == 0, summary["results"]
 
 

@@ -157,7 +157,7 @@
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
-<!-- source-grounding: arxiv_id=2603.25265v1; pdf=2603_25265v1_ViewSplat View-Adaptive Dynamic Gaussian Splatting for Feed-Forward Synthesis.pdf; source_dir=docs\.arxiv_source_cache\2603_25265v1\extracted; sections=2; figures=4; equations=5 -->
+<!-- source-grounding: arxiv_id=2603.25265v1; pdf=2603_25265v1_ViewSplat View-Adaptive Dynamic Gaussian Splatting for Feed-Forward Synthesis.pdf; source_dir=C:\Users\XPENG_USER\Documents\docs\文献\feedforward\docs\.arxiv_source_cache\2603_25265v1\extracted; sections=2; figures=4; equations=5 -->
 
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
@@ -199,15 +199,15 @@
     <h4>1.2.3 全损</h4>
     <p>总的训练目标是以上各项的加权和。这个组合目标可以稳定地训练像素对齐的 3D 高斯和视图相关的渲染，而无需地面实况姿势。在我们的实验中，我们将超参数设置为 和。</p>
     <p>$$ 0 = R^{t \to 1}C^{t \to 1} + t^{t \to 1} \implies C^{t \to 1} = -(R^{t \to 1})^Tt^{t \to 1}. $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 R、t、to、C 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时重点看左侧最终输出是什么，以及右侧各部分分别承担什么作用。</p>
     <p>$$ \mathbf{u}^v_j = \frac{\mathbf{d}^v_j}{\|\mathbf{d}^v_j\|_2}, \quad l^v_j = \log(\|\mathbf{d}^v_j\|_2 + \epsilon), $$</p>
-    <p>这条式子对应的方法环节是：of context view v, we compute the relative pixel-wise displacement vector from the Gaussian center to the target 相机 center as。The view MLP then receives a 4D input , which consists of a unit viewing direction and a log-scale distance , derived from the displacement vector as follows:。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时重点看左侧最终输出是什么，以及右侧各部分分别承担什么作用。</p>
     <p>$$ \mathcal{L}_{render} = \mathcal{L}_{MSE}(I^t, \hat{I}^t) + \lambda_{LPIPS} \mathcal{L}_{LPIPS}(I^t, \hat{I}^t), $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 L、render、L、MSE 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
     <p>$$ \mathcal{L}_{reproj} = \sum_{v=1}^N \sum_{j=1}^{H \times W} \|p_j^v - \pi(K^v, P^{v \to 1}, \mu_j^{v \to 1})\|, $$</p>
-    <p>这条式子对应的方法环节是：and the estimated 相机 parameters。This loss measures the alignment between the canonical 3D representations and their corresponding 2D observations。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
+    <p>这条式子给出了训练阶段的优化目标。阅读时可以先看左侧到底在约束什么，再区分右侧每一项对应的是重建误差、正则项还是辅助监督。</p>
     <p>$$ \mathcal{L}_{total} = \mathcal{L}_{render} + \lambda_{reproj}\mathcal{L}_{reproj}, $$</p>
-    <p>这条式子对应的方法环节是：\ () denotes the 相机 projection function。To maintain consistency, we apply this reprojection loss to the poses estimated from both the context-only branch and the context-with-target branch。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
+    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
 
     <h2 id='experiment'>实验结论</h2>
     <p>实验部分主要围绕 为了凭经验验证 eq:4d 中描述的我们提出的对数尺度距离的有效性，我们进行了一项消融研究，将其与标准线性距离度量进行比较 展开。结果表明，正如 tab:ablation 中所总结的，在 RE10K 和 ACID 数据集上，就 PSNR 而言，对数尺度距离始终优于线性距离。</p>

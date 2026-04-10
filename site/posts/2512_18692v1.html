@@ -157,7 +157,7 @@
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
-<!-- source-grounding: arxiv_id=2512.18692v1; pdf=2512_18692v1_EcoSplat Efficiency-controllable Feed-forward 3D Gaussian Splatting from Multi-v.pdf; source_dir=docs\.arxiv_source_cache\2512_18692v1\extracted; sections=7; figures=5; equations=10 -->
+<!-- source-grounding: arxiv_id=2512.18692v1; pdf=2512_18692v1_EcoSplat Efficiency-controllable Feed-forward 3D Gaussian Splatting from Multi-v.pdf; source_dir=C:\Users\XPENG_USER\Documents\docs\文献\feedforward\docs\.arxiv_source_cache\2512_18692v1\extracted; sections=7; figures=5; equations=10 -->
 
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
@@ -183,7 +183,7 @@
     <h2 id='technical'>技术细节</h2>
     <p>EcoSplat 概述 给定场景的多视图图像和目标高斯数量，我们的目标是以前馈方式预测一组 3D 高斯基元，以最大化渲染质量。具体来说，我们将作为条件信号注入到我们的模型中。</p>
 <figure><img class='paper-fig' src='../assets/2512_18692v1/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：在 IGF 期间，重要性感知的不透明度损失 L 和高斯压缩渐进学习 (PLGC) 的结合鼓励 EcoSplat 抑制不太重要的高斯的不透明度；在推理时，它自适应地满足任意用户指定的基元计数，并以前馈方式产生最佳高斯（第 1 节）</figcaption></figure>
-<figure><img class='paper-fig' src='../assets/2512_18692v1/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：嵌入注入策略的重要性</figcaption></figure>
+<figure><img class='paper-fig' src='../assets/2512_18692v1/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：嵌入注入策略的重要性，用于说明论文中的关键模块、输入输出关系或核心实验现象</figcaption></figure>
     <h3>3.1 EcoSplat 概述</h3>
     <p>给定场景的多视图图像和目标高斯数量，我们的目标是以前馈方式预测一组 3D 高斯基元，以最大化渲染质量。具体来说，我们将作为条件信号注入到我们的模型中。</p>
     <h3>3.2 像素对齐高斯训练 (PGT)</h3>
@@ -195,7 +195,7 @@
     <p>$$ \begin{aligned} &\{\bm{\mu}_{i,j}\}_{j=1}^{H W} = F_\mu(\{\bm{Z}_i^{(\ell)}\}_{\ell=1}^{m}), \\ &\{[\alpha_{i,j} ;\bm{\Sigma}_{i,j} ;\bm{c}_{i,j}]\}_{j=1}^{HW} =F_\nu(\{\bm{Z}_i^{(\ell)}\}_{\ell=1}^{m},\psi(\bm{I}_i)), \end{aligned} $$</p>
     <p>这条式子给出了渲染/成像算子的整体输入输出：模型把相机参数与场景表示一起送入渲染器，得到最终图像或投影结果。它相当于把整条前向生成链路压缩成一个明确的计算接口。</p>
     <p>$$ \scalebox{0.9}{$ \mathcal{L}_\text{render} = \frac{1}{N^\text{tgt}} \sum\limits_{p=1}^{N^\text{tgt}} \mathcal{L}_\text{MSE}(\bm{I}^\text{tgt}_p, \hat{\bm{I}}^\text{tgt}_p) + 0.05 \cdot\mathcal{L}_\text{LPIPS}(\bm{I}^\text{tgt}_p, \hat{\bm{I}}^\text{tgt}_p). $} $$</p>
-    <p>这条式子对应的方法环节是：ayer that acts as a low-level feature encoder。Using the predicted pixel-aligned Gaussians, derived from all input images, we render a target novel view image via rasterization with its corresponding 相机。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 scalebox、L、render、N 等量如何共同决定这个结果在方法链路中的作用。</p>
     <p>$$ \scalebox{0.95}{$ \{[\tilde{\alpha}_{i,j} ; \tilde{\bm{\Sigma}}_{i,j} ; \tilde{\bm{c}}_{i,j}]\}_{j=1}^{HW} = F_\nu(\{\bm{Z}_i^{(\ell)}\}_{\ell=1}^{m}, \psi(\bm{I}_i), \bm{R}_i ), $} $$</p>
     <p>这条式子给出了渲染/成像算子的整体输入输出：模型把相机参数与场景表示一起送入渲染器，得到最终图像或投影结果。它相当于把整条前向生成链路压缩成一个明确的计算接口。</p>
     <p>$$ \bm{g}_{\text{photo},i} = \sqrt{\|\nabla_x \bm{I}_i\|_2^2 + \|\nabla_y \bm{I}_i\|_2^2}, $$</p>
@@ -205,7 +205,7 @@
     <p>$$ \scalebox{0.9}{$ \bm{g}'_{i,j} = \begin{cases} 1, & \text{if} \; \bm{g}_{i,j} > \epsilon_i, \\ 0, & \text{otherwise}, \end{cases} \quad \text{where} \quad \epsilon_i = Q_{\rho_i}(\{\bm{g}_{i,j}\}_{j=1}^{HW}), $} $$</p>
     <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 scalebox、bm、g、i 等量如何共同决定这个结果在方法链路中的作用。</p>
     <p>$$ \scalebox{0.90}{$ \mathcal{G}^{\text{high}}_i = \{\bm{G}_{i,j} \mid \bm{g}'_{i,j}=1\}, \quad \mathcal{G}^{\text{low}}_i = \{\bm{G}_{i,j} \mid \bm{g}'_{i,j}=0\}. $} $$</p>
-    <p>这条式子对应的方法环节是：rho () g&#x27; ,j=1 0 g&#x27; G ^ I g&#x27; into two sets of 3D Gaussians:。Intuitively, high-variation pixels should be represented by individual primitives to preserve fine 重建 details。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 scalebox、G、high、i 等量如何共同决定这个结果在方法链路中的作用。</p>
     <p>$$ \mathcal{G}_i^{\Omega} \triangleq \mathcal{G}_i^{\text{high}} \cup \mathcal{G}_i^{\text{c}}. $$</p>
     <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 G、i、Omega、triangleq 等量如何共同决定这个结果在方法链路中的作用。</p>
 
@@ -215,8 +215,7 @@
 <figure><img class='paper-fig' src='../assets/2512_18692v1/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：具有 24 个输入视图的 RE10K 数据集上受控基元数量下的 NVS 的视觉比较</figcaption></figure>
 <figure><img class='paper-fig' src='../assets/2512_18692v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：消融研究的视觉结果：（a）PGT阶段； (b) 重要性感知的不透明度损失； (c) PLGC 战略</figcaption></figure>
     <h3>4.1 与最先进方法的比较</h3>
-    <p>实验部分主要围绕 展示不同目标 3D 高斯计数下前馈 3DGS 模型的定量和定性比较，目标 3D 高斯计数设置为总像素对齐图元的 5%、10%、40% 和 70% ( ) 展开。</p>
-    <p>对比结果表明，我们将 EcoSplat 与具有代表性的高效前馈 3DGS 方法（例如 GGN、AnySplat 和 WorldMirror）进行比较。进一步结合定性现象和消融分析，可以看出：此外，我们将我们的 EcoSplat 与 SOTA 像素对齐前馈 3DGS 方法（SPFSplat 和 MVSplat）以及后剪枝方法的级联进行比较。</p>
+    <p>实验部分主要围绕 展示不同目标 3D 高斯计数下前馈 3DGS 模型的定量和定性比较，目标 3D 高斯计数设置为总像素对齐图元的 5%、10%、40% 和 70% ( ) 展开。结果表明，我们将 EcoSplat 与具有代表性的高效前馈 3DGS 方法（例如 GGN、AnySplat 和 WorldMirror）进行比较。</p>
     <h3>4.2 消融研究</h3>
     <p>实验部分主要围绕 这会导致结构（PSNR、SSIM）和感知（LPIPS）指标显着下降，特别是在积极修剪（5%）的情况下 展开。结果表明，当 较大时（“70% 高斯”，橙色），模型保留很大比例的高不透明度图元，捕捉精细的几何和外观细节。</p>
 

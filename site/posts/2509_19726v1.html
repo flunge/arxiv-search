@@ -157,7 +157,7 @@
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
-<!-- source-grounding: arxiv_id=2509.19726v1; pdf=2509_19726v1_PolGS Polarimetric Gaussian Splatting for Fast Reflective Surface Reconstruction.pdf; source_dir=docs\.arxiv_source_cache\2509_19726v1\extracted; sections=7; figures=7; equations=10 -->
+<!-- source-grounding: arxiv_id=2509.19726v1; pdf=2509_19726v1_PolGS Polarimetric Gaussian Splatting for Fast Reflective Surface Reconstruction.pdf; source_dir=C:\Users\XPENG_USER\Documents\docs\文献\feedforward\docs\.arxiv_source_cache\2509_19726v1\extracted; sections=7; figures=7; equations=10 -->
 
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
@@ -190,22 +190,22 @@
     <p>网络结构 在本节中，我们介绍我们提出的 PolGS，这是一种新颖的 3D 重建方法，它将高斯分布方法与偏振信息相结合。最初，高斯面元模块用于估计物体的漫反射分量，看起来像。为了增强渲染过程，我们将 pBRDF 模型纳入渲染公式中。</p>
     <h3>4.3 训练</h3>
     <p>1em 渲染斯托克斯损失 和 渲染斯托克斯损失与（非偏振图像）渲染损失组合为 3DGS，渲染损失为。Mask loss mask loss用于使物体的渲染结果更加准确，可以表示为。深度法线一致性损失 深度法线一致性损失随之而来，使渲染的物体深度和法线更加一致。</p>
-    <p>$$ G(\textbf{x};\textbf{x}_i,\Sigma_i)=\text{exp}(-\frac{1}{2}(\textbf{x}-\textbf{x}_i)^\top\Sigma_i^{-1}(\textbf{x}-\textbf{x}_i)), $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 G、textbf、x、textbf 等量如何共同决定这个结果在方法链路中的作用。</p>
-    <p>$$ \begin{aligned} \Sigma_i &= \textbf{R}(\textbf{r}_i)\textbf{s}_i\textbf{s}_i^\top\textbf{R}(\textbf{r}_i)^\top\\ &= \textbf{R}(\textbf{r}_i)\text{Diag}[(s^x_i)^2,(s^y_i)^2,0]\textbf{R}(\textbf{r}_i)^\top, \end{aligned} $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 aligned、textbf、R、textbf 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>$$ G(\mathbf{x};\mathbf{x}_i,\Sigma_i)=\text{exp}(-\frac{1}{2}(\mathbf{x}-\mathbf{x}_i)^\top\Sigma_i^{-1}(\mathbf{x}-\mathbf{x}_i)), $$</p>
+    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
+    <p>$$ \begin{aligned} \Sigma_i &= \mathbf{R}(\mathbf{r}_i)\mathbf{s}_i\mathbf{s}_i^\top\mathbf{R}(\mathbf{r}_i)^\top\\ &= \mathbf{R}(\mathbf{r}_i)\text{Diag}[(s^x_i)^2,(s^y_i)^2,0]\mathbf{R}(\mathbf{r}_i)^\top, \end{aligned} $$</p>
+    <p>这条式子是在构造高斯的协方差：先用各方向尺度定义局部形状，再通过旋转矩阵把它转到目标朝向。这样每个高斯既能表达表面的拉伸方向，也能表达局部法线朝向。</p>
     <p>$$ C=\sum_{i=0}^nT_i\alpha_ic_i, $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 C、i 等量如何共同决定这个结果在方法链路中的作用。</p>
-    <p>$$ G'(\textbf{u};\textbf{u}_i,\Sigma'_i)=\text{exp}(-\frac{1}{2}(\textbf{u}-\textbf{u}_i)^\top {\Sigma'_i}^{-1}(\textbf{u}-\textbf{u}_i)), $$</p>
-    <p>这条式子对应的方法环节是：equation where is the transmittance, is alpha-blending weight, which is the product of opacity and the Gaussian weight based on pixel。In order to speed up the 渲染 process, the 3D Gaussian in equation:sigma is re-parameterized in 2D ray space as :。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
-    <p>$$ \tilde{D}=\frac{1}{1-T_{n+1}}\sum_{i=0}^{n}T_i\alpha_id_i(\textbf{u}), $$</p>
-    <p>这条式子对应的方法环节是：J ^)[:2,:2] W k J &#x27; D N for each pixel can also be calculated via 高斯泼溅 and alpha-blending:。Specifically, according to , the depth of pixel for each Gaussian kernel is computed by calculating the intersection of the ray cast through pixel with the Gaussian ellipse during splatting。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
-    <p>$$ \tilde{N}=\frac{1}{1-T_{n+1}}\sum_{i=0}^{n}T_i\alpha_i\textbf{R}_i[:,2]. $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 tilde、N、n、textbf 等量如何共同决定这个结果在方法链路中的作用。</p>
-    <p>$$ d_i(\textbf{u}) = d_i(\textbf{u}_i) + (\textbf{W}_k\textbf{R}_i)[2,:]\textbf{J}_{pr}^{-1}(\textbf{u}-\textbf{u}_i), $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 textbf、u、textbf、u 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>这条式子描述了多个分量的聚合或逐步合成过程。它通常表示模型如何把局部贡献、概率权重或多项损失累积成最终结果。</p>
+    <p>$$ G'(\mathbf{u};\mathbf{u}_i,\Sigma'_i)=\text{exp}(-\frac{1}{2}(\mathbf{u}-\mathbf{u}_i)^\top {\Sigma'_i}^{-1}(\mathbf{u}-\mathbf{u}_i)), $$</p>
+    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
+    <p>$$ \tilde{D}=\frac{1}{1-T_{n+1}}\sum_{i=0}^{n}T_i\alpha_id_i(\mathbf{u}), $$</p>
+    <p>这条式子是在把多个高斯的局部贡献按可见性权重累积成最终的深度或法线结果。它说明作者不是从单个高斯直接读出几何，而是通过加权聚合得到更稳定的表面估计。</p>
+    <p>$$ \tilde{N}=\frac{1}{1-T_{n+1}}\sum_{i=0}^{n}T_i\alpha_i\mathbf{R}_i[:,2]. $$</p>
+    <p>这条式子是在把多个高斯的局部贡献按可见性权重累积成最终的深度或法线结果。它说明作者不是从单个高斯直接读出几何，而是通过加权聚合得到更稳定的表面估计。</p>
+    <p>$$ d_i(\mathbf{u}) = d_i(\mathbf{u}_i) + (\mathbf{W}_k\mathbf{R}_i)[2,:]\mathbf{J}_{pr}^{-1}(\mathbf{u}-\mathbf{u}_i), $$</p>
+    <p>这条式子是在局部投影平面里，用一阶线性化近似把像素偏移转换成深度变化。这样模型就能在不显式追踪完整曲面的情况下，估计屏幕空间邻域里的几何变化。</p>
     <p>$$ S = \begin{bmatrix}\frac{1}{2} (I_0+I_{45}+I_{90}+I_{135})\\ I_{0}-I_{90}\\ I_{45}-I_{135}\\ 0 \end{bmatrix}, $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 S、bmatrix、bmatrix 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>这条式子把四个偏振角观测组合成斯托克斯向量。它的作用是把原始偏振强度重新整理成更有物理意义的表示，后面法线恢复和反射分解都会基于这组量展开。</p>
 
     <h2 id='experiment'>实验结论</h2>
     <p>实验部分主要围绕 1em 评估指标 我们使用倒角距离 (CD) 来评估形状恢复性能，使用平均角度误差 (MAE) 来评估表面法线估计的质量 展开。结果表明，然而，我们的方法在合成数据集中实现了最低的平均倒角距离，强化了表面法线估计中观察到的趋势，并确认我们的方法提供了最佳效果。</p>

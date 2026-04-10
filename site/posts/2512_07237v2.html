@@ -157,7 +157,7 @@
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
-<!-- source-grounding: arxiv_id=2512.07237v2; pdf=2512_07237v2_Unified Camera Positional Encoding for Controlled Video Generation.pdf; source_dir=docs\.arxiv_source_cache\2512_07237v2\extracted; sections=5; figures=0; equations=10 -->
+<!-- source-grounding: arxiv_id=2512.07237v2; pdf=2512_07237v2_Unified Camera Positional Encoding for Controlled Video Generation.pdf; source_dir=C:\Users\XPENG_USER\Documents\docs\文献\feedforward\docs\.arxiv_source_cache\2512_07237v2\extracted; sections=5; figures=0; equations=10 -->
 
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
@@ -189,22 +189,22 @@
     <p>具体来说，对于每个图像标记，我们的目标是构造一个局部光线到世界矩阵，作为注意级特征转换的几何算子。我们通过定义锚定在相机中心的局部射线坐标系来构造，并通过正交基进行参数化。这个公式使注意力机制能够在光线空间中进行推理，而不是在相机帧内共享相同的位置编码。</p>
     <h3>3.3 用于 UCPE 注射的空间注意力适配器</h3>
     <p>其中编码 eq:ray2world 中定义的世界到光线变换，并使用 RoPE 构建以编码图像空间位置，两者都具有特征维度的一半。此外，空间注意力模块将 Lat-Up 贴图作为可选输入，以提供绝对方向控制。如图所示：管道，每个 DiT 块保留标准的自注意力，同时引入基于建议编码的相机条件分支。</p>
-    <p>$$ \bm{d}_{{u},{v}} = \mathbf{R} \bm{d}_{{u},{v}}^{\textrm{cam}}, \qquad \bm{o}_{{u},{v}} = \bm{t}. $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 bm、d、u、v 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>$$ \boldsymbol{d}_{{u},{v}} = \mathbf{R} \boldsymbol{d}_{{u},{v}}^{\textrm{cam}}, \qquad \boldsymbol{o}_{{u},{v}} = \boldsymbol{t}. $$</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时重点看左侧最终输出是什么，以及右侧各部分分别承担什么作用。</p>
     <p>$$ \mathbf{D}_{t} = \mathbf{I}_{{d}/4} \otimes \mathbf{T}_{{i}({t})}^{\textrm{cw}}, $$</p>
-    <p>这条式子对应的方法环节是：relationships directly within the attention mechanism of Transformers, making them invariant to global coordinate choices。For each token with its corresponding 相机 index , a transformation matrix is derived from the world-to-相机 transformation as:。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
-    <p>$$ {O} = \operatorname{Attn}\big(\mathbf{D}^{\!\top}\!\odot {Q},\; \mathbf{D}^{-1}\!\odot {K},\; {V}\big). $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 O、Attn、big、D 等量如何共同决定这个结果在方法链路中的作用。</p>
-    <p>$$ {O} = \mathbf{D} \odot \operatorname{Attn}\big(\mathbf{D}^{\!\top}\!\odot {Q},\; \mathbf{D}^{-1}\!\odot {K},\; \mathbf{D}^{-1}\!\odot {V}\big). $$</p>
-    <p>这条式子对应的方法环节是：(T (t ) )^\!-1\), conditioning attention on the relative 相机 pose。Geometric Transform Attention (GTA) extends this formulation by additionally transforming the value matrix, thereby enforcing geometric consistency during both feature comparison and aggregation:。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
-    <p>$$ \bm{r}_t = \big(\bm{o}_t,\, \bm{d}_t\big), \quad \bm{o}_t \in \mathbb{R}^3, \quad \bm{d}_t \in \mathbb{S}^2, $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 bm、r、t、big 等量如何共同决定这个结果在方法链路中的作用。</p>
-    <p>$$ \bm{z}_t = \bm{d}_t, \quad \bm{x}_t = \bm{y}^{\textrm{cam}}_{i(t)} \times \bm{z}_t, \quad \bm{y}_t = \bm{z}_t \times \bm{x}_t. $$</p>
-    <p>这条式子对应的方法环节是：h defining a local ray coordinate system anchored at the 相机 center, parameterized by an orthonormal basis。As shown in fig:raysd, we take each ray direction as the local -axis and determine the other two orthogonal axes based on the 相机&#x27;s downward direction as follows:。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
-    <p>$$ \mathbf{T}^{\textrm{wr}}_t = \begin{bmatrix} \mathbf{R}^{\textrm{wr}}_t & \bm{t}^{\textrm{wr}}_t \\ \mathbf{0}^\top & 1 \end{bmatrix}. $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 T、textrm、wr、t 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>这条式子把当前相机的坐标变换按特征维度展开成块状矩阵，用来统一作用到注意力特征上。它相当于把相机位姿从几何空间搬到网络特征空间，让后续注意力层都能共享同一套相机条件。</p>
+    <p>$$ {O} = \operatorname{Attn}\big(\mathbf{D}^{\top}\odot {Q},\; \mathbf{D}^{-1}\odot {K},\; {V}\big). $$</p>
+    <p>这条式子把相机相关的几何编码直接注入注意力计算：查询、键和值都会先经过与视角有关的变换，再执行注意力聚合。这样模型在跨视图建模时，学到的就不只是外观相似性，还包含明确的相机几何关系。</p>
+    <p>$$ {O} = \mathbf{D} \odot \operatorname{Attn}\big(\mathbf{D}^{\top}\odot {Q},\; \mathbf{D}^{-1}\odot {K},\; \mathbf{D}^{-1}\odot {V}\big). $$</p>
+    <p>这条式子把相机相关的几何编码直接注入注意力计算：查询、键和值都会先经过与视角有关的变换，再执行注意力聚合。这样模型在跨视图建模时，学到的就不只是外观相似性，还包含明确的相机几何关系。</p>
+    <p>$$ \boldsymbol{r}_t = \big(\boldsymbol{o}_t,\, \boldsymbol{d}_t\big), \quad \boldsymbol{o}_t \in \mathbb{R}^3, \quad \boldsymbol{d}_t \in \mathbb{S}^2, $$</p>
+    <p>这条式子把一条光线写成“起点 + 方向”的成对表示。这样后面的相机编码不必直接操作原始内外参，而是统一围绕每条射线在空间里的几何意义来建模。</p>
+    <p>$$ \boldsymbol{z}_t = \boldsymbol{d}_t, \quad \boldsymbol{x}_t = \boldsymbol{y}^{\textrm{cam}}_{i(t)} \times \boldsymbol{z}_t, \quad \boldsymbol{y}_t = \boldsymbol{z}_t \times \boldsymbol{x}_t. $$</p>
+    <p>这条并列公式是在为每个视角构造一组正交局部坐标轴。作者先用观察方向确定主轴，再通过叉乘补齐其余两个轴，从而得到一个稳定的射线局部参考系。</p>
+    <p>$$ \mathbf{T}^{\textrm{wr}}_t = \begin{bmatrix} \mathbf{R}^{\textrm{wr}}_t & \boldsymbol{t}^{\textrm{wr}}_t \\ \mathbf{0}^\top & 1 \end{bmatrix}. $$</p>
+    <p>这条式子把旋转和平移写成齐次变换矩阵，方便后续统一执行坐标变换。它说明论文里的相机/射线几何不是零散地分别处理，而是被组织成标准的矩阵运算接口。</p>
     <p>$$ \text{Lat}_t = \arctan2 \big(-d_{t,y},\, \sqrt{d_{t,x}^{2} + d_{t,z}^{2}}\big), $$</p>
-    <p>这条式子对应的方法环节是：tion through 外观 cues such as sky-ground separation and object alignment, while also providing some distortion awareness for wide-angle lenses。For the latitude map calculation, we start from ray &#x27;s world-space direction as defined in eq:ray。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
+    <p>这条式子把三维方向转换成纬度角，用来生成可注入网络的绝对朝向信号。这样模型不仅知道相对相机关系，也能知道当前视角在全局方向上的位置。</p>
 
     <h2 id='experiment'>实验结论</h2>
     <p>实验部分主要围绕 更高的压缩比可提高视频质量指标，同时保持稳定的摄像机可控性 展开。结果表明，我们采用默认设置，它提供了性能和效率之间的最佳权衡。</p>
@@ -213,8 +213,7 @@
 <figure><img class='paper-fig' src='../assets/2512_07237v2/fig_5.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：该图展示了论文中的关键模块、实验设置或可视化效果</figcaption></figure>
 <figure><img class='paper-fig' src='../assets/2512_07237v2/fig_6.png' alt='Figure 6:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 6：该图展示了论文中的关键模块、实验设置或可视化效果</figcaption></figure>
     <h3>4.1 实验装置</h3>
-    <p>实验部分主要围绕 使用 FID、FVD 进行评估以实现数据集级保真度，使用 CLIP 分数进行文本视频对齐，使用 Q-Align 进行以用户为中心的质量评估 展开。</p>
-    <p>对比结果表明，每个生成的帧都被校正为具有真实失真的针孔视图，并由 ViPE 进行估计，报告平移 (TransErr)、旋转 (RotErr) 和运动一致性 (CamMC)。进一步结合定性现象和消融分析，可以看出：通过 GeoCalib 估计俯仰和横滚，并与地面实况视频估计进行比较，以获得绝对方向误差。</p>
+    <p>实验部分主要围绕 使用 FID、FVD 进行评估以实现数据集级保真度，使用 CLIP 分数进行文本视频对齐，使用 Q-Align 进行以用户为中心的质量评估 展开。结果表明，每个生成的帧都被校正为具有真实失真的针孔视图，并由 ViPE 进行估计，报告平移 (TransErr)、旋转 (RotErr) 和运动一致性 (CamMC)。</p>
     <h3>4.2 与以前方法的比较</h3>
     <p>实验部分主要围绕 我们将 UCPE 与几种有代表性的相机调节方法进行比较 展开。结果表明，UCPE 在两种配置中始终实现了更好的性能，展示了卓越的摄像机可控性和视频质量，同时仅在 7.0 版本的基础上增加了 3550 万个参数或 0.5% 的参数。</p>
     <h3>4.3 消融研究</h3>

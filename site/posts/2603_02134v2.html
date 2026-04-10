@@ -157,7 +157,7 @@
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
-<!-- source-grounding: arxiv_id=2603.02134v2; pdf=2603_02134v2_OnlineX Unified Online 3D Reconstruction and Understanding with Active-to-Stable.pdf; source_dir=docs\.arxiv_source_cache\2603_02134v2\extracted; sections=5; figures=6; equations=10 -->
+<!-- source-grounding: arxiv_id=2603.02134v2; pdf=2603_02134v2_OnlineX Unified Online 3D Reconstruction and Understanding with Active-to-Stable.pdf; source_dir=C:\Users\XPENG_USER\Documents\docs\文献\feedforward\docs\.arxiv_source_cache\2603_02134v2\extracted; sections=5; figures=6; equations=10 -->
 
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
@@ -193,22 +193,22 @@
     <p>受到 的启发，该模块通过自适应地识别和合并潜在空间中附近的图元来解决这个问题。对于每个新的高斯（具有中心和置信度），我们首先通过查找同一空间体素内的所有现有高斯来识别其邻域。融合过程然后细化几何位置和潜在属性。</p>
     <h3>3.5 培训详情</h3>
     <p>我们的框架使用复合损失函数进行端到端训练，其中包括姿势、视觉渲染和语言渲染术语。至关重要的是，我们采用了辅助监督策略，其中这些损失应用于我们架构的中间相对阶段和最终全局阶段。这个中间目标确保网络首先学会提取高保真局部表示，为后续的全局更新提供稳定的基础。</p>
-    <p>$$ G_t = \left\{ \left( \mathbf{\mu}_t^i, \mathbf{r}_t^i, \mathbf{s}_t^i, \mathbf{\alpha}_t^i, \mathbf{c}_t^i, \mathbf{l}_t^i \right) \right\}_{i=1}^{N_t}, $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 left、left、mu、t 等量如何共同决定这个结果在方法链路中的作用。</p>
-    <p>$$ \left\{ \begin{aligned} \mathrm{C}(v) &= \sum_{i\in N} \mathbf{c}_i \mathbf{\alpha}_i \prod_{j=1}^{i-1} (1-\mathbf{\alpha}_j), \\ \mathrm{L}(v) &= \sum_{i\in N} \mathbf{l}_i \mathbf{\alpha}_i \prod_{j=1}^{i-1} (1-\mathbf{\alpha}_j), \end{aligned} \right. $$</p>
-    <p>这条式子对应的方法环节是：e semantic feature at a low dimensional space, with the feature dimension , where denotes the original dimension of the 2D semantic features extracted from CLIP and we set as 16 by default。The set of 3D Gaussians is subsequently employed for 渲染 novel-view RGB images and language maps as the f。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
+    <p>$$ G_t = \{ ( \mathbf{\mu}_t^i, \mathbf{r}_t^i, \mathbf{s}_t^i, \mathbf{\alpha}_t^i, \mathbf{c}_t^i, \mathbf{l}_t^i ) \}_{i=1}^{N_t}, $$</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时重点看左侧最终输出是什么，以及右侧各部分分别承担什么作用。</p>
+    <p>$$ \{ \begin{aligned} \mathrm{C}(v) &= \sum_{i\in N} \mathbf{c}_i \mathbf{\alpha}_i \prod_{j=1}^{i-1} (1-\mathbf{\alpha}_j), \\ \mathrm{L}(v) &= \sum_{i\in N} \mathbf{l}_i \mathbf{\alpha}_i \prod_{j=1}^{i-1} (1-\mathbf{\alpha}_j), \end{aligned} . $$</p>
+    <p>这条式子描述了多个分量的聚合或逐步合成过程。它通常表示模型如何把局部贡献、概率权重或多项损失累积成最终结果。</p>
     <p>$$ f(\{I_t\}_{t=1}^{T};\mathbf{\theta}) = G, $$</p>
-    <p>这条公式定义了论文中的一个关键计算关系。理解它时，建议先确认左侧要得到的结果，再看右侧由 f、I_t、t、T 等项如何组合出这个结果；它通常对应某个模块的预测规则、几何约束或训练目标。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时重点看左侧最终输出是什么，以及右侧各部分分别承担什么作用。</p>
     <p>$$ \mathbf{p}^{g}_t, \mathbf{s}_t= \text{Decoder}_{g}([\mathbf{\bar{f}}_t, \mathbf{\bar{f}}^r_t, \mathbf{p}^r_t], \mathbf{s}_{t-1}). $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 p、g、t、s 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
     <p>$$ \mathbf{x}'_t = \frac{c_t \mathbf{x}_t + \sum_{i \in \mathcal{N}_t} c_i \mathbf{x}_i}{c_t + \sum_{i \in \mathcal{N}_t} c_i}, $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 x、t、x、t 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
     <p>$$ f(I_t, \mathbf{h}_{t-1}; \mathbf{\theta}) = G_t, \mathbf{h}_t, \quad t = 1, \dots, T, $$</p>
-    <p>这条式子对应的方法环节是：etwork and denotes its learnable parameters。While straightforward, this design necessitates complete video sequences, which hinders its capacity for continuous 3D 重建。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时重点看左侧最终输出是什么，以及右侧各部分分别承担什么作用。</p>
     <p>$$ \mathbf{f}_t &= \text{Encoder}(I_t), \\ [\mathbf{p}^{r}_t,\mathbf{f}^{r}_t], [\mathbf{p}'_0,\mathbf{f}^{r}_{t-1}]&= \text{Decoder}_r([\mathbf{p}_1, \mathbf{f}_t],[\mathbf{p}_0,\mathbf{f}_{t-1}]). $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 f、t、Encoder、p 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时重点看左侧最终输出是什么，以及右侧各部分分别承担什么作用。</p>
     <p>$$ X_t^r, C_t^r &= \text{Head}^{\text{pos}}_r(\mathbf{f}^r_t, \mathbf{f}^r_{t-1}), \\ G_t^r &= \text{Head}^{\text{gs}}_r(\mathbf{f}_t^r, \mathbf{f}_{t-1}^r), \\ P_t^r &= \text{Head}^{\text{pose}}_r(\mathbf{p}_t^r). $$</p>
-    <p>这条式子对应的方法环节是：align Relative Prediction Heads。The output features , and encapsulate the relative 几何, 外观 and pose information between the current frame and the last frame。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时重点看左侧最终输出是什么，以及右侧各部分分别承担什么作用。</p>
 
     <h2 id='experiment'>实验结论</h2>
     <p>实验部分主要围绕 如表所示，我们的 OnlineX 框架在所有三个指标上始终优于两个基线 展开。结果表明，与现有的 3D 语言领域方法（例如 LangSplat 和 Gaussian Grouping）相比，我们的方法在这两个指标上都实现了卓越的性能。</p>

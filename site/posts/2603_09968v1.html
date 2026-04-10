@@ -157,7 +157,7 @@
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
-<!-- source-grounding: arxiv_id=2603.09968v1; pdf=2603_09968v1_ReCoSplat Autoregressive Feed-Forward Gaussian Splatting Using Render-and-Compar.pdf; source_dir=docs\.arxiv_source_cache\2603_09968v1\extracted; sections=5; figures=5; equations=9 -->
+<!-- source-grounding: arxiv_id=2603.09968v1; pdf=2603_09968v1_ReCoSplat Autoregressive Feed-Forward Gaussian Splatting Using Render-and-Compar.pdf; source_dir=C:\Users\XPENG_USER\Documents\docs\文献\feedforward\docs\.arxiv_source_cache\2603_09968v1\extracted; sections=5; figures=5; equations=9 -->
 
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
@@ -195,21 +195,21 @@
     <h3>3.5 训练和推理</h3>
     <p>培训分三个阶段进行，每个阶段都建立在前一个阶段的基础上，逐步介绍 ReCoSplat 的功能。光度术语结合了像素级 MSE ( ) 和感知相似性 ( ) ，在从预测高斯和保留的地面实况图像渲染的八个新颖目标视图之间计算。完整的配方在附录中提供。</p>
     <p>$$ (\mathbf{G}_t, \hat{\mathbf{K}}_t, \hat{\mathbf{P}}_t, M_t) = f_\theta( \mathbf{I}_t, \mathbf{K}_t, \mathbf{P}_t, M_{t - 1}, S_{t - 1} ), $$</p>
-    <p>这条式子给出了渲染/成像算子的整体输入输出：模型把相机参数与场景表示一起送入渲染器，得到最终图像或投影结果。它相当于把整条前向生成链路压缩成一个明确的计算接口。</p>
+    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
     <p>$$ S_t = S_{t-1} \cup \text{Transform}(\mathbf{G}_t, \mathbf{A}_t). $$</p>
-    <p>这条式子对应的方法环节是：Each set of local Gaussians is defined in the 相机 space of image。To merge into the accumulated scene , we transform it into world coordinates using either ground-truth or predicted 相机 poses depending on the input setting。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
+    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
     <p>$$ [c_t^k, E_t^k] = \text{Encoder}(I_t^k) $$</p>
-    <p>这条式子对应的方法环节是：kbone ReCoSplat processes images with an autoregressive backbone based on YoNoSplat , augmented with a KV cache。Given an image chunk , a ViT encoder initialized with DINOv2 maps each image to a global 相机 token and patch tokens :。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时重点看左侧最终输出是什么，以及右侧各部分分别承担什么作用。</p>
     <p>$$ G_t^k = \Bigl[\text{Head}_\text{xyz}((F_t^k)^{2\times}, Z_t^k),\ \text{Head}_\text{gs}((F_t^k)^{2\times}, Z_t^k),\ \text{Head}_\text{feat}((F_t^k)^{2\times}, Z_t^k)\Bigr]. $$</p>
-    <p>这条式子对应的方法环节是：ussian heads that decode each Gaussian’s position, attributes, and features。The pose head predicts 相机 extrinsics from decoder features:。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时重点看左侧最终输出是什么，以及右侧各部分分别承担什么作用。</p>
     <p>$$ \mathbf{F}_t, M_t = \text{Decoder}(\mathbf{E}_t, M_{t - 1}). $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 F、t、Decoder、E 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
     <p>$$ \hat{R}_t^k = \text{Render}(S_{t - 1}, A_t^k) $$</p>
-    <p>这条式子对应的方法环节是：regressive setting, so predicted assembly poses are noisy and provide weak supervision (Section )。To address pose distribution mismatch, we introduce a Render-and-Compare module that enables generalization from 训练 with ground-truth to 推理 with predicted assembly poses。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
+    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
     <p>$$ Z_k = \text{Patchify}([I_k, \hat{R}_k]). $$</p>
-    <p>这条式子对应的方法环节是：1, A ) equation where contains RGB and learned feature channels decoded by a feature head (Section )。When ground-truth intrinsics are unavailable, we use our predicted intrinsics for 渲染 to prevent information leakage。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时重点看左侧最终输出是什么，以及右侧各部分分别承担什么作用。</p>
     <p>$$ \mathcal{L} = \mathcal{L}_{\text{MSE}} + \mathcal{L}_{\text{LPIPS}} + \mathcal{L}_{\text{intrinsic}} + \mathcal{L}_{\text{extrinsic}} + \mathcal{L}_{\text{opacity}}. $$</p>
-    <p>这条式子对应的方法环节是：chor the scene representation。In Stage 3, we train for a final 50k steps at the same learning rate and enable the full KV cache 压缩 strategy (Section )。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
+    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
 
     <h2 id='experiment'>实验结论</h2>
     <p>实验部分主要围绕 我们还包括删除渲染和比较模块的消融，表示为 KV 缓存 展开。结果表明，定性地，这些改进如图所示，其中 ReCoSplat 比竞争的在线方法产生更清晰的几何形状和更少的伪影。</p>

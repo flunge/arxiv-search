@@ -157,7 +157,7 @@
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
-<!-- source-grounding: arxiv_id=2603.19193v1; pdf=2603_19193v1_Reconstruction Matters Learning Geometry-Aligned BEV Representation through 3D G.pdf; source_dir=docs\.arxiv_source_cache\2603_19193v1\extracted; sections=5; figures=5; equations=10 -->
+<!-- source-grounding: arxiv_id=2603.19193v1; pdf=2603_19193v1_Reconstruction Matters Learning Geometry-Aligned BEV Representation through 3D G.pdf; source_dir=C:\Users\XPENG_USER\Documents\docs\文献\feedforward\docs\.arxiv_source_cache\2603_19193v1\extracted; sections=5; figures=5; equations=10 -->
 
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
@@ -173,8 +173,7 @@
     <h2 id='summary'>简单摘要</h2>
     <p>鸟瞰（BEV）感知是自动驾驶的基石，提供统一的空间表示，融合周围视图图像，从而能够对各种下游任务进行推理。然而，大多数现有的 BEV 感知框架采用端到端训练范例，其中图像特征直接转换到 BEV 空间，并仅通过下游任务监督进行优化。</p>
 <figure><img class='paper-fig' src='../assets/2603_19193v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：基于 UniMatch 的多视图分支，以及基于 ViT-S 构建的每个视图分支以增强多视图表示；多视图分支输出多视图特征和成本量，它们与每个视图分支的单目特征连接起来，作为 U-Net 的输入来预测深度​​图和每高斯参数</figcaption></figure>
-    <p>这种 BEV 特征的隐式学习过程会导致生成不精确且低质量的 BEV 特征图，最终导致关键下游自动驾驶任务的性能不佳。论文的基本思路是把 在本文中，我们提出了 Splat2BEV，一种用于 BEV 感知的高斯 Splatting 辅助框架 放进同一条解决链路里处理。</p>
-    <p>进一步看，利用 3D 重建，我们的框架生成几何对齐的特征表示，从而增强下游 BEV 任务的有效性。最后得到的主要结论是：图：预告片中展示了所提出的管道的概述及其与传统的端到端范例的比较。</p>
+    <p>这种 BEV 特征的隐式学习过程会导致生成不精确且低质量的 BEV 特征图，最终导致关键下游自动驾驶的性能不佳。在本文中，我们提出了 Splat2BEV，一种用于 BEV 感知的高斯 Splatting 辅助框架。</p>
 
     <h2 id='innovation'>核心创新</h2>
     <p>第一，在本文中，我们声称明确的 3D 表示对于准确的 BEV 感知很重要，并且我们提出了 Splat2BEV，一种用于 BEV 任务的高斯 Splatting 辅助框架。</p>
@@ -194,27 +193,25 @@
     <h3>3.4 投影到 BEV 空间</h3>
     <p>生成高斯函数后，我们将它们投影到鸟瞰（BEV）平面上，作为后续基于 BEV 的任务的输入。与高斯喷射中常用的新视图渲染的透视投影不同，BEV 投影采用正交投影来保持自上而下视图中的几何一致性。相机空间的正交投影矩阵和高斯均值的投影定义为。</p>
     <h3>3.5 任务头训练</h3>
-    <p>从方法链路看，系统首先处理的是：将重建的几何图形和相关特征投影到 BEV 空间后，我们获得了几何对齐的 BEV 表示。</p>
-    <p>接下来真正起关键作用的是：为了生成特定于任务的 BEV 特征，该表示形式被输入到 BEV 编码器中。这样安排直接带来的收益是：然后连接下游分割头，利用 BEV 编码器的输出来执行 BEV 分割。</p>
-    <p>在训练和推理阶段，论文还额外考虑了：仅优化 BEV 编码器和任务头的参数，使网络能够在不改变底层 3D 重建的情况下调整下游任务的学习表示。</p>
+    <p>将重建的几何体和相关特征投影到 BEV 空间后，我们获得了几何对齐的 BEV 表示。为了生成特定于任务的 BEV 特征，该表示形式被输入到 BEV 编码器中。仅优化 BEV 编码器和任务头的参数，使网络能够在不改变底层 3D 重建的情况下调整下游任务的学习表示。</p>
     <h3>3.6 联合微调</h3>
     <p>经过任务head-only训练后，Splat2BEV已经具备了进行BEV分割的能力，并取得了可观的性能，详细结果请参考tab:frozen。为了进一步协调几何、语义和特定于任务的表示，我们以端到端的方式联合微调高斯生成器、BEV 编码器和分割头。此阶段使 BEV 分割损失的梯度能够流回高斯生成器，从而使重建的 3D 场景和特征场适应任务级目标。</p>
     <p>$$ \mathbf{C}(p) = \sum_{i=1}^{N} T_i \, \sigma_i \, \mathbf{c}_i, \ \text{where} \ T_i = \prod_{j < i} (1 - \sigma_j). $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 C、p、N、c 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>这条式子描述了多个分量的聚合或逐步合成过程。它通常表示模型如何把局部贡献、概率权重或多项损失累积成最终结果。</p>
     <p>$$ \mathcal{L}_{\text{render}} = \frac{1}{k} \sum_{i=1}^{k} \| \widehat{\mathbf{C}}_i - \mathbf{C}_i^{\text{gt}} \|_2^2, $$</p>
-    <p>这条式子对应的方法环节是：ng the corresponding 相机 parameters to obtain the mean positions of the Gaussians。Subsequently, separate prediction heads are employed to estimate additional Gaussian attributes (, opacity, covariance and color)。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
+    <p>这条式子给出了训练阶段的优化目标。阅读时可以先看左侧到底在约束什么，再区分右侧每一项对应的是重建误差、正则项还是辅助监督。</p>
     <p>$$ \widehat{\mathbf{C}}_i = \mathcal{R}\big(\mathbf{G}; \mathbf{P}_i\big). $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 widehat、C、i、R 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时重点看左侧最终输出是什么，以及右侧各部分分别承担什么作用。</p>
     <p>$$ \mathcal{L}_{\text{depth}}^{L1} = \frac{1}{k} \sum_{i=1}^{k} \| \widehat{\mathbf{D}}_i - \mathbf{D}_i^{\text{ref}} \|_1, $$</p>
-    <p>这条式子对应的方法环节是：sist the 重建 process, we employ the depth foundation model Metric3Dv2 to generate reference metric depth for additional supervision。The predicted depth is computed by accumulating the 相机-space depth ( ) values of all projected Gaussians along the viewing ray。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
+    <p>这条式子给出了训练阶段的优化目标。阅读时可以先看左侧到底在约束什么，再区分右侧每一项对应的是重建误差、正则项还是辅助监督。</p>
     <p>$$ \mathcal{L}_{\text{depth}}^{\text{SILog}} = \frac{1}{k} \sum_{i=1}^{k} \Bigg[ \frac{1}{n} \sum_{p} \delta_i(p)^2 - \frac{1}{n^2} \Big( \sum_{p} \delta_i(p) \Big)^2 \Bigg], $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 L、depth、SILog、k 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>这条式子给出了训练阶段的优化目标。阅读时可以先看左侧到底在约束什么，再区分右侧每一项对应的是重建误差、正则项还是辅助监督。</p>
     <p>$$ \delta_i(p) = \log \widehat{\mathbf{D}}_i(p) - \log \mathbf{D}_i^{\text{ref}}(p), $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 p、log、widehat、D 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
     <p>$$ \begin{gathered} \mathcal{G}_\theta(\mathbf{I}) = \mathbf{G},\\[2pt] \text{where }\mathbf{G} = \{\, G_j \mid G_j = (\boldsymbol{\mu}_j, \boldsymbol{\Sigma}_j, \boldsymbol{\sigma}_j, \mathbf{SH}_j, \mathbf{f}_j) \,\}. \end{gathered} $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 gathered、G、theta、I 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时重点看左侧最终输出是什么，以及右侧各部分分别承担什么作用。</p>
     <p>$$ \mathcal{L}_{\text{feat}} = \frac{1}{k} \sum_{i=1}^{k} \Big( 1 - \cos\big( \widehat{\mathbf{F}}_i, \, \mathbf{F}^{\text{DINO}}_i \big) \Big). $$</p>
-    <p>这条式子对应的方法环节是：gathered equation The 渲染 of feature also follows eq:alpha by substituting color with feature vector。For feature supervision, we employ a cosine similarity loss between the rendered feature map and the dense feature map extracted from the frozen DINO encoder :。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
+    <p>这条式子给出了训练阶段的优化目标。阅读时可以先看左侧到底在约束什么，再区分右侧每一项对应的是重建误差、正则项还是辅助监督。</p>
 
     <h2 id='experiment'>实验结论</h2>
     <p>实验部分主要围绕 与基线​​方法相比，Splat2BEV 实现了 8% 的改进 展开。结果表明，我们的结果表明，将虚拟 BEV 相机高度设置为 3 米可实现最佳权衡，有效捕获必要的地面几何形状，同时抑制不相关的高空结构。</p>

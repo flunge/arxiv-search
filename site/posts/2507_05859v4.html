@@ -157,7 +157,7 @@
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
-<!-- source-grounding: arxiv_id=2507.05859v4; pdf=2507_05859v4_D-FCGS Feedforward Compression of Dynamic Gaussian Splatting for Free-Viewpoint .pdf; source_dir=docs\.arxiv_source_cache\2507_05859v4\extracted; sections=7; figures=5; equations=10 -->
+<!-- source-grounding: arxiv_id=2507.05859v4; pdf=2507_05859v4_D-FCGS Feedforward Compression of Dynamic Gaussian Splatting for Free-Viewpoint .pdf; source_dir=C:\Users\XPENG_USER\Documents\docs\文献\feedforward\docs\.arxiv_source_cache\2507_05859v4\extracted; sections=7; figures=5; equations=10 -->
 
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
@@ -184,9 +184,7 @@
     <p>在解码过程中，我们通过控制点引导的运动补偿和颜色细化进行重建，同时将其存储到缓冲区中以供将来参考。然后将获得的稀疏运动张量输入到我们的端到端压缩模块中。在解码器侧，使用算术解码 (AD) 将比特流解压缩回运动张量以进行帧重建。</p>
 <figure><img class='paper-fig' src='../assets/2507_05859v4/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：我们的前馈管道通过三个阶段处理 GoF 中的连续高斯帧；(1) 稀疏运动提取 (sec:motion )，(2) 前馈运动压缩 (sec:motion )，以及 (3) 运动补偿和细化 (sec:frame )</figcaption></figure>
     <h3>4.1 概述</h3>
-    <p>从方法链路看，系统首先处理的是：如图所示：概述，我们的 D-FCGS 框架包含三个关键组件。</p>
-    <p>接下来真正起关键作用的是：(1) 稀疏运动提取 (sec:motion )，(2) 前馈运动压缩 (sec:motion ) 和 (3) 运动补偿和细化 (sec:frame )。这样安排直接带来的收益是：训练和推理过程将在 sec:training 中提到。</p>
-    <p>在训练和推理阶段，论文还额外考虑了：在解码过程中，我们通过控制点引导的运动补偿和颜色细化进行重建，同时将其存储到缓冲区中以供将来参考。</p>
+    <p>如图所示：概述，我们的 D-FCGS 框架包含三个关键组件。(1) 稀疏运动提取 (sec:motion )，(2) 前馈运动压缩 (sec:motion ) 和 (3) 运动补偿和细化 (sec:frame )。在解码过程中，我们通过控制点引导的运动补偿和颜色细化进行重建，同时将其存储到缓冲区中以供将来参考。</p>
     <h3>4.2 通过控制点进行稀疏运动提取</h3>
     <p>基于大多数高斯模型表现出局部运动相干性的观察，我们提出了一种有效的稀疏表示。该过程有效地降低了存储需求和处理成本，同时保留了运动特性。</p>
     <h3>4.3 前馈运动压缩</h3>
@@ -196,21 +194,21 @@
     <h3>4.5 D-FCGS 的训练和推理管道</h3>
     <p>遵循既定实践，我们采用框架组（GoF）范例，其结构为。在解码过程中，系统首先重建 ，然后将其与时空先验相结合来估计解码的分布参数 ( , )。</p>
     <p>$$ G(\boldsymbol{x}) = e^{-\frac{1}{2}(\boldsymbol{x} - \boldsymbol{\mu})^T \boldsymbol{\Sigma}^{-1} (\boldsymbol{x} - \boldsymbol{\mu})}, $$</p>
-    <p>这条式子描述的是单个高斯基元在空间中的响应或密度分布：离中心越近，贡献越大；协方差则决定分布在不同方向上的扩张方式。它直接影响后续投影和渲染时每个高斯的覆盖范围。</p>
+    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
     <p>$$ C = \sum_i c_i \alpha_i \prod_{j=1}^{i-1} (1-\alpha_j), $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 C、i 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>这条式子描述了多个分量的聚合或逐步合成过程。它通常表示模型如何把局部贡献、概率权重或多项损失累积成最终结果。</p>
     <p>$$ L_{\text{render}} = \lambda L_{\text{D-SSIM}} + (1-\lambda) L_1. $$</p>
-    <p>这条式子对应的方法环节是：equation C = c =1 -1 (1- ), equation where is the view-dependent color calculated from SH-based color , and is the blending weight derived from opacity。With the differentiable rasterizer, 训练 can be supervised by 2D images from varied views in an end-to-end way。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
+    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
     <p>$$ \boldsymbol{\mu^c} = FPS(\{\mu_i\}_{i\in N}, \frac{N}{M}), $$</p>
-    <p>这条式子对应的方法环节是：n Building on observations that most Gaussians exhibit local motion coherence, we propose an efficient sparse representation。Inspired by previous optimization-based 4D 重建 methods , we employ Farthest Point Sampling (FPS) to select 控制 points from the Gaussian primitives, and derive corresponding geomet。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
+    <p>这条式子是在从整组高斯中心里挑出更少但更有代表性的控制点。作者用最远点采样先保住空间覆盖范围，再把后续运动建模压缩到这些关键点上，从而减少需要编码和传输的自由度。</p>
     <p>$$ \boldsymbol{x^{c}} = Index(\boldsymbol{x}, \boldsymbol{\mu^c}), $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 boldsymbol、x、c、Index 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>这条式子是在按前面选出的控制点索引，从原始高斯集合里取出对应的位置或属性子集。这样后面的压缩网络就不必处理整帧所有高斯，而是只围绕代表性控制点建模。</p>
     <p>$$ \boldsymbol{y^c_{t}} = MLP(FreqEnc\{\boldsymbol{x^c_t}\}), $$</p>
-    <p>这条式子对应的方法环节是：This process efficiently reduces storage demand and processing costs, while preserving motion characteristics。After 控制 point sampling, we derive the native sparse 几何 attributes of the current frame and reference Gaussian frame, denoted as and。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
+    <p>这条式子先把控制点坐标做频率编码，再送入 MLP 映射成紧凑的隐特征。这样做的作用，是把原始几何位置转换成更适合压缩网络建模的时空表示。</p>
     <p>$$ \boldsymbol{\hat{y}^c_{t-1}} = MLP(FreqEnc\{\boldsymbol{\hat{x}^c_{t-1}}\}). $$</p>
-    <p>这条式子对应的方法环节是：After 控制 point sampling, we derive the native sparse 几何 attributes of the current frame and reference Gaussian frame, denoted as and。We encode these attributes using frequency encoding and MLP projection:。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
+    <p>这条式子把前面若干观测、条件或中间特征，经过一个显式模块映射成新的状态变量。它的意义在于把复杂流程压缩成清晰的函数接口，方便后续模块继续消费这个中间结果。</p>
     <p>$$ \boldsymbol{m^c_{t}} = Converter (\boldsymbol{y^c_{t}} - \boldsymbol{\hat{y}^c_{t-1})}, $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 boldsymbol、m、Converter、boldsymbol 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>这条式子把当前控制点特征与参考特征之间的差异，转换成可编码的运动残差表示。它对应的核心思想是：真正需要压缩的不是绝对状态，而是相邻帧之间的变化量。</p>
 
     <h2 id='experiment'>实验结论</h2>
     <p>实验部分主要围绕 我们通过解决三个关键研究问题来严格评估我们的 D-FCGS 模型 展开。结果表明，我们使用三种指标来评估 D-FCGS。</p>
@@ -218,13 +216,13 @@
     <div class='card'><strong>源论文表 2（预览）</strong><div style='margin-top:6px;'>MeetRoom 数据集上的定量结果，平均超过 300 帧。</div><div style='overflow-x:auto;margin-top:10px;'><table style='width:100%;border-collapse:collapse;font-size:12px;'><tr><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Method</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>tabular[c]@c@PSNR</th></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>(dB) ↑</td><td colspan='1' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'></td></tr></table></div><div style='font-size:12px;color:#666;margin-top:8px;'>表格为 source 预览；复杂排版、部分行列或强调格式可能已做简化。</div></div>
 <figure><img class='paper-fig' src='../assets/2507_05859v4/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：之前基于优化的方法与我们的 D-FCGS 之间的差异的说明；N3V数据集上的R-D曲线和存储大小比较</figcaption></figure>
 <figure><img class='paper-fig' src='../assets/2507_05859v4/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：渲染结果的定性比较；(1) Ground Truth、(2) 3DGStream 和 (3) 我们的 D-FCGS 之间的视觉比较</figcaption></figure>
-<figure><img class='paper-fig' src='../assets/2507_05859v4/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：所提出的方法和消融的率失真比较</figcaption></figure>
+<figure><img class='paper-fig' src='../assets/2507_05859v4/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：所提出的方法和消融的率失真比较，用于说明论文中的关键模块、输入输出关系或核心实验现象</figcaption></figure>
     <h3>5.1 实验装置</h3>
     <p>实验部分主要围绕 我们从六个多视图视频数据集中导出顺序高斯帧 展开。结果表明，为了进行评估，我们保留了来自 MeetRoom 的“讨论”场景用于域内测试，以及来自 N3V 的六个场景用于域外基准测试。</p>
     <h3>5.2 基准比较</h3>
     <p>实验部分主要围绕 因此，我们的分析涵盖了基于优化的动态场景重建中的两类基准方法 展开。结果表明，我们的压缩结果表明比现有方法有显着改进。</p>
     <h3>5.3 稳健性测试</h3>
-    <p>实验部分主要围绕 我们在另外三个数据集上评估 D-FCGS 展开。结果表明，虽然 VRU（充满模糊运动）存在 PSNR 差距，但我们的方法为现实世界的应用提供了更实用、更高效的管道，牺牲了可接受的视觉保真度来大幅提高比特率。</p>
+    <p>实验部分主要围绕 虽然 VRU（充满模糊运动）存在 PSNR 差距，但我们的方法为实际应用提供了更实用、更高效的管道 展开。结果表明，如 tab:hyperparameters 所示，D-FCGS 在大多数参数组合中保持稳定的渲染质量，显示出强大的参数鲁棒性。</p>
     <h3>5.4 消融研究</h3>
     <p>实验部分主要围绕 在本节中，我们通过系统消融研究评估 D-FCGS 的关键组成部分 展开。结果表明，通过控制点的稀疏运动表示构成了我们高效压缩管道的基础。</p>
 

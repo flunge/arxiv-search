@@ -195,19 +195,19 @@
     <p>$$ \mathcal{G}(\boldsymbol{x}) = \frac{1}{(2\pi)^\frac{3}{2}|\boldsymbol{\Sigma}|^{\frac{1}{2}}}exp(-\frac{1}{2}(\boldsymbol{x}-\boldsymbol{\mu})^T\boldsymbol{\Sigma}^{-1}(\boldsymbol{x}-\boldsymbol{\mu})), $$</p>
     <p>这条式子描述的是单个高斯基元在空间中的响应或密度分布：离中心越近，贡献越大；协方差则决定分布在不同方向上的扩张方式。它直接影响后续投影和渲染时每个高斯的覆盖范围。</p>
     <p>$$ \boldsymbol{\Sigma} = \boldsymbol{RSS}^T\boldsymbol{R}^T, $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 boldsymbol、Sigma、boldsymbol、RSS 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时重点看左侧最终输出是什么，以及右侧各部分分别承担什么作用。</p>
     <p>$$ \begin{aligned} \mathcal{F}: \{( \boldsymbol{I}^v, \boldsymbol{K}^v,& \boldsymbol{E}^v)\}_{v=1}^V \Rightarrow \\ &\{\cup(\sigma_i^v, \boldsymbol{\mu}_i^v, \boldsymbol{q}_i^v, \boldsymbol{s}_i^v, \boldsymbol{SH}_i^v)\}_{i=1,...,H\times W}^{v=1,...,V}, \end{aligned} $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 aligned、F、boldsymbol、I 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>这条式子给出了前馈高斯推理网络的整体输入输出：输入是多视图图像及其相机参数，输出是每个视图上预测出的高斯属性集合。它对应论文从图像直接生成可压缩 3D 高斯表示的主干映射。</p>
     <p>$$ z_{i,j}^v(x_{i,j}^v,y_{i,j}^v,1)^T = \boldsymbol{K}^v\cdot(\boldsymbol{R}^v\cdot \boldsymbol{\mu}_{i,j}^v + \boldsymbol{T}^v), $$</p>
-    <p>这条式子对应的方法环节是：Based on the above analysis, we propose to apply the VPT to the 几何 parameters of Gaussian primitives, conditioned upon input 相机 parameters。A conceptual illustration of the VPT is shown in Fig。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
+    <p>这条式子是在把预测出的高斯中心重新投影到当前视图的图像平面上。作者借此把三维几何参数变换到视图相关坐标系，为后续视图投影变换和压缩建模做准备。</p>
     <p>$$ \hat{\boldsymbol{q}}_{i,j}^{v}=Quat(\boldsymbol{R}^v)\cdot \boldsymbol{q}_{i,j}^v, $$</p>
-    <p>这条式子对应的方法环节是：ng the height and width of the input images, respectively。Using this regularity, we encode only the offsets relative to pixel centers to enhance 压缩 efficiency。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
+    <p>这条式子用相机旋转对应的四元数去更新高斯的朝向。这样做是为了把原本在世界或参考视角下定义的旋转，转成当前视图条件下更紧凑、更易压缩的表示。</p>
     <p>$$ \hat{\boldsymbol{s}}_{i,j}^{v}=f\frac{\boldsymbol{s}_{i,j}^{v}}{z_{i,j}^{v}}, $$</p>
-    <p>这条式子对应的方法环节是：o pixel centers to enhance 压缩 efficiency。After transforming center positions into 相机 space, we approximate transformations for the Gaussian shape parameters。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时重点看左侧最终输出是什么，以及右侧各部分分别承担什么作用。</p>
     <p>$$ \lambda_l^m=\mathbb{E}_{\boldsymbol{D}}|Y_l^m(\boldsymbol{\omega})|=\frac{1}{|\boldsymbol{D}|}\int_{\boldsymbol{\omega} \in \boldsymbol{D}}|Y_l^m (\boldsymbol{\omega})|d\boldsymbol{\omega}, $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 m、mathbb、E、boldsymbol 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>这条式子定义了某个球谐基在可见方向集合上的平均响应强度。作者用它衡量不同 SH 基函数对当前场景真实可见方向的贡献，从而筛掉冗余的高阶基。</p>
     <p>$$ \lambda_l^m=\frac{1}{N_s}\sum_{i=1}^{N_s}|Y_l^m(\boldsymbol{\omega}_i)|, $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 m、m、boldsymbol、omega 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>这条式子是前一条期望定义的采样近似形式：用有限个方向样本来估计球谐基的平均可见性。这样就能在实际系统里高效计算哪些基函数值得保留。</p>
 
     <h2 id='experiment'>实验结论</h2>
     <p>实验部分主要围绕 我们对现场几个广泛使用的基准数据集进行了全面的实验 展开。结果表明，此外，我们在 DL3DV 数据集的子集上评估我们的方法，其中包含 140 个测试场景。</p>

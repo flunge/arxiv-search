@@ -157,7 +157,7 @@
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
-<!-- source-grounding: arxiv_id=2603.29394v1; pdf=2603_29394v1_AA-Splat Anti-Aliased Feed-forward Gaussian Splatting.pdf; source_dir=docs\.arxiv_source_cache\2603_29394v1\extracted; sections=10; figures=7; equations=10 -->
+<!-- source-grounding: arxiv_id=2603.29394v1; pdf=2603_29394v1_AA-Splat Anti-Aliased Feed-forward Gaussian Splatting.pdf; source_dir=C:\Users\XPENG_USER\Documents\docs\文献\feedforward\docs\.arxiv_source_cache\2603_29394v1\extracted; sections=10; figures=7; equations=10 -->
 
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
@@ -195,20 +195,20 @@
     <p>这会降低 NVS 性能，并在渲染速率增加（放大）时导致不自然的网格状伪像。为了补偿这种影响，我们采用了不透明度平衡（OB）技术，该技术应用于我们的带限高斯，以确保所有像素对齐的高斯基元都无缝集成到。这可以防止任何高斯图元变得完全不透明，从而确保所有高斯图元都变得足够可见，并且无论深度顺序如何，都对渲染做出重大贡献。</p>
     <h3>4.4 优化</h3>
     <p>我们使用单个目标分辨率上渲染的 RGB 颜色和地面实况目标视图之间的均方误差 (MSE) 和 LPIPS 损失的加权和来训练我们的完整模型。其中 是每个场景要渲染的新颖视图的数量，LPIPS 损失项的权重设置为。</p>
-    <p>$$ \begin{split} \mathcal{G}_k(\mathbf{x})=\exp\bigg(-\frac{1}{2}(\mathbf{x}-\bm{\upmu}_k)^T\mathbf{\Sigma}_k^{-1}(\mathbf{x}-\bm{\upmu}_k)\bigg) \end{split} $$</p>
-    <p>这条式子描述的是单个高斯基元在空间中的响应或密度分布：离中心越近，贡献越大；协方差则决定分布在不同方向上的扩张方式。它直接影响后续投影和渲染时每个高斯的覆盖范围。</p>
-    <p>$$ \begin{split} \bm{\upmu}_k^\text{cam}=\mathbf{R}\bm{\upmu}_k+\mathbf{t}, \mathbf{\Sigma}_k^\text{cam}=\mathbf{R}\mathbf{\Sigma}_k\mathbf{R}^T \end{split} $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 split、bm、upmu、k 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>$$ \begin{split} \mathcal{G}_k(\mathbf{x})=\exp\bigg(-\frac{1}{2}(\mathbf{x}-\boldsymbol{\upmu}_k)^T\mathbf{\Sigma}_k^{-1}(\mathbf{x}-\boldsymbol{\upmu}_k)\bigg) \end{split} $$</p>
+    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
+    <p>$$ \begin{split} \boldsymbol{\upmu}_k^\text{cam}=\mathbf{R}\boldsymbol{\upmu}_k+\mathbf{t}, \mathbf{\Sigma}_k^\text{cam}=\mathbf{R}\mathbf{\Sigma}_k\mathbf{R}^T \end{split} $$</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时重点看左侧最终输出是什么，以及右侧各部分分别承担什么作用。</p>
     <p>$$ \begin{split} \mathbf{\Sigma}_k^\text{img}=\mathbf{J}_k\mathbf{\Sigma}_k^\text{cam}\mathbf{J}_k^T \end{split} $$</p>
     <p>这条式子是在把高斯的协方差从原始三维坐标系变换到相机或成像平面相关的坐标系中。这样后续光栅化时，模型才能正确知道每个高斯在当前视角下会拉伸成怎样的椭圆分布。</p>
     <p>$$ \begin{split} C(\mathbf{x})=\sum_{i\in\mathcal{N}}\mathbf{c}_i\alpha_i\mathcal{G}_i^\text{2D}(\mathbf{x})\prod_{j=1}^{i-1}(1-\alpha_j\mathcal{G}_j^\text{2D}(\mathbf{x})) \end{split} $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 split、C、x、in 等量如何共同决定这个结果在方法链路中的作用。</p>
-    <p>$$ \hat{\nu}_j = \max\big(\{\mathds{1}^{(i)}(\bm{\upmu}_j) \cdot f^{(i)} / d_j^{(i)}\}_{i=1}^N\big). $$</p>
-    <p>这条式子对应的方法环节是：cted world-space Gaussian centers , we project each Gaussian to the context views。We denote the screen-space visibility of at view as , its depth at view as , and the 相机 focal length of view as。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。</p>
-    <p>$$ \mathcal{G}_{j}^\text{low}(\mathbf{x})=\exp{\bigg(-\frac{1}{2}(\mathbf{x}-\bm{\upmu}_j)^T\Big(\frac{\sigma_s}{\hat{\nu}_j}\mathbf{I}\Big)(\mathbf{x}-\bm{\upmu}_j)\bigg)}, $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 G、j、low、x 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>这条式子描述了多个分量的聚合或逐步合成过程。它通常表示模型如何把局部贡献、概率权重或多项损失累积成最终结果。</p>
+    <p>$$ \hat{\nu}_j = \max\big(\{\mathds{1}^{(i)}(\boldsymbol{\upmu}_j) \cdot f^{(i)} / d_j^{(i)}\}_{i=1}^N\big). $$</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时重点看左侧最终输出是什么，以及右侧各部分分别承担什么作用。</p>
+    <p>$$ \mathcal{G}_{j}^\text{low}(\mathbf{x})=\exp{\bigg(-\frac{1}{2}(\mathbf{x}-\boldsymbol{\upmu}_j)^T\Big(\frac{\sigma_s}{\hat{\nu}_j}\mathbf{I}\Big)(\mathbf{x}-\boldsymbol{\upmu}_j)\bigg)}, $$</p>
+    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
     <p>$$ \mathcal{G}_{j}^\text{reg}(\mathbf{x})=(\mathcal{G}_{j}\otimes\mathcal{G}_{j}^\text{low})(\mathbf{x}). $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 G、j、reg、x 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>这条式子给出了论文中的一条核心计算关系。理解时重点看左侧最终输出是什么，以及右侧各部分分别承担什么作用。</p>
 
     <h2 id='experiment'>实验结论</h2>
     <p>实验部分主要围绕 然后以多种分辨率渲染和评估目标视图，其中以较高分辨率渲染模拟放大效果，以较低分辨率渲染模拟缩小效果。\\ 指标 展开。结果表明，在所有分辨率上进行平均，与基线 DepthSplat 相比，AA-Splat 在 DL3DV 数据集中实现了 7.004dB 的显着改进，在 ACID 数据集中实现了 7.483dB 的显着改进。</p>
@@ -222,11 +222,9 @@
     <h3>5.1 实验装置</h3>
     <p>实验部分主要围绕 我们通过在 RE10K 上进行训练和评估分布内 RE10K 以及在 DL3DV 和 ACID 数据集上的零样本泛化来评估 AA-Splat 和现有方法 展开。结果表明，然后以多种分辨率渲染和评估目标视图，其中以较高分辨率渲染模拟放大效果，以较低分辨率渲染模拟缩小效果。\\ 指标。</p>
     <h3>5.2 RE10K 的比较</h3>
-    <p>实验部分主要围绕 提供不同目标分辨率下 FF-3DGS 模型的定量和定性比较 展开。</p>
-    <p>对比结果表明，我们将 AA-Splat 与基线 DepthSplat 以及代表性 FF-3DGS 模型（例如 MVSplat、NoPoSplat 和 SPFSplat）进行比较。进一步结合定性现象和消融分析，可以看出：大多数现有的最先进的 FF-3DGS 模型完全无法处理采样率的剧烈变化，在以增加或降低的分辨率渲染时表现出严重的退化。</p>
+    <p>实验部分主要围绕 展示不同目标分辨率下 FF-3DGS 模型的定量和定性比较 展开。结果表明，我们将 AA-Splat 与基线 DepthSplat 以及代表性的 FF-3DGS 模型（例如 MVSplat、NoPoSplat 和 SPFSplat）进行比较。</p>
     <h3>5.3 跨数据集泛化</h3>
-    <p>实验部分主要围绕 与最近的 SOTA FF-3DGS 模型相比，分别显示 AA-Splat 对未见过的 DL3DV 和 ACID 数据集的零样本跨数据集泛化性能 展开。</p>
-    <p>对比结果表明，在具有 2 个上下文视图的 RE10K 上训练的模型直接在 2 个分辨率上下文视图的 DL3DV 数据集上以及在 2 个分辨率上下文视图的 ACID 数据集上进行评估，无需任何微调。进一步结合定性现象和消融分析，可以看出：与基线​​ DepthSplat 相比，在所有分辨率上进行平均，AA-Splat 在 DL3DV 数据集中实现了 7.004dB 的显着改进，在 ACID 数据集中实现了 7.483dB 的显着改进。</p>
+    <p>实验部分主要围绕 与最近的 SOTA FF-3DGS 模型相比，分别展示 AA-Splat 对未见过的 DL3DV 和 ACID 数据集的零样本跨数据集泛化性能 展开。结果表明，在具有 2 个上下文视图的 RE10K 上训练的模型直接在 2 个分辨率上下文视图的 DL3DV 数据集上以及在 2 个分辨率上下文视图的 ACID 数据集上进行评估，无需任何微调。</p>
     <h3>5.4 消融与分析</h3>
     <p>实验部分主要围绕 我们通过消融研究评估每个组件的贡献，如表和图所示 展开。结果表明，由于 DL3DV 中存在高分辨率地面事实，我们在 RE10K 上训练所有变体并在 DL3DV 数据集上进行测试。</p>
 
