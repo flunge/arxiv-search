@@ -1,0 +1,249 @@
+\section{Methodology}\label{sec:method}
+
+
+
+
+
+This section presents our \mtd{}, a framework that integrates scene-centric forecasting \underline{C}ontrol into the \underline{O}ccupancy world \underline{M}od\underline{E}l.
+We detail the three main components of \mtd{} (illustrated in \cref{fig:method}) in \cref{sec:method_wm,sec:method_sfm,sec:method_ctrl}.
+Finally, \cref{sec:method_loss} describes the training objectives and the overall training pipeline.
+% Our approach consists of three core components:
+% (1) a \textbf{Occupancy World Model} (\cref{sec:method_wm}) that serves as the foundation for the task,
+% (2) a \textbf{Scene-centric Forecasting Module} (\cref{sec:method_sfm}) that generates ego-irrelevant future control priors,
+% and (3) the \textbf{\mtd{} \ctln{}} (\cref{sec:method_ctrl}) that injects scene-centric control features to improve spatial consistency of the world model.
+% Finally, \cref{sec:method_loss} describes training objectives and pipeline in detail.
+
+
+\subsection{Occupancy World Model}\label{sec:method_wm}
+%Before introducing our improvements, 
+We first describe our modified baseline world model, which is capable of performing the generation task independently. 
+Following DOME~\cite{dome}, our model leverages diffusion Transformers (DiTs) for the superior fine-grained and imaginative generation compared to auto-regressive counterparts~\cite{occworld,dome,occ-llm,occllama}. 
+Given historical observations $\mathbf{x}_{1:t}$, ego-vehicle states $p_{1:t}$ and other possible inputs (e.g., BEV layouts), the occupancy world model predicts future occupancy $\mathbf{\hat{x}}_{t+1:t+\tau}$  while optionally forecasting future trajectories $\hat{p}_{t+1:t+\tau}$.
+We treat future trajectories — whether ground-truth or predicted by a planning module — as available inputs for the generative model for two key reasons:
+(1) It ensures comparability with existing methods, since some directly generate with ground-truth trajectories while others predict by themselves.
+(2) It enables trajectory-conditioned generation, which is essential for world models to produce diverse and controllable outputs.
+
+Our model architecture comprises two principal components.
+The first is a collection of input encoders that transform historical observations into compact representations for efficient processing during the diffusion stage.
+We adopt the trajectory encoder from DOME~\cite{dome} to encode trajectories, and apply a max-pool layer for BEV layouts when available.
+For the occupancy data, we utilize a Occupancy Variational Auto-Encoder (Occ-VAE) consisting of an encoder network $q_{\phi}(\mathbf{z}|\mathbf{x})$ and a decoder network $p_{\theta}(\mathbf{x}|\mathbf{z})$.
+Given input occupancy $\mathbf{x}\in \mathcal{R}^{H\times W \times D}$, $q_{\phi}(\mathbf{z}|\mathbf{x})$ encodes it into a continuous latent variable $\mathbf{z}\sim q_{\phi}(\mathbf{z}|\mathbf{x})$.
+Conversely, $p_{\theta}(\mathbf{x}|\mathbf{z})$ is able to reconstruct the occupancy from the latent variable.
+This design enables the Occ-VAE to compress high-dimensional occupancy data into a compact latent space, facilitating more efficient processing in the generative model.
+
+The second component is the spatial-temporal Diffusion Transformer modified from the DOME~\cite{dome}, which consists of alternating stacked spatial and temporal layers. 
+To reserve interface for later feature conditioning, we introduce skip connections between every early and late layer pair, similar to the architectural designs in UNet~\cite{unet} and HunyuanDiT~\cite{hunyuandit}. For example, the last spatial block takes the first spatial block as a skip input. For each block in the second half, the input and the skip are concatenated in channel dimension and undergo a simple MLP for feature fusion.
+
+The model processes latent features encoded from occupancy data, along with optional inputs, eg BEV layouts if available.
+Trajectories are converted into trajectory condition and injected into each spatial-temporal block, enabling trajectory-aware generation.
+In the end, the outputs are decoded through $q_{\phi}(\mathbf{z}|\mathbf{x})$ into occupancy predictions conditional to various future time steps and ego poses. 
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=1.0\textwidth]{fig/method.pdf}
+    \caption{
+        The proposed \mtd{} framework comprises three main modules:
+        (1) an \textbf{Occupancy World Model} that predicts future occupancy using historical observations and other inputs (e.g., poses, time steps, BEV layouts);
+        (2) a \textbf{Scene-centric Forecasting Module} that produces spatially consistent scene predictions by eliminating the influence of ego motion; and
+        (3) the \textbf{\mtd{} \ctln{}} which converts the scene conditions from the forecasting module into control features that are subsequently injected into the world model for controllable and geometrically coherent occupancy generation.
+        }        
+    \label{fig:method}
+    % \vspace{-1em}
+\end{figure}
+
+\subsection{Scene-centric Forecasting Module}\label{sec:method_sfm}
+Future occupancy prediction represents a complex spatial-temporal modeling challenge that requires reasoning about two key factors: (1) the natural evolution of the scene (e.g., moving objects, infrastructure changes), and (2) the planned trajectory of the ego-vehicle. 
+Our foundation world model described in \cref{sec:method_wm} treats the future trajectory as a condition but has limited understanding of the inherent nature of scene evolution, leading to spatially inconsistent scene evolution in the generated occupancy — a limitation also confirmed in later experiments. 
+To address this, we propose a scene-centric forecasting module that produces more coherent scene evolution and generates scene-conditioned inputs for the world model.
+
+
+In practice, the scene exhibits relatively smaller changes when represented in a unified coordinate frame compared to an ego-centric occupancy representation. 
+In \occnus{}, static voxels account for over 92.7\% of all occupied voxels, suggesting that forecasting the scene in a shared coordinate system simplifies the task without requiring complex designs. 
+In our implementation, we find that a simple UNet~\cite{unet} suffices for high-quality future predictions, where the skip connections effectively preserve static voxels, while the multi-scale structure captures dynamic elements.
+
+Given historical occupancy $\mathbf{x}_{1:t}$ and ego-vehicle states $p_{1:t}$,  we eliminate the influence of ego motion by transforming each occupancy frame into the current frame  through rigid body transformations. 
+Specifically, we initialize an empty occupancy grid aligned with the ego pose $p_t$, which is then populated by transforming the voxels in each $\mathbf{x}_i$ into the current frame using nearest-neighbor search and grid sampling, resulting in $\mathbf{x}'_i = T(\mathbf{x}_i, p_i, p_t)$.
+The transformed sequence $\mathbf{x}'_{1:t}$ is reshaped into a 3D tensor of dimensions $Dt \times H \times W $, allowing efficient processing with 2D convolutions across time steps, rather than using computationally expensive 3D convolutions.
+This tensor is processed by the network to produce an output of size $D\tau \times H \times W$, which is then decoded into occupancy predictions $\mathbf{\hat{y}'}_{t+1:t+\tau}$.
+Finally, we transform these predictions into their respective future time steps and encode them via the Occ-VAE encoder, producing the scene condition $\mathbf{z}_i = q_{\phi}(\mathbf{z}|\mathbf{\hat{y}}_i)$ with $\mathbf{\hat{y}}_{i} = T(\mathbf{\hat y'}_{i}, p_t, p_{i}), i \in\{ t+1, t+2, \cdots, t+\tau$\}.
+
+% Given historical occupancy $\mathbf{x}_{1:t}$ and ego-vehicle states $p_{1:t}$, we transform each past occupancy $\mathbf{x}_i$ into current frame's voxels, yielding $\mathbf{x}'_i = T(\mathbf{x}_i, p_i, p_t)$.
+% \qtext{to be polished later}
+% The $\mathbf{x}'_{1:t}$  is reshaped into a tensor of dimensions $B \times Dt_{src} \times L \times W$, enabling efficient processing with 2D convolutions rather than computational-expensive 3D ones. $B$ is the batch size, $D$ is the class channel multiplying with height channel, $t_{src}$ is the source sequence length. The output of the UNet module is a tensor of dimensions $B \times Ct_{tgt} \times L \times W$, where $t_{tgt}$ is the target sequence length and $C$ is the base channel. After UNet, the feature is reshaped to $Bt_{tgt} \times C \times L \times W$. Several Conv2D blocks further decode the spatial features of each frame. The base channel $C$ is transformed into $H \times N_{c}$ with the last Conv2D blcok, where $H$ is the height of the grid size and $N_c$ is the number of semantic categories. Finally, the network outputs a $B \times t_{tgt} \times H \times N_{c} \times L \times W$, which is reshaped into predictions $\mathbf{\hat x}'_{t+1:t+\tau}$.
+% Finally, we transform these predictions into their respective future time steps and encode them via the Occ-VAE encoder, producing the scene condition $\mathbf{z}_{t+1:t+\tau} = q_{\phi}(\mathbf{z}|T(\mathbf{\hat x}'_{t+1:t+\tau}, p_t, p_{t+1:t+\tau}))$.
+
+
+
+\subsection{\mtd{} \ctln{}}\label{sec:method_ctrl}
+
+
+The \mtd{} \ctln{}, which encodes scene conditions $\{\mathbf{z}_i\}_{i=1}^{\tau} \in \mathbb{R}^{C \times H_1\times W_1}$ into implicit control features, consists of $N$ blocks inspired by HunyuanDiT\cite{hunyuandit}.
+As shown in \cref{fig:method}, the first $N/2$ blocks are trainable copies of the corresponding spatial-temporal blocks from the occupancy world model, while the remaining blocks are the zero convolution layers.
+Each of these layers outputs control feature $\{\mathbf{c}^n_i\}_{i=1}^{\tau} \in \mathbb{R}^{C \times H_1 \times W_1}$ for $n=N/2+1, \cdots, N$, where $\tau$ denotes the number of future frames, and $C, H_1, W_1$ represent the channel depth, height, and width dimensions, respectively.
+
+
+However, we observe that $\{\mathbf{c}^n_i\}_{i=1}^{\tau}$ is not directly suitable as a control prior for world model. 
+This limitation arises because the forecasting module, due to its simple structure, lacks sufficient capacity for imagining future states. 
+Consequently, its predictions in historically unobserved regions may bring noise, degrading the world model's generative performance — a finding corroborated by late experiments. 
+Thus, filtering unreliable features from control features is crucial for robust generation.
+
+To address this, we propose a visibility-aware masking strategy based on 3D spatial relationships. 
+For each future timestamp $i\in \{t+1, t+2, \cdots, t+\tau\}$, we first trace the root source of the control feature $\mathbf{c}^n_i$, namely the $\mathbf{\hat y}_i$ predicted by the scene-centric forecasting module.
+We then construct a binary voxel mask $\mathbf{m}_{i} \in \mathbb{R}^{D \times H\times W}$, where a value of 1 indicates that the corresponding voxel center in $\mathbf{\hat y}_i$ is observable in historical occupancy data, and 0 otherwise. 
+This allows us to derive an invisibility mask $\mathbf{M}_{i} \in \mathbb{R}^{H_1\times W_1}$ that  quantifies the reliability of each spatial feature in $\mathbf{c}_i^n$:
+\begin{equation}
+    \small
+    \mathbf{M}_i(h, w) = \mathbb{I}
+\left(\frac{1}{D\cdot \delta_h \cdot \delta_w}\sum_{d=1}^{D}\sum_{u=h\cdot \delta_h}^{(h+1)\cdot \delta_h} \sum_{v=w\cdot \delta_w}^{(w+1)\cdot \delta_w} \mathbf{m_i}(d, u, v)  < \varepsilon \right),
+\end{equation}
+where $\delta_h = H/H_1, \delta_w = W/W_1$ and $\varepsilon$ is a pre-defined threshold. In practice we set $\varepsilon=0.5$.
+The $\mathbb{I}$ is an indicator function to check whether proportion of historically observed voxels within each pillar (corresponding to feature location (h, w) in $\mathbf{c}_i^n$) is large enough.
+Then, we suppress unreliable features via element-wise multiplication: $\mathbf{c}^n_i \leftarrow \mathbf{c}^n_i \odot \mathbf{M}_i$.
+Finally, these refined control features are injected into the world model through residual addition at corresponding layers, ensuring robust and controllable generation. The control features are added to skip features and concatenated together to the input features for each blocks in the second half of the world model.
+
+
+
+\subsection{Training Pipelines}\label{sec:method_loss}
+
+Inspired by \ctln{}~\cite{controlnet},  we employ a multi-stage training pipeline as 
+(1) In \textbf{stage 1}, the occupancy world model is trained with configurations introduced in DOME~\cite{dome}. 
+This stage establishes a strong foundational occupancy generation ability.
+(2) In \textbf{stage 2}, we train the UNet-based forecasting module using a simple cross-entropy loss.
+(3) In \textbf{stage 3}, we freeze all other modules and exclusively train the parameters of \ctln{}. 
+Our multi-stage training strategy not only optimizes training efficiency but also ensures controllable generation, as demonstrated in our ablation studies.
+
+
+% \textbf{$\bullet$ Stage 1}: 
+% We first train the occupancy world model using training configurations introduced in DOME~\cite{dome}. 
+% This stage establishes a strong foundational occupancy generation ability.
+% \\
+% \textbf{$\bullet$ Stage 2}: 
+% We train the UNet-based forecasting module using a simple cross-entropy loss.
+% \\
+% \textbf{$\bullet$ Stage 3}: 
+% Finally, we freeze all other modules and exclusively train the parameters of \ctln{}. 
+% The parameters of the DiT blocks in the ControlNet are trainable copy of the first half of the occupancy world model. The pose embedder, timestep embedder, and input embedder of the ControlNet are also trainable copy and set as frozen. The DiT blocks and the projection layers are set as trainable.
+% This fine-tuning strategy not only reduce training cost, but also is necessary for model performance.
+
+% Our multi-stage training strategy not only optimizes training efficiency but also ensures controllable generation, as demonstrated in our ablation studies.
+
+
+
+
+
+
+
+
+
+% For the training of the continuous VAE, our loss function design follows the designs of dome\cite{dome} and uniscene\cite{uniscene}, which is a weighted sum of cross-entropy loss, Lovasz loss, and KL divergence loss.
+% \begin{equation}
+%     L_{\text{Occ-VAE}}=\mathcal{L}_{CE}\left(\mathbf{x},s\right)
+%     + \beta D_{KL}\left(q_\phi(\mathbf{z} \mid \mathbf{x}) \| p(\mathbf{z})\right)
+%     + \lambda L_{lovasz}(\mathbf{x},s)
+% \end{equation}
+
+% % In the training process of the fixed-view forecasting, we transform the ground-truth targets to the current coordinate and conduct cross-entropy loss between predictions $x$ and targets $s$,
+% % \begin{equation}
+% %     \mathcal{L}_{SC\_Fore} = \mathcal{L}_{CE}\left(\mathbf{x},s\right)
+% % \end{equation}
+
+% In the denoising training process of both the diffusion model and the ControlNet, we apply the same training strategy. During per-step denoising, the noise latent $x_t$ is with shape $[B, L_{seq}, C, H, W]$, where $L_{seq}$ is the sum of historical frames $L_{his}$ and future frames $L_{fut}$. The historical part of $x_t$ with shape $[B, L_{his}, C, H, W]$ is replaced by historical occupancy latents. There, the diffusion loss is computed only within the generated frames with conditional mask $M_i$ for the $i$-th frame. The loss function for training the diffusion model and the ControlNet is,
+
+% \begin{equation}\label{eq:simple_loss}
+% \mathcal{L}_{\text{diff}} = \mathbb{E}_{t \sim [1,T], \epsilon \sim \mathcal{N}(0,\mathbf{I}), i\in[0,L_{seq}]}
+% \Big[\mathcal{M}_i \odot \|\epsilon - \epsilon_\theta(\underbrace{\sqrt{\bar{\alpha}_t}\mathbf{x}_0 + \sqrt{1-\bar{\alpha}_t}\epsilon}_{\text{noisy sample}}, t)\|_2^2 \Big]
+% \end{equation}
+
+% where the noise prediction network $\epsilon_\theta$ is trained to minimize the residual noise. $\alpha_t$ is the noise scheduling coefficient. $T$ is the training denoising step. 
+
+
+
+% \begin{figure}
+%     \centering
+%     \includegraphics[width=1.0\textwidth]{fig/occcontrolnet_networks.pdf}
+%     \caption{The framework of the network model. The framework is sequetially connected with three key modules. The scene-centric forecasting module pre-transform the occupancy sequences into condition with UNet encoder-decoder structure. The \mtd{} encodes conditions with input into multi-layer feature maps. Then these control features are added to corresponding layers in the occupancy world model to generate future sequences.}
+%     \vspace{-3mm}
+%     \label{fig:controlnet_network}
+% \end{figure}
+
+% \subsection{Architecture}
+% In this section, we introduce the architecture of \mtd{}, which consists of three key componenets: scene-centric occupancy forecasting, ego-centric occupancy world model and its controlnet. 
+% The scene-centric occupancy forecasting generally follows a UNet\cite{unet} structure. 
+% The proposed diffusion-based occupancy world model is a variant of an image generation model, of which the hidden-space dimension is $[BEV_L, BEV_W, BEV_H \times num\_class, T]$. The occupancy world model generates future occupancy sequencess mainly based on historical occupancy sequences and future ego trajectories, as well as optinally BEV layouts as input.
+% The input and output of the occupancy world model are all fixed-shape three-dimensional occupancies, which does not limit to the process of the raw sensor to three-dimensional occupancies. 
+% The condition for the Controlnet is the three-dimensional historical occupancies and future trajectory transformed to the future frame.
+% The \mtd{} ControlNet is responsible for encoding the scene-centric prediction conditions into multi-layer implicit control features, and applying them to the corresponding layer features of the world model to enhance the physical consistency control.
+
+% \textbf{Model pipelines and data flow.} After analyzing the structure of the above components, we provide an overall description of the model pipeline and data flow. First, the raw historical occupancy sequences are transformed based on the historical trajectory into the current frame. After scene-centric forecasting, future predictions are made within the coordinate system of the current frame and then transformed according to the future trajectory into the future frame, forming the condition. In another branch, both the raw historical occupancy sequences and the condition are continuously VAE encoded into latents. First, ControlNet calculations are performed to form multi-layer control features, and then the world model calculations are executed, progressively introducing control features layer by layer. Finally, the output is decoded through VAE to form future occupancy situations in the future coordinate system as the final result.
+
+% \subsection{\mtd{} World Model}
+% We use Diffusion Transformer blocks with skip connects and continuous VAE to build a model of occupying the world.
+
+% The VAE model compresses the occupancy sequences into downsampled BEV feature map sequences, and then restore to the same occupancy sequences after latent sampling. Under the scope of diffusion models, we use continuous VAEs which outperforms discrete VAEs in terms of generation details and accuracy. In practice, we can easily adopt well-trained VAEs in DOME\cite{dome} or UniScene\cite{uniscene}.
+
+
+% The diffusion-based world model is modified from Diffusion Transformer blocks from DOME\cite{dome} which is composed of alternating stacked spatial and temporal layers. As one spatial and one temporal layer form a pair, there are an even number of DiT layers. To introduce the control feature to the second half of the layers, we add skip connections between the layers in the first half and the corresponding layer in the second half. The output in layer $i\in [1,2,...,n/2]$ is directly added to the input of layer $n-i$ when $n$ is the layer number of the world model. 
+
+% \textbf{Condition of pose and optional BEV layouts.} The world model generally needs future trajectories as condition to generate ego-centric future predictions. We use relative translation and yaw as input and encodes relative poses with positional embeddings. 
+
+% For usage for simulation, BEV layouts, which are the BEV projected representation of objects and maps, are common conditions to generation high-fidelity occupancy sequences. BEV layout is a BEV map with discrete semantic values. The BEV map is downsampled to the hidden size of feature maps in the world model with a simple 2D MaxPool operater and then concatenate to the input feature on the channel dimension.   
+
+
+
+% \subsection{Scene-Centric Occupancy Forecasting}
+% When we transfer both the input sequence and the output sequence to the current frame coordinate system, the prediction network has more options and can use various time series networks, and in this paper we use a simple UNet architecture to deal with it. 
+
+% The transformed occupancy sequences are embedded with class embedder. The time dimension is merged with channel dimension before UNet. Then undergo an multi-scale encoder-decoder structure to learn spatial-temporal features. After UNet, we use a simple Conv2D layer to recover time dimension. Then we use several Conv2D blocks to encode spatial features per frame. We use a final Conv2D layer to recover height(Z) dimension and the class dimension. The final output is the condition input of the \mtd{}.
+
+% Since only the objects in the whole sequence are moving, and the overall environment is static, the UNet with skip connection is highly effecient and effective, because intuitively a large amount of environmental information can be directly transmitted to the output through the skip connection, and the rest of the information can be represented by multi-scale feature graphs.
+
+
+
+% \subsection{\mtd{} ControlNet}
+% The role of \mtd{} is to transfer scene-centric knowledge of ego-invariant predictions to ego-centric generative models. 
+
+% Our design draw inspiration from the relevant design of HunyuanDiT\cite{hunyuandit}. The structure of ControlNet that we designed can be viewed as a trainable copy of the first half of the occupancy world model's DiT structure. After the condition goes through the zero convolution layer, it is added to the input to form the initial input. After passing through each layer, it becomes control features through zero convolution, introduced into the corresponding layer of the world model with the skip connections.
+
+% \textbf{Masking strategies of controls on invisible areas of scene-centric forecasting.} 
+% ControlNet mainly improves the generation ability of visible areas, but it is necessary to process invisible areas at the same time to ensure the consistency of visible areas and invisible areas.
+
+% First, we emptied the invisible region and introduced the control network, which will obtain a high IoU indicator, but the invisible region has a greater tendency to be generated as mostly empty content. We tried to downsample the invisible area of the mask 8 times after the condition passed through vae, and the effect was similar to that of the unmask, and finally we tried to mask the invisible area when the skip was added to the control, which can balance the invisible imagination and visible prediction ability well, and has the best effect in the visualization.
+
+% \subsection{Training losses}
+% We have different optimization goals and loss function designs for different stages of training.
+
+% For the training of the continuous VAE, our loss function design follows the designs of dome\cite{dome} and uniscene\cite{uniscene}, which is a weighted sum of cross-entropy loss, Lovasz loss, and KL divergence loss.
+% \begin{equation}
+%     L_{\text{Occ-VAE}}=\mathcal{L}_{CE}\left(\mathbf{x},s\right)
+%     + \beta D_{KL}\left(q_\phi(\mathbf{z} \mid \mathbf{x}) \| p(\mathbf{z})\right)
+%     + \lambda L_{lovasz}(\mathbf{x},s)
+% \end{equation}
+
+% In the training process of the fixed-view forecasting, we transform the ground-truth targets to the current coordinate and conduct cross-entropy loss between predictions $x$ and targets $s$,
+% \begin{equation}
+%     \mathcal{L}_{SC\_Fore} = \mathcal{L}_{CE}\left(\mathbf{x},s\right)
+% \end{equation}
+
+% In the denoising training process of both the diffusion model and the ControlNet, we apply the same training strategy. During per-step denoising, the noise latent $x_t$ is with shape $[B, L_{seq}, C, H, W]$, where $L_{seq}$ is the sum of historical frames $L_{his}$ and future frames $L_{fut}$. The historical part of $x_t$ with shape $[B, L_{his}, C, H, W]$ is replaced by historical occupancy latents. There, the diffusion loss is computed only within the generated frames with conditional mask $M_i$ for the $i$-th frame. The loss function for training the diffusion model and the ControlNet is,
+
+% \begin{equation}\label{eq:simple_loss}
+% \mathcal{L}_{\text{diff}} = \mathbb{E}_{t \sim [1,T], \epsilon \sim \mathcal{N}(0,\mathbf{I}), i\in[0,L_{seq}]}
+% \Big[\mathcal{M}_i \odot \|\epsilon - \epsilon_\theta(\underbrace{\sqrt{\bar{\alpha}_t}\mathbf{x}_0 + \sqrt{1-\bar{\alpha}_t}\epsilon}_{\text{noisy sample}}, t)\|_2^2 \Big]
+% \end{equation}
+
+% where the noise prediction network $\epsilon_\theta$ is trained to minimize the residual noise. $\alpha_t$ is the noise scheduling coefficient. $T$ is the training denoising step. 
+
+
+
+
+% \subsection{Post Fusion}
+
+% The test method for a scene-centric prediction in a variable perspective is to set all future grids that are not currently visible as air
+% The test method of post-fusion is to predict the results of the currently visible raster from a fixed perspective, and the current invisible future raster to generate the results with the world model
+
+
+% \textbf{Masking strategies of controls on invisible areas of scene-centric forecasting.} 
+% ControlNet mainly improves the generation ability of visible areas, but it is necessary to process invisible areas at the same time to ensure the consistency of visible areas and invisible areas.
+
+% First, we emptied the invisible region and introduced the control network, which will obtain a high IoU indicator, but the invisible region has a greater tendency to be generated as mostly empty content. 
+% We tried to downsample the invisible area of the mask 8 times after the condition passed through vae, and the effect was similar to that of the unmask, and finally we tried to mask the invisible area when the skip was added to the control, which can balance the invisible imagination and visible prediction ability well, and has the best effect in the visualization.

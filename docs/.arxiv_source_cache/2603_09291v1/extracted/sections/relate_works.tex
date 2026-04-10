@@ -1,0 +1,35 @@
+\section{Related Works}
+\label{sec:related}
+
+\subsection{Multi-view 3D Reconstruction and Gaussian Splatting Representations}
+
+Classical multi-view reconstruction methods rely on geometric techniques such as structure-from-motion (SfM), multi-view stereo (MVS), and bundle adjustment to recover scene geometry via feature matching and triangulation. While effective in many settings, their performance degrades in the presence of sparse textures, strong noise, or severe occlusions. NeRF~\cite{mildenhall2020nerf} represents scenes as implicit neural radiance fields and employs differentiable volumetric rendering to achieve high-quality novel view synthesis. Subsequent works have made substantial progress in accelerating training and inference and in improving rendering quality, yet the cost of volumetric rendering remains relatively high.
+
+3D Gaussian Splatting (3DGS)~\cite{kerbl3Dgaussians} instead represents the scene explicitly as a set of Gaussian primitives, each parameterized by position, covariance, opacity, and color, and uses rasterization-based rendering for efficient image synthesis. This formulation strikes a favorable balance between reconstruction quality and computational efficiency. Methods built on 3DGS have been successfully applied to few-view reconstruction, super-resolution, language-driven editing, and 3D segmentation, among other tasks. For example, MMGS improves sparse-view synthesis through multi-model synergy, SRSplat studies feed-forward super-resolution from sparse low-resolution multi-view inputs, REALM enables open-world reasoning, segmentation, and editing directly on Gaussian scenes, and Sparse4DGS extends Gaussian splatting to sparse-frame dynamic scene reconstruction \cite{shi2025mmgs,hu2025srsplat,shi2025realm,shi2025sparse4dgs}. Feed-forward frameworks that directly predict Gaussian primitives from multi-view images via volumetric feature aggregation further eliminate per-scene optimization, enabling a single forward pass mapping from multi-view images to a 3DGS representation.
+
+However, this entire line of work is largely designed and evaluated under clean-input assumptions, where image quality is high and noise is negligible. There is still a lack of systematic analysis and targeted modeling for realistic acquisition conditions, in which noisy measurements, diverse degradations, and cross-view consistency issues are ubiquitous.
+
+\subsection{Image Denoising and Noise-Robust Vision Models}
+
+Image denoising is a long-standing problem in low-level vision. Classical methods such as non-local means and BM3D~\cite{dabov2007bm3d} explicitly exploit image statistics and non-local self-similarity priors, and remain competitive for simple additive Gaussian noise. With the rise of deep learning, supervised denoising networks such as DnCNN~\cite{zhang2017dncnn}, FFDNet~\cite{zhang2018ffdnet}, and RIDNet~\cite{anwar2019ridnet} trained on synthetic noisy--clean pairs have demonstrated superior performance on standard benchmarks.
+
+However, many CNN-based denoisers are trained for a fixed noise type or a narrow range of noise levels, and often struggle to generalize to unseen degradations or mixed noise. 
+Recently, IDF (Iterative Dynamic Filtering)~\cite{kim2025idf} proposes a compact yet powerful denoising network that generates pixel-wise dynamic kernels and applies them iteratively, achieving strong generalization to diverse noise types and levels despite being trained only on single-level Gaussian noise. 
+In this work, we adopt IDF as a strong 2D denoising expert in our Denoise-Then-MVSplat baseline due to its efficiency and generalization ability, and compare it against our proposed 3D noise-aware reconstruction pipeline.
+
+\subsection{Robust 3D Reconstruction from Degraded Inputs}
+
+For other forms of degradation such as blur, compression, or weather effects, several works have explored explicitly modeling input degradation in 3D reconstruction and novel view synthesis. Examples include jointly learning deblurring, deblocking, or deraining modules within NeRF-like frameworks, as well as introducing uncertainty modeling and robust estimation for dynamic or challenging scenes. These studies collectively indicate that tightly coupling degradation modeling with 3D representations can improve reconstruction quality and robustness.
+
+Nevertheless, \emph{dedicated studies on 3D reconstruction from noisy multi-view inputs remain limited}. On the one hand, most existing methods either assume preprocessed inputs or do not systematically account for different noise types and levels. On the other hand, some robust approaches rely on per-scene optimization or complex inference procedures, which limits their scalability and applicability to real-time or large-scale scenarios.
+
+Several recent works aim to make NeRF- or 3DGS-based methods more robust to degraded inputs. 
+Deblur-NeRF~\cite{ma2022deblurnerf} explicitly models spatially-varying blur kernels to recover sharp radiance fields from defocus or motion-blurred images. 
+More recently, RobustGS~\cite{wu2025robustgs} introduces a degradation-aware feature enhancement module that can be plugged into feed-forward 3DGS pipelines to better handle low-quality inputs such as noise, low light, or rain. 
+These methods demonstrate that explicitly modeling degradations in the reconstruction pipeline can substantially improve robustness. 
+However, they typically focus on specific degradations (e.g., blur) or treat ``low-quality'' conditions in a more generic way, 
+and few works systematically study multi-type, multi-level additive noise on large-scale multi-view datasets. 
+In contrast, our work targets noisy multi-view reconstruction with diverse noise types and intensities, 
+and provides a dedicated noisy--clean benchmark together with a feed-forward 3D Gaussian Splatting network trained end-to-end on noisy inputs.
+
+

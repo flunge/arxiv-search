@@ -1,0 +1,73 @@
+
+\section{Related works}
+Our PolGS aims to reconstruct reflective surface with 3DGS by using polarized images, so we summarize recent progresses in 3D reconstruction techniques, focusing on reflective surfaces through SDF-based methods, 3DGS methods, and polarized image-based reconstruction, respectively.
+
+\vspace{-0.6em}
+
+\paragraph{3D reconstruction based on neural SDF representation}
+Novel view synthesis has achieved great success using Neural Radiance Fields (NeRF~\cite{mildenhall2020nerf}). Motivated by the structure of the multi-layer perceptron (MLP) network within NeRFs, numerous 3D reconstruction methods have emerged that leverage implicit neural representations to predict object surfaces. Some approaches~\cite{niemeyer2020differentiable, yariv2020multiview} proposed the signed distance field (SDF) into the neural radiance field, effectively representing the surface as an implicit function. 
+Other works~\cite{wang2021neus, yariv2021volume, oechsle2021unisurf, wang2022hf, wang2023neus2,li2023neuralangelo} extend it by proposing efficient framework in detailed surface reconstruction.
+
+These methods based on SDF represent complex scenes implicitly, but they typically suffer from high computational demands and are not suitable for real-time applications. Although some methods~\cite{wang2023neus2, li2023neuralangelo} utilize hash grids and instant-NGP~\cite{mueller2022instant} structure, it is still a challenge for them to reconstruct the mesh efficiently facing the reflective surface. 
+
+Ref-NeRF~\cite{verbin2022ref} uses the Integrated Directional Encoding (IDE) structure to estimate the specular reflection components of the object surface by using predicted roughness, view direction, and surface normals.
+%This allows them to constrain the surface shape while estimating both diffuse and specular reflections simultaneously. 
+NeRO~\cite{liu2023nero} improves it by generating the physically-based rendering (PBR) parameters, and NeP~\cite{wang2024inverse} can better deal with the glossy surface.
+% which can realize object relighting under a new environment light.
+%Ref-NeuS~\cite{ge2023ref} Uses a reflection score from different viewpoints, extendin/
+TensoSDF~\cite{li2024tensosdf} combines a novel tensorial representation~\cite{chen2022tensorf} with the radiance and reflectance field for robust geometry reconstruction.
+However, these approaches can not avoid high optimization time.
+\definecolor{newgreen}{rgb}{0.1,0.7,0.1}
+\definecolor{3rd}{rgb}{0.95,0.95,0.65}
+\definecolor{2nd}{rgb}{1,0.84,0.7}
+\definecolor{1st}{rgb}{1,0.7,0.7}
+\begin{table}
+	\caption{Comparison of different methods in reflective 3D reconstruction: the top four methods are SDF-based, while the bottom four methods are based on 3DGS.}
+	\label{table:comparison}
+	\small
+	\centering
+	\resizebox{.5\textwidth}{!}{
+		\begin{tabular}{lcccc}
+			\toprule
+			Input & Method & Reflective & Accuracy & time (h)\\
+			\midrule
+			RGB Images & \nero & \color{newgreen}\ding{51} &  \colorbox{1st}{high}   &  \colorbox{3rd}{8} \\
+			Azimuths & \mvas &  \color{newgreen}\ding{51} & \colorbox{1st}{high}   &  \colorbox{3rd}{11} \\
+			Pol. Images& \pandora &  \color{newgreen}\ding{51} & \colorbox{2nd}{medium}  & \colorbox{3rd}{10}\\
+			Pol. Images& \nersp &  \color{newgreen}\ding{51} & \colorbox{1st}{high}  & \colorbox{3rd}{10}\\
+			\midrule 
+			RGB Images & \gs & \color{red}\ding{55} & \colorbox{3rd}{low} &  \colorbox{2nd}{0.2}\\
+			RGB Images&  \dr &   \textcolor{newgreen}{\ding{51}} &  \colorbox{3rd}{low} & \colorbox{2nd}{0.2} \\
+			RGB Images&  \relight &  \color{newgreen}\ding{51} & \colorbox{3rd}{low} & \colorbox{2nd}{0.4} \\
+			Pol. Images&  \polgs &  \color{newgreen}\ding{51} & \colorbox{2nd}{medium} & \colorbox{1st}{0.1} \\
+			\bottomrule
+			\vspace{-2.8em}	
+		\end{tabular}	
+
+	}
+\end{table}
+\vspace{-1em}	
+\paragraph{3D reconstruction based on 3DGS}
+
+3DGS~\cite{kerbl20233d} aims to address limitations of  neural radiance fields by representing complex spatial points using 3D Gaussian ellipsoids. 
+%This approach encapsulates various attributes such as position, color, opacity, and spherical harmonics (SH) coefficients, facilitating high-precision and real-time rendering.
+However, 3D ellipsoids cannot conform effectively to actual object surfaces, resulting in inaccuracies in shape representation when producing point clouds. 
+
+To overcome these drawbacks, several extensions and modifications have been proposed. SuGaR~\cite{guedon2024sugar} approximates 2D Gaussians with
+3D Gaussians, NeuSG~\cite{chen2023neusg}, GSDF~\cite{yu2024gsdf} and 3DGSR~\cite{lyu20243dgsr} integrate an extra SDF network for representing surface normals to supervise the Gaussian Splatting geometry. 
+2D Gaussian Splatting~\cite{huang20242d} and Gaussian Surfels~\cite{dai2024high} have taken a different approach by transforming the 3D ellipsoids into 2D ellipses for modeling. This transformation allows for more refined constraints on depth and normal consistency, addressing the surface approximation issues more effectively. 
+GOF~\cite{yu2024gaussian} achieves more realistic mesh generation through its innovative opacity rendering strategy.
+However, these methods do not focus on reflective surface reconstruction.
+
+\relight associates extra properties, including normal vectors, BRDF parameters,
+and incident lighting from various directions to make photo-realistic relighting. 
+\dr presents a deferred shading method to effectively render specular reflection with Gaussian splatting. Despite these advancements, these methods still face challenges in many scenarios and cannot provide accurate geometric expression.
+\vspace{-1.0em}
+
+\paragraph{3D reconstruction using polarized images}
+Polarized images are widely used in Shape from Polarization (SfP)~\cite{miyazaki2003polarization, baek2018simultaneous, smith2018height, deschaintre2021deep, lei2022shape, ba2020deep, lyu2023shape,li2024deep, yang2024gnerp, lyu2024sfpuel}, reflection removal~\cite{li2020reflection,lyu2022physics,wang2025polarized}, and some downstream tasks~\cite{zhou2023polarization, li2023polarized} due to the strong physics-preliminary information in the Stokes field. The SfP task aims to predict the surface normal captured by the polarization camera under the single distant light~\cite{lyu2023shape, smith2018height} or unknown ambient light~\cite{ba2020deep,lei2022shape}. Multi-view 3D reconstruction works using polarized images~\cite{zhao2022polarimetric} try to settle down the $\pi$ and $\pi/2$ ambiguities with the Angle of Polarization (AoP). \pandora first uses polarized images in neural 3D reconstruction work, following the relevant constraints of pBRDF~\cite{baek2018simultaneous}. \mvas leverages multi-view AoP maps to generate tangent spaces for surface points during the optimization process, which can 
+reconstruct mesh without rendering supervision. \nersp combines the photometric and geometric cues from polarized images and generates better results under sparse views for reflective surfaces. PISR~\cite{chen2024pisr} focuses on texture-less specular surface 
+and integrates the multi-resolution hash grid for efficiency.
+NeISFs~\cite{li2024neisf,li2025neisf++} consider the inter-reflection and models multi-bounce polarized light paths during rendering. Despite these advancements, computational cost remains a significant limitation for many polarized-based 3D reconstruction methods.
+
+

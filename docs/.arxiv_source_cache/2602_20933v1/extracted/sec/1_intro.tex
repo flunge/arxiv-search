@@ -1,0 +1,74 @@
+\section{Introduction}
+Realistic novel view synthesis (NVS) remains a central challenge in computer vision and graphics. 3DGS~\cite{kerbl2023-3dgs}, with a remarkable balance between rendering speed and visual fidelity, has recently emerged as the leading method in this domain~\cite{chen2024survey-3dgs,samavati20233D-rec-survey,fang2024-ce3d,matsuki2024gaussian,jiang2024gaussianshader}. Although 3DGS excels in dense input views~\cite{bag20243dgs-comp-survey, lu2024scaffold,chen2025hac,yu2024mip-gs, liu2024comp-gs, huang20242dgs}, it faces significant challenges when trained with sparse views~\cite{mihajlovic2025splatfields, colmapfree3dgs, fan2024instantsplat, zhang2024corgs,han2024binocular,fang2025nerf-gs}. The scarcity of training views often induces severe overfitting, manifesting as artifacts, blurring, or geometric distortions that limit its practical applicability.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=1.\columnwidth]{figs/teaser.pdf}
+\caption{\textbf{Difference between DropGaussian~\cite{park2025dropgaussian} and our \methodname{}}. (a) DropGaussian randomly sets the opacity of individual Gaussians to zero. (b) \methodname{} selects random Gaussians as anchors, discards their neighbors, and applies Dropout to high-degree SH. 
+%
+Anchor-based Dropout eliminates contiguous 3D regions, which effectively inhibits adjacent Gaussians from compensating for the dropped ones, forcing remaining Gaussians to learn more robust scene representations, thereby strengthening the Dropout regularization effect.
+%
+Dropping SH further reduces overfitting and yields a more compact model.
+}
+\label{fig:teaser}
+\end{figure}
+
+
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=1. \textwidth]{figs/motivation.pdf} 
+\caption{\textbf{Compensation effect in neighbor Gaussians}. (a) We measure the spatial autocorrelation of opacity and color between Gaussians at varying distances using Moran’s I metric~\cite{moran1950notes,mihajlovic2025splatfields}. Closer Gaussians exhibit higher similarity in opacity and color. This spatial redundancy implies that dropping only individual Gaussians can be easily compensated for by their surrounding similar neighbors, thereby limiting the effectiveness of dropout.
+(b) We report the Mean Absolute Error between rendered images before and after applying two different Dropout strategies, S1 and S2. When dropping a similar number of Gaussians, the strategy that drops Gaussians and their neighboring Gaussians (S1) has a larger impact on rendering quality, as it avoids simple compensation by neighboring Gaussians.
+(c) In regions surrounding the dropped Gaussians, the S1 strategy activates a greater number of remaining Gaussians, resulting in stronger gradient updates.}
+\label{fig:pilot_study}
+\end{figure*}
+
+Inspired by regularization techniques in deep learning~\cite{srivastava2014Dropout}, recent works introduce the Dropout mechanism into 3DGS~\cite{xu2025Dropoutgs, park2025dropgaussian}. These methods randomly set the opacity of certain Gaussians to zero during training, aiming to prevent over-reliance on specific Gaussians and thereby regularize the model. However, our analysis reveals critical limitations in these approaches:
+%
+(1) \textit{Neighbor compensation effect} (Figure~\ref{fig:pilot_study}). 3DGS leverages numerous overlapping Gaussians to collaboratively render a scene, which often exhibits highly similar opacity and color attributes in local regions. When a single Gaussian is dropped, its rendering contribution is easily compensated by neighboring ones, thereby weakening the intended regularization effect of Dropout.
+%
+(2) \textit{Limited attribute utilization} (Figure~\ref{fig:pilot_study_sh}). 
+Existing dropout strategies in 3DGS exclusively target the opacity attribute, while neglecting the distinct roles of other attributes in overfitting.
+%
+
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.45 \textwidth]{figs/motivation_sh.pdf} 
+\caption{\textbf{Overfitting caused by high-degree SH}. On the LLFF dataset, (a) under full-view conditions, moderately increasing the degree of spherical harmonics can improve the performance of the 3DGS model. However, (b) under sparse-view settings, using high-degree spherical harmonics leads to performance degradation and a significant increase in model size, indicating that spherical harmonics themselves also constitute a source of overfitting.}
+%
+\label{fig:pilot_study_sh}
+\vspace{3mm}
+\end{figure}
+
+To address these limitations, we propose a novel Dropout regularization strategy termed \methodname{}. 
+%
+Unlike previous Dropout strategies~\cite{park2025dropgaussian,xu2025Dropoutgs} that discard isolated Gaussians, \methodname{} randomly selects a set of anchor Gaussians and drops these anchors and their surrounding neighbours within a local spatial region. 
+%
+This structured Dropout strategy eliminates entire clusters of correlated Gaussians, creating larger-scale “information voids” that actively disrupt spatial coherence and prevent local compensation.
+%
+Consequently, the optimization process is compelled to utilize more long-range contextual information to reconstruct the dropped regions, thereby fostering more robust and generalizable scene representations.
+
+Moreover, existing 3DGS Dropout methods are limited to manipulating opacity without considering the nuanced differences among multiple attributes. 
+%
+We identify that SH, particularly higher-degree terms, also cause overfitting (as shown in Figure~\ref{fig:pilot_study_sh}). To this end, we further introduce a Dropout mechanism targeting high-degree SH. 
+%
+This strategy provides twofold benefits: it (1) mitigates overfitting to color variations, and (2) promotes a coarse-to-fine SH representation, prioritizing lower-degree SH for scene representation. 
+%
+Consequently, the trained model permits post-hoc pruning of high-degree SH to obtain a more compact model without requiring retraining, as shown in Figure~\ref{fig:teaser}.
+
+
+
+The main contributions of our work are as follows: 
+\begin{itemize}
+\item We identify and analyze the limitations of existing Dropout strategies in 3DGS, showcasing how spatial redundancy and high-degree spherical harmonic coefficients weaken their regularization effect.
+\item We propose \methodname{}, a novel structured spatial Dropout method that discards clusters of Gaussians, achieving stronger regularization against overfitting.
+\item We extend the Dropout strategy to appearance attributes by dropping SH, which simultaneously suppresses overfitting and enables flexible post-hoc model compression.
+\item Comprehensive experiments demonstrate that our method significantly outperforms the state-of-the-art Dropout techniques for 3DGS, while incurring negligible additional computational cost. Moreover, it can be used to enhance the quality of multiple 3DGS variants, highlighting its broad applicability and value.
+\end{itemize}
+
+
+
+
+

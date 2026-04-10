@@ -1,0 +1,28 @@
+\begin{algorithm}[t]
+\caption{Textual Scene Description Generation via VLM, LLM, and RAG}
+\label{alg:scene-description}
+\KwIn{User prompt $\mathcal{T}_\mathcal{P}$; Scene dataset $\mathcal{D}_\text{scene}$}
+\KwOut{Structured scene description $\mathcal{D} = \{\mathcal{S}, \mathcal{O}, \mathcal{B}, \mathcal{L}\}$}
+
+\BlankLine
+\textbf{Offline Stage: Build Memory Bank $\mathcal{M}$} \\
+\For{frame $f$ in $\mathcal{D}_\text{scene}$}{
+    Load 6 surround-view images $I_f$ \;
+    $\hat{d}_f \leftarrow \texttt{VLM}(I_f)$ \tcp*{Generate raw description}
+    $\mathcal{S}, \mathcal{O}, \mathcal{B} \leftarrow \texttt{Parse}(\hat{d}_f)$ \tcp*{Parse style, objects, and background}
+    $A_f \leftarrow \texttt{DataAnnotations}(f)$ \tcp*{Extract spatial annotations}
+    $\mathcal{L} \leftarrow \texttt{LayoutFrom}(A_f)$ \tcp*{Convert annotations to textual layout}
+    $m_f \leftarrow \{\mathcal{S}, \mathcal{O}, \mathcal{B}, \mathcal{L}, \hat{d}_f\}$ \tcp*{Assemble memory item}
+    Add $m_f$ to memory bank $\mathcal{M}$ \;
+}
+
+\BlankLine
+\textbf{Online Stage: Generate Structured Description $\mathcal{D}$} \\
+$z_{\mathcal{P}} \leftarrow \texttt{Embed}(\mathcal{T}_\mathcal{P})$ \tcp*{Embed user prompt}
+$\{z_i\} \leftarrow \texttt{Embed}(m_i.\text{text})$ for all $m_i \in \mathcal{M}$ \tcp*{Embed memory entries}
+$\mathcal{M}_K \leftarrow \texttt{TopK}(z_{\mathcal{P}}, \{z_i\})$ \tcp*{Retrieve top-k relevant memories with RAG}
+Format LLM input using $\mathcal{T}_\mathcal{P}$ and $\mathcal{M}_K$ \tcp*{Prepare input context}
+$\mathcal{D} \leftarrow \mathcal{G}_{\text{description}}(\mathcal{T}_\mathcal{P}, \mathcal{M}_K)$ \tcp*{Generate final description via GPT-4o}
+
+\end{algorithm}
+% \vspace{-4mm}

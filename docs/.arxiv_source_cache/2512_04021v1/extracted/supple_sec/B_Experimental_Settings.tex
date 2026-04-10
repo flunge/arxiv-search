@@ -1,0 +1,68 @@
+\section{Experimental settings}
+\label{sec:settings}
+\subsection{Novel view synthesis}
+\paragrapht{Datasets.}
+To evaluate novel view synthesis, we use the RealEstate10K~\cite{zhou2018stereo} dataset. We adopt the same train-test split as prior work~\cite{charatan2024pixelsplat, chen2024mvsplat, ye2024no}. RealEstate10K primarily contains indoor real estate videos with camera poses computed using COLMAP~\cite{schonberger2016structure}. For multi-view evaluation, we randomly sample 1,000 image sets from the test split, each consisting of multiple context views and 3 target views that are disjoint from the context views.
+
+\paragrapht{Baselines.}
+For 2-view input settings, we compare against SOTA generalizable feed-forward methods on novel view synthesis. We compare PixelSplat~\cite{charatan2024pixelsplat} and MVSplat~\cite{chen2024mvsplat} as \textit{Pose-dependent} categories, which require ground-truth pose information for input. We also compare our model with \textit{Pose-free} categories which use only rgb images as inputs such as CoPoNeRF~\cite{hong2024unifying}, Splatt3R~\cite{smart2024splatt3r}, PF3plat~\cite{hong2024pf3plat}, SPFSplat~\cite{huang2025no}, NoPoSplat~\cite{ye2024no}. We also reimplement the VGGT+NoPo, which replaces NoPoSplat’s MASt3R~\cite{leroy2024grounding} backbone with VGGT~\cite{wang2025vggt} while maintaining NoPoSplat’s pipeline to estimate per-pixel Gaussians. Ours also fall into \textit{Pose-free} settings.
+
+For the multi-view~($V>2$) settings, we compare against state-of-the-art generalizable methods that support arbitrary numbers of input views, such as AnySplat~\cite{jiang2025anysplat}. We evaluate using various numbers of input views: 12, 24, and 36. We also evaluate VGGT+NoPo under the same settings. For AnySplat, we provide input images at $448\times448$ resolutions, which perform better than $256 \times 256$, and render target view images at $256 \times 256$ resolution.
+
+\paragrapht{Evaluation protocol.}
+Given unposed images as inputs, our method reconstructs and represents 3D scenes using 3D Gaussians. We rasterize the 3D Gaussians at ground-truth camera poses and compare the rendered images with ground-truth target views. We report standard novel view synthesis metrics such as PSNR, SSIM, and LPIPS.
+
+However, as discussed in NoPoSplat~\cite{ye2024no}, reconstructing 3D scenes from sparse unposed views is inherently scale-ambiguous. Although our method successfully generates 3D Gaussians, they may not fully align with the ground-truth scene scale in the validation dataset. To ensure fair comparison with other baselines, we follow pose-free methods by optimizing the target view camera pose while freezing all other parameters. Specifically, we first reconstruct 3D Gaussians, then freeze them and optimize only the target camera pose such that the rendered image closely matches the ground-truth target view. Finally, we compute metrics using the optimized target view camera poses. Note that this optimization scheme is only needed for evaluation purposes and is not required in real-world scenarios.
+
+For the multi-view settings, we additionally perform short test-time optimization following 3DGS~\cite{kerbl20233d}, denoted as C3G w/ TTO, NoPo+VGGT w/ TTO and AnySplat w/ TTO. We use the predicted Gaussians as initialization and conduct per-scene optimization for a limited number of steps. Specifically, we set the optimization steps to 1,000 steps with densification intervals of 100 steps. We set the learning rate as follows: means at 1.6e-4, scales at 3e-4, rotations at 1e-3, harmonics at 2.5e-3, and densities at 5e-3, using Adam optimizer~\cite{kingma2014adam}.
+Our loss function is formulated as $\mathcal{L} = 0.8\mathcal{L}_\text{MSE} + 0.2\mathcal{L}_\text{SSIM}$, where $\mathcal{L}_\text{MSE}$ denotes the MSE loss and $\mathcal{L}_\text{SSIM}$ denotes the SSIM loss between the rendered image and ground-truth images. Other settings follow the original 3DGS. For AnySplat, we follow their default test-time optimization and do not conduct densification to avoid the $\texttt{Out-Of-Memory}$ due to the number of Gaussians.
+
+\subsection{3D scene understanding}
+
+\paragrapht{Datasets.}
+To evaluate 3D scene understanding capabilities, we follow previous approaches~\cite{fan2024large, burgess2006spatial} and use the ScanNet~\cite{dai2017scannet} and Replica~\cite{straub2019replica} datasets.
+
+For ScanNet, we use 40 scenes following LSM~\cite{fan2024large}, selected based on valid pose and depth data where Feature-3DGS~\cite{zhou2024feature} performs well. We evaluate 8 categories: wall, floor, ceiling, chair, table, sofa, bed, and others. We select 30 images with a stride of 10, and target views are chosen as the 1st and 4th images within every 8-image interval.
+
+For Replica, we select 80 images with a stride of 3, and the target view is the 2nd image within every 8-image interval. We use camera poses obtained from COLMAP~\cite{schonberger2016structure}. We evaluate 3 scenes where LSeg~\cite{li2022language} performs well: office3, office4, and room1. We select 5-6 categories per scene. Specifically, for office3, we use wall, ceiling, floor, chair, and table; for office4, we use wall, ceiling, floor, chair, tv-screen, and table; for room1, we use wall, ceiling, floor, bed, and blinds.
+
+\paragrapht{Baselines.}
+To validate our effectiveness, we compare our model with per-scene optimized feature novel-view synthesis tasks and feed-forward feature novel-view synthesis.
+
+For per-scene optimization methods (Feature-3DGS~\cite{zhou2024feature} and CF$^3$~\cite{lee2025cf3}), we optimize the per-scene 3D Gaussians using all the posed inputs except for target view images. We then render the 3D Gaussians to target view images to calculate the metrics. For the ScanNet dataset, there are no readily available sparse initial point clouds, so we train with randomly initialized point clouds following the previous works~\cite{qin2024langsplat, li2025langsplatv2}. For feature-3DGS~\cite{zhou2024feature}, we optimize for 5,000 steps to avoid overfitting. For CF$^3$~\cite{lee2025cf3}, we first optimize 3DGS with 30,000 steps and additionally optimize the CF$^3$ with 3,000 steps. 
+
+For feature novel-view synthesis (LSM~\cite{fan2024large} and Ours), we first select two input views to generate 3D Gaussians, which are then projected to target views disjoint from the input views. Following the same protocol as novel view synthesis evaluation, these methods require target pose optimization to resolve scale ambiguity. 
+
+For LSeg~\cite{li2022language} and MaskCLIP~\cite{zhou2022extract}, we directly extract features from the target viewpoint images, since these methods cannot render features at novel viewpoints like 3D-based approaches. 
+
+
+\paragrapht{Evaluation protocol.}
+Given RGB images as input, we first extract language-aware features using models such as LSeg~\cite{li2022language} or MaskCLIP~\cite{zhou2022extract}. 3D Gaussians with lifted features are generated following each method's procedure, then projected to the target and source views. The target view denotes an unseen viewpoint not present in the input, while the source view denotes a seen viewpoint that every method has observed at least once. We render both RGB images and features at each viewpoint. The rendered features are then processed into segmentation maps by selecting the most relevant CLIP~\cite{radford2021learning} text embeddings corresponding to each label. We report open-vocab segmentation metrics (mIOU and Accuracy), and novel view synthesis metrics (PSNR, SSIM, and LPIPS).
+
+\subsection{Multi-view feature encoding}
+Obtaining multi-view invariant features, also termed as 3D aware features, has been a long-standing goal in computer vision and graphics. Probe3D~\cite{el2024probing} defines a set of tasks, including two-view correspondences~\cite{hong2021deep,hong2022cost,cho2021cats,cho2022cats++,hong2024unifying2,hong2022neural} and single-view depth estimation~\cite{piccinelli2024unidepth}, to probe the 3D awareness of the features. FiT3D proposes a two-stage fine-tuning task to build view-invariant features, where they first train more than 1000 per-scene feature-3DGS with the desired features. With the pre-trained 3DGS over multiple scenes, they finetune the original vision encoder to follow the rendered features from the 3D Gaussians. They show that after training, they achieve higher correspondence scores in the task defined in Probe3D. As our \oursF\ can aggregate the input features, we analyze the effectiveness of \oursF\ as a view-invariant feature decoder.
+
+\paragrapht{Datasets.}
+To validate the effectiveness of our \oursF\ as a multi-view invariant feature decoder, we use the ScanNet~\cite{dai2017scannet} dataset following Probe3D~\cite{el2024probing}. ScanNet is a large-scale dataset of indoor scenes with RGB images, depth maps, and camera poses. We evaluate on 1,500 image pairs from the test split following SuperGlue~\cite{sarlin2020superglue}.
+
+\paragrapht{Baselines.}
+We compare DINOv2~\cite{oquab2023dinov2}, DINOv3~\cite{simeoni2025dinov3}, and VGGT tracking features~\cite{wang2025vggt}, which are known to perform well on zero-shot correspondence estimation.
+
+\paragrapht{Evaluation protocols.}
+Given two images, we first extract a feature map for each image. For ours, we first predict 3D Gaussians with features and project the 3D Gaussians to each input-view pose. Then, we estimate correspondences between the two images using nearest neighbors. Following Probe3D~\cite{el2024probing}, we filter the correspondence using Lowe's ratio test~\cite{lowe2004distinctive} to find the strong unique matches to reduce the noisy correspondence. We rank the correspondences using the ratio test and keep the top 1,000 correspondences. 
+
+We evaluate correspondence quality using PCK @ 10px, which measures the accuracy of correspondence within 10 pixels between estimated and ground-truth matches. We divide the image pairs into 4 groups based on viewing angle differences: $0{\sim}15^\circ$~($\theta_0^{15}$), $15{\sim}30^\circ$~($\theta_{15}^{30}$), $30{\sim}60^\circ$~($\theta_{30}^{60}$), and $60{\sim}180^\circ$~($\theta_{60}^{180}$). The results can be seen in Tab.~\ref{tab:correspondence}.
+
+\subsection{Multi-view feature upsampling}
+Feature upsampling is the task of upsampling the extracted features from pre-trained vision encoders to a higher resolution for more fine-grained downstream tasks. Although our \oursF\ also takes the low-resolution extracted features from $\mathcal{E}'(\cdot)$ as input, when combined with the 3D Gaussians and rendered to a specific viewpoint, since Gaussians can be rendered at any camera pose, our model can generate features at arbitrary resolutions by setting the desired resolution and intrinsics in the CUDA rasterizer. In this section, we analyze whether the rendered features from \oursF\ can be used as an effective multi-view feature upsampler. The results can be seen in Tab.~\ref{tab:correspondence}.
+
+\paragrapht{Datasets.}
+We use the ScanNet~\cite{dai2017scannet} dataset, following the same setup as multi-view feature encoding, to evaluate the probing capability of the upsampled features.
+
+\paragrapht{Baselines.}
+We compare DINOv2~\cite{oquab2023dinov2} and DINOv3~\cite{simeoni2025dinov3} features as baselines against their upsampled versions, which match the input image resolution using AnyUp~\cite{wimmer2025anyup}, a generalizable feature upsampling module.
+
+\paragrapht{Evaluation protocols.}
+Following the same protocol as multi-view feature encoding, we first extract high-resolution feature maps, then estimate correspondences between two images using nearest neighbors. We evaluate correspondence quality using PCK@10px with image pairs divided by viewing angle differences. We also present qualitative results using PCA visualization to demonstrate how upsampled features capture finer details. The results can be seen in Tab.~\ref{tab:correspondence}.
+
+\clearpage

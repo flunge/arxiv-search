@@ -1,0 +1,32 @@
+
+\section{Preliminary}
+\label{section:preliminary}
+
+\textbf{Latent Video Diffusion Model~(LVDM).}
+The LVDM enhances the stable diffusion model ~\cite{ramesh2022hierarchical} by integrating a 3D U-Net, thereby empowering efficient video data processing. This 3D U-Net design augments each spatial convolution with an additional temporal convolution and follows each spatial attention block with a corresponding temporal attention block. It is optimized by employing a noise-prediction objective function:
+\begin{equation}
+    l_\epsilon = ||\epsilon - \epsilon_\theta(z_t, t, c)||^2_2,
+    \label{eq:training_objective}
+\end{equation}
+Here, $\epsilon_\theta(\cdot)$ signifies the 3D U-Net's noise prediction function. The condition 
+$c$ is guided into the U-Net using cross-attention for adjustment. Meanwhile, $z_t$ denotes the noisy hidden state, evolving like a Markov chain that progressively adds Gaussian noise to the initial latent state $z_0$:
+\begin{equation}
+    z_t=\sqrt{\bar{\alpha}_t}z_0 + \sqrt{1 - \bar{\alpha}_t}\epsilon, \quad\epsilon \sim \mathcal{N}(0, I),
+    \label{eq:add_noise}
+\end{equation}
+where $\bar{\alpha}_t = \prod_{i=1}^t(1-\beta_t)$ and $\beta_t$ is a coefficient that controls the noise strength in step $t$.
+
+
+    
+
+
+
+\noindent \textbf{MMDiT.}
+Inspired by FLUX’s MMDiT \cite{flux2024}, OpenSora V2.0 \cite{peng2025opensora20trainingcommerciallevel} employs a hybrid transformer architecture that incorporates both dual-stream and single-stream processing blocks. 
+In the dual-stream blocks, text and video information are processed separately to facilitate more effective feature extraction within each modality.
+Subsequently, single-stream blocks integrate these features to facilitate effective cross-modal interactions. 
+To further enhance the model’s ability to capture spatial and temporal information, we apply 3D RoPE (Rotary Position Embedding), which extends traditional positional encoding to three-dimensional space, allowing the model to better represent motion dynamics across time.
+
+For text encoding, it leverages T5-XXL \cite{chung2024scaling} and CLIP-Large \cite{Radford2021LearningTV}, two high-capacity pretrained models known for their strong semantic understanding. 
+T5-XXL captures complex textual semantics,
+while CLIP-Large improves alignment between text and visual concepts, leading to more accurate prompt adherence in video generation.

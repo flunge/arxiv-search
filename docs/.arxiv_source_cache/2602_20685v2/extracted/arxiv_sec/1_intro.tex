@@ -1,0 +1,42 @@
+\section{Introduction}
+\label{sec:intro}
+
+\begin{figure*}
+    \centering
+    \begin{subfigure}{\linewidth}
+        \includegraphics[width=\linewidth]{figs/teaser1.pdf}
+        \caption{\ourmethod{} is not bound to any specific sensor setups, allowing flexible video generation in continuous 4D world space.}
+        \label{fig:teaser_1}
+    \end{subfigure}
+    \begin{subfigure}{\linewidth}
+        \includegraphics[width=\linewidth]{figs/teaser2.pdf}
+        \caption{\ourmethod{} takes diverse input conditions with high fidelity.}
+    \end{subfigure}
+    \begin{subfigure}{\linewidth}
+        \includegraphics[width=\linewidth]{figs/teaser3.pdf}
+        \caption{\ourmethod{} can generate long-horizon multi-view videos in a large range.}
+    \end{subfigure}
+    \vspace{-20pt}
+    \caption{Demonstrations of \ourmethod{} as Versatile World Foundation Model.}
+    \label{fig:teaser}
+    \vspace{-10pt}
+\end{figure*}
+
+\epigraph{Space by itself, and time by itself, are doomed to fade away into mere shadows, and only a kind of union of the two will preserve an independent reality.}{--- \textit{Hermann Minkowski}}
+
+World foundation models (WFMs)~\cite{lecun2022path,openai2024sora,bruce2024genie,ha2018world, wfm2024nvidia} aim to simulate the evolution of complex scenes within a dynamic real world governed by physical laws. In a continuous 4D spatio-temporal world, a world model is designed to generate physically plausible images or videos captured by cameras positioned at specific locations and timesteps.
+
+To impose physical plausibility, prior work commonly considers spatial and temporal constraints separately. For spatial reasoning, some methods leverage positional correlations across multiple viewpoints, including camera adjacency~\cite{gao2023magicdrive,wen2024panacea} and cross-view projection~\cite{guo2025dist4ddisentangledspatiotemporaldiffusion}. For temporal coherence, previous works assume strong multi-frame dependencies among images captured by the same cameras~\cite{wen2024panacea,wang2024driving,russell2025gaia2controllablemultiviewgenerative} and thereby exploit existing techniques from video generation, such as temporal VAEs~\cite{yang2025cogvideoxtexttovideodiffusionmodels,brooks2024video}. However, this decoupled design fundamentally restricts the model's flexibility to handle novel sensor configurations and rapid camera motions. Alternatively, some approaches construct explicit 3D scene representations (\eg point clouds~\cite{xie2024x,zhou2025hermes} or BEV/volume features~\cite{zhang2024bevworld,lu2023wovogen}), within a unified global coordinate system to enhance spatio-temporal consistency. Although empirically effective within constrained domains, this geometry-forcing approach impedes generalization to unconstrained open-world environments beyond the distribution of training scenarios.
+
+To overcome these limitations, we pursue a universal framework that retains physical plausibility with minimal inductive biases. We propose \ourmethod{}, a world foundation model supported by a \textit{dual-causal autoregressive strategy} over both scale and time. The scale-wise autoregression is built up on ``next-scale prediction" visual autoregressive model~\cite{tian2024visual,han2024infinity}, enabling the model to capture intricate visual patterns across multiple levels of abstraction. The temporal autoregression works frame-by-frame in the unified 4D spatio-temporal space to improve temporal coherence.
+
+ The core insight of \ourmethod{} lies in a novel spatio-temporal conditioning mechanism that represents the physical world with \textit{relative positional encoding in camera ray space}. This ray-level representation is isotropic in continuous 4D space, thereby reducing dependency on specific camera configurations, motion patterns, or view overlaps. By encoding relative rather than absolute positions, it naturally supports extrapolation beyond the training distribution and generalizes to unconstrained real-world conditions. Leveraging this representation, \ourmethod{} performs coherent reasoning across multi-view and multi-frame images, accommodating diverse input conditions within a unified 4D geometric space. We highlight the following aspects of our method:
+\begin{itemize}
+    \item \textbf{Versatile World Foundation Model.} Our method supports diverse input and output formats for various use cases with a single model. Video generation can be conditioned on multiple optional control signals (\eg, texts, objects, maps, images), while output formats remain flexible in terms of perspectives, resolutions, and frame rates.
+    % text, objects, maps, history, partial views, low-resolution views, camera instrinsics, camera extrinsics.
+    \item \textbf{Scalable Data-Driven Framework.} Our training paradigm is capable of ingesting heterogeneous training data from diverse sources with different sensor configurations. Unlike prior works with handcrafted biases~\cite{guo2025dist4ddisentangledspatiotemporaldiffusion,chen2025geodrive}, \ourmethod{} does not require auxiliary supervision such as depth maps, point clouds, or optical flow.
+    \item \textbf{Extendable Position Embedding.} Our relative ray-level positional encoding supports extrapolation beyond the training range, theoretically allowing an unbounded spatial extent. We also develop a recurrent training paradigm to mitigate distribution drift in long video generation.
+    \item \textbf{Efficient Video Generation.} Our hierarchical multi-scale representation enables rapid progression from coarse abstractions to fine-grained details, and can be seamlessly integrated with existing acceleration techniques for visual autoregressive models~\cite{guo2025fastvar}.
+\end{itemize}
+
+We evaluate \ourmethod{} on driving datasets, demonstrating superior performance in both video generation and novel view synthesis. The results demonstrate high visual realism, strong spatio-temporal coherence, and high fidelity to multiple control signals together with substantial computational efficiency. These advantages enhance its practicality for physical-world applications such as autonomous driving simulation.

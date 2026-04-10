@@ -1,0 +1,56 @@
+\section{Introduction}
+\label{sec:intro}
+
+Framing and composition play a central role in image aesthetics.
+The same 3D scene can appear engaging or awkward depending solely on the camera’s viewpoint, as spatial relationships and perspective vary with viewing position. This makes aesthetics inherently \textit{3D-dependent}.  
+When framing a shot, experienced photographers intuitively reason about spatial layout by observing from multiple angles and forming an internal sense of scene aesthetics to anticipate how visual appeal changes with viewpoint~\cite{freeman2017photographer}. This can be viewed as developing a mental map of aesthetic variation across viewpoints.
+Enabling machines to reason in a similar way—inferring spatially-varying scene aesthetics from a few observations to suggest appealing viewpoints—would benefit not only personal photography~\cite{su2021camera,li2025towards} but also view selection/planning in VR/AR~\cite{wang2025cinefolio,zaman2023vicarious} and autonomous systems~\cite{xie2023gait,alzayer2021autophoto}.
+
+
+Existing approaches primarily focus on \textit{single-view adjustments}~\cite{li2025towards,su2021camera,liu2023beyond} by predicting limited camera movements to refine a single image. Although they can enhance framing locally, they lack awareness of the underlying scene geometry, leaving their reasoning confined to a narrow neighborhood around the anchor view.
+Recent works attempt to incorporate broader viewpoint changes into aesthetic modeling~\cite{yao2025photography,uchida20253d} using generative models. However, they rely on hallucinated content from a single view and thus cannot ensure geometric consistency with real scenes. This highlights the need for a 3D-aware solution grounded in scene geometry for reliable aesthetic reasoning beyond observed views in 3D space.
+
+In another line of work, \textit{3D exploration} approaches explicitly operate in spatial environments, employing reinforcement-learning (RL) or genetic algorithms to search for appealing  viewpoints~\cite{alzayer2021autophoto,xie2023gait,wu2024viewactive,skartados2024finding}. However, they assume access to dense, high-quality visual inputs from either real or readily available virtual 3D environments (\eg simulations, pretrained NeRFs~\cite{mildenhall2021nerf}), which are costly to construct and require extensive data collection. Moreover, their RL-based solutions involve costly step-by-step exploration in the environment. These limitations call for a solution that alleviates the dependency on dense captures and enables efficient aesthetic reasoning without iterative physical adjustments in real world.
+
+To address these limitations, we propose to unify aesthetic perception with 3D geometry understanding by learning a \textit{3D aesthetic field} that enables efficient inference of scene aesthetics from sparse observations.
+This field intrinsically encodes spatially varying aesthetic cues, supporting geometry-grounded aesthetic reasoning in 3D.
+Much like a skilled photographer who observes the scene from a few angles and develops a mental map of where the best angles lie, our system learns a 3D aesthetic field from sparse observations to reason about aesthetic variation across viewpoints and find appealing camera poses, as shown in~\cref{fig:teaser}.
+Specifically, we distill knowledge from a pretrained 2D aesthetic model~\cite{wei2018good} into a feedforward 3D Gaussian Splatting network~\cite{depthsplat}, predicting per-Gaussian aesthetic features directly from sparse input views. Rendering aesthetic features from this field allows evaluation of aesthetic quality at novel viewpoints. The learned aesthetic field transforms viewpoint suggestion into a differentiable optimization problem, which we address by an efficient two-stage search pipeline: (1) we sample candidate viewpoints, and (2) locally refine them through gradient-based updates. By unifying aesthetic perception with geometric understanding, our method reasons beyond the observed views to efficiently identify optimal viewpoints within the scene, without the overhead of RL or dense captures for reconstruction. %To train and evaluate our method, we reformulate the task of novel view synthesis on multi-view datasets~\cite{re10k,dl3dv} as \textit{novel view aesthetic prediction}.
+Extensive experiments demonstrate the superiority of our framework in aesthetic viewpoint suggestion.
+%In summary, we introduce a novel 3D-aware aesthetic viewpoint suggestion framework that learns a 3D aesthetic field for efficient aesthetic evaluation and suggestion of novel viewpoints.
+Our main contributions are:
+\begin{itemize}
+    \item We introduce the task of \textit{3D-aware} aesthetic viewpoint suggestion with \textit{sparse observation}s, accounting for \textit{3D-dependency} in aesthetic modeling without requiring \textit{dense captures}.
+
+    \item We propose a novel \textit{3D aesthetic field} that unifies 2D aesthetic perception with 3D geometric understanding, modeling aesthetic variation across viewpoints.
+
+    \item We develop an \textit{efficient} two-stage search pipeline that combines coarse sampling with gradient-based refinement to efficiently discover appealing viewpoints.
+
+    \item Extensive experiments on diverse datasets and input settings demonstrate the effectiveness of our framework for 3D-aware aesthetic viewpoint suggestion.
+\end{itemize}
+
+% \begin{figure}[t]
+%   \centering
+%   \fbox{\rule{0pt}{2in} \rule{0.9\linewidth}{0pt}}
+%    %\includegraphics[width=0.8\linewidth]{egfigure.eps}
+
+%    \caption{teaser}
+%    \label{fig:teaser}
+% \end{figure}
+
+% \begin{figure*}
+%   \centering
+%   \begin{subfigure}{0.68\linewidth}
+%     \fbox{\rule{0pt}{2in} \rule{.9\linewidth}{0pt}}
+%     \caption{An example of a subfigure.}
+%     \label{fig:short-a}
+%   \end{subfigure}
+%   \hfill
+%   \begin{subfigure}{0.28\linewidth}
+%     \fbox{\rule{0pt}{2in} \rule{.9\linewidth}{0pt}}
+%     \caption{Another example of a subfigure.}
+%     \label{fig:short-b}
+%   \end{subfigure}
+%   \caption{Example of a short caption, which should be centered.}
+%   \label{fig:short}
+% \end{figure*}

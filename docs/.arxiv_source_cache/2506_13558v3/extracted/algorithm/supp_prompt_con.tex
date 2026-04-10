@@ -1,0 +1,140 @@
+\tcbset{
+  myboxstyle/.style={
+    boxrule=1pt,
+    boxsep=2pt,
+    colback=gray!5,
+    fontupper=\scriptsize,
+    fonttitle=\color{black},
+    title=System prompt for scene description memory construction with VLM,
+    coltitle=black,
+    colframe=black,
+    colbacktitle=blue!10,
+    breakable
+  }
+}
+
+
+\tcbset{
+  myjsonbox/.style={
+    enhanced,
+    colframe=gray!50,
+    colback=white,
+    fonttitle=\small\color{white},
+    boxrule=0.8pt,
+    arc=4pt,
+    left=4pt,
+    right=4pt,
+    top=4pt,
+    bottom=4pt,
+    boxsep=5pt,
+    listing only,
+    listing options={
+      language=json,
+      basicstyle=\scriptsize\ttfamily,
+      keywordstyle=\color{blue},
+      stringstyle=\color{orange!90!black},
+      commentstyle=\color{gray},
+      morekeywords={true,false,null},
+      literate=%
+        *{,}{{\textcolor{red}{,}}}{1}%
+         {:}{{\textcolor{red}{:}}}{1}%
+         {\{}{{\textcolor{red}{\{}}}{1}%
+         {\}}{{\textcolor{red}{\}}}}{1}%
+    },
+    breakable,
+  }
+}
+
+\lstdefinelanguage{json}{
+    basicstyle=\ttfamily\footnotesize,
+    showstringspaces=false,
+    breaklines=true,
+    breakatwhitespace=true,
+    morestring=[b]",
+    stringstyle=\color{orange!90!black},
+    morecomment=[s]{/*}{*/},
+    commentstyle=\color{gray},
+    morekeywords={true,false,null},
+    keywordstyle=\color{blue},
+    literate=%
+      *{,}{{\textcolor{red}{,}}}{1}%
+       {:}{{\textcolor{red}{:}}}{1}%
+       {\{}{{\textcolor{red}{\{}}}{1}%
+       {\}}{{\textcolor{red}{\}}}}{1}%
+}
+
+
+
+
+\begin{tcolorbox}[myboxstyle]
+
+Given two panoramic images \textbf{\textcolor{blue}{<image>FRONT\_IMAGE</image>}} and \textbf{\textcolor{blue}{<image>BACK\_IMAGE</image>}} that encapsulate the surroundings of a vehicle in a 360-degree view, your task is to analyze the driving scene.
+
+Your analysis should include the following core information:
+\begin{itemize}[leftmargin=10pt]
+  \item \textbf{\textcolor{blue}{Time of the day}}: Indicate whether it is \textcolor{teal}{daytime} or \textcolor{teal}{nighttime}.
+  \item \textbf{\textcolor{blue}{Weather}}: Specify if it is \textcolor{teal}{sunny}, \textcolor{teal}{rainy}, \textcolor{teal}{cloudy}, \textcolor{teal}{snowy}, or \textcolor{teal}{foggy}.
+  \item \textbf{\textcolor{blue}{Surrounding environment}}: Classify the environment as \textcolor{teal}{downtown}, \textcolor{teal}{urban expressway}, \textcolor{teal}{suburban}, \textcolor{teal}{rural}, \textcolor{teal}{highway}, \textcolor{teal}{residential}, \textcolor{teal}{industrial}, \textcolor{teal}{nature}, etc.
+  \item \textbf{\textcolor{blue}{Foreground objects}}: Identify objects in the foreground, such as \textcolor{teal}{cars}, \textcolor{teal}{buses}, \textcolor{teal}{trucks}, \textcolor{teal}{pedestrians}, \textcolor{teal}{bicycles}, \textcolor{teal}{motorcycles}, \textcolor{teal}{construction vehicles}, \textcolor{teal}{barriers}, \textcolor{teal}{traffic cones}, \textcolor{teal}{traffic signs/lights}, etc.
+  \item \textbf{\textcolor{blue}{Background elements}}: Describe background elements, including \textcolor{teal}{roads}, \textcolor{teal}{sidewalks}, \textcolor{teal}{pedestrian crossings}, \textcolor{teal}{car parks}, \textcolor{teal}{terrain}, \textcolor{teal}{vegetation}, \textcolor{teal}{buildings}, etc.
+  \item \textbf{\textcolor{blue}{Road condition}}: Characterize the road as an \textcolor{teal}{intersection}, \textcolor{teal}{straight road}, \textcolor{teal}{narrow street}, \textcolor{teal}{wide road}, \textcolor{teal}{pedestrian crossing}, etc.
+  \item \textbf{\textcolor{blue}{Abstract Description}}: Provide a concise summary of the scene, integrating details about \textcolor{teal}{scene features}, \textcolor{teal}{foreground objects}, \textcolor{teal}{background information}, and \textcolor{teal}{road conditions}.
+\end{itemize}
+
+\vspace{1ex}
+\noindent\textbf{\textcolor{purple}{Instruction:}}
+\begin{itemize}[leftmargin=10pt]
+  \item Each panoramic image consists of three smaller images. The first image covers the \textcolor{teal}{left-front}, \textcolor{teal}{directly in front}, and \textcolor{teal}{right-front} views of the vehicle. The second image includes the \textcolor{teal}{left-rear}, \textcolor{teal}{directly behind}, and \textcolor{teal}{right-rear} views.
+  \item When describing \textcolor{blue}{\textbf{foreground objects}}, clearly detail their unique appearance and location. Specify each object's relative position to the ego vehicle using terms like \textcolor{teal}{front}, \textcolor{teal}{back}, \textcolor{teal}{left}, \textcolor{teal}{right}, etc. Avoid referencing terms like \textit{“first/second image”} or directional phrases such as \textit{“front-left/rear-center view”}. If there are multiple objects of the same type, provide a description for each one.
+  \item For \textcolor{blue}{\textbf{background elements}}, provide descriptions of their notable characteristics.
+  \item Assess the presence of objects from the provided candidate list. If an object exists, describe its attributes briefly. If it does not exist, omit it from your output. You may also include objects not listed in the candidates.
+\end{itemize}
+
+\vspace{1ex}
+\begin{tcolorbox}[myjsonbox,title=Please format your results as follows:]
+\vspace{-4mm}
+\begin{lstlisting}[language=json, basicstyle=\scriptsize\ttfamily, frame=none]
+{
+  "Time of the day": "xxx",
+  "Weather": "xxx",
+  "Surrounding environment": "xxx",
+  "Foreground objects": [
+    {"object1 class": "object1 attributes"},
+    ...
+  ],
+  "Background elements": [
+    {"element1 class": "element1 attributes"},
+    ...
+  ],
+  "Road condition": "xxx",
+  "Abstract Description": "xxx"
+}
+\end{lstlisting}
+\vspace{-4mm}
+\end{tcolorbox}
+
+
+\vspace{1ex}
+\begin{tcolorbox}[myjsonbox,title=Example output:]
+\vspace{-4mm}
+\begin{lstlisting}[language=json, basicstyle=\scriptsize\ttfamily, frame=none]
+{
+  "time of the day": "daytime",
+  "Weather": "sunny",
+  "Surrounding environment": "downtown",
+  "Foreground objects": [
+    {"car": "blue color"},
+    {"truck": "gray color"},
+  ],
+  "Background elements": [
+    {"sidewalk": "narrow"},
+    {"building": "white color and tall"}
+  ],
+  "Road condition": "intersection",
+  "Abstract Description": "The scene depicts a sunny day in a downtown area with a blue car, gray truck, and a crouching pedestrian. The narrow sidewalk is lined with a white, tall building."
+}
+\end{lstlisting}
+\vspace{-4mm}
+\end{tcolorbox}
+
+\end{tcolorbox}

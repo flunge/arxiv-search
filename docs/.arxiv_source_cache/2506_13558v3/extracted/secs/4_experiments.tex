@@ -1,0 +1,68 @@
+\section{Experiments}
+
+\subsection{Experimental Settings}
+We use Occ3D-nuScenes~\cite{Occ3D} to train the occupancy module and nuScenes~\cite{nuScenes} for the multi-view image and video generation modules. Additional implementation details are provided in the appendix.
+
+\paragraph{Experimental Tasks and Metrics.}
+We evaluate {\method} across three aspects using a range of metrics:
+\textbf{1) Occupancy Generation}: We evaluate the reconstruction results of the VAE with IoU and mIoU metrics. For occupancy generation, following~\cite{DynamicCity}, we report both generative 3D and 2D metrics, including Inception Score, FID, KID, Precision, Recall, and F-Score.
+\textbf{2) Multi-View Image Generation}: We evaluate the quality of the synthesized images using FID.
+\textbf{3) Multi-View Video Generation}: We evaluate video temporal consistency using FVD.
+\textbf{4) Downstream Tasks}: We evaluate the sim-to-real gap by measuring performance on the generated scenes across downstream tasks, including semantic occupancy prediction (IoU, mIoU), 3D object detection (mAP, NDS), BEV segmentation (mIoU), and end-to-end planning with UniAD (trajectory L2 error and collision rate).
+
+\subsection{Qualitative Results}
+\paragraph{Large-Scale Scene Generation.}
+The upper part of Figure~\ref{fig:vis_largescale} showcases large-scale scene generation results. By iteratively applying consistency-aware outpainting, {\method} effectively expands local regions into coherent, large-scale driving scenes. The generated scenes can be further reconstructed into 3D representations, enabling view rendering and supporting downstream perception tasks. Beyond static environments, our pipeline also produces temporally coherent multi-view videos (see Sec.~\ref{sec:video} and Fig.~\ref{fig:vis_video} for qualitative and quantitative results).
+
+\input{figures/vis_largescale}
+\input{tables/occ_vae}
+\input{tables/occ_gen}
+
+\paragraph{User-Prompted Generation and Editing.}
+The lower part of Figure~\ref{fig:vis_largescale} demonstrates the flexibility of {\method} in interactive scene generation, supporting both user-prompted generation and geometric editing. Users can provide high-level prompts (e.g., "create a busy intersection"), which are processed to generate corresponding layouts and scene content. Furthermore, given an existing scene, users can specify editing intents (e.g., “remove the parked car”) or adjust low-level geometric attributes. Our pipeline updates the scene graph accordingly and regenerates the scene through conditional diffusion.
+
+
+\subsection{Main Result Comparisons}
+\paragraph{Occupancy Reconstruction and Generation.}
+Table~\ref{tab:occ_vae} presents the comparative occupancy reconstruction results. 
+The results show that {\method} achieves superior reconstruction performance, significantly outperforming prior approaches under similar compression settings (e.g., +0.8\% mIoU and +2.5\% IoU compared to UniScene~\cite{UniScene}). This improvement is attributed to the enhanced capacity of our triplane representation to preserve geometric details while maintaining encoding efficiency.
+
+Table~\ref{tab:occ_gen} presents the quantitative results for 3D occupancy generation. Following the protocol in~\cite{DynamicCity}, we report performance under two settings: (1) a label-mapped setting, where 11 classes are evaluated by merging similar categories (e.g., car, bus, truck) into a unified "vehicle" class, and (2) the full 17-class setting without label merging.
+Our approach consistently achieves the best performance across both 2D and 3D metrics. Notably, in the 17-class setting without label mapping, we observe substantial improvements, with FID$^\text{3D}$ reduced by 51.2\% (258.8 vs. 529.6), highlighting our method’s capacity for fine-grained category distinction. Additionally, our method demonstrates strong precision and recall, reflecting its ability to generate diverse yet semantically consistent occupancy.
+
+\input{tables/img_gen}
+\input{tables/video_gen}
+\vspace{-1mm}
+
+\paragraph{Image Generation Fidelity.}
+Table~\ref{tab:img_gen} presents the results of multi-view image generation, including FID scores and downstream task evaluations. Notably, {\method} supports high-resolution image generation with competitive fidelity, which is crucial for downstream tasks like 3D reconstruction. The results show that {\method} achieves the best FID, with a 4.91\% improvement over the baseline~\cite{MagicDrive}, indicating superior visual realism. Moreover, {\method} consistently outperforms other methods in BEV segmentation and 3D object detection as resolution increases. For BEV segmentation in particular, performance on generated scenes at 448$\times$800 resolution closely matches that on real data, showcasing {\method}'s strong conditional generation aligned with downstream visual applications.
+
+\paragraph{Video Generation Fidelity.}
+\label{sec:video}
+Table~\ref{tab:video_gen} presents the results of dynamic video generation and end-to-end evaluation. {\method} is trained on short 7-frame clips using an autoregressive temporal modeling strategy. It achieves a lower FVD than the 16-frame-trained baseline MagicDrive, indicating stronger temporal consistency and video realism with higher efficiency. When evaluated on downstream perception and planning tasks using UniAD, {\method} consistently outperforms the baseline across all metrics. These results demonstrate that {\method} generates temporally coherent and physically consistent dynamic scenes, effectively supporting realistic end-to-end simulation.
+
+\input{tables/downstream_train}
+\input{figures/vis_compare}
+
+\paragraph{Downstream Tasks Evaluation.}
+We evaluate the effectiveness of the generated scene data in supporting downstream model training.
+Table~\ref{tab:downstream_occ} reports the results for 3D semantic occupancy prediction. Fine-tuning with our synthesized 3D occupancy grids notably improves the baseline performance (+4.9\% IoU, +6.8\% mIoU), as the high-resolution grids provide accurate and detailed spatial structures that enable better geometric reasoning and feature learning.
+Moreover, integrating 2D and 3D modalities yields the highest performance, demonstrating the importance of multimodal alignment.
+Table~\ref{tab:downstream_img} presents the results for 3D object detection and BEV segmentation. Our generated data consistently surpasses all synthetic data baselines, verifying the superior fidelity, realism, and temporal consistency of our approach.
+Overall, these results confirm the potential of our synthesized images and videos to serve as high-quality data augmentation for downstream models.
+
+\paragraph{Qualitative Comparisons.}
+Figure~\ref{fig:vis_compare} illustrates a comparison of joint voxel-and-image generation results. {\method} produces more realistic and diverse scenes while maintaining tighter geometric alignment between 3D occupancy and 2D images, leading to improved cross-modal coherence.
+Figure~\ref{fig:vis_video} further showcases qualitative results of multi-view video generation. {\method} generates temporally coherent sequences with smoother motion transitions and stable object dynamics, while maintaining accurate cross-view geometry and visual consistency.
+Together, these results demonstrate {\method}’s ability to generate spatially coherent 3D structures and photorealistic, temporally consistent videos, offering a scalable and reliable foundation for simulation and data generation.
+
+\subsection{Ablation Study}
+\paragraph{Effects of Designs in Occupancy Generation.}
+As shown in Table~\ref{tab:ablation_occ}, the proposed triplane deformable attention module improves performance, particularly at lower resolutions. For instance, at a (50, 50, 16) resolution, introducing deformable attention yields gains of +1.9\% IoU and +2.4\% mIoU, confirming its role in alleviating feature degradation caused by downsampling.
+We further examine the impact of conditioning strategies. Removing either the additive layout condition or the box condition leads to noticeable performance drops, highlighting their complementary contributions. These conditions provide essential fine-grained geometric cues that guide the model to better capture scene structure and spatial context, ultimately improving occupancy field accuracy.
+
+\paragraph{Effects of Designs in Image Generation.}
+Table~\ref{tab:ablation_img} presents the ablation results for various conditioning components in the image generation model. Removing the semantic or depth maps that are rendered from 3D occupancy significantly degrades FID and downstream performance, highlighting their importance in providing dense geometric and semantic cues. Excluding the perspective map, which encodes projected 3D boxes and lanes, also reduces downstream performance (with mAP dropping by 2.97\%), underscoring its role in conveying explicit layout priors. The 3D positional embedding is particularly critical for object detection, as it enhances localization and spatial representation. Finally, removing the text description degrades generation fidelity (FID worsening by 1.31\%), showing that rich linguistic context aids fine-grained appearance modeling and scene understanding.
+
+\input{tables/ablation}
+\input{figures/vis_video}

@@ -1,0 +1,244 @@
+\begin{figure}[t!]
+    \centering
+    %\vspace{-5pt}
+    \includegraphics[width=\columnwidth,trim={1.2cm 8.2cm 1.2cm 4.2cm},clip]{dyn_imgs/inputs.pdf}
+    \caption{We show \textbf{all} input views from the downsampled dataset (up to $20\times$ fewer frames than the original), illustrating the challenges of establishing correspondences under sparse observations, large viewpoint changes, and self-occlusions.}
+    \label{dyn_sec:inputs}
+    \vspace{-4pt}
+\end{figure}
+
+
+
+\section{Experiments}
+\label{dyn_sec:exp}
+
+We first compare our method against existing approaches on novel view synthesis under sparse temporal observations, given a multi-view reconstruction at the initial state (\secref{dyn_sec:exp_main}). 
+We then demonstrate that the multi-view initialization can be replaced by a pre-trained diffusion-based generative model (\secref{dyn_sec:diffusion}), highlighting the potential of our approach in more challenging scenarios.
+
+\subsection{Experimental Setup}
+\label{dyn_sec:exp_setup}
+\noindent\textbf{Datasets.} 
+Our experiments are mainly conducted on three datasets: D-NeRF~\cite{pumarola2021d}, DG-Mesh~\cite{liudynamic}, and ZJU-MoCap~\cite{peng2021neural}. D-NeRF~\cite{pumarola2021d} contains 6 synthetic scenes after excluding those with multiple objects or inconsistent motion between training and testing~\cite{huang2024sc}. DG-Mesh~\cite{liudynamic} includes 5 synthetic sequences of articulated animal models. 
+We normalize the time steps to the $[0,1]$ range and uniformly subsample frames at $0.1$ intervals, resulting in $11$ image observations per sequence, where each observation is captured from an arbitrary camera viewpoint at that time step as illustrated in \figref{dyn_sec:inputs}. 
+This corresponds to up to $20\times$ fewer time frames compared to the original datasets.
+Following~\cite{yao2025riggs}, we evaluate our approach on 6 real-world sequences from the ZJU-MoCap dataset~\cite{peng2021neural}. 
+Since ZJU-MoCap contains longer motion sequences with more complex movements, we downsample the frame rate to $1/10$ from the original, where each time step is again arbitrarily selected from the training views.
+To further demonstrate the generalization ability of our method on in-the-wild data, we additionally test on the camel scene from the DAVIS dataset~\cite{Perazzi_CVPR_2016}, where no camera pose information is provided.
+
+
+
+\par 
+\vspace{6pt}
+\noindent\textbf{Metrics.} 
+We evaluate the quality of novel view synthesis using three standard metrics: Peak Signal-to-Noise Ratio (PSNR), Structural Similarity Index (SSIM)~\cite{wang2004image}, and Learned Perceptual Image Patch Similarity (LPIPS)~\cite{zhang2018unreasonable}.
+
+\par 
+\vspace{6pt}
+\noindent\textbf{Implementation Details.} The experiments are conducted on a single NVIDIA RTX 4080 GPU. Optimizations are done with PyTorch~\cite{Ansel_PyTorch_2_Faster_2024} and the ADAM optimizer~\cite{kingma2015adam}. We set $\lambda_1 = 2, \lambda_2 = 1, \lambda_3 = 1$. We run the deformation field optimization for $40{,}000$ steps for each scene, and the skeleton graph is initialized with the estimates from \cite{yao2025riggs}.
+More details can be found in the supplementary material. 
+
+
+
+\subsection{Comparison with Existing Methods}
+\label{dyn_sec:exp_main}
+
+
+\begin{table}[t!]
+\vspace{-5pt}
+\centering
+\caption{Quantitative results on the D-NeRF dataset~\cite{pumarola2021d} downsampled at 0.1 intervals, yielding 11 frames per motion sequence. We report the average metrics across all test cases / the mean over the worst-performing test case of each scene. $^\dagger$ indicates method initialized with the same skeleton input as ours.}
+\resizebox{\columnwidth}{!}{
+\begin{tabular}{cccc}
+\hline
+Method & SSIM $\uparrow$ & PSNR $\uparrow$  & LPIPS ${(\times100)} \downarrow$    \\ \hline
+4DGS~\cite{Wu_2024_CVPR}   & 0.925 / 0.829 & 21.70 / 17.01 & 7.85 / 12.02  \\
+SK-GS~\cite{wan2024template}  & 0.921 / 0.790 & 19.43 / 15.45 & 8.8 / 16.38   \\
+RigGS~\cite{yao2025riggs}   & 0.897 / 0.771 & 24.23 / 19.33 & 8.28 / 13.32  \\
+RigGS~\cite{yao2025riggs}$^\dagger$   & 0.839 / 0.739 & 22.63 / 19.29 & 13.82 / 18.59 \\ \hline
+Ours   & \textbf{0.950} / \textbf{0.893} & \textbf{27.75} / \textbf{23.48} & \textbf{5.79} / \textbf{9.43}   \\ \hline
+\end{tabular}
+}
+\label{dyn_table:dnerf_0.1}
+%\vspace{-5pt}
+\end{table}
+
+\noindent\textbf{Synthetic Datasets.} 
+Most existing dynamic scene reconstruction methods rely on either monocular video or multi-view video inputs. Therefore, to ensure a fair comparison under our sparse temporal observation setting, we provide all methods with the same multi-view posed images only at the initial time step.
+We compare our method with 4DGS~\cite{Wu_2024_CVPR}, SK-GS~\cite{wan2024template}, and RigGS~\cite{yao2025riggs} for the task of novel view synthesis. 4DGS~\cite{Wu_2024_CVPR} learns a deformation field for the canonical 3DGS without any explicit structural constraint. In contrast, both SK-GS~\cite{wan2024template} and RigGS~\cite{yao2025riggs} jointly reconstruct the dynamic target and its underlying kinematic structure. Since our method takes a skeleton graph as input, we also modify RigGS~\cite{yao2025riggs} to initialize from the same skeleton for direct comparisons. 
+
+We present qualitative results on the D-NeRF~\cite{pumarola2021d} and DG-Mesh~\cite{liudynamic} datasets in \figref{dyn_img:dnerf} and \figref{dyn_img:dgmesh}, respectively.
+As shown, all baselines struggle when only sparse temporal observations are available. Without structural constraints, 4DGS~\cite{Wu_2024_CVPR} produces diverging deformations that do not preserve object structure. While SK-GS~\cite{wan2024template} and RigGS~\cite{yao2025riggs} consider skeleton constraints, they can generate inaccurate motion or skinning weights which result in blurry renderings. 
+Additionally, we initialize RigGS with the same skeleton as ours, however, without careful design, the noisy skeleton and the absence of ground-truth skinning weights can lead to unstable deformations and degraded reconstruction quality. 
+Quantitative results in \tabref{dyn_table:dnerf_0.1} and \tabref{dyn_table:dgmesh} confirm that our method outperforms all baselines across all evaluation metrics. 
+For the DG-Mesh dataset, we evaluate two temporal downsampling configurations with intervals of $0.05$ and $0.1$, corresponding to $21$ and $11$ observable time steps respectively.
+As shown in \tabref{dyn_table:dgmesh}, when more temporal observations are available, the baselines can achieve a closer SSIM score to ours, whereas our method remains robust even under severely sparse temporal inputs.
+
+
+
+
+\begin{figure}[t!]
+    \centering
+    %\vspace{-5pt}
+    \includegraphics[width=\columnwidth,trim={4.0cm 5.3cm 4.7cm 4cm},clip]{dyn_imgs/dgmesh.pdf}
+    \caption{Qualitative result on the DG-Mesh dataset~\cite{liudynamic} downsampled at 0.05 intervals, yielding 21 frames per motion sequence. While all methods perform similarly for parts with small motion, our approach better preserves object structure and captures fine-grained motion more faithfully.}
+    \label{dyn_img:dgmesh}
+    \vspace{-3pt}
+\end{figure}
+
+
+
+\begin{table}[t!]
+\centering
+\caption{Results on the DG-Mesh dataset~\cite{liudynamic} downsampled at $0.05$ and $0.1$ intervals. We present the average across all test cases / the mean over the worst-performing test case of each scene.}
+\resizebox{1.0\columnwidth}{!}{
+\begin{tabular}{cccc}
+\hline
+\multicolumn{4}{c}{DG-Mesh 0.05}      \\ \hline
+Method & SSIM $\uparrow$ & PSNR $\uparrow$ & LPIPS ${(\times100)} \downarrow$ \\ \hline
+4DGS~\cite{Wu_2024_CVPR}   &  0.918 / 0.822  & 23.40 / 17.68   & 7.26 / 13.23   \\
+SK-GS~\cite{wan2024template}  &  0.920 / \textbf{0.833}  & 23.32 / 17.68 & 7.69 / 13.26  \\
+RigGS~\cite{yao2025riggs}  &  0.879 / 0.712  & 22.81 / 16.87  & 8.36 / 15.88  \\ \hline
+Ours   & \textbf{0.929} / 0.824 & \textbf{25.81} / \textbf{19.11} & \textbf{6.38} / \textbf{12.43}   \\ \hline
+\hline
+\multicolumn{4}{c}{DG-Mesh 0.1}       \\ \hline
+Method & SSIM $\uparrow$ & PSNR $\uparrow$ & LPIPS ${(\times100)} \downarrow$ \\ \hline
+4DGS~\cite{Wu_2024_CVPR}   & 0.887 / 0.774  & 21.28 / 16.07   & 8.72 / 15.41  \\
+SK-GS~\cite{wan2024template} &  0.875 / 0.776 & 20.56 / 15.92  & 10.37 / 17.22 \\
+RigGS~\cite{yao2025riggs} & 0.855 / 0.694 & 21.80 / 16.51  & 9.27 / 16.29   \\ \hline
+Ours   & \textbf{0.900} / \textbf{0.786} & \textbf{23.76} / \textbf{17.86} & \textbf{7.59} / \textbf{13.78} \\ \hline
+\end{tabular}
+}
+\label{dyn_table:dgmesh}
+\vspace{-8pt}
+\end{table}
+
+
+\par 
+\vspace{6pt}
+\noindent\textbf{Real-World Dataset.} 
+We compare our method against RigGS~\cite{yao2025riggs} and AP-NeRF~\cite{uzolas2023template} on the real-world ZJU-MoCap~\cite{peng2021neural} dataset. In \tabref{dyn_table:zju}, the reported results of RigGSS~\cite{yao2025riggs} and AP-NeRF~\cite{peng2021neural} are obtained using all available time steps in the standard monocular video setup, whereas our method runs with only $1/10$ and $1/5$ of the time steps. Despite having access to significantly fewer temporal observations, our approach achieves comparable performance to these SOTA methods. We show in \figref{dyn_img:zju} that our method is able to reconstruct the motion accurately. 
+
+\begin{figure}[t!]
+    \centering
+    %\vspace{-5pt}
+    \includegraphics[width=\columnwidth,trim={3.6cm 9cm 4.7cm 4cm},clip]{dyn_imgs/zju.pdf}
+    \caption{Qualitative result on the real-world ZJU-MoCap dataset. We use only $1/10$ of the original video frames, where each frame is sampled from an arbitrary training viewpoint at that time step.}
+    \label{dyn_img:zju}
+    % \vspace{-8pt}
+\end{figure}
+
+
+
+\begin{table}[t!]
+\centering
+\caption{Results on the real-world ZJU-MoCap dataset. Note that existing methods are trained with full monocular video sequences, whereas our method uses only 10$\times$ and 5$\times$ fewer frames.}
+\resizebox{0.9\columnwidth}{!}{
+\begin{tabular}{cccc}
+\hline
+Method  & SSIM $\uparrow$ & PSNR $\uparrow$  & LPIPS ${(\times100)} \downarrow$ \\ \hline
+AP-NeRF~\cite{uzolas2023template} & 0.919 & 25.62 & 9.34         \\
+RigGS~\cite{yao2025riggs}   & 0.975 & 33.54 & 3.27         \\ \hline
+Ours $(10\times)$   & 0.934 & 28.13 & 6.53         \\
+Ours $(5\times)$   & 0.944 & 28.83 & 5.89         \\ \hline
+\end{tabular}
+}
+\label{dyn_table:zju}
+\vspace{-5pt}
+\end{table}
+
+
+\subsection{Relaxing the Need for Multi-View Initialization with a Pretrained Generative Model}
+\label{dyn_sec:diffusion}
+
+We demonstrate that the multi-view initialization at the canonical (static) state can potentially be replaced with a pretrained diffusion-based generative model, using only a single observation $I^r$ at the first time step.
+Given $I^r$, we optimize the initial $\myset{G}$ with $\mathcal{L}_{perceptual}$ only at the corresponding viewpoint, and employ the $\mathcal{L}_{SDS}$~\cite{pooledreamfusion} to optimize all other unseen viewpoints. $\mathcal{L}_{SDS}$ is defined as:
+
+
+\begin{equation}
+\resizebox{.88\hsize}{!}{$
+\nabla_\myset{G}\mathcal{L}_{SDS} = \mathbb{E}_{t,p,\epsilon} \left[ w(t) (\epsilon_\phi(I^p; t,I^r,\Delta p) - \epsilon)  \frac{\partial I^p}{\partial \myset{G}} \right]
+$}
+\end{equation}
+where $w(t)$ is the weighting function from DDIM~\cite{song2020denoising} and $\epsilon_\phi(\cdot)$ is the predicted noise from a pre-trained 2D diffusion model. We use Zero-1-to-3~\cite{liu2023zero} as the diffusion prior, conditioned on $I^r$ and the relative camera pose $\Delta p$ from the reference viewpoint $r$ to the rendering viewpoint $p$. 
+After the canonical $\myset{G}$ is initialized, we follow the same process described in \secref{dyn_sec:optimization} to optimize our deformation field. Since the initial $\myset{G}$ can be noisy with only one observed image, we keep $\mathcal{L}_{SDS}$ in the loss function (\eref{dyn_eq:loss_func}) during the optimization to regularize the reconstruction. More details can be found in the supplementary material.
+
+We first present results on the \textit{Jumpingjacks} scene from D-NeRF~\cite{pumarola2021d} in \figref{dyn_img:jumpingjacks}. 
+% Despite using only $11$ input images across the entire motion sequence, our method produces more coherent and structurally consistent motion compared to the baselines (\figref{dyn_img:dnerf}) that have access to multi-view images at the initial state.
+All methods are trained without access to the multi-view images. Despite using only $11$ input images across the entire motion sequence, our method produces more coherent and structurally consistent motion compared to the baselines. We observe that while the baselines fit the input frames well, the sparse observations and self-occlusions lead to inconsistent geometry and unrealistic deformations when viewed from unseen viewpoints.
+% We further show in the supplementary material that combining our method with a diffusion prior achieves performance comparable to baselines using multi-view information.
+
+Additionally, we evaluate our method on the in-the-wild \textit{camel} scene from the DAVIS dataset~\cite{Perazzi_CVPR_2016}. 
+Note that the other side of the target is never seen in this monocular video.
+% Note that this is a monocular video sequence without multi-view setup, meaning the other side of the target is never seen in the input sequence. 
+Assuming the camera is fixed across the whole sequence, we have only sparse temporal observations from a fixed viewpoint. Despite the challenging setup, we show in \figref{dyn_img:camel} that our method, paired with $\mathcal{L}_{SDS}$, successfully reconstructs plausible motion and texture for the visible regions. For the completely unseen part, the overall motion and structure are preserved, while there is oversaturated texture near the edge, which is a known issue of $\mathcal{L}_{SDS}$~\cite{mcallister2024rethinking,alldieck2024score,lukoianov2024score}.
+
+% \begin{figure}[t!]
+%     \centering
+%     %\vspace{-5pt}
+%     \includegraphics[width=\columnwidth,trim={3.8cm 7.2cm 8.8cm 5cm},clip]{dyn_imgs/jumpingjacks.pdf}
+%     \caption{Results on the Jumpingjacks scene from the D-NeRF dataset without multi-view initialization. Instead, a pre-trained generative model is applied to guide the optimization for parts and motions that are not seen in those $11$ input images. }
+%     \label{dyn_img:jumpingjacks}
+%     % \vspace{-2pt}
+% \end{figure}
+% \begin{figure}[t!]
+%     \centering
+%     %\vspace{-5pt}
+%     \includegraphics[width=\columnwidth,trim={2.5cm 5.5cm 8cm 3.8cm},clip]{dyn_imgs/jumpingjacks_2.pdf}
+%     \caption{Comparison between our method initialized w/ a pretrained diffusion prior and methods w/ multi-view initialization. Our approach reconstructs the motion accurately despite using only 11 sparse input observations and no multi-view information.}
+%     \label{dyn_img:jumpingjacks}
+%     % \vspace{-2pt}
+% \end{figure}
+
+\begin{figure}[t!]
+    \centering
+    %\vspace{-5pt}
+    \includegraphics[width=\columnwidth,trim={2cm 4cm 5.8cm 4cm},clip]{dyn_imgs/jumpingjacks_3.pdf}
+    \caption{Comparison of all methods without access to multi-view images at the initial time step. Despite using only $11$ sparse input, our method reconstructs motion and preserves object structure more faithfully, whereas baselines are prone to artifacts under self-occlusion and sparse supervisions.}
+    \label{dyn_img:jumpingjacks}
+    % \vspace{-2pt}
+\end{figure}
+
+
+\begin{figure}[t!]
+    \centering
+    %\vspace{-5pt}
+    \includegraphics[width=\columnwidth,trim={3.2cm 4.0cm 6.2cm 4cm},clip]{dyn_imgs/camel.pdf}
+    \caption{Results on the camel scene from the in-the-wild DAVIS dataset~\cite{Perazzi_CVPR_2016} without camera pose information. Note that this is a monocular video with fixed camera and the other side of the target is never seen in the video.}
+    \label{dyn_img:camel}
+    \vspace{-5pt}
+\end{figure}
+
+\subsection{Ablation studies}
+\label{dyn_sec:ablation}
+
+We conduct ablation studies to evaluate the effect of key components in our framework: the motion regularization term $\mathcal{L}_{motion}$, the skinning weight correction field $MLP_\Phi$, and the detail deformation field $MLP_\Psi$.
+As shown in \tabref{dyn_table:ablation}, both the skinning correction field and detail deformation field contribute to improving rendering quality on the D-NeRF dataset. The skinning correction field refines the learned skinning weights when the RBF-based bone representation is insufficient, while the detail deformation field adjusts the Gaussian primitives for parts that cannot be fully explained by the learned LBS deformation. 
+Although $\mathcal{L}_{motion}$ has small impact on quantitative metrics, \figref{dyn_img:ablation} shows that it reduces noise in the joint poses predicted by $MLP_\Theta$, resulting in smoother and more stable motion.
+
+
+\begin{figure}[t!]
+    \centering
+    %\vspace{-5pt}
+    \includegraphics[width=\columnwidth,trim={3.5cm 7.0cm 5.3cm 5.5cm},clip]{dyn_imgs/ablation.pdf}
+    % \vspace{-8pt}
+    \caption{Qualitative comparison of results with and without $\mathcal{L}_{motion}$. This motion regularization term helps reduces noise in joint pose predictions.}
+    \label{dyn_img:ablation}
+    
+\end{figure}
+
+\begin{table}[t!]
+\centering
+\caption{Ablation study on the D-NeRF dataset. We evaluate the effect of the motion regularization term $\mathcal{L}_{motion}$, skinning correction field $MLP_\Phi$, and the detail deformation field $MLP_\Psi$.}
+\resizebox{1.0\columnwidth}{!}{
+\begin{tabular}{cccc}
+\hline
+Method  & SSIM $\uparrow$ & PSNR $\uparrow$  & LPIPS ${(\times100)} \downarrow$ \\ \hline
+w/o $\mathcal{L}_{motion}$ & 0.942 & 27.26 & 6.08         \\
+w/o $MLP_\Phi$  & 0.945 & 27.28 & 5.97        \\ 
+w/o $MLP_\Psi$  & 0.931 & 26.34 & 6.51        \\
+Ours   & \textbf{0.950} & \textbf{27.75} & \textbf{5.79}         \\ \hline
+\end{tabular}
+}
+\label{dyn_table:ablation}
+\vspace{-5pt}
+\end{table}

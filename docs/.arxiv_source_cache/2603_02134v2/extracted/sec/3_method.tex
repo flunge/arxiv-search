@@ -1,0 +1,123 @@
+% 3.1: definition of online perception; limitation of Rec and SV; our idea: extend SV to Online, take advantages of both: 1) online ability; 2) high performance on whole scene
+% 3.2: Memory construction
+% 3.3: Memory-based adapter
+
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=1.0\linewidth]{figures/pipeline_1.pdf}
+    \caption{\textbf{Overall architecture of OnlineX.} Our framework features a two-stage, active-to-stable pipeline. First, the Relative Geometry Extractor processes consecutive frames to capture high-fidelity active relative information. The Anchor State Director then uses this local information to recurrently update its stable global state, yielding a globally consistent representation for the final output. The diagram illustrates this process for a single time step, which would be sequentially repeated for each frame in the input stream. Dashed lines represent information passed from the previous time step or carried over to the next.}
+    \label{fig:pipeline}
+    \vspace{-12pt}
+\end{figure*}
+
+\section{Method}
+\label{method}
+In this section, we present the overall framework of OnlineX, as illustrated in Figure \ref{fig:pipeline}. We first define the problem formulation of online 3D Gaussian Splatting reconstruction with understanding in Section \ref{sec:problem_formulation}. We further introduce the active-to-stable state evolution paradigm for online 3D Gaussian reconstruction in Section \ref{sec:relative_aggregation} and Section \ref{sec:global_projection}. We then propose the implicit Gaussian fusion module to merge overlapped 3D Gaussians across multiple viewpoints in Section \ref{sec:adaptive_fusion}. Finally, we detail the training objectives and strategies for the whole framework in Section \ref{sec:training_details}.
+
+\subsection{Problem Formulation}
+\label{sec:problem_formulation}
+\paragraph{Gaussian Primitive Representation.} Given a streaming sequence of pose-free RGB frames $\left\{I_t\right\}_{t=1}^{T}$ as input and for the $t$-th frame, our model is to concurrently predict the corresponding 3D Gaussian representation $G_t$, defined as:
+\begin{equation}
+    G_t = \left\{ \left( \mathbf{\mu}_t^i, \mathbf{r}_t^i, \mathbf{s}_t^i, \mathbf{\alpha}_t^i, \mathbf{c}_t^i, \mathbf{l}_t^i \right) \right\}_{i=1}^{N_t},
+\end{equation}where $N_t$ is the number of Gaussians associated with the $t$-th frame. Each Gaussian encapsulates the basic components of the vanilla 3DGS formulation~\cite{kerbl20233d}, including the center position $\mathbf{\mu}_t^i \in \mathbb{R}^3$, rotation quaternion $\mathbf{r}_t^i \in \mathbb{R}^4$, scale factor $\mathbf{s}_t^i \in \mathbb{R}^3$, opacity $\mathbf{\alpha}_t^i \in \mathbb{R}$ and color information $\mathbf{c}_t^i \in \mathbb{R}^3$ expressed using spherical harmonics. 
+
+In addition, we add the language feature $\mathbf{l}_t^i \in \mathbb{R}^K$ for each Gaussian to reconstruct the language field with geometry and appearance as an exploratory extension. Inspired by LangSplat~\cite{qin2024langsplat}, to reduce the memory and computational costs, we regress the semantic feature at a low dimensional space, with the feature dimension $K \ll D$, where $D = 512$ denotes the original dimension of the 2D semantic features extracted from CLIP~\cite{radford2021learning} and we set $K$ as 16 by default.
+
+\paragraph{Rendering Process.} The set of 3D Gaussians $G$ is subsequently employed for rendering novel-view RGB images and language maps as the following alpha blending process:
+\begin{equation}
+    \left\{
+    \begin{aligned}
+    \mathrm{C}(v) &= \sum_{i\in N} \mathbf{c}_i \mathbf{\alpha}_i \prod_{j=1}^{i-1} (1-\mathbf{\alpha}_j), \\
+    \mathrm{L}(v) &= \sum_{i\in N} \mathbf{l}_i \mathbf{\alpha}_i \prod_{j=1}^{i-1} (1-\mathbf{\alpha}_j),
+    \end{aligned}
+    \right.
+\end{equation}where $\mathrm{C}(v)$ and $\mathrm{F}(v)$ represent the rendered color and language feature at pixel $v$ in the novel view image, and $N$ is the number of Gaussians that the ray passes through.
+
+\paragraph{Generalizable Online Reconstruction.}
+Conventional feed-forward 3DGS methods typically process the entire frame sequence as input to infer the complete set of Gaussians as follows:
+\begin{equation}
+    f(\{I_t\}_{t=1}^{T};\mathbf{\theta}) = G,
+\end{equation}where $f$ represents the feed-forward network and $\theta$ denotes its learnable parameters. While straightforward, this design necessitates complete video sequences, which hinders its capacity for continuous 3D reconstruction. To address these limitations, we propose an incremental 3DGS reconstruction framework capable of incessantly regressing Gaussians for each incoming frame, without reliance on the whole preceding frames, which can be formulated as:
+\begin{align}
+    f(I_t, \mathbf{h}_{t-1}; \mathbf{\theta}) =  G_t, \mathbf{h}_t, \quad t = 1, \dots, T,
+\end{align}where $\mathbf{h}$ denotes the historical information from preceding frames that would be recurrently updated with new frame input. The output $G_t$ is then incrementally integrated into the global 3DGS representation $G$ as the accumulated reconstruction result of the observed environment.
+
+
+\subsection{Relative Geometry Extractor}
+
+
+
+\label{sec:relative_aggregation}
+In this section, we introduce the Relative Geometry Extractor stage of our framework, which is primarily responsible for regressing detailed relative geometry and Gaussian parameters of the current frame based on the preceding frame. This stage not only alleviates the representational burden on the global anchor state for storing high-frequency active details, but also distills the dense local information into an informative and structured signal that effectively guides the subsequent stable anchor state modeling stage.
+
+
+
+\paragraph{Encoder and Decoder.}
+The RGB image of the each frame are first patchified and flattened into sequences of image tokens, and then fed into a ViT~\cite{dosovitskiy2020image} encoder separately. The encoder shares the same weights for different views. For the $t$-th frame, the per-pixel extracted features of the current frame $\mathbf{f}_t$ and the preceding frame $\mathbf{f}_{t-1}$ are each concatenated with a learnable pose token, which serves as a learnable pose embedding to regress the relative pose information based on the preceding frame. The concatenated features are then fed into a dual ViT decoder module~\cite{wang2024dust3r, leroy2024grounding}, where hidden features from each view interact with the other view through cross-attention layers in each attention block, facilitating relative information extraction. Finally, the output features $\mathbf{p}^r_t$, $\mathbf{f}^r_t$ and $\mathbf{f}^r_{t-1}$ are processed by the following prediction heads for proper supervision and direction, while the $\mathbf{p}^r_t$ and $\mathbf{f}^r_t$ serve as input to the recurrent modeling in the global anchor state stage. Specially, for the first frame, we obtain output features $\mathbf{f}^r_1$ when processing the second frame. The whole procedure could be formulated as:
+
+\begin{align}
+    \mathbf{f}_t &= \text{Encoder}(I_t), \\
+     [\mathbf{p}^{r}_t,\mathbf{f}^{r}_t], [\mathbf{p}'_0,\mathbf{f}^{r}_{t-1}]&= \text{Decoder}_r([\mathbf{p}_1, \mathbf{f}_t],[\mathbf{p}_0,\mathbf{f}_{t-1}]).
+\end{align}
+
+
+
+\paragraph{Relative Prediction Heads.} 
+The output features $\mathbf{p}^r_t$, $\mathbf{f}^r_t$ and $\mathbf{f}^r_{t-1}$ encapsulate the relative geometry, appearance and pose information between the current frame and the last frame. These features are then processed by three distinct prediction heads to regress the following relative outputs:
+\begin{align}
+X_t^r, C_t^r &= \text{Head}^{\text{pos}}_r(\mathbf{f}^r_t, \mathbf{f}^r_{t-1}), \\
+G_t^r &= \text{Head}^{\text{gs}}_r(\mathbf{f}_t^r, \mathbf{f}_{t-1}^r), \\
+P_t^r &= \text{Head}^{\text{pose}}_r(\mathbf{p}_t^r).
+\end{align}
+Specifically, $X_t^r$ and $C_t^r$ are the predicted per-pixel Gaussian centers and their corresponding confidence maps; $G_t^r$ encapsulates all other Gaussian attributes such as color, scale, rotation, language features and opacity; and $P^r_t$ is the estimated relative camera pose. The $\text{Head}^{\text{pos}}_r$ and $\text{Head}^{\text{gs}}_r$ follow a DPT~\cite{ranftl2021vision} architecture, and $\text{Head}^{\text{pose}}_r$ is a simple MLP network. Note that these Gaussian outputs are a joint prediction of both the current and preceding frames based on the preceding frame's coordinate system. Although these relative outputs do not directly constitute the final global reconstruction, they provide a crucial auxiliary supervision signal. This intermediate supervision is essential for stabilizing the end-to-end training of our online framework.
+
+
+\subsection{Anchor State Director} 
+\label{sec:global_projection}
+This section details the Anchor State Director stage of our framework, which is responsible for generating the final, globally consistent representation. The process begins by introducing the stable Anchor State which stores the historical global context. We further extract a compact feature vector from the per-pixel features and the relative pose features of the current frame. This vector is then updated with the Anchor State through a recurrent update mechanism. Finally, this updated feature vector, which now encapsulates the current global structure, is fused with the high-frequency local details from the preceding stage to produce the globally-aware representation for the current frame.
+
+\paragraph{Recurrent Modeling.}
+The Anchor State is our stable memory that encapsulates the accumulated global structure of the scene up to the current frame. At the beginning of a sequence, the initial state $s_0$ is instantiated from a set of learnable tokens, which are trained to encode a prior of generic 3D scene structures. For each subsequent frame, the Anchor State is iteratively computed from the previous state and represents the extended global structure. By offloading the responsibility for processing high-frequency, per-frame details to the relative stage, our design prevents the Anchor State from undergoing volatile updates and heavy memory overhead, thereby preserving its integrity as a stable repository for the scene's global structure.
+
+To integrate information from the current frame into the global Anchor State, we construct a compact feature vector for the current frame by concatenating three components: the relative pose features $\mathbf{p}^r_t$, the globally-pooled features from the relative stage $\mathbf{\bar{f}}^r_t$ and the globally-pooled features from the initial encoder $\mathbf{\bar{f}}_t$. The two components—the compact feature vector and the Anchor State $\mathbf{s}_{t-1}$—are then jointly fed into a pair of interconnected transformer decoders. This recurrent update is formulated as:
+\begin{equation}
+ \mathbf{p}^{g}_t, \mathbf{s}_t= \text{Decoder}_{g}([\mathbf{\bar{f}}_t, \mathbf{\bar{f}}^r_t, \mathbf{p}^r_t], \mathbf{s}_{t-1}).
+\end{equation}
+Here, $\mathbf{s}_{t-1}$ and $\mathbf{s}_t$ denote the Anchor State tokens before and after the interaction, respectively, while $\mathbf{p}^{g}_t$ represents the resulting global pose feature based on the first frame. This process is bidirectional: the input feature vector queries the historical context within $\mathbf{s}_{t-1}$ to produce the global pose feature $\mathbf{p}^g_t$. Concurrently, the Anchor State incorporates information from the current frame's features, yielding the updated state $\mathbf{s}_{t}$ to be passed to the subsequent time step. 
+
+\paragraph{Global Prediction Heads.}
+The global prediction heads receive two primary inputs: the relative per-pixel features $\mathbf{f}_t^r$ from the preceding stage, which encapsulate high-fidelity local geometry, and the updated global pose feature $\mathbf{p}_t^g$, which provides the global context. These features are then processed by a set of distinct heads to regress the final global outputs based on the first frame's coordinate system:
+\begin{align}
+    X_t^g, C_t^g &= \text{Head}_g^{\text{pos}}(\mathbf{f}_t^r, \mathbf{p}_t^g), \\
+    G_t^g &= \text{Head}_g^{\text{gs}}(\mathbf{f}_t^r, \mathbf{p}_t^g), \\
+    P_t^g &= \text{Head}_g^{\text{pose}}(\mathbf{p}_t^g).
+\end{align}
+Similar to the relative stage, these global outputs are produced by three distinct prediction heads. The DPT-based $\text{Head}_g^{\text{pos}}$ regresses the final Gaussian centers $X_t^g$ and their corresponding confidence maps $C_t^g$. Concurrently, the DPT-based $\text{Head}_g^{\text{gs}}$ predicts all other Gaussian attributes $G_t^g$, including language features, while the MLP-based $\text{Head}_g^{\text{pose}}$ outputs the definitive global pose $P_t^g$. Crucially, within the DPT-based heads, we perform cross-attention between the local geometric features $\mathbf{f}_t^r$ and the global pose feature $\mathbf{p}_t^g$. This mechanism performs an implicit transformation, conditioning the local geometry with the global context directly in the feature space. This learned, feature-based alignment is more flexible and robust compared to applying a rigid, explicit pose transformation. Thus, the outputs of this stage ($X_t^g, G_t^g$) represent a sophisticated fusion of high-fidelity local geometry and consistent global structure.
+
+
+\subsection{Implicit Gaussian Fusion}
+\label{sec:adaptive_fusion}
+To address the issue of redundant Gaussians in prior 3DGS methods, which often rely on simplistic, opacity-based pruning, we introduce our Implicit Gaussian Fusion module. Inspired by~\cite{gao2023surfelnerf, sun2021neuralrecon}, this module resolves this by adaptively identifying and merging nearby primitives in the latent space. For each new Gaussian $g_t$ (with center $\mathbf{x}_t$ and confidence $c_t$), we first identify its neighborhood $\mathcal{N}_t$ by finding all existing Gaussians within the same spatial voxel. The fusion process then refines both the geometric position and the latent attributes. The new center $\mathbf{x}'_t$ is computed as a confidence-weighted average of the neighborhood:
+\begin{equation}
+    \mathbf{x}'_t = \frac{c_t \mathbf{x}_t + \sum_{i \in \mathcal{N}_t} c_i \mathbf{x}_i}{c_t + \sum_{i \in \mathcal{N}_t} c_i},
+    \label{eq:center_fusion}
+\end{equation}
+while the latent feature $\mathbf{g}_t$ is updated by fusing it with the weighted-average of its neighboring features $\tilde{\mathbf{g}}_n$ using a small MLP network:
+\begin{align}
+    \tilde{\mathbf{g}}_n &= \frac{\sum_{i \in \mathcal{N}_t} c_i \mathbf{g}_i}{\sum_{i \in \mathcal{N}_t} c_i},\\
+    \mathbf{g}'_t &= \text{MLP}([\mathbf{g}_t, \tilde{\mathbf{g}}_n]).
+\end{align}
+This iterative, latent-space refinement process yields a more compact and globally consistent scene representation.
+
+
+\subsection{Training Details}
+\label{sec:training_details}
+
+\paragraph{Training Objectives.}
+Our framework is trained end-to-end using a composite loss function that includes terms for pose $\mathcal{L}_{\text{pose}}$, visual rendering $\mathcal{L}_{\text{render}}$, and language rendering $\mathcal{L}_{\text{lang}}$. Crucially, we employ a auxiliary supervision strategy where these losses are applied at both the intermediate relative stage and the final global stage of our architecture. This intermediate objective ensures that the network first learns to extract high-fidelity local representations, which provides a stable foundation for the subsequent global update. The total loss is a weighted sum of the primary global and auxiliary relative losses:
+\begin{align}
+    \mathcal{L}_{\text{total}} &= \mathcal{L}_{\text{global}} + \lambda_{\text{aux}} \mathcal{L}_{\text{relative}}, \\
+    \text{where } \mathcal{L}_{(\cdot)} &= \lambda_1 \mathcal{L}_{\text{pose}} + \lambda_2 \mathcal{L}_{\text{render}} + \lambda_3 \mathcal{L}_{\text{lang}}.
+\end{align}
+We adopt L2 loss for $\mathcal{L}_{\text{pose}}$, a combination of MSE and LPIPS~\cite{zhang2018unreasonable} loss for $\mathcal{L}_{\text{render}}$ and negative cosine similarity for $\mathcal{L}_{\text{lang}}$, which are detailed in the supplementary material.

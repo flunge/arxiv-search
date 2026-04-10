@@ -1,0 +1,58 @@
+% \vspace{-5pt}
+\section{Introduction}
+\label{dyn_sec:intro}
+
+Reconstructing dynamic targets from images is a long-standing computer vision problem, with applications in motion analysis~\cite{liu2023building,chao2025part}, AR/VR~\cite{yan2025instant}, and dynamic scene understanding~\cite{wang2023root}. While recent progress in neural~\cite{pumarola2021d,cao2023hexplane,uzolas2023template} and Gaussian-based representations~\cite{Wu_2024_CVPR,wan2024template,huang2024sc,yao2025riggs} have shown impressive results, most methods rely on monocular or multi-view videos with dense temporal coverage, where rich motion cues and correspondences are available. 
+% \vtxt{what does ``densely captured monocular video" mean?}
+
+In real-world scenarios, however, such dense observations are not always accessible. For example, surveillance cameras often capture moving objects sparsely over time, especially in cluttered environments.
+Moreover, when multiple cameras are available, their viewpoints can differ drastically, and the observed targets may exhibit significant motion and self-occlusion between observations.
+Under this setting, temporal correspondences are difficult to establish, as appearance can change dramatically across sparse observations, making dynamic reconstruction highly ill-posed.
+
+In this paper, we address this challenging setting of articulated dynamic reconstruction from sparse temporal observations, where only a few posed images from arbitrary viewpoints are available as illustrated in \figref{dyn_img:teaser}.
+To solve this highly ill-posed problem, we consider a setting where we have access to additional structural information. 
+% Initially, we start with the assumption that a rough skeleton graph and an initial static reconstruction at the first frame are available. 
+Initially, we assume that a rough skeleton graph and a static reconstruction at the first frame are available. 
+The initial reconstruction can be can be obtained from a standard multi-view setup ~\cite{schoenberger2016sfm, schoenberger2016mvs, kerbl3Dgaussians}.
+Later on in \secref{dyn_sec:diffusion}, we will show how this assumption can be relaxed with a pre-trained generative model~\cite{liu2023zero, shi2023mvdream, tang2023dreamgaussian} using only a single image. 
+Despite this additional information, the task remains difficult as the inputs do not yield a complete rigged model---the skeleton annotation can be noisy and contains only node positions and connectivity, while the joint poses, skinning weights, and point-to-part associations remain unknown. 
+
+We present \ourmethod{} which, given the input skeleton graph and initial static reconstruction, learns a skeleton-driven deformation field that models coherent motion under sparse supervision. Our deformation field consists of a coarse skeleton joint pose estimator and a module that models fine-grained motion deformations. By allowing only the joint pose estimator to be time-dependent, our model enables smooth test-time motion interpolation while preserving learned local deformation details.
+Experiments demonstrate that state-of-the-art (SOTA) dynamic reconstruction methods degrade significantly in this sparse setting, while \ourmethod{} achieves better reconstruction quality. 
+% Specifically, our approach outperforms the baselines by up to 34\% in PSNR on synthetic datasets with sparse observations, and achieves comparable performance to dense monocular video methods on real-world datasets.
+Furthermore, we show that the need for multi-view initialization can be relaxed using a diffusion-based generative prior, enabling dynamic reconstruction in real-world scenarios. 
+Our contributions can be summarized as follows. 
+\begin{compactitem} 
+\item  We perform articulated dynamic reconstruction from sparse temporal observations, where only a few frames from arbitrary viewpoints are available.
+\item We present a skeleton-driven deformation field that enables smooth motion interpolation under sparse supervision, and demonstrate that a pre-trained diffusion prior can be incorporated to fill in missing information.
+\item Experiments show that our method outperforms SOTA methods by up to 34\% in PSNR on synthetic datasets with sparse observations, and achieves comparable performance to dense monocular video methods on real-world datasets with significantly fewer frames.
+\end{compactitem}
+
+
+
+\begin{comment}
+\par
+$\bullet$ Motivate the problem of dynamic target reconstruction from image observations
+
+\par
+$\bullet$ Most existing methods assume densely captured monocular videos with dense temporal motion cues and correspondences. 
+
+\par
+$\bullet$ However, in real-world scenarios, such dense observations might not always be available. For example, surveillance camera capturing a dynamic target in a cluttered scene. In this case, the observations are usually sparse across the temporal dimension, also the viewpoints can vary a lot between consecutive observations. Therefore, building dense correspondences for dynamic objects in this setup can be challenging. 
+
+\par
+$\bullet$ We aim for this challenging setting where we are interested in reconstructing the dynamic target from sparse temporal observations.
+
+
+\par
+$\bullet$ To solve this highly ill-posed problem, we assume access to a rough skeleton graph and an initial static reconstruction at the first frame, which can be obtained from a static reconstruction methods or potentially from a pre-trained generative model. 
+
+\par
+$\bullet$ Emphasize that this is still a difficult problem even when given skeleton graph and initial static reconstruction. The input does not yield a complete rigged model as the skeleton graph annotation can be noisy and contains only node's 3D positions and connectivity. The actual joint poses, skinning weights, and point-to-part association is still unknown. 
+Moreover, with sparse observations, building dense correspondences is challenging as the viewpoint and object poses are different between observations. 
+The goal is to infer how the target deforms and articulates over time under sparse observations.
+
+\par
+$\bullet$ We show in the experiment section that existing methods suffer when only sparse observation is available even with multi-view ground truth at the initial static state. We further demonstrate the potential of replacing the multi-view initialzation with a pre-trained generative model. 
+
+\end{comment}

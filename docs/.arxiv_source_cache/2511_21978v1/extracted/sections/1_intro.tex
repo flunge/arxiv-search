@@ -1,0 +1,30 @@
+
+
+\section{Introduction}
+
+
+The ability to generate realistic and editable 3D scenes from natural language has broad applications across a variety of domain including virtual reality, robotics, digital twins, and content creation. Recent advances in diffusion and autoregressive generative models have significantly pushed the boundaries of text-to-3D scene generation, making it possible to synthesize high-quality object geometry and compelling visual content \cite{lin2023magic3d,metzer2023latent,michel2022text2mesh,poole2022dreamfusion,chen2025mar,chen2024sar3d,huang2024midi,gao2024graphdreamer}. However, despite these advances, existing approaches struggle to ensure that generated scenes exhibit \textit{physical plausibility} -- a critical requirement for downstream applications that demand interaction, simulation, or building a real-world correspondence.
+
+In particular, current 3D scene generation pipelines \cite{huang2024midi,gao2024graphdreamer} often treat layout composition as a purely geometric problem, omitting physical reasoning entirely or using simple heuristics to prevent unfavored physical interaction such as object intersection. Due to the lack of explicit constraints from physics, this leads to common issues such as floating, unstable stacking, and incorrect support relations, ultimately limiting scene realism and usability. Earlier efforts have incorporated physical constraints to enhance single-object stability~\cite{guo2024physically,chen2024atlas3d}, or used video diffusion priors for plausible dynamics~\cite{zhang2024physdreamer}, but none of these methods address the complex spatial dependencies and contact interactions required for stable and semantically coherent multi-object scenes.
+
+One promising direction is to integrate physics-based simulation into the scene generation process to enhance physical realism. However, this approach introduces several challenges. First, objects must be represented as individually segmented 3D meshes to enable simulation of interactions under gravity and contact forces. Applying simulation to scenes represented by a single connected mesh is ineffective, as it fails to capture interactions between objects. Second, physics-based simulation requires a well-posed initial configuration, typically free of intersections, to avoid numerical instability and unrealistic behavior \cite{li2020incremental}. Yet, identifying such an intersection-free starting state is nontrivial. Finally, even if the simulated scene is physically plausible, it may diverge from the intended semantics described in the input text, due to the multiplicity of valid static equilibria. 
+
+
+To address these challenges, we propose \textbf{PAT3D}, a \textit{physics-augmented text-to-3D scene generation} framework that integrates differentiable rigid-body contact simulation into the generation pipeline. 
+Given a text prompt, we first synthesize a reference image to reflect the spatial relations among objects. 
+Individual objects are then generated and coarsely positioned using vision foundation models~\cite{depthpro,kirillov2023segment,hunyuan3d22025tencent}. 
+Next, a vision-language model (VLM)~\cite{hurst2024gpt} extracts the physical dependencies between objects from the reference image, which are then organized into a scene tree. 
+PAT3D then produces an intersection-free initial configuration from the coarsely positioned 3D scene and scene tree through physics-guided refinement. This initialization deliberately introduces small gaps along the gravity direction for objects with parent–child relations in the scene hierarchy, simplifying intersection avoidance while preserving inferred spatial relations. These gaps are later resolved through simulation, allowing objects to settle naturally under gravity and contact forces while making slight, physically plausible adjustments to their spatial relations. Finally, differentiable simulation is applied to further optimize the layout, improving semantic consistency in the resulting scene.
+
+We validate our method on diverse, contact-rich scenes and demonstrate its effectiveness against existing state-of-the-art 3D scene generation approaches through both qualitative and quantitative evaluations under visual quality and physical plausibility metrics. We further demonstrate that our generated scenes are readily editable and interactable through simulation, enabling physically plausible scene editing and direct construction of simulation environments for policy evaluation in robotic manipulation tasks. \textit{Our code and data will be publicly released upon acceptance.}
+
+In summary, our main contributions include:
+
+\begin{itemize}
+  \item We introduce \textbf{PAT3D}, the first physics-augmented text-to-3D scene generation framework that integrates vision–language models with physics-based simulation, achieving state-of-the-art physical plausibility, semantic consistency, and visual quality.
+  
+    \item We propose a physics-aware scene initialization module to prepare scenes for simulation. This module infers physical dependencies among objects, organizes them into a hierarchical scene tree, and converts the scene tree into intersection-free initial conditions for simulation.
+  
+  \item We develop a layout optimization strategy based on artificially time-stepped differentiable simulation, enabling efficient evaluation and differentiation of static equilibrium w.r.t initial layout.
+
+\end{itemize}

@@ -1,0 +1,163 @@
+\clearpage
+\setcounter{page}{1}
+\maketitlesupplementary
+
+
+\section{Appendix}
+\subsection{Details on Multi-View Hierarchical Description Generation}
+In previous works on driving scene generation, text-based conditional inputs often lack the multi-view and fine-grained descriptions necessary for high-fidelity and contextually consistent reconstruction. 
+To overcome this limitation, we leverage the advanced multimodal model Qwen2.5-VL-72B-Instruct to generate comprehensive descriptions across six distinct semantic aspects for each view. 
+We fine-tune VLM with LoRA~\cite{hu2022lora} on driving-domain datasets (DriveLM~\cite{sima2024drivelm} and nuscenes-OmniDrive~\cite{wang2025omnidrive}) to reduce hallucinations and enhance scene understanding.
+To further align generated captions with factual scene attributes, we apply direct preference optimization (DPO)~\cite{rafailov2023direct} as a reinforcement correction mechanism, guiding the model toward human-consistent outputs.
+This facilitates more precise control over the generation process and improves realism and diversity in the synthesized scenes.
+Furthermore, to accommodate the constraints of the CLIP text encoder within the Stable Diffusion UNet framework, the total token count for each scene description is constrained to a maximum of 77 tokens. 
+The specific prompt employed for the VLM is presented in Listing~\ref{lst:prompt}.
+
+As shown in Fig.~\ref{fig.caption}, there are some example scenes paired with their multi-view hierarchical descriptions.
+Beyond the fundamental temporal information, the generated texts effectively convey weather conditions, including overcast, rainy, clear sky, etc. 
+Additionally, it categorizes various road types, such as straight roads, cross-junctions, right-turn lanes, roundabouts, split roads, and scenarios with no road. 
+Furthermore, the descriptions identify the types of objects and infrastructure present in the scene and articulate their spatial relationships.
+
+\subsection{More Qualitative Results}
+Supplementary examples are provided to further demonstrate the superior capabilities of our proposed DrivePTS. 
+The multi-view hierarchical descriptions significantly outperform the short captions from existing datasets regarding scene detail recovery, as illustrated in Fig.~\ref{fig.des_comparable_1} and \ref{fig.des_comparable_2}. 
+These comprehensive descriptions enable a more nuanced and accurate reconstruction of complex driving scenarios.
+Additionally, Fig.~\ref{fig.appendix-del-road}, \ref{fig.appendix-add-split-road-1}, and \ref{fig.appendix-add-split-road-2} demonstrate DrivePTS's ability to align with modified maps through successful road removal and addition across diverse environments. 
+These results highlight the framework's adaptability to dynamic road configurations and demonstrate its potential for generating various road types to validate navigation tasks.
+
+\subsection{Generalization to Video Generation}
+We further evaluate the generalization capability of the proposed strategy and components on the video generation task.
+Following the design of MagicDrive, we extend DrivePTS with spatio-temporal attention to model temporal dependencies.
+For quantitative evaluation, we adopt the Fréchet Video Distance (FVD)~\cite{unterthiner2018towards} metric to measure temporal coherence and overall video quality.
+The results are summarized below.
+
+\begin{table}[H]
+	\centering
+	\caption{
+		Comparison of temporal consistency for different video generation methods on the NuScenes dataset. 
+		Lower FVD scores indicate better temporal coherence.
+	}
+	\label{Tab.video-fvd-horizontal}
+	\resizebox{1.02\linewidth}{!}{
+		\begin{tabular}{@{}l|cccccc@{}}
+			\toprule
+			Metric & MagicDrive & DriveDreamer & Panacea & Drive-WM & Ours (SD-2.1) & \textbf{Ours (SD-3.5)} \\
+			\midrule
+			FVD$\downarrow$ & 221 & 353 & 139 & 122 & 128 & \textbf{110} \\
+			\bottomrule
+		\end{tabular}
+	}
+\end{table}
+
+As shown in Tab.~\ref{Tab.video-fvd-horizontal}, our temporal variant still achieves lower FVD scores than most existing baselines.
+It is worth noting that Drive-WM\cite{wang2024driving} benefits from additional conditional inputs, including driving actions and control signals, enabling a future-aware world model with stronger temporal coherence.
+Without introducing video-specific designs, our framework still shows strong adaptability, confirming that the proposed strategy and components can be effectively extended to temporal generation tasks.
+Furthermore, when equipped with the more advanced SD3.5~\cite{esser2024scaling} backbone following the DiT paradigm, DrivePTS achieves the best FVD score, benefiting from DiT-based spatio-temporal modeling capacity.
+These results highlight the generalizability and extensibility of DrivePTS.
+
+\subsection{Limitation and Future Work}
+Despite overall improvements, the fidelity of generated lane markings and traffic sign details remains suboptimal, indicating the need for more precise spatial and semantic control.
+Future work will explore incorporating more advanced fine-grained constraints to further refine local structures and contextual consistency.
+These enhancements are expected to facilitate the synthesis of more realistic and coherent driving scenes while supporting fine-grained perception tasks such as lane detection, traffic sign recognition, and signal understanding.
+
+\clearpage
+\begin{lstlisting}[basicstyle=\tiny\ttfamily, breaklines=true, frame=single, numbers=none]
+	You are an image captioner specialized in autonomous driving scenes. 
+	You will be provided with multiple images taken by the ego vehicle's 360-degree surround view cameras, with viewpoints at the "CAM_FRONT_LEFT", "CAM_FRONT", "CAM_FRONT_RIGHT", "CAM_BACK_RIGHT", "CAM_BACK", "CAM_BACK_LEFT" of the ego vehicle.
+	
+	Given multiple images from different camera viewpoints, you must output a valid JSON object with exactly the following structure:
+	{
+		"CAM_FRONT_LEFT": {
+			"time": <time of day, choose from e.g. "daytime", "night", "evening", "dawn", "dusk">,
+			"weather": <concise weather condition, choose from e.g. "clear", "sunny", "overcast", "cloudy", "foggy", "rainy", "drizzle", "snowy", "hazy", "stormy">,
+			"road type": <brief description of the road surface, choose from "straight road", "split road", "left-turn lane", "right-turn lane", "cross-junction", "T-junction", "Y-junction", "roundabout", "merging road", "no road">,
+			"surroundings": <brief description of the scene type, e.g. "urban intersection", "residential street", "multi-lane highway", "construction zone", "urban park area">,
+			"static_and_dynamic_objects": <comma-separated list of visible and relevant static and dynamic entities, e.g. "cars, trucks, buses, bicycles, pedestrians, traffic lights, traffic signs, trees, buildings, cones, barriers">,
+			"spatial relationships": <a rich and informative sentence that describes the relationship among the scene layout, interactions, or driving-relevant dynamics. Do not simply repeat values from the previous fields. Focus on spatial relationships, motion patterns, visual semantics, or notable features>},
+		"CAM_FRONT": {
+			// Same structure as above},
+		"CAM_FRONT_RIGHT": {
+			// Same structure as above},
+		"CAM_BACK_RIGHT": {
+			// Same structure as above},
+		"CAM_BACK": {
+			// Same structure as above},
+		"CAM_BACK_LEFT": {
+			// Same structure as above}
+	}
+	
+	Constraints:
+	- Note!! Each camera viewpoint's caption (including field names, punctuation, and values) must not exceed 110 tokens.
+	- Output ONLY the JSON object--no additional text.
+	- The images may be blurred due to rain or movement. If the text cannot be read clearly, please do not guess the content of the text blindly. So, for textual content, it is important to answer accurately.
+	- For congestion: If there are other cars in front of ego vehicle at a close distance and there is a large flow of traffic in the same lane next to it, it can be considered congested.
+	- Common static objects include traffic signs/signals, road infrastructure, road markings, road obstacles/barriers, parking facilities, traffic monitoring equipment, roadside facilities, roadside greenery, advertising/information boards, and public facilities.
+	- Common dynamic objects include motor vehicles, non-motorized vehicles, pedestrians, emergency vehicles, construction equipment/vehicles, and public transportation vehicles.
+	- If a camera viewpoint shows no clear road or driving scene, set "road type" to "no road" and adjust other fields accordingly.
+	
+	Example format:
+	{
+		"CAM_FRONT_LEFT": {
+			"time": "daytime",
+			"weather": "sunny, clear sky",
+			"road type": "left-turn lane",
+			"surroundings": "urban street scene",
+			"static_and_dynamic_objects": "bus, car, fence, trees, building",
+			"spatial relationships": "The image shows a street scene with a green fence, trees, and buildings. There's an orange bus on the road, and part of a car is visible in the foreground."},
+		"CAM_FRONT": {
+			"time": "daytime",
+			"weather": "sunny, clear sky",
+			"road type": "straight road",
+			"surroundings": "urban intersection",
+			"static_and_dynamic_objects": "traffic lights, cars, crosswalk, buildings",
+			"spatial relationships": "Forward view shows an intersection with traffic lights overhead, vehicles waiting in lanes, and crosswalk markings visible on the road surface."}
+		// ... continue for all other camera viewpoints
+	}
+\end{lstlisting}
+\captionof{lstlisting}{Prompt template for VLM-based scene description generation.}
+\label{lst:prompt}
+
+
+\begin{figure*}[t]
+	\centering
+	\includegraphics[width=0.9\textwidth]{caption-vis.pdf}
+	\caption{Comparison of original dataset captions and VLM-driven multi-view hierarchical descriptions. 
+		Each group shows: (top) six-view images, (middle) original dataset captions, and (bottom) our multi-view hierarchical descriptions.
+	}
+	\label{fig.caption}
+\end{figure*}
+\begin{figure*}[t]
+	\centering
+	\includegraphics[width=0.85\textwidth]{des_comparable_1.pdf}
+	\caption{Qualitative comparison of scene reconstruction quality between original dataset captions and our multi-view hierarchical descriptions.
+		For each example: original image (top), reconstruction from original captions (middle), and our results (bottom).
+		Red regions indicate missing details with original captions, while green regions highlight successful recovery through our fine-grained descriptions.}
+	\label{fig.des_comparable_1}
+\end{figure*}
+\begin{figure*}[t]
+	\centering
+	\includegraphics[width=0.85\textwidth]{des_comparable_2.pdf}
+	\caption{Qualitative comparison of scene reconstruction quality between original dataset captions and our multi-view hierarchical descriptions.
+		Notably, in night scene generation, original captions tend to produce hallucinated illuminated areas due to insufficient contextual information, while our multi-view hierarchical descriptions faithfully reconstruct authentic nighttime atmospheres.}
+	\label{fig.des_comparable_2}
+\end{figure*}
+\begin{figure*}[t]
+	\centering
+	\includegraphics[width=0.9\textwidth]{appendix-del-road.pdf}
+	\caption{Examples of targeted road removal in driving scene generation using our DrivePTS framework. Each group shows: (1) original geometric conditions, (2) original scene generation, (3) modified geometric conditions after road removal, and (4) updated scene generation. Green boxes indicate areas corresponding to the geometric modifications.}
+	\label{fig.appendix-del-road}
+\end{figure*}
+\begin{figure*}[t]
+	\centering
+	\includegraphics[width=0.9\textwidth]{appendix-add-split-road-1.pdf}
+	\caption{Examples of targeted road addition in driving scene generation using our DrivePTS framework. The visualization follows the same four-row format as above, where the third row shows geometric conditions with added roads.}
+	\label{fig.appendix-add-split-road-1}
+\end{figure*}
+
+\begin{figure*}[t]
+	\centering
+	\includegraphics[width=0.9\textwidth]{appendix-add-split-road-2.pdf}
+	\caption{Additional examples of targeted road addition using our DrivePTS framework. The visualization format follows the same structure as above.}
+	\label{fig.appendix-add-split-road-2}
+\end{figure*}
+\end{document}

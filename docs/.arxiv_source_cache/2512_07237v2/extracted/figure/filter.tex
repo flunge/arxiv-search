@@ -1,0 +1,52 @@
+\begin{figure*}[t]
+\centering
+\begin{PromptBox}
+You are a video understanding assistant specialized in analyzing panoramic ERP-format videos.  
+Given one frame of a panoramic video, your tasks are:  
+
+1. **Filtering**: Identify if the video should be filtered out.  
+Output boolean flags for the following conditions (true if the issue exists, false otherwise):  
+
+- non_ERP_format: The video is **not in ERP (Equirectangular Projection)** panoramic format. For example, if the video looks like a flat perspective, fisheye, cube-map, or any projection other than ERP, set this to true.  
+
+- has_subtitle_or_watermark: The video contains **text overlays, subtitles, logos, or watermarks**. Look carefully for visible text at the bottom, center, or corners of the video. If such elements are present and not part of the real scene, set this to true.  
+
+- edge_missing: The top or bottom edges of the ERP panorama are **cut off, blacked out, cropped, or covered by logos/watermarks**, so the full 360 vertical coverage is missing or obstructed. If you cannot clearly see the poles (sky/ground) or if the edges are hidden by overlays, set this to true.  
+
+- has_overlay: The frame contains **artificial overlays**, such as embedded UI elements, pop-up graphics, stickers, video-in-video inserts, menus, or other synthetic elements that are not part of the natural scene. If you see signs of AR/VR interface, streaming UI, or added images, set this to true.  
+
+- low_quality: The video is of **poor visual quality**, such as being blurry, noisy, heavily pixelated, very low resolution, or distorted in a way that prevents recognizing the scene. If the content is hard to interpret due to quality issues, set this to true.  
+
+- unnatural_content: The video contains **cartoons, animations, CGI, synthetic 3D renderings, or game engine graphics** rather than real-world panoramic footage. If the content is not realistic, set this to true.  
+
+2. **POI Categorization**: From the provided list of categories, select **one or more most relevant** labels that best describe the scene.  
+   Only use the given categories, do not invent new ones.  
+
+---
+
+**poi_category list (choose only from below):**
+
+Restaurant, Coffee-Shop, Bars-and-Pubs, Residential-area, Hotels-Motels, Vaccation-Rentals, Hospitals-Clinics, Pharmacies, Dentists, School-Universities, Library, Supermarkets, Shopping-Malls, Clothing-Stores, Shoe-Stores, Bookstores, Flowerstore, Furniture-Stores, Electorical-Store, Pet-Store, Toy-Shop, Airports, Train-Stations, Bus-Stops, Gas-Station, Car-Rental-Agencies, Theaters, Concert-Halls, Sports-Stadiums, Parks-and-Recreation-Areas, Museums, Art-Galleries, Zoos-Aquariums, Botanical-Gardens, Landmarks, Cultural-Centers, Post-Offices, Police-Stations, Courthouses, CityHalls, Banks-ATMs, Events-Conferences-halls, Beaches, Hiking-Trails, Campgrounds, Lakes, Mountains, Forest-Mountains, Farms, Street-View, Square, Business-Centers, Tech-Companies, Co-working-Spaces, Gyms-and-Fitness-Centers, Sports-Clubs, Swimming-Pools, Tennis-Courts, Auto-Repair-Shops, Car-Washes, Parking-Lots, Churches, Mosques, Temples, Graveyards.
+
+---
+
+**Output strictly in JSON format** as follows:
+
+```json
+{
+  "filter": {
+    "non_ERP_format": false,
+    "has_subtitle_or_watermark": false,
+    "edge_missing": false,
+    "has_overlay": false,
+    "low_quality": false,
+    "unnatural_content": false
+  },
+  "poi_category": ["Mountains"]
+}
+```
+\end{PromptBox}
+\caption{
+    Prompt used for panoramic video filtering and scene categorization.
+}\label{fig:filter}
+\end{figure*}

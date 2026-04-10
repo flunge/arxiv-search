@@ -1,0 +1,50 @@
+\section{Experiments}
+\label{sec:experiment}
+
+\subsection{Implementation details}
+Here, we specify the architectural details of \ours. For the visual encoder $\mathcal{E}(\cdot)$, we adopt pretrained VGGT as default. We set $N=2048$ learnable query tokens and $L=2$ transformer layers. Following 3DGS~\cite{kerbl20233d}, we use default Gaussian attributes except setting spherical harmonics degree to 0, which we find to stabilize training with compact Gaussians by modeling only RGB color without view-directional biases. For training, we use $224 \times 224$ resolution inputs with photometric loss weights $\lambda_\text{MSE}=1$ and $\lambda_\text{LPIPS}=0.05$. We employ AdamW optimizer~\cite{loshchilov2017decoupled} with learning rates of 1e-4 for both decoders and 1e-6 for the visual encoder, using cosine annealing (minimum ratio 0.1). The model trains for 450K steps with batch size 8 per GPU across 8 NVIDIA H100 GPUs. For progressive low-pass filtering~\cite{jung2024relaxing}, we decrease $s$ from 10 to 0.3 over the first 4K steps with decay ratio 1/3 every 1K steps.
+
+For feature lifting, we use LSeg~\cite{li2022language} and MaskCLIP~\cite{zhou2022extract} features for 3D scene understanding, and VGGT tracking features~\cite{wang2025vggt}, DINOv2~\cite{oquab2023dinov2}, and DINOv3~\cite{simeoni2025dinov3} to demonstrate \oursF's effectiveness as a view-invariant feature decoder by evaluating in two-view correspondence evaluations following Probe3D~\cite{el2024probing}. As described in \textbf{\S~\ref{subsec:feature_lifting}}, we initialize \oursF\ from \ours\ and train only value projections for 1K steps, simultaneously training both decoders.
+
+
+\input{table/multi_view_nvs}
+\input{figure/tex/nvs_qual}
+
+\input{table/feature_lifting_scannet}
+\input{table/feature_lifting_replica}
+
+\input{figure/tex/qual_seg}
+
+\input{table/probe_geometry_matching}
+\input{figure/tex/matching_qual}
+\input{figure/tex/corr_viz}
+
+\input{table/stage1_ablation}
+\input{table/gaussian_number_ablation}
+
+
+
+\subsection{Novel view synthesis}
+In this section, we evaluate novel view synthesis performance on the RealEstate10k dataset~\cite{zhou2018stereo} with 12, 24, and 36 input images following AnySplat's~\cite{jiang2025anysplat} protocol, where multiple images are used to estimate 3D Gaussians and render a target view. We compare AnySplat~\cite{jiang2025anysplat} as it was trained to support multi-view inputs. As we utilize VGGT as our visual encoder, we additionally train and compare with VGGT+NoPo, which trains a NoPoSplat-like model for per-pixel 3DGS estimation but replaces the backbone from MASt3R~\cite{leroy2024grounding} with VGGT~\cite{wang2025vggt}.  As shown in Tab.~\ref{tab:multiview_nvs}, while VGGT+NoPo generates per-pixel Gaussians without pruning and AnySplat reduces Gaussians via voxel merging, our method achieves comparable performance with significantly fewer Gaussians. In Fig.~\ref{fig:nvs_main}, we provide qualitative results for novel view synthesis, showing that our method is competitive with AnySplat and generates fewer artifacts. We also perform short test-time optimization~(TTO) following 3DGS~\cite{kerbl20233d}, where our method substantially outperforms both models. Note that VGGT+NoPo's performance degrades as the number of input images increases due to the accumulation of alignment error. For AnySplat and VGGT+NoPo with TTO, we follow the default test-time optimization of~\cite{jiang2025anysplat}, which disable Gaussian densification, as standard 3DGS optimization results in $\texttt{Out-Of-Memory}$ errors due to the already excessive number of Gaussians.
+
+\subsection{3D scene understanding}
+Following previous approaches~\cite{fan2024large, burgess2006spatial}, we evaluate 3D scene understanding on ScanNet~\cite{dai2017scannet} and Replica~\cite{straub2019replica}. To enable open-vocabulary segmentation~\cite{cho2024cat,shin2024towards} at novel viewpoints, we lift language-aligned features (LSeg~\cite{li2022language}, MaskCLIP~\cite{zhou2022extract}) extracted from two input views and evaluate with rendered features at target poses. We compare with feed-forward approaches~\cite{fan2024large} and per-scene optimization methods~\cite{zhou2024feature, lee2025cf3}. Note that feed-forward methods use two input images, while optimization-based methods use all scene images for training. As shown in Tab.~\ref{tab:scannet_results} and Tab.~\ref{tab:replica_results}, our method outperforms LSM~\cite{fan2024large} in segmentation with competitive or better reconstruction quality. Despite using far fewer input images, we outperform optimization-based methods on ScanNet and show comparable performance on Replica. We additionally provide qualitative results in Fig~\ref{fig:understanding_main}, showing that our model achieves high rendering quality and the most accurate segmentation results. Surprisingly, our rendered features at target views obtained without accessing the target image outperform features directly extracted from target images using LSeg or MaskCLIP. This validates the effectiveness of our compact Gaussians over previous per-pixel Gaussians, and verifies that \oursF\ effectively aggregates features from input features, enabling the rendering of a multi-view aware feature map.
+
+\subsection{Multi-view feature encoding}
+In this section, we further validate the effectiveness of \mbox{\oursF} as a view-invariant feature encoder. By lifting the multi-view aggregated features from \oursF\ and re-rendering to the input view camera poses, we can achieve view-invariant features from the input views. Following Probe3D~\cite{el2024probing}, we evaluate two-view correspondence performance in ScanNet~\cite{dai2017scannet} with \mbox{PCK $@$ 10px}, where the selected two views are captured within $0{\sim}15^\circ$~($\theta_0^{15}$), $15{\sim}30^\circ$~($\theta_{15}^{30}$), $30{\sim}60^\circ$~($\theta_{30}^{60}$), and $60{\sim}180^\circ$~($\theta_{60}^{180}$). We compare the features from the visual encoder $\mathcal{E}'(\cdot)$ and the features obtained from our re-rendering process. We evaluate with three different visual encoders, including the tracking features of VGGT~\cite{wang2025vggt}, DINOv2~\cite{oquab2023dinov2}, and DINOv3~\cite{simeoni2025dinov3}. As shown in Tab.~\ref{tab:correspondence}, Fig.~\ref{fig:correspondence}, and Fig.~\ref{fig:correspondence_viz}, the aggregated features show significant performance improvement in all settings. 
+We also compare our model with FiT3D~\cite{yue2024improving}, which finetunes 2D vision encoders~\cite{oquab2023dinov2, du2023learning} by lifting features to 3D Gaussians to enforce multi-view consistency. However, FiT3D uses an autoencoder architecture that introduces information loss and generates a large number of Gaussians, making effective multi-view feature aggregation challenging. In contrast, our model demonstrates significantly superior performance, validating the effectiveness of \oursF\ as a view-invariant feature decoder.
+
+
+
+\subsection{Multi-view feature upsampling}
+Since 3D Gaussians can be projected to arbitrary camera poses and intrinsics, we can render images at different resolutions. This property enables upsampled feature generation even when the visual encoder $\mathcal{E}'(\cdot)$ produces only coarse resolution features. Since our model can lift features from any visual encoder, we compare with the current state-of-the-art upsampler, AnyUp~\cite{wimmer2025anyup}. AnyUp can also upsample any features to the original image resolution, so we evaluate various feature extractors, including VGGT-Tracking~\cite{wang2025vggt}, DINOv2-Base~\cite{oquab2023dinov2}, DINOv2-Large~\cite{oquab2023dinov2}, and DINOv3-Large~\cite{fan2024large}. 
+
+In Tab.~\ref{tab:correspondence}, we evaluate the correspondence performance of the upsampled features. While feature upsampling generally improves correspondence~\cite{leroy2024grounding, edstedt2024roma} and AnyUp effectively upsamples features to the original image resolution, feature upsampled by AnyUp fails to consistently improve correspondence performance across all baselines, and even degrades DINOv3's performance. In contrast, our model not only effectively upsamples the multi-view features but also enhances their multi-view consistency, leading to substantial improvements in correspondence performance. 
+
+
+\subsection{Ablation studies}
+\label{subsec:ablation}
+In this section, we go through the ablation studies done for \ours\ and \oursF. In Tab.~\ref{tab:stage1}, we validate our core training components. Without progressive low-pass filter control, 3D Gaussians fail to localize within the view frustum, causing training collapse. We also validate that freezing the visual encoder $\mathcal{E}(\cdot)$ prevents effective Gaussian generation in appropriate regions. In Tab.~\ref{tab:num_gaussian}, we investigate the optimal number of learnable tokens (Gaussians) $N$. Reconstruction performance gradually improves as Gaussians increase to 2048. However, with 4096 Gaussians, training becomes unstable, leading to degradation. We hypothesize that having larger number of Gaussians at sub-optimal positions is more prone to falling into local minima, as discussed in prior per-scene optimization methods~\cite{jung2024relaxing}. Based on these findings, we set the number of Gaussians to 2048 for all experiments. In Tab.~\ref{tab:feature_backbone}, we analyze different visual encoders $\mathcal{E}(\cdot)$ for \ours\, using VGGT~\cite{wang2025vggt} and DINOv3~\cite{simeoni2025dinov3}. Although DINOv3 lacks explicit geometric supervision, its features are effectively aggregated by learnable queries in the transformer to generate coherent 3D Gaussians. These results reveal the potential that our framework can also be learned without features with strong geometric priors, where previous per-pixel Gaussian estimation frameworks struggle to learn~\cite{ye2024no}.
+
+\input{table/stage2_ablation}
+\input{table/dino_analysis}

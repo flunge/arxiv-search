@@ -1,0 +1,27 @@
+\section{Applications}
+Thanks to the powerful representation of superpoints for dynamic scenes, our method is highly expandable and can facilitate various downstream applications. 
+\subsection{Model Distillation}
+In scenarios where a 3D-GS based model $\mathcal{H}$ exhibits superior performance, which also predicts the deformation over time, we can distill such a model into SP-GS to improve the visual quality.
+The concept is straightforward: we can directly replicate the state of $\mathcal{H}$ at any given time as the canonical state of SP-GS. 
+Subsequently, we optimize the association matrix $\Asso$, the superpoint deformation network $\mathcal{F}$, and optionally the non-rigid deformation network $\mathcal{G}$ by incorporating $\loss$ loss and mean square error(MSE) $ \loss_{err} =\sum_{\bm{u} \in \{\gsP, \gsR \}} \lambda_{\bm{u}} \sum_{i} \|\bm{u}^t_i, \bm{u}'^t_i \|$,
+% \begin{equation}
+%     \loss_{err} =\sum_{\bm{u} \in \{\gsP, \gsR \}} \lambda_{\bm{u}} \sum_{i} \|\bm{u}^t_i, \bm{u}'^t_i \|,
+% \end{equation}
+where $\bm{u}^t_i$  and $\bm{u}'^t_i$ are the properties of the teacher and the student respectively.
+Tab. \ref{tab:distill} shows the quantitative results of distilling D-3D-GS model into SP-GS model on the ``As" scene of NeRF-DS dataset.
+While D-3D-GS cannot achieve real-time rendering on V100 (20.65 FPS), our distillated student model can achieve significantly higher rendering speed (164.04 FPS). Therefore, model distillation provides a trade-off between visual quality and rendering speed, leaving users with more choices to meet their requirements.
+
+\subsection{Pose Estimation}
+
+Our SP-GS support estimating the 6-DoF pose of each superpoint for new images in the same scene.
+%  without relying on the deformation network. 
+To be specific, we can solely learn the translation and rotation for each superpoint with other parameters of SP-GS fixed. This can be potentially used in motion capture where novel view images are given and one wants to know the motion of each components (superpoints).
+Experiments are conducted on the jumpingjacks scene of D-NeRF dataset~\cite{D-NeRF}. We first train the complete model (SP-GS) using the beginning 50 images. Subsequently, we initialize the learnable translation and rotation parameters of superpoints with the 50-th frame and directly optimize them with rendering loss using the Adam optimizer for 1000 iterations.
+The program terminates upon completing the pose estimation for all images.
+Fig. \ref{fig:repose} illustrates the change in PSNR across images 51-88 for the jumpingjacks scene.
+Notably, it demonstrates a gradual decrease in PSNR.
+
+\subsection{Scene Editing}
+As depicted in Figure \ref{fig:edit}, scene editing tasks such as relocating parts between scenes or removing parts from a scene can be accomplished with ease. 
+This capability is facilitated by the explicit 3D Gaussian representation, enabling relocation or deletion from the scene.
+Our method further streamline the process since it is no longer necessary to manipulate over the 100,000 3D Gaussians. Moreover, our superpoints provide some extent of semantic meanings, enabling a reasonable editing of the scene.

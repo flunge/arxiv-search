@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Unified Camera Positional Encoding for Controlled</title>
+  <title>Unified Camera Positional Encoding for Controlled Video Generation</title>
   <style>
     html {
       overflow-x: hidden;
@@ -45,7 +45,15 @@
     pre { white-space: pre-wrap; background:#f7f7f7; border-radius:8px; padding:12px; overflow-x:auto; }
     figure { margin: 24px 0; }
     figcaption { color: #666; font-size: 13px; }
-    img.paper-fig { width: 100%; border: 1px solid #ddd; border-radius: 8px; }
+    .article figure { width: min(100%, 760px); margin: 24px auto; }
+    img.paper-fig { display:block; width:auto; max-width:100%; max-height:460px; margin:0 auto; border: 1px solid #ddd; border-radius: 8px; background:#fafafa; cursor: zoom-in; box-sizing:border-box; }
+    .page-lightbox { position: fixed; inset: 0; z-index: 9999; display:flex; align-items:center; justify-content:center; padding:24px; background: rgba(15, 23, 42, 0.82); box-sizing:border-box; }
+    .page-lightbox[hidden] { display:none; }
+    .page-lightbox-inner { position: relative; max-width: min(96vw, 1400px); max-height: 92vh; display:flex; flex-direction:column; align-items:center; gap:12px; }
+    .page-lightbox-image { display:block; max-width: min(96vw, 1400px); max-height: calc(92vh - 64px); width:auto; height:auto; border-radius:12px; box-shadow: 0 18px 48px rgba(0,0,0,0.35); background:#fff; }
+    .page-lightbox-caption { max-width: min(92vw, 960px); color:#f3f4f6; font-size:13px; line-height:1.7; text-align:center; }
+    .page-lightbox-close { position:absolute; top:-12px; right:-12px; width:40px; height:40px; border:none; border-radius:999px; background:rgba(255,255,255,0.96); color:#111827; font-size:24px; line-height:1; cursor:pointer; box-shadow: 0 8px 24px rgba(0,0,0,0.22); }
+    .page-lightbox-close:hover { background:#ffffff; }
     .post-item { border:1px solid #e5e5e5; border-radius:8px; padding:10px 12px; margin:10px 0; }
     .layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 28px; align-items: start; justify-content: center; position: relative; }
     .sidebar { position: sticky; top: 18px; align-self: start; border-right: 1px solid #eee; padding-right: 16px; transition: width .2s ease, min-width .2s ease, padding .2s ease, border-color .2s ease; }
@@ -128,6 +136,56 @@
         resizeObserver.observe(shell);
       }
     });
+
+    function setupImageLightbox() {
+      var lightbox = document.getElementById('page-lightbox');
+      var lightboxImage = document.getElementById('page-lightbox-image');
+      var lightboxCaption = document.getElementById('page-lightbox-caption');
+      if (!lightbox || !lightboxImage || !lightboxCaption) return;
+
+      function closeLightbox() {
+        lightbox.setAttribute('hidden', 'hidden');
+        lightbox.setAttribute('aria-hidden', 'true');
+        lightboxImage.removeAttribute('src');
+        lightboxImage.alt = '';
+        lightboxCaption.textContent = '';
+        document.body.style.overflow = '';
+      }
+
+      function openLightbox(img) {
+        var src = img.getAttribute('data-full-src') || img.currentSrc || img.src;
+        if (!src) return;
+        var figure = img.closest('figure');
+        var caption = figure ? figure.querySelector('figcaption') : null;
+        lightboxImage.src = src;
+        lightboxImage.alt = img.alt || '';
+        lightboxCaption.textContent = caption ? caption.textContent.trim() : (img.alt || '');
+        lightbox.removeAttribute('hidden');
+        lightbox.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+      }
+
+      document.addEventListener('click', function(event) {
+        var target = event.target;
+        if (!target || !target.closest) return;
+        var clickedImage = target.closest('img.paper-fig');
+        if (clickedImage && !clickedImage.closest('#page-lightbox')) {
+          openLightbox(clickedImage);
+          return;
+        }
+        if (target === lightbox || target.closest('.page-lightbox-close')) {
+          closeLightbox();
+        }
+      });
+
+      document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape' && !lightbox.hasAttribute('hidden')) {
+          closeLightbox();
+        }
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', setupImageLightbox);
   </script>
 
   <script>
@@ -157,76 +215,95 @@
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
-<!-- source-grounding: arxiv_id=2512.07237v2; pdf=2512_07237v2_Unified Camera Positional Encoding for Controlled Video Generation.pdf; source_dir=C:\Users\XPENG_USER\Documents\docs\文献\feedforward\docs\.arxiv_source_cache\2512_07237v2\extracted; sections=5; figures=0; equations=10 -->
+<!-- source-grounding: arxiv_id=2512.07237v2; pdf=2512_07237v2_Unified Camera Positional Encoding for Controlled Video Generation.pdf; source_dir=C:\Users\XPENG_USER\Documents\docs\文献\feedforward\docs\.arxiv_source_cache\2512_07237v2\extracted; sections=5; figures=5; equations=10 -->
 
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
   <article class='article'>
-    <h1>Unified Camera Positional Encoding for Controlled</h1>
+    <h1>Unified Camera Positional Encoding for Controlled Video Generation</h1>
     <p class='meta'>原论文：<a href='https://arxiv.org/abs/2512.07237v2' target='_blank'>Unified Camera Positional Encoding for Controlled Video Generation</a> · 中文精读</p>
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      Transformers 已成为现代架构的基础，用于新颖的视图合成、3D 重建和摄像机可控视频生成。为了从有限的视点最大化视觉覆盖范围，自动驾驶、机器人感知和世界模型中的现实应用通常使用鱼眼、catad。
+      UCPE 要解决的问题很具体：现有相机条件视频生成方法大多默认针孔相机，因此一旦遇到广角、鱼眼或带畸变镜头，就很难同时保持轨迹控制、镜头控制和画面质量。论文把“相机编码”从相机级别改写到射线级别，再补上绝对朝向线索，让同一个扩散 Transformer 能稳定适配多种相机几何。
     </div>
 
     <h2 id='summary'>简单摘要</h2>
-    <p>然而，尽管 Transformer 主干取得了进展，大多数相机条件方法仍然依赖于简化的针孔假设。通过将每个标记表示为以局部光线坐标表示的观看光线，这种编码使注意力机制能够直接在光线空间而不是在相机级别运行。</p>
-<figure><img class='paper-fig' src='../assets/2512_07237v2/fig_3.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：该图展示了论文中的关键模块、实验设置或可视化效果，用于说明这一类高效路线的关键结构与输入输出关系。</figcaption></figure>
-    <p>然而，尽管 Transformer 主干取得了进展，大多数相机条件方法仍然依赖于简化的针孔假设。通过将每个标记表示为以局部光线坐标表示的观看光线，这种编码使注意力机制能够直接在光线空间而不是在相机级别运行。</p>
+    <p>作者的出发点是：自动驾驶、机器人和世界模型里的真实视频往往来自多种镜头，除了相机位姿，还同时带有不同视场角和畸变参数。过去很多方法要么只编码外参，要么把每个视角都当成统一针孔投影，这会导致模型只能粗略地“知道相机在动”，却不知道同一张图内部不同像素的成像几何其实并不一致。</p>
+<figure><img class='paper-fig' src='../assets/2512_07237v2/teaser.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：论文总览。给定文本提示以及用户指定的水平视场角、畸变参数和相机轨迹，UCPE 通过统一相机位置编码与轻量注意力适配器，让生成视频同时跟随目标位姿、复现目标镜头畸变，并保持较高视觉保真度。</figcaption></figure>
+    <p>UCPE 的核心思路是把每个视觉单元都绑定到一条具体观察射线上，而不是让整张图共享一套相机级编码。这样，注意力层不再只比较“来自哪个相机”，而是直接比较“这两个视觉单元对应的射线在几何上是什么关系”。在这个基础上，再用 Lat-Up 图提供绝对俯仰与滚转线索，模型就能同时处理相对相机运动和绝对朝向控制。</p>
 
     <h2 id='innovation'>核心创新</h2>
-    <p>第一，最近的工作引入了相对编码，直接在 Transformers 的注意力机制中对成对的相机关系进行建模，使它们对全局坐标选择保持不变。</p>
-    <p>第二，这将每个查询键交互替换为 , where ，调节相对相机姿势的注意力。</p>
+    <p>第一，论文把相机编码粒度从“整台相机”推进到“每个视觉单元对应的一条射线”。这一步很关键，因为鱼眼、广角和带畸变镜头的问题，不在于相机整体没有位姿，而在于图像内部不同像素的投影规律并不共享同一个线性模型。UCPE 的相对射线编码正是针对这一点，把几何关系写到视觉单元级别。</p>
+    <p>第二，UCPE 不是只建模相对关系，还额外引入了绝对方向编码。作者注意到真实世界视频通常存在稳定的重力方向，因此用 Lat-Up 图把每条射线的纬度角和对应的向上方向编码出来。这样模型除了知道“相对前一帧怎么转”，还知道“当前镜头在全局里朝上还是朝下”，从而支持显式俯仰和滚转控制。</p>
+    <p>第三，论文没有粗暴替换原始扩散 Transformer 的位置编码，而是把 UCPE 通过一个轻量的空间注意力适配器并联注入到预训练模型中。这样既保住了大模型已有的视频先验，又只增加 3550 万参数，在控制能力提升的同时维持了较好的训练和部署效率。</p>
 
+    <!-- equation-placement: source=3.1.1||3.1.2||3.1.3||3.1.3||3.2.1||3.2.1||3.2.1||3.2.2; rendered=3.1.1||3.1.2||3.1.3||3.1.3||3.2.1||3.2.1||3.2.1||3.2.2; tail_pile=0 -->
+    <!-- figure-placement: source=3.1||3.3||4.2||4.2; rendered=3.1||3.3||4.2||4.2; tail_pile=0 -->
     <h2 id='technical'>技术细节</h2>
-    <p>最近的工作引入了相对编码，直接在 Transformers 的注意力机制中模拟成对的相机关系，使它们对全局坐标选择保持不变。这将每个查询键交互替换为 , where ，调节相对相机姿势的注意力。该投影公式捕获了完整的相机平截头体几何形状，但仅限于针孔相机。</p>
-<figure><img class='paper-fig' src='../assets/2512_07237v2/fig_1.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：我们的摄像机控制视频生成概述；给定用户指定的文本提示和相机参数，包括水平视野、畸变和具有可选绝对方向的相机姿势（编码为纬度地图）</figcaption></figure>
-<figure><img class='paper-fig' src='../assets/2512_07237v2/fig_4.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：该图展示了论文中的关键模块、实验设置或可视化效果</figcaption></figure>
-    <h3>3.1 预赛</h3>
-    <p>最近的工作引入了相对编码，直接在 Transformers 的注意力机制中模拟成对的相机关系，使它们对全局坐标选择保持不变。这将每个查询键交互替换为 , where ，调节相对相机姿势的注意力。该投影公式捕获了完整的相机平截头体几何形状，但仅限于针孔相机。</p>
-    <h3>3.2 统一相机位置编码</h3>
-    <p>具体来说，对于每个图像标记，我们的目标是构造一个局部光线到世界矩阵，作为注意级特征转换的几何算子。我们通过定义锚定在相机中心的局部射线坐标系来构造，并通过正交基进行参数化。这个公式使注意力机制能够在光线空间中进行推理，而不是在相机帧内共享相同的位置编码。</p>
-    <h3>3.3 用于 UCPE 注射的空间注意力适配器</h3>
-    <p>其中编码 中定义的世界到光线变换，并使用 RoPE 构建以编码图像空间位置，两者都具有特征维度的一半。此外，空间注意力模块将 Lat-Up 贴图作为可选输入，以提供绝对方向控制。如 中所示，每个 DiT 块保留标准的自注意力，同时引入基于建议编码的相机条件分支。</p>
-    <p>$$ \boldsymbol{d}_{{u},{v}} = \mathbf{R} \boldsymbol{d}_{{u},{v}}^{\textrm{cam}}, \qquad \boldsymbol{o}_{{u},{v}} = \boldsymbol{t}. $$</p>
+    <p>Method 一共三步：先统一不同相机模型的几何表示，再把这种几何表示写进注意力层，最后用轻量适配器把它接到预训练视频扩散 Transformer 上。真正的难点不是“再加一个相机 token”，而是如何让针孔、广角、鱼眼乃至非中心相机都能共享一套物理上自洽的编码方式。</p>
+<figure><img class='paper-fig' src='../assets/2512_07237v2/rays.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：不同相机编码方式对比。直接参数化和 Plücker 编码要么缺乏几何可解释性，要么仍是绝对、坐标系相关的表示；PRoPE 虽然进入了相对投影空间，但仍假设针孔投影。UCPE 则把关系重写到 ray space，使每个 token 都拥有自己的 viewing ray，从而兼容任意镜头类型。</figcaption></figure>
+    <h3>3.1 预备知识</h3>
+    <h4>3.1.1 相机作为射线映射</h4>
+    <p>作者先把所有相机都统一写成“从像素坐标映射到三维射线”的函数，而不预设具体投影模型。这样无论是普通针孔、鱼眼还是 catadioptric / panoramic 系统，都可以被理解为：给定像素坐标 (u,v)，输出该像素对应射线的起点和方向。这个统一视角为后面的 token 级几何编码提供了共同底座。</p>
+    <p>$$ \boldsymbol{d}_{u,v} = \mathbf{R} \boldsymbol{d}_{u,v}^{\textrm{cam}}, \qquad \boldsymbol{o}_{u,v} = \boldsymbol{t}. $$</p>
     <p>这条并列公式把像素对应的相机射线方向先旋转到世界坐标系，再把射线起点设为相机平移向量。它说明后续相机编码不是抽象地处理姿态参数，而是直接建立在每条射线的几何表达上。</p>
-    <p>$$ \mathbf{D}_{t} = \mathbf{I}_{{d}/4} \otimes \mathbf{T}_{{i}({t})}^{\textrm{cw}}, $$</p>
+    <h4>3.1.2 绝对相机编码</h4>
+    <p>论文回顾了两类常见绝对编码：一类直接把内外参作为数值向量输入，另一类使用 Plücker ray 表示，把每条射线写成方向与力矩的组合。它们都能保留一些几何信息，但本质上仍然依赖全局坐标系，因此跨场景、跨镜头泛化时容易不稳定。</p>
+    <p>$$ \mathbf{D}_{t} = \mathbf{I}_{d/4} \otimes \mathbf{T}_{i(t)}^{\textrm{cw}}, $$</p>
     <p>这条式子把当前相机的坐标变换按特征维度展开成块状矩阵，用来统一作用到注意力特征上。它相当于把相机位姿从几何空间搬到网络特征空间，让后续注意力层都能共享同一套相机条件。</p>
+    <h4>3.1.3 相对相机编码</h4>
+    <p>CaPE、GTA、PRoPE 这类方法把相对相机关系显式写进注意力层，优点是对全局坐标选择更稳；但它们默认同一视角内部所有 token 共享同一个相机投影模型，因此仍然无法描述广角和畸变镜头中像素级投影差异。UCPE 的动机，正是把这种“相机级相对编码”继续细化到“射线级相对编码”。</p>
     <p>$$ {O} = \operatorname{Attn}\big(\mathbf{D}^{\top}\odot {Q},\; \mathbf{D}^{-1}\odot {K},\; {V}\big). $$</p>
-    <p>这条式子把相机相关的几何编码直接注入注意力计算：查询、键和值都会先经过与视角有关的变换，再执行注意力聚合。这样模型在跨视图建模时，学到的就不只是外观相似性，还包含明确的相机几何关系。</p>
+    <p>这条式子给出了 CaPE 的基本形式：查询和键先分别乘上各自视角对应的几何变换，再做注意力匹配，而值分支保持原始特征。它的意义是把“两个 token 是否相关”显式建立在相对位姿之上，让注意力权重不再只由外观相似度决定。</p>
     <p>$$ {O} = \mathbf{D} \odot \operatorname{Attn}\big(\mathbf{D}^{\top}\odot {Q},\; \mathbf{D}^{-1}\odot {K},\; \mathbf{D}^{-1}\odot {V}\big). $$</p>
-    <p>这条式子把相机相关的几何编码直接注入注意力计算：查询、键和值都会先经过与视角有关的变换，再执行注意力聚合。这样模型在跨视图建模时，学到的就不只是外观相似性，还包含明确的相机几何关系。</p>
+    <p>这条式子对应 GTA：除了查询和键之外，值分支也先做逆几何变换，聚合完成后再乘回目标视角对应的变换矩阵。相比 CaPE，它在“比较—聚合—回写”三个阶段都保持几何一致，因此更强调跨视角特征传递时的坐标对齐。</p>
+    <h3>3.2 统一相机位置编码</h3>
+    <h4>3.2.1 相对射线编码</h4>
+    <p>Relative Ray Encoding 的做法是：对每个 token 构造一套局部射线坐标系，把该 token 对应的观察射线写成“起点 + 方向”的几何对象，再据此得到射线到世界、世界到射线的变换矩阵。这样，注意力层比较的不再是“两个相机的相对关系”，而是“两个 token 对应的两条射线如何在空间里对齐”。它能够自然覆盖非线性镜头投影和视场角变化。</p>
     <p>$$ \boldsymbol{r}_t = \big(\boldsymbol{o}_t,\, \boldsymbol{d}_t\big), \quad \boldsymbol{o}_t \in \mathbb{R}^3, \quad \boldsymbol{d}_t \in \mathbb{S}^2, $$</p>
     <p>这条式子把一条光线写成“起点 + 方向”的成对表示。这样后面的相机编码不必直接操作原始内外参，而是统一围绕每条射线在空间里的几何意义来建模。</p>
     <p>$$ \boldsymbol{z}_t = \boldsymbol{d}_t, \quad \boldsymbol{x}_t = \boldsymbol{y}^{\textrm{cam}}_{i(t)} \times \boldsymbol{z}_t, \quad \boldsymbol{y}_t = \boldsymbol{z}_t \times \boldsymbol{x}_t. $$</p>
     <p>这条并列公式是在为每个视角构造一组正交局部坐标轴。作者先用观察方向确定主轴，再通过叉乘补齐其余两个轴，从而得到一个稳定的射线局部参考系。</p>
     <p>$$ \mathbf{T}^{\textrm{wr}}_t = \begin{bmatrix} \mathbf{R}^{\textrm{wr}}_t & \boldsymbol{t}^{\textrm{wr}}_t \\ \mathbf{0}^\top & 1 \end{bmatrix}. $$</p>
     <p>这条式子把旋转和平移写成齐次变换矩阵，方便后续统一执行坐标变换。它说明论文里的相机/射线几何不是零散地分别处理，而是被组织成标准的矩阵运算接口。</p>
+    <h4>3.2.2 绝对方向编码</h4>
+    <p>仅有相对射线关系还不足以区分全局俯仰和滚转，因此作者又引入 Lat-Up 图：用每条射线的纬度角编码绝对仰角，再通过小角度旋转后的投影位移构造 up 方向。这个绝对方向分支为生成器提供了重力对齐的全局朝向线索，使得用户可以直接控制 pitch / roll，而不只是相邻帧之间的相对旋转。</p>
     <p>$$ \text{Lat}_t = \arctan2 \big(-d_{t,y},\, \sqrt{d_{t,x}^{2} + d_{t,z}^{2}}\big), $$</p>
     <p>这条式子把三维方向转换成纬度角，用来生成可注入网络的绝对朝向信号。这样模型不仅知道相对相机关系，也能知道当前视角在全局方向上的位置。</p>
+    <h3>3.3 用于 UCPE 注入的空间注意力适配器</h3>
+<figure><img class='paper-fig' src='../assets/2512_07237v2/pipeline.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：Spatial Attention Adapter 总览。适配器把 world-to-ray 变换、RoPE 以及可选 Lat-Up map 组合成混合编码，在并联分支中做相机感知注意力，再通过零初始化线性层回写到原始 DiT，最大限度保留预训练先验。</figcaption></figure>
+    <h4>3.3.1 带混合编码的空间注意力</h4>
+    <p>在具体实现上，作者把 world-to-ray 变换和 RoPE 组合成块对角的混合编码：前半部分负责射线空间几何，后半部分保留图像空间位置关系。这样做的好处是，模型既不会丢掉图像局部结构，又能把跨视角几何约束显式写进注意力的查询、键、值交互里。</p>
+    <h4>3.3.2 通过注意力适配 Transformer</h4>
+    <p>UCPE 没有直接替换原始 Wan DiT 的自注意力层，而是并联增加一个 LoRA 风格的 UCPEAttn 分支，并先把 token 压缩到原维度的 1/8。这样既降低额外参数和计算量，又通过零初始化输出层保证初始时不会破坏预训练模型的分布。论文的经验结果也说明，并联注入明显优于把适配器插到自注意力前或后。</p>
 
     <h2 id='experiment'>实验结论</h2>
-    <p>实验部分主要围绕 更高的压缩比可提高视频质量指标，同时保持稳定的摄像机可控性 展开。结果表明，我们采用默认设置，它提供了性能和效率之间的最佳权衡。</p>
+    <p>实验部分重点验证三件事：UCPE 是否能在多种镜头条件下保持相机控制；是否能在未见数据集上泛化；以及轻量适配器的具体设计为什么有效。作者先合成了约 4.8 万段带随机视场角和畸变参数的 360° 视频片段，再在 RealEstate10K 上做分布外测试，因此评测不仅考察轨迹控制，还同时考察绝对朝向和镜头控制。</p>
 
-<figure><img class='paper-fig' src='../assets/2512_07237v2/fig_2.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：(a) 直接参数化将相机内在参数和外在参数编码为原始参数，缺乏几何可解释性和跨相机类型的兼容性；(b) Plücker 编码将每条射线表示为一对方向和力矩向量，提供</figcaption></figure>
-<figure><img class='paper-fig' src='../assets/2512_07237v2/fig_5.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：该图展示了论文中的关键模块、实验设置或可视化效果</figcaption></figure>
-<figure><img class='paper-fig' src='../assets/2512_07237v2/fig_6.png' alt='Figure 6:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 6：该图展示了论文中的关键模块、实验设置或可视化效果</figcaption></figure>
-    <h3>4.1 实验装置</h3>
-    <p>实验部分主要围绕 使用 FID、FVD 进行评估以实现数据集级保真度，使用 CLIP 分数进行文本视频对齐，使用 Q-Align 进行以用户为中心的质量评估 展开。结果表明，每个生成的帧都被校正为具有真实失真的针孔视图，并由 ViPE 进行估计，报告平移 (TransErr)、旋转 (RotErr) 和运动一致性 (CamMC)。</p>
-    <h3>4.2 与以前方法的比较</h3>
-    <p>实验部分主要围绕 我们将 UCPE 与几种有代表性的相机调节方法进行比较 展开。结果表明，UCPE 在两种配置中始终实现了更好的性能，展示了卓越的摄像机可控性和视频质量，同时仅在 7.0 版本的基础上增加了 3550 万个参数或 0.5% 的参数。</p>
+    <h3>4.1 实验设置</h3>
+    <p>评价指标覆盖四个维度：视频质量、相对位姿控制、绝对朝向控制以及镜头控制。作者分别统计数据集级画质、文本一致性、平移与旋转误差、运动一致性，以及视场角和径向畸变参数误差。这套指标设计和论文目标完全对应——UCPE 不只追求“画面看起来像”，而是同时追求“相机真的按要求运动并具有目标镜头属性”。</p>
+    <h3>4.2 与以往方法比较</h3>
+    <p>和 ReCamMaster、Wan CameraCtrl、AC3D、CameraCtrl 相比，UCPE 在合成数据集的两种设置下都取得了更好的相机可控性与视频质量，同时额外参数只增加 3550 万，约占 7.3B 基座的 0.5%，比 ReCamMaster 少约 90%。在 RealEstate10K 上，即使没有额外适配，UCPE 仍在相对相机位姿控制上优于所有基线，说明这种射线级编码确实带来了更强的跨数据集泛化能力。</p>
+<figure><img class='paper-fig' src='../assets/2512_07237v2/panshot.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：合成数据集上的定性比较。UCPE 能更准确地跟随目标轨迹，并持续复现目标镜头畸变；相比之下，Wan CameraCtrl 更容易出现相机运动偏差，ReCamMaster 则更容易丢失目标畸变效果。</figcaption></figure>
+<figure><img class='paper-fig' src='../assets/2512_07237v2/re10k.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：RealEstate10K 上的比较结果。尽管没有在该数据集上再微调，UCPE 仍生成了更清晰、更细节化且更贴合目标相机运动的视频；CameraCtrl 容易出现明显伪影，AC3D 更容易出现构图失衡和动态范围不足。</figcaption></figure>
     <h3>4.3 消融研究</h3>
-    <p>实验部分主要围绕 更高的压缩比可提高视频质量指标，同时保持稳定的摄像机可控性 展开。结果表明，我们采用默认设置，它提供了性能和效率之间的最佳权衡。</p>
+    <p>消融结论也很清晰。首先，适配器里的特征压缩比例并非越小越好，1/8 在效率和性能之间给出了最优折中。其次，把适配器放在自注意力前或后都会明显削弱控制和画质，说明并联结构最适合在不破坏预训练先验的前提下引入几何条件。最后，用 PRoPE 或 GTA 替换 UCPE 的相对射线编码后，相机镜头控制和相对位姿控制都会下降，表明“每个视觉单元一条射线”的细粒度建模才是论文真正起作用的部分。</p>
 
     <h2 id='takeaway'>理解评价</h2>
-    <p>如果把这篇论文放回问题背景里看，它真正的价值在于：变形金刚已成为 3D 感知、视频生成以及自动驾驶和人工智能世界模型的通用支柱，其中理解相机几何形状对于在三维空间中进行视觉观察至关重要。这说明作者不是只补一个局部模块，而是在重新组织问题该怎样被解决。</p>
-    <p>最能支撑这个判断的，还是实验给出的证据：然而，现有的相机编码方法通常依赖于简化的针孔假设，限制了现实世界相机中各种本征和镜头畸变的泛化。换句话说，这些设计并不只是概念上更完整，而是实实在在改变了最终结果。</p>
-    <p>当然，它离真正成熟的方案还有距离：当前方案的局限在于它仍然受制于计算资源、输入质量或场景复杂度，距离真正稳健的大规模部署还有差距。后续更值得继续推进的方向，是 我们提出了 UCPE，它通过相对光线编码和绝对方向线索联合建模姿势、内在特性和镜头畸变。</p>
-    
+    <p>我认为这篇工作的真正贡献，不是又提出了一种“可控相机视频生成”技巧，而是把问题重心从“给模型喂一组相机参数”转成了“让每个 token 都理解自己对应的成像射线”。这个改写非常本质，因为它让镜头畸变、超广角以及非线性投影不再是外部噪声，而是直接进入注意力计算的第一类几何对象。</p>
+    <p>论文目前的主要局限在于，它仍然建立在预训练视频扩散 Transformer 之上，训练和推理成本都不低；同时绝对方向分支依赖重力对齐这一现实先验，因此对极端自由旋转镜头或不稳定姿态数据的适应性还有待进一步验证。此外，实验虽然已经覆盖了合成镜头和 RealEstate10K，但离更复杂的多传感器自动驾驶场景还有距离。</p>
+    <p>后续最值得推进的方向有三条：一是把 UCPE 从视频生成继续扩展到更广义的 3D 感知与世界模型；二是研究更强的非中心相机和多镜头联合建模，而不只是在单模型里适配不同镜头参数；三是进一步压缩 adapter 和推理开销，让这种射线级相机控制真正进入更大规模、长时序的生成系统。</p>
+
   </article>
 </div>
-
+  </div>
+</div>
+<div id='page-lightbox' class='page-lightbox' hidden aria-hidden='true'>
+  <div class='page-lightbox-inner'>
+    <button type='button' class='page-lightbox-close' aria-label='关闭大图' title='关闭'>&times;</button>
+    <img id='page-lightbox-image' class='page-lightbox-image' alt='' />
+    <div id='page-lightbox-caption' class='page-lightbox-caption'></div>
   </div>
 </div>
 </body>

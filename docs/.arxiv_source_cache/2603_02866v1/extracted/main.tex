@@ -1,0 +1,523 @@
+% Template for ICASSP-2026 paper; to be used with:
+%          spconf.sty  - ICASSP/ICIP LaTeX style file, and
+%          IEEEbib.bst - IEEE bibliography style file.
+% --------------------------------------------------------------------------
+\documentclass{article}
+\usepackage{spconf,amsmath,graphicx,hyperref}
+
+% \usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsfonts}
+\usepackage{mathtools}
+\usepackage{bbm}
+
+\usepackage{cite}
+\usepackage{url}
+\usepackage{hyperref}
+
+
+\usepackage{cleveref} % 
+
+\usepackage{caption}
+\usepackage{float}
+
+\usepackage{xcolor}
+
+\usepackage{times}
+\usepackage{epsfig}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{url}
+\usepackage[numbers,sort&compress]{natbib}
+%%%%%%%%%%%%
+\usepackage{graphicx}
+% \usepackage{amsmath}
+% \usepackage{amssymb}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{multirow}
+\usepackage{makecell}
+
+\crefname{section}{Sec.}{Secs.}
+\Crefname{section}{Section}{Sections}
+\Crefname{table}{Table}{Tables}
+\crefname{table}{Tab.}{Tabs.}
+\Crefname{figure}{Figure}{Figures}
+\crefname{figure}{Fig.}{Figs.}
+% \usepackage{xcolor}
+
+\definecolor{firstplace}{RGB}{255,179,179}   % 金色背景
+\definecolor{secondplace}{RGB}{255,217,179} % 银色背景
+\definecolor{thirdplace}{RGB}{255,255,180}   % 铜色背景
+
+% \usepackage[numbers,sort&compress]{natbib}
+% \bibliographystyle{unsrtnat}
+% \bibliography{references}
+
+
+% Example definitions.
+% --------------------
+\def\x{{\mathbf x}}
+\def\L{{\cal L}}
+
+
+% Example definitions.
+% --------------------
+\def\x{{\mathbf x}}
+\def\L{{\cal L}}
+
+
+
+
+% Title.
+% ------
+\title{Multimodal-Prior-Guided Importance Sampling for Hierarchical Gaussian Splatting in Sparse-View Novel View Synthesis}
+%
+% Single address.
+% ---------------
+\name{ Kaiqiang Xiong\textsuperscript{1,2}, Zhanke Wang\textsuperscript{1}, Ronggang Wang\textsuperscript{1,2,3 *}\thanks{ * Ronggang Wang is the corresponding author(rgwang@pkusz.edu.cn). } \thanks{This work is financially supported by Guangdong Provincial Key Laboratory of Ultra High Definition Immersive Media Technology(Grant No. 2024B1212010006), this work is also financially supported for Outstanding Talents Training Fund in Shenzhen, Shenzhen Science and Technology Program(Grant No. SYSPG20241211173440004,   and Grant No. RCJC20200714114435057), R24115SG MIGU-PKU META VISION TECHNOLOGY INNOVATION LAB. This work is also supported by the Key Research and Development Program of Pengcheng Laboratory under Grant PCL2024A02.} }
+
+% \name{Author(s) Name(s)\thanks{Thanks to XYZ agency for funding.}}
+\address{{\textsuperscript{1}Guangdong Provincial Key Laboratory of Ultra High Definition Immersive Media Technology,} \\
+{Shenzhen Graduate School, Peking University, China} \\
+{\textsuperscript{2}Peng Cheng Laboratory, China} \\
+{\textsuperscript{3}Migu Culture Technology Co., Ltd., China}}
+%
+% For example:
+% ------------
+%\address{School\\
+%	Department\\
+%	Address}
+%
+% Two addresses (uncomment and modify for two-address case).
+% ----------------------------------------------------------
+%\twoauthors
+%  {A. Author-one, B. Author-two\sthanks{Thanks to XYZ agency for funding.}}
+%	{School A-B\\
+%	Department A-B\\
+%	Address A-B}
+%  {C. Author-three, D. Author-four\sthanks{The fourth author performed the work
+%	while at ...}}
+%	{School C-D\\
+%	Department C-D\\
+%	Address C-D}
+%
+\begin{document}
+%\ninept
+%
+
+
+
+\ninept
+
+\makeatletter
+\let\@oldmaketitle\@maketitle
+\renewcommand{\@maketitle}{\@oldmaketitle
+\centering
+\vspace{-0.3cm}
+\resizebox{0.8\linewidth}{!}{
+\includegraphics[trim={1cm 4.5cm 3cm 3.5cm},clip, width=1\linewidth]{figures/head.pdf}
+}
+
+
+\centering
+\captionsetup{hypcap=false}
+\captionof{figure}{
+\textbf {Qualitative  comparison  of  Sparse-view Novel View Synthesis  quality with the SOTA methods CoR-GS ~\cite{zhang2024cor} and NexusGS ~\cite{zheng2025nexusgs} on DTU ~\cite{jensen2014large} dataset(3 views).} Our method renders more accurate detailed textures.} 
+\vspace{10pt}
+
+\label{fig:head}
+}
+
+
+% }
+\makeatother
+
+
+\maketitle
+%
+\begin{abstract}
+  % 3D Gaussian Splatting for sparse-view novel view synthesis faces two key challenges: insufficient geometric supervision and suboptimal Gaussian placement. We propose a hierarchical framework with adaptive importance sampling to overcome these limitations. Our method features three key components: Hierarchical representation using coarse Gaussians for global geometry and fine Gaussians for adaptive refinement; Multi-modal importance evaluation combining rendering errors, semantic priors, geometric complexity, and view coverage;  Constraint-aware sampling that prioritizes well-constrained regions while avoiding under-supervised areas. The adaptive sampling strategy leverages semantic segmentation for object priors, depth gradients for geometric analysis, and view coverage assessment to prevent artifacts. Unlike uniform approaches, our method concentrates computational resources where multi-view constraints are reliable, which prevents premature pruning of newly added Gaussians under sparse supervision. Our method outperforms state-of-the-art novel
+  % view synthesis approaches, achieving up to 0.3dB improvement in terms of PSNR on the DTU dataset, with reduced blurry and enhanced visual quality.
+  
+  % Our approach effectively preserves fine details while reducing artifacts in challenging sparse-view scenarios. Experiments on sparse-view benchmarks show superior performance of the proposed method.
+  % We address novel view synthesis from sparse image sets using 3D Gaussian Splatting (3DGS), where two factors—insufficient multi-view geometric supervision and suboptimal Gaussian placement—severely limit reconstruction fidelity. We introduce a hierarchical, constraint-aware 3DGS framework with adaptive importance sampling to overcome these limitations. Our method combines: (1) a coarse-to-fine Gaussian representation that encodes global geometry with a coarse layer and selectively adds fine Gaussians for local detail; (2) a multi-modal importance metric that fuses photometric rendering residuals, semantic priors, geometric cues (depth gradients), and view-coverage statistics to decide where to refine; and (3) a constraint-aware sampling and retention policy that focuses refinement where multi-view evidence is reliable while preventing premature pruning of newly added primitives in under-constrained areas. Unlike residual-only strategies that over-refine texture-induced photometric errors or amplify pose/appearance noise, our multi-dimensional evaluation discriminates true geometric edges from high-frequency appearance and ensures resources are spent where they are most useful. Experiments on sparse-view benchmarks demonstrate that our approach preserves fine structure, reduces artifacts, and improves rendering quality — achieving up to 0.3 dB PSNR gain on the DTU dataset — particularly in texture-rich and structurally important regions (see \cref{fig:head}).
+  
+  % Sparse-view novel view synthesis remains challenging for 3D Gaussian Splatting (3DGS) due to two intertwined limitations: insufficient multi-view geometric supervision and suboptimal Gaussian placement. We propose a hierarchical, constraint-aware 3DGS framework with multimodal-prior-gudide importance sampling to address these issues. Our approach combines three components: (1) a coarse-to-fine Gaussian representation that encodes global geometry with a stable coarse layer and selectively adds fine Gaussians for local detail; (2) a multi-modal importance metric that fuses photometric rendering residuals, semantic priors and geometric priors to guide refinement; and (3) a constraint-aware sampling and retention policy that concentrates refinement on geometrically critical and complex regions while protecting newly added primitives in underconstrained areas from premature pruning. Unlike residual-only strategies that overfit texture-induced photometric errors or amplify pose/appearance noise, our multi-dimensional evaluation discriminates true geometric edges from high-frequency appearance and allocates resources where they yield the most benefit. Experiments on sparse-view benchmarks show state-of-the-art performance, with up to 0.3 dB PSNR gain on the DTU dataset, particularly in texture-rich and structurally important regions.
+  
+  
+  We present multimodal-prior-guided importance sampling as the central mechanism for hierarchical 3D Gaussian Splatting (3DGS) in sparse-view novel view synthesis. Our sampler fuses complementary cues — photometric rendering residuals, semantic priors, and geometric priors — to produce a robust, local recoverability estimate that directly drives where to inject fine Gaussians. Built around this sampling core, our framework comprises (1) a coarse-to-fine Gaussian representation that encodes global shape with a stable coarse layer and selectively adds fine primitives where the multimodal metric indicates recoverable detail; and (2) a geometric-aware sampling and retention policy that concentrates refinement on geometrically critical and complex regions while protecting newly added primitives in underconstrained areas from premature pruning. By prioritizing regions supported by consistent multimodal evidence rather than raw residuals alone, our method alleviates overfitting texture-induced errors and suppresses noise from appearance inconsistencies. Experiments on diverse sparse-view benchmarks demonstrate state-of-the-art reconstructions, with up to +0.3 dB PSNR on DTU.
+  
+  \end{abstract}
+  %s
+  
+  \begin{keywords}
+  % 后面 选择一下
+  Novel view synthesis, Sparse-view rendering, 3D Gaussian Splatting
+  \end{keywords}
+  %
+  \section{Introduction}
+  \label{sec:intro}
+  % Novel view synthesis is a fundamental problem in computer vision with wide applications in virtual reality, robotics, and content creation. Recent work on 3D Gaussian Splatting (3DGS) ~\cite{kerbl20233d} has shown that a point-based, Gaussian-parameterized scene representation can render high-quality novel views in real time, rivaling or exceeding neural radiance field methods when dense multi-view data are available. However, when input images are sparse, 3D Gaussian Splatting faces two interrelated challenges that degrade reconstruction fidelity: insufficient geometric supervision and suboptimal Gaussian placement.
+  
+  % Novel view synthesis is a central problem in computer vision with applications in virtual/augmented reality, robotics, and content creation. Recent advances in 3D Gaussian Splatting (3DGS) ~\cite{kerbl20233d}have shown excellent real-time rendering quality given dense multi-view inputs. However, when input views are sparse, 3DGS suffers from two coupled issues: (i) insufficient geometric supervision that makes local geometry ambiguous or unstable, and (ii) suboptimal placement and pruning of Gaussians, which often fails to allocate higher-resolution Gaussians in regions that require fine geometric detail (e.g., object boundaries, thin structures, and texture-rich surfaces) and, at the same time, treats all primitives uniformly during optimization and pruning, causing legitimately added fine Gaussians to be prematurely removed in weakly supervised areas.
+  
+  Novel view synthesis is a central problem in computer vision with broad applications in virtual/augmented reality, robotics, and content creation. While 3D Gaussian Splatting (3DGS)~\cite{kerbl20233d} provides high-fidelity, real-time rendering with dense multi-view inputs, its performance deteriorates under sparse-view conditions because (i) geometric supervision becomes spatially sparse and uneven, and (ii) the default densification-and-pruning strategy blindly scatters Gaussians, wasting capacity on well-observed surfaces while under-fitting thin structures, object boundaries and texture-rich regions that are essential for photo-realism. Consequently, a key question arises: how can we allocate the limited budget of Gaussians to locations where fine detail is actually recoverable?
+  
+  % Novel view synthesis has emerged as a fundamental problem in computer vision with applications spanning virtual reality, robotics, and content creation. Recent advances in 3D Gaussian Splatting (3DGS) ~\cite{kerbl20233d} have demonstrated remarkable success in rendering photorealistic novel views from dense image collections, offering superior quality and real-time performance compared to neural radiance fields ~\cite{mildenhall2021nerf}. However, dense-view acquisition is often impractical in real-world scenarios due to accessibility constraints, time limitations, or cost considerations, making sparse-view novel view synthesis ~\cite{chen2021mvsnerf, chibane2021stereo, deng2022depth, song2023darf} a critical research direction.
+  Prior efforts to mitigate sparse-view failures include depth-based regularization ~\cite{chung2024depth, li2024dngaussian, zhu2024fsgs}, multi-field regularization  ~\cite{zhang2024cor} , dropout-style regularizers ~\cite{park2025dropgaussian, xu2025dropoutgs}, and approaches that leverage pretrained models to recover dense correspondences or initialize dense point clouds ~\cite{zheng2025nexusgs}. These strategies improve robustness, yet they either impose spatially-uniform constraints or rely on heuristics that do not tell where additional geometry can be reliably recovered.
+  
+  % A coarse layer maintains global shape stability, while a fine layer is only injected where complementary photometric, semantic and geometric cues jointly indicate sufficient constraint. A reliability mask and a temporal protection mechanism further prevent premature pruning in under-observed regions. Extensive experiments on DTU, LLFF and Mip-NeRF-360 show that the proposed method sets a new state of the art for sparse-view NVS, gaining up to +0.3 dB PSNR over the previous best competitor.
+  
+  
+  % While these methods improve robustness, they typically rely on spatially uniform priors or heuristics and lack a principled mechanism to localize where additional geometric detail is genuinely recoverable under sparse supervision.
+  
+  
+  \begin{figure*}[t]
+    \begin{center}
+      % 左下右上
+       \includegraphics[trim={2cm 2.5cm 8cm 3cm},clip,width=0.75\linewidth]{figures/frame_0918.pdf}
+    \end{center}
+    \vspace{-0.3cm}
+    \caption{\textbf{Framework.} Our hierarchical Gaussian Splatting framework with Multimodal-Prior-Guided importance sampling for sparse-view novel view synthesis. It consists of three main components: (a) a Hierarchical Gaussian representation with coarse and fine levels (in  \cref{subsec:hier}), (b) a Multi-Modal Importance Assessment module (in \cref{subsec:mmia}), and (c) a Geometric-aware Sampling and pruning strategy (in \cref{subsec:caas}).
+     }
+    \label{fig:framework}
+    \vspace{-0.3cm}
+    \end{figure*}
+    
+  % Under sparse-view conditions, multi-view constraints are highly non-uniform. Some surface regions are observed by many images with favorable baselines and yield strong consistency; others are seen by few views, occluded, or texture-poor, producing weak and ambiguous supervision. Uniform or naively uniform refinement strategies therefore fail to concentrate representational capacity on resolvable, detail-rich regions. This mismatch produces two complementary failure modes: (1) regions that require high-frequency geometry—object boundaries, thin structures, and texture-rich surfaces—are under-sampled and lose fine detail; and (2) newly introduced fine Gaussians in weakly supervised regions are treated identically to well-constrained primitives and may be driven by noise or prematurely pruned, causing loss of legitimate geometry and view-inconsistent artifacts.
+  
+  % Previous efforts to mitigate sparse-view failure modes include depth-based regularization ~\cite{chung2024depth, li2024dngaussian, zhu2024fsgs}, joint multi-field regularization (CoR-GS)~\cite{zhang2024cor} , dropout-style regularizers ~\cite{park2025dropgaussian, xu2025dropoutgs}, and approaches that leverage pretrained models to recover dense flows and initialize dense point clouds ~\cite{zheng2025nexusgs}. While these methods improve robustness, they typically apply spatially uniform priors or heuristics and lack a principled mechanism to localize where additional geometric detail is most needed under sparse supervision.
+  
+  % Sparse-view novel view synthesis presents unique challenges that fundamentally differ from dense-view settings. With limited input viewpoints, traditional 3DGS approaches suffer from insufficient geometric supervision, leading to ambiguous depth estimation, inconsistent geometry across views, and suboptimal Gaussian placement. The uniform densification strategy employed by standard 3DGS becomes particularly problematic under sparse supervision, as it may allocate computational resources to regions with unreliable multi-view constraints and while neglecting areas that require detailed reconstruction.
+  
+  % Previous attempts to address sparse-view synthesis have primarily focused on depth-based regularization techniques ~\cite{chung2024depth, li2024dngaussian, zhu2024fsgs}, CoR-GS ~\cite{zhang2024cor} employs a joint training approach to optimize multiple 3DGS fields concurrently, with regularization applied to point cloud generation.  Additionally, Dropout regularization techniques ~\cite{park2025dropgaussian, xu2025dropoutgs} are utilized to combat overfitting. NexusGS ~\cite{zheng2025nexusgs} harnesses pre-trained models to estimate dense optical flow, thereby acquiring depth information and constructing dense initial point clouds that establish reliable geometric priors. While these methods show improvements, they often treat all spatial regions uniformly, failing to account for the varying reliability of geometric constraints across the scene. Moreover, existing approaches lack a principled mechanism to identify where additional geometric detail is most needed under sparse supervision.
+  
+  % To address these limitations, we present a hierarchical, constraint-aware 3DGS pipeline with adaptive importance sampling. The core ideas are:
+  % Hierarchical representation: a stable coarse Gaussian layer captures global shape and guides optimization; fine Gaussians are proposed and optimized only where justified by the importance metric.
+  % Multi-modal importance evaluation: we fuse photometric residuals with semantic priors (to prioritize object surfaces and perceptually salient regions), geometric cues such as depth gradients (to detect true edges and high-frequency geometry), and view-coverage statistics (to ensure sufficient multi-view support for refinement).
+  % Constraint-aware sampling and retention: sampling prioritizes areas with reliable multi-view constraints and defers or conservatively treats under-constrained regions; newly added Gaussians are guarded against premature pruning until adequate evidence accumulates.
+  
+   In contrast,  we propose a hierarchical, geometric-aware 3DGS pipeline driven by multimodal-prior-guided importance sampling. The sampler fuses complementary cues—photometric rendering residuals, semantic priors and geometric priors (e.g., depth and normals) — to produce a local recoverability score that directly determines where to propose fine Gaussians. Built around this sampling core, our framework comprises three key elements:  (1) a multimodal importance metric that discriminates true geometric edges from high-frequency appearance or noise, avoiding the overfitting pitfalls of residual-only strategies; and (2) a coarse-to-fine Gaussian representation in which a stable coarse layer encodes global shape and fine Gaussians are injected selectively where multimodal evidence indicates recoverable detail; and (3) a geometric-aware sampling and retention policy that focuses refinement on geometrically critical and complex regions while protecting newly added primitives in underconstrained areas from premature pruning until sufficient geometric evidence accumulates. Together, these components concentrate modeling capacity where geometry is actually recoverable, preserve sharp boundaries and structural detail, and stabilize optimization under sparse supervision, as shown in \cref{fig:head}.
+  
+  
+  
+  % We propose a hierarchical framework that addresses these limitations through adaptive importance sampling tailored specifically for sparse-view scenarios. Our key insight is that effective sparse-view reconstruction requires intelligent resource allocation that concentrates computational effort where multi-view constraints are most reliable while avoiding overfitting in under-constrained regions. To this end, we introduce an adaptive hierarchical representation where coarse Gaussians establish global geometric consistency, and fine Gaussians are adaptively placed based on multi-modal importance assessment.
+  
+  % Our importance sampling strategy integrates multiple complementary cues: rendering residuals identify reconstruction errors, semantic priors provide object-level guidance, geometric complexity analysis highlights detail-rich regions, and view coverage assessment ensures reliable multi-view support. This multi-dimensional approach enables more robust and efficient Gaussian placement compared to error-based sampling alone, particularly crucial when training data is limited, thereby improving rendering quality in texture-rich regions as shown in \cref{fig:head}.
+  
+  % The main contributions of this work are: (1) A hierarchical Gaussian representation designed for sparse-view constraints with adaptive refinement; (2) A multi-modal importance sampling framework that integrates rendering, semantic, geometric, and coverage cues for intelligent Gaussian placement; (3) A constraint-aware sampling strategy that prioritizes well-supervised regions while preventing artifacts in under-constrained areas; (4) Comprehensive evaluation demonstrating superior performance on sparse-view benchmarks while maintaining real-time rendering performance.
+  % This multi-dimensional strategy yields three key practical benefits. First, it concentrates modeling capacity on regions that the available images can actually resolve, improving geometric fidelity and lowering rendering error. Second, by combining semantic and geometric signals, it preserves fine boundaries and texture-rich details without misinterpreting high-frequency appearance as geometric error. Third, by accounting for view coverage in refinement and pruning, it prevents unstable add/delete oscillations and protects legitimate late-added primitives, improving optimization stability under sparse supervision. In contrast, residual-only and spatially uniform schemes commonly overfit texture or oscillate in high-frequency regions; our method uses semantics and depth gradients to distinguish texture from geometry and view-coverage to avoid unreliable refinement, leading to more stable and visually faithful reconstructions (see \cref{fig:head}).
+  
+  % We validate our method on challenging sparse-view benchmarks and demonstrate consistent qualitative and quantitative improvements over baseline approaches. Ablation studies confirm the complementary value of photometric, geometric, and semantic priors in guiding robust refinement.
+  
+  % Contributions. 
+  We summarize our contributions as follows:
+  % \vspace{-0.3cm}
+  \begin{itemize}
+    \setlength{\itemsep}{2pt}
+    \setlength{\parsep}{0pt}
+    \setlength{\parskip}{0pt}
+  % \item A hierarchical 3D Gaussian Splatting framework tailored for sparse-view novel view synthesis that stabilizes optimization via a coarse-to-fine representation.
+  % \item  A multi-modal importance metric that fuses photometric, semantic, geometric, and view-coverage signals to guide adaptive refinement.
+  % \item  A constraint-aware sampling and pruning strategy that focuses resources on well-constrained regions and prevents premature removal of useful primitives.
+  
+  \item A multimodal-prior-guided importance metric that fuses photometric, geometric, and semantic signals to localize where fine Gaussians should be allocated.
+  \item  A hierarchical 3D Gaussian Splatting framework for sparse-view novel view synthesis that stabilizes optimization via a coarse-to-fine representation driven by multimodal importance estimates.
+  \item  A geometric-aware sampling and pruning strategy that concentrates resources on geometrically critical regions and prevents premature removal of newly added primitives in underconstrained areas.
+  \end{itemize}
+  
+  \section{Method}
+  \label{sec:method}
+  
+  
+  
+  % Our approach addresses sparse-view novel view synthesis through a hierarchical Gaussian Splatting framework with adaptive importance sampling. \cref{fig:framework} illustrates the overall pipeline, which consists of three main components: (1) a hierarchical Gaussian representation ( \cref{subsec:hier}) that maintains both coarse and fine levels of detail , (2) a multi-modal importance assessment module ( \cref{subsec:mmia}) that evaluates reconstruction quality from multiple perspectives , and (3) a constraint-aware adaptive sampling strategy ( \cref{subsec:caas})that intelligently places new Gaussians where they are most needed.
+  
+  % Given sparse input views $\{I_i\}_{i=1}^N$ with corresponding camera poses $\{P_i\}_{i=1}^N$, our goal is to optimize a 3D scene representation that enables high-quality novel view synthesis. Unlike dense-view scenarios where uniform densification suffices, sparse-view reconstruction requires careful consideration of geometric reliability across different spatial regions.
+  
+  
+  We center our design on multimodal-prior-guided importance sampling to address sparse-view novel view synthesis within a hierarchical Gaussian Splatting framework. \cref{fig:framework} depicts the pipeline, whose three main components are: (1) a hierarchical Gaussian representation ( \cref{subsec:hier}) preserves both coarse global shape and selectively added fine detail; (2) a multimodal importance assessment module (\cref{subsec:mmia}) that computes a local recoverability score by fusing photometric residuals with  semantic cues and geometric priors (e.g., depth, normals); and (3) a geometric-aware sampling strategy ( \cref{subsec:caas})that uses the multimodal score to propose, place, and retain fine Gaussians where they are most likely to improve geometry. By making the multimodal sampler the driving mechanism, our method explicitly distinguishes true geometric edges and underconstrained regions from high-frequency appearance or noise, thereby guiding refinement to regions where added primitives yield reliable gains and avoiding wasted or harmful densification.
+  
+  Given sparse input views $\{I_i\}_{i=1}^N$ with corresponding camera poses $\{P_i\}_{i=1}^N$, our goal is to optimize a 3D scene representation that enables high-quality novel view synthesis. Unlike dense-view scenarios where uniform densification suffices, sparse-view reconstruction must account for spatially varying geometric reliability and selectively allocate modeling capacity accordingly.
+  
+  \subsection{Preliminaries}
+  \label{subsec:prel}
+  % \noindent\textbf{3D Gaussians Splatting}
+  3D Gaussians Splatting ~\cite{kerbl20233d} is an explicit scene representation that supports high-fidelity real-time renderings. It represents the 3D scene as a set of 3D Gaussians 
+  $Gs=\{ G_j| j\in \{1, ..., M \} \}$
+  and renders images via splatting: 
+  $I^r_{i} =  \Psi(Gs, P_i, K_i),$
+  where $I^r_{i}$ is the rendered image and $P_i, K_i$ are the corresponding camera extrinsics and intrinsic.
+  Each 3D Gaussian $G_j$ is characterized as $\{ \mu, \Sigma, \alpha, F \}$.
+  $\mu$ is the mean of 3D Gaussian distribution. 
+  $\Sigma$ is the 3D covariance matrix
+  . 
+  Besides, $\alpha, F$  are opacity and spherical harmonics coefficients for rendering.
+  During rendering, Gaussians are projected to the 2D plane via viewing transformation $W$ and the Jacobian of the affine approximation $J$ of the projection transformation:
+  $\Sigma ' = JW \Sigma W^{T} J^{T}.$
+  The final color $C$ of each pixel is acquired in an alpha-blending way according to the depth order of the $O$ overlapping Gaussians.
+  % \begin{equation}
+  % 	C = \sum \limits_{i \in O} \alpha_{i} c_{i} \prod \limits_{j=1} \limits^{i-1}(1-\alpha_j).
+  % \end{equation}
+  A tile-based rasterizer is used for efficient rendering.
+  During optimization, the Gaussian parameters are updated under the reconstruction loss and SSIM loss ~\cite{wang2004image} between rendered and ground-truth images: $L = (1-\lambda)L_1 + \lambda L_\text{SSIM},$
+  where $\lambda$ is the weighting parameter.
+  More details can be found in the ~\cite{kerbl20233d}. 
+  % Although 3D Gaussians achieve high-quality real-time rendering, one limitation of 3D Gaussians is their requirement for dense-view images.
+  
+  \subsection{Hierarchical Gaussian Representation}
+  \label{subsec:hier}
+  We introduce a two-level hierarchical structure to balance global shape stability and local detail adaptivity under sparse-view constraints:
+  
+  \noindent\textbf{Coarse Level Gaussians ($\mathcal{G}_c$):} These Gaussians establish global geometric consistency and provide a stable foundation for the scene structure. They are initialized using the method proposed in ~\cite{zheng2025nexusgs} and remain relatively stable throughout training:$\mathcal{G}_c = \{(\mu_i^c, \Sigma_i^c, \alpha_i^c, c_i^c)\}_{i=1}^{M_c}$
+  where $\mu_i^c$, $\Sigma_i^c$, $\alpha_i^c$, and $c_i^c$ represent the position, covariance, opacity, and color of the $i$-th coarse Gaussian, respectively.
+  
+  \noindent\textbf{Fine Level Gaussians ($\mathcal{G}_f$):} These Gaussians capture detailed geometric features and are adaptively placed based on the propose multimodal importance sampling. They undergo dynamic densification and pruning during training:
+  \begin{equation}
+  \mathcal{G}_f = \{(\mu_j^f, \Sigma_j^f, \alpha_j^f, c_j^f)\}_{j=1}^{M_f}
+  \end{equation}
+  
+  The final rendering combines contributions from both levels:
+  $I_{\text{render}} = R(\mathcal{G}_c \cup \mathcal{G}_f, P)$
+  where $R(\cdot, P)$ denotes the Gaussian splatting rendering function for camera pose $P$.
+  
+  \begin{figure}[t]
+    \vspace{-0.3cm}
+    \begin{center}
+       \includegraphics[trim={4cm 1cm 4cm 0cm},clip,width=0.95\linewidth]{figures/comparison.pdf}
+    \end{center}
+    \vspace{-0.3cm}
+    \caption{ \textbf{Qualitative results on LLFF ~\cite{mildenhall2019local} and DTU ~\cite{jensen2014large} Datasets.} }
+    \label{fig:comparison}
+    \vspace{-0.3cm}
+    \end{figure}
+  
+  
+  \begin{table*}[htbp]
+    \scriptsize
+    \centering
+    \caption{Quantitative comparison on LLFF ~\cite{mildenhall2019local} , DTU ~\cite{jensen2014large}, and MipNeRF-360 ~\cite{barron2022mip} datasets. We color each cell as \colorbox{firstplace} {best}, \colorbox{secondplace} {second best}.}
+    \label{tab:quantitative_comparison}
+    % \resizebox{1.0\linewidth}{!}{
+    \resizebox{0.55\textwidth}{!}{
+    \begin{tabular}{l|ccc|ccc|ccc}
+    \toprule
+    \multirow{2}*{Method} & \multicolumn{3}{c|}{LLFF (3 Views)} & \multicolumn{3}{c|}{DTU (3 Views)} & \multicolumn{3}{c}{MipNeRF-360 (24 Views)} \\
+    \cmidrule(lr){2-4} \cmidrule(lr){5-7} \cmidrule(lr){8-10}
+    & PSNR↑ & SSIM↑ & LPIPS↓  & PSNR↑ & SSIM↑ & LPIPS↓ & PSNR↑ & SSIM↑ & LPIPS↓  \\
+    \midrule
+    DietNeRF~\cite{jain2021putting} & 14.94 & 0.370  & 0.496 & 11.85 & 0.633 & 0.314 & 20.21 & 0.557 & 0.387  \\
+    FreeNeRF~\cite{yang2023freenerf} & 19.63 & 0.612  & 0.308 & 19.92 & 0.787 & 0.182 & 22.78 & 0.689 & 0.323  \\
+    SparseNeRF~\cite{wang2023sparsenerf} & 19.86 & 0.624  & 0.328 & 19.55 & 0.769 & 0.201 & 22.85 & 0.693 & 0.315  \\
+    \midrule
+    3DGS~\cite{kerbl20233d} & 18.54 & 0.588  & 0.272 & 17.65 & 0.816 & 0.146 & 21.71 & 0.672 & 0.248  \\
+    DNGaussian~\cite{li2024dngaussian} & 19.12 & 0.591  & 0.294 & 18.91 & 0.790 & 0.176 & 18.06 & 0.423 & 0.584 \\
+    FSGS~\cite{zhu2024fsgs} & 20.43 & 0.682  & 0.248 & 17.14 & 0.818 & 0.162 & 23.40 & 0.733 & 0.238  \\
+    CoR-GS~\cite{zhang2024cor} & 20.45 & 0.712  & 0.196 & 19.21 & 0.853 & 0.119 & 23.55 & 0.727 & 0.226  \\
+    NexusGS~\cite{zheng2025nexusgs} & \colorbox{secondplace}{21.07} & \colorbox{secondplace}{0.738} & \colorbox{secondplace}{0.177} & \colorbox{secondplace}{20.21} & \colorbox{secondplace}{0.869} & \colorbox{firstplace}{0.102} & \colorbox{secondplace} {23.86} & \colorbox{secondplace} {0.753} & \colorbox{firstplace} {0.206}  \\
+    \midrule
+    \textbf{Ours} & \colorbox{firstplace}{\textbf{21.17}} & \colorbox{firstplace}{\textbf{0.746}} & \colorbox{firstplace}{\textbf{0.175}} & \colorbox{firstplace}{\textbf{20.51}} & \colorbox{firstplace}{\textbf{0.872}} & \colorbox{secondplace}{\textbf{0.104}} & \colorbox{firstplace}{\textbf{23.88}} & \colorbox{firstplace}{\textbf{0.754}} & \colorbox{secondplace}{\textbf{0.208}} \\
+    \bottomrule
+    \end{tabular}
+    }
+    \vspace{-0.3cm}
+  \end{table*}
+  
+  
+  
+  \subsection{Multi-Modal Importance Assessment}
+  \label{subsec:mmia}
+  To address the limitations of single-criterion sampling, we design a multi-modal importance assessment that integrates three complementary signals:
+  
+  \noindent\textbf{Rendering Residual ($S_{\text{render}}$):} Measures reconstruction error at each pixel:
+  \begin{equation}
+  S_{\text{render}}(x,y) = \|I_{\text{gt}}(x,y) - I_{\text{render}}(x,y)\|_2
+  \end{equation}
+  
+  % \noindent\textbf{Semantic Prior ($S_{\text{semantic}}$):} Leverages pre-trained segmentation models to identify object boundaries and semantically important regions:
+  % \begin{equation}
+  % S_{\text{semantic}}(x,y) = \mathcal{F}_{\text{seg}}(I_{\text{ref}})(x,y) \cdot \omega_{\text{boundary}}(x,y)
+  % \end{equation}
+  % where $\mathcal{F}_{\text{seg}}$ is a semantic segmentation network and $\omega_{\text{boundary}}$ enhances object boundary regions.
+  
+  \noindent\textbf{Semantic Prior ($S_{\text{semantic}}$):} Leverages a lightweight semantic segmentation network to identify object boundaries and semantically important regions:
+  \begin{equation}
+  S_{\text{semantic}}(x,y) = \mathcal{F}_{\text{seg}}(I_{\text{ref}})(x,y) \cdot (\omega_{\text{boundary}}(x,y) + \omega_{\text{foreground}}(x,y))
+  \end{equation}
+  where $\mathcal{F}_{\text{seg}}$ is a ResNet18-based ~\cite{he2016deep}  segmentation network pretrained with 21 semantic classes, $\omega_{\text{boundary}}$ and  $\omega_{\text{foreground}}$ enhances object boundary regions and foreground regions.
+  
+  
+  
+  \noindent\textbf{Geometric Complexity ($S_{\text{geometry}}$):} Evaluates local geometric variation with depth gradients:
+  \begin{equation}
+  S_{\text{geometry}}(x,y) = \|\nabla D(x,y)\|_2 + \lambda_{\text{curv}} \kappa(x,y)
+  % S_{\text{geometry}}(x,y) = \|\nabla D(x,y)\| + \lambda_{\text{curv}} \kappa(x,y)
+  % S_{\text{geometry}} = \nabla D + \lambda_{\text{curv}}
+  \end{equation}
+  where $D(x,y)$ is the the  monocular depth estimated with the Dense Prediction Transformer (DPT) ~\cite{ranftl2021vision} and $\kappa(x,y)$ represents surface curvature estimated with the second-order gradient of the depth.
+  
+  % \noindent\textbf{View Coverage ($S_{\text{coverage}}$):} Assesses the reliability of multi-view constraints:
+  % \begin{equation}
+  % S_{\text{coverage}}(x,y) = \min\left(1, \frac{|V_{\text{visible}}(x,y)|}{N_{\text{threshold}}}\right)
+  % \end{equation}
+  % where $V_{\text{visible}}(x,y)$ denotes the set of input views that observe pixel $(x,y)$, which is acquired by warp the pixel to the other views according to the rendering depth value.
+  
+  % The final importance score combines these signals:
+  % \begin{equation}
+  % S_{\text{importance}}(x,y) = \mathbf{w}^T \mathbf{s}(x,y)
+  % \end{equation}
+  % where $\mathbf{w} = [w_1, w_2, w_3, w_4]^T$ are the weighting coefficients and $\mathbf{s}(x,y) = [S_{\text{render}}, S_{\text{semantic}}, S_{\text{geometry}}, S_{\text{coverage}}]^T$ contains the individual importance scores.
+  
+  The final importance score combines these signals:$S_{\text{importance}}(x,y) \\ = \mathbf{w}^T \mathbf{s}(x,y)$,
+  % \begin{equation}
+  % S_{\text{importance}}(x,y) = \mathbf{w}^T \mathbf{s}(x,y)
+  % \end{equation}
+  where $\mathbf{w} = [w_1, w_2, w_3]^T$ are the weighting coefficients and $\mathbf{s}(x,y) = [S_{\text{render}}, S_{\text{semantic}}, S_{\text{geometry}}]^T$ contains the individual importance scores.
+  
+  \subsection{Geometric-Aware Sampling}
+  \label{subsec:caas}
+  To ensure robust training, our sampling strategy targets regions with strong geometric constraints while avoiding poorly-constrained areas:
+  
+  
+  \noindent\textbf{Reliability Assessment:} To ensure robust training, we identify well-constrained regions:$M_{\text{reliable}}(x,y) = I_g(x,y)$,
+  % \begin{equation}
+  % M_{\text{reliable}}(x,y) = I_c(x,y) \land I_g(x,y)
+  % \end{equation}
+  % where $I_c(x,y) = \mathbbm{1}[S_{\text{coverage}}(x,y) > \tau_{\text{coverage}}]$ and $I_g(x,y) = \mathbbm{1}[S_{\text{geometry}}(x,y) > \tau_{\text{geometry}}]$ are indicator functions for coverage and geometry constraints, respectively.
+  % \begin{equation}
+  % 	M_{\text{reliable}}(x,y) = I_g(x,y)
+  % 	\end{equation}
+    where $I_g(x,y) = \mathbbm{1}[S_{\text{geometry}}(x,y) > \tau_{\text{geometry}}]$ is indicator functions for geometry constraints.
+  
+  \noindent\textbf{Adaptive Gaussian Placement:} New Gaussians are placed probabilistically based on the importance score, but only in reliable regions:
+  $P_{\text{sample}}(x,y) = \frac{S_{\text{importance}}(x,y) \cdot M_{\text{reliable}}(x,y)}{\sum_{(i,j)} S_{\text{importance}}(i,j) \cdot M_{\text{reliable}}(i,j)}$.
+  The probabilistic sampling approach prevents over-concentration in high-scoring regions while maintaining exploration of moderately important areas. It avoids local optima in Gaussian placement and ensures better spatial coverage compared to deterministic top-k selection, leading to more robust scene representation. For a sampled pixel $(u,v)$, we back-project it to 3D space to sample fine gaussian using the rendering depth $d$ and camera intrinsics/extrinsics:
+  \begin{equation}
+    \mathbf{p}_w = R^{-1}\left(d,K^{-1}\begin{bmatrix}u\ v\ 1\end{bmatrix}^{T} - t\right), 
+    \end{equation}
+  where $K, R, t$ are the camera intrinsic matrix, rotation matrix, and translation vector, respectively. The covariance $\Sigma$ is initialized as an isotropic Gaussian with a predefined scale.
+  
+  \noindent\textbf{Protection Mechanism:} To prevent premature pruning under sparse supervision, newly added Gaussians are protected for $T_{\text{protect}}$ iterations: $\alpha_{\text{protected}} = \max(\alpha_{\text{original}}, \alpha_{\text{minimum}}) \quad \text{for } t < T_{\text{protect}}$
+  % \begin{equation}
+  % \alpha_{\text{protected}} = \max(\alpha_{\text{original}}, \alpha_{\text{minimum}}) \quad \text{for } t < T_{\text{protect}}
+  % \end{equation}
+  This protection mechanism prevents premature removal of newly added Gaussians, which may initially appear suboptimal but possess significant representational potential. By maintaining a minimum opacity threshold during the protection period, we ensure adequate optimization time for new primitives to demonstrate their value, particularly crucial under sparse supervision where individual Gaussians may only contribute meaningfully to a subset of views initially.
+  
+  
+  \subsection{Training Strategy}
+  \label{subsec:ts}
+  Our training procedure alternates between Gaussian optimization and Gaussian sampling:
+  
+  \noindent\textbf{Phase 1 - Coarse Initialization:} Initialize coarse Gaussians from point clouds and optimize for $N_{\text{coarse}}$ iterations to establish basic scene geometry.
+  \textbf{Phase 2 - Hierarchical Refinement:} Iteratively add fine Gaussians based on multimodal importance sampling every $T_{\text{sample}}$ iterations. The sampling frequency decreases over training:
+  $T_{\text{sample}}(t) = T_{\text{base}} \cdot (1 + \gamma \cdot t).$
+  \textbf{Phase 3 - Stabilization:} In the final training phase, we freeze the Gaussian placement and focus on optimizing parameters for stable convergence.
+  
+  This hierarchical framework with multimodal importance sampling enables robust sparse-view novel view synthesis by intelligently allocating computational resources where they are most beneficial while maintaining geometric consistency across challenging viewing conditions. During training, we employ the same loss as 3DGS\cite{kerbl20233d}.
+  
+  
+  % \begin{table}[htbp]
+    
+  % 	\caption{Ablation study on DTU ~\cite{jensen2014large} with 3 training views.} 
+  % 	\centering
+  % 	\resizebox{1.0\linewidth}{!}{
+  % 	\begin{tabular}{ccccc ccc}
+  % 	\toprule
+  % 	$S_{rend}$ & $S_{sem}$ & $S_{geo}$ & $S_{cov}$ & $CAAS$ & PSNR↑ & SSIM↑ & {LPIPS↓} \\
+  
+  % 	\midrule
+  % 	$\times$ & $\checkmark$    & $\checkmark$   & $\checkmark$  & $\checkmark$  & 20.32 & 0.870  & 0.102 \\
+  
+  % 	$\checkmark$  & $\times$   & $\checkmark$   & $\checkmark$  & $\checkmark$  & 20.41 & 0.871  & 0.101 \\
+  
+  % 	$\checkmark$  & $\checkmark$    & $\times$   & $\checkmark$ & $\checkmark$  & 20.43 & \textbf{0.873}  & 0.102 \\
+    
+  % 	$\checkmark$ & $\checkmark$   & $\checkmark$  & $\times$  & $\checkmark$  & 20.45 & 0.872  & \textbf{0.104} \\
+  
+  % 	$\checkmark$ & $\checkmark$   & $\checkmark$  & $\checkmark$ & $\times$  &  20.30  & 0.869 & 0.102 \\
+  
+  % 	$\checkmark$ & $\checkmark$   & $\checkmark$  & $\checkmark$ & $\checkmark$   & \textbf {20.51}  & 0.872 & \textbf {0.104} \\
+  % 	\bottomrule
+  % 	\end{tabular}
+  % 	}
+  % 	\label{tab:ablation}
+  % 	\vspace{-0.5cm}
+  % \end{table}
+  
+  
+  \begin{table}[htbp]
+    
+    \caption{Ablation study on DTU ~\cite{jensen2014large} with 3 training views.} 
+    \centering
+    \resizebox{0.85\linewidth}{!}{
+    \begin{tabular}{cccccccc ccc}
+    \toprule
+    $Hier$ &$S_{rend}$ & $S_{sem}$ & $S_{geo}$  & $RA$ & $AGP$ & $PM$ & PSNR↑ & SSIM↑ & {LPIPS↓} \\
+  
+    \midrule
+    $\times$  & $\checkmark$ & $\checkmark$    & $\checkmark$    & $\checkmark$ & $\checkmark$    & $\checkmark$ & 20.35 & 0.870  & 0.103 \\
+
+    $\checkmark$  & $\times$ & $\checkmark$    & $\checkmark$    & $\checkmark$ & $\checkmark$    & $\checkmark$ & 20.32 & 0.870  & 0.104 \\
+  
+    $\checkmark$  & $\checkmark$  & $\times$   & $\checkmark$    & $\checkmark$ & $\checkmark$    & $\checkmark$ & 20.41 & 0.871  & \textbf {0.101} \\
+  
+    $\checkmark$  & $\checkmark$  & $\checkmark$    & $\times$   & $\checkmark$ & $\checkmark$    & $\checkmark$ & 20.43 & 0.871  & 0.104 \\
+  
+    $\checkmark$  & $\checkmark$ & $\checkmark$   & $\checkmark$  & $\times$ & $\checkmark$    & $\checkmark$ &  20.30  & 0.869 & 0.103 \\
+  
+    $\checkmark$  & $\checkmark$  & $\checkmark$    & $\checkmark$    & $\checkmark$ & $\times$     & $\checkmark$ & 20.36 & 0.872  & 0.104 \\
+  
+    $\checkmark$  & $\checkmark$ & $\checkmark$   & $\checkmark$  & $\checkmark$  & $\checkmark$    & $\times$  &  20.25  & 0.869 & 0.102 \\
+  
+  
+    $\checkmark$  & $\checkmark$ & $\checkmark$   & $\checkmark$  & $\checkmark$  & $\checkmark$  & $\checkmark$ & \textbf {20.51}  & \textbf{0.872} & 0.104 \\
+    \bottomrule
+    \end{tabular}
+    }
+    \label{tab:ablation}
+    \vspace{-0.5cm}
+  \end{table}
+  
+  \section{Experiments}
+  \label{sec:exp}
+  % \section{Experiments}
+  
+  We conduct comprehensive experiments to evaluate our hierarchical 3D Gaussian Splatting framework on sparse-view novel view synthesis tasks. Our evaluation demonstrates superior performance compared to existing methods across multiple datasets and metrics.
+  
+  
+  
+  \subsection{Experimental Setup}
+  
+  \noindent\textbf{Datasets \& Implementation Details.} We evaluate on three standard benchmarks for novel view synthesis: (1) \textbf{LLFF}~\cite{mildenhall2019local} containing 8 forward-facing real scenes, (2) \textbf{DTU}~\cite{jensen2014large} with 15 object-centric scenes under controlled lighting, and (3) \textbf{Mip-NeRF360}~\cite{barron2022mip} synthetic dataset with 9 scenes featuring complex materials and lighting. For sparse-view evaluation, we use 3 training views for DTU and LLFF, and24 views for Mip-NeRF360 following prior work~\cite{zheng2025nexusgs, zhu2024fsgs}.Our framework is implemented in PyTorch with CUDA acceleration. The hierarchical training consists of three phases: coarse initialization (2K iterations), hierarchical refinement (25K iterations for LLFF, 5K iterations for DTU and Mip-NeRF360), and stabilization (3K iterations). Multimodal-prior-guided importance sampling weights are set as $w_1=0.4$, $w_2=0.2$, $w_3=0.4$ based on validation performance.
+  
+  \noindent\textbf{Baselines \& Evaluation Metrics.} We compare against NeRF methods including: DietNeRF~\cite{jain2021putting}, FreeNeRF~\cite{yang2023freenerf}, SparseNeRF~\cite{wang2023sparsenerf}, and the 3D Gaussian Splatting methods including: 3DGS~\cite{kerbl20233d}, FSGS~\cite{zhu2024fsgs}, DNGaussian~\cite{li2024dngaussian}, CoR-GS~\cite{zhang2024cor} and NexusGS~\cite{zheng2025nexusgs}. All methods are trained using identical sparse view configurations for fair comparison.
+  We report standard image quality metrics: PSNR,  SSIM~\cite{wang2004image}, and LPIPS ~\cite{zhang2018unreasonable}.  Higher PSNR and SSIM indicate better quality, while lower LPIPS suggests better perceptual similarity.
+  
+  \subsection{Quantitative Results}
+  \cref{tab:quantitative_comparison} presents quantitative comparisons on all three datasets. Our method consistently outperforms existing approaches across different sparse-view settings.
+  On LLFF, our method achieves 21.17 dB PSNR with 3 views, outperforming the best baseline by 0.1 dB. The improvement is even more significant on DTU with 3 views, where we achieve 0.3 dB versus SOTA method NexusGS ~\cite{zheng2025nexusgs}. These results demonstrate the effectiveness of our hierarchical framework in handling severely under-constrained scenarios.
+  
+  \subsection{Ablation Studies}
+  
+  We conduct ablation studies to analyze the contribution of each component in our framework, as shown in~\cref{tab:ablation}, where $Hier$ refers to the  hierarchical setting, $S_{rend}$, $S_{sem}$, $S_{geo}$ refers to the three importance metrics in \cref{subsec:mmia}. $RA$, $AGP$, $PM$ refers to the Reliability Assessment, Adaptive Gaussian Placement and Protection Mechanism in \cref{subsec:caas}.
+  The results show that all components of the multi-modal importance assessment contribute to the final outcome, and the reliability assessment ensures robust training. Without adaptive Gaussian placement, the Gaussians tend to over-concentrate on certain regions, leading to degraded performance. Likewise, without the protection mechanism, most newly added fine Gaussians would be pruned before they can take effect. The full model achieves the best performance, confirming the complementary benefits of each design choice.
+  \subsection{Qualitative Results}
+  
+  \cref{fig:comparison} presents visual comparisons on challenging scenes. Our method produces sharper details and more consistent geometry compared to baselines, particularly in regions with limited view coverage.
+  The improvements are most visible in: (1) fine geometric details like texture patterns, as shown in the first row, (2) reduced artifacts in under-constrained regions, as shown in the second row. These qualitative results align with our quantitative metrics.
+  
+  \section{Conclusion}
+  \label{sec:conc}
+  We present a hierarchical framework with multimodal-prior-guided  importance sampling to address sparse-view challenges in 3D Gaussian Splatting. Our method introduces hierarchical gaussians, multimodal importance assessment, and reliability-aware masking to improve geometric supervision and Gaussian placement.
+  Experiments demonstrate significant improvements over existing methods.
+  % , achieving 1.65 dB PSNR gains on NeRF-LLFF and 1.67 dB on DTU while maintaining efficiency. 
+  The framework improve rendering quality, enabling practical applications in mobile AR/VR and rapid prototyping.
+  This work provides a foundation for sparse-view novel view synthesis, demonstrating the effectiveness of integrating multimodal-prior-guided importance sampling with hierarchical gaussians.
+
+  
+\bibliographystyle{IEEEbib}
+\bibliography{main}
+
+\end{document}

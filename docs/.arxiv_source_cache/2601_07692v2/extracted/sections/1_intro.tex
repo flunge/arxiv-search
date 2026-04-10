@@ -1,0 +1,41 @@
+ \section{Introduction}
+\label{sec:intro}
+
+
+Autonomous driving relies on the ability of vehicles to navigate complex environments safely and efficiently. Among various sensors such as cameras, GPS, or radar, LiDAR stands out as a key sensor due to its precise 3D measurements of vehicles, pedestrians, and drivable areas. 
+However, collecting and annotating real-world  large-scale LiDAR point cloud datasets is notoriously expensive and time consuming, limiting the development of scalable autonomous driving systems. The challenge grows even more when accounting for variations in LiDAR sensor density, as each variation requires its own extensive dataset.
+
+\begin{figure}[!htb]
+    \centering
+    \begingroup
+    \footnotesize
+    \def\svgwidth{\columnwidth} % ou une autre largeur
+    \input{teaser_l.pdf_tex}
+    \endgroup
+    \caption{\textbf{\ours pipeline overview.} LiDAR point cloud generation from range images commonly follows a two-stage approach: the VAE is trained independently and then frozen, while the generative model is trained on its latent space. In contrast, our method leverages priors from a backbone pretrained on large-scale image datasets. \textbf{The alignment step trains the VAE from scratch} while initializing and freezing the generative model with pretrained weights. 
+    This stage ensures that the latent space of our newly trained VAE remains compatible with the knowledge of the pretrained generative model.
+    \textbf{We then jointly optimize the VAE encoder and the generative model under the supervision of 3D representations}. Range VAE denotes a model trained on range images.}
+    \label{fig:tuning}
+\end{figure}
+
+These challenges have motivated research into generating synthetic LiDAR datasets, including LiDAR simulation in virtual environments \cite{gschwandtner2011blensor, fang2020augmentedLiDAR, fang2021LiDARaug, yue2018LiDARpcgen}, as well as generative learning approaches \cite{zyrianov2022learning} \cite{xiong_ultralidar_2023}. More recently, diffusion models have demonstrated remarkable success in capturing complex data distributions for image synthesis, positioning them as a promising direction for LiDAR data generation to further bridge the realism gap.
+
+
+Early diffusion models for image generation relied on pixel-level space \cite{song2019generative, ho_denoising_2020, song_score-based_2020}. To address the challenges posed by the high dimensionality of pixel-level representations, latent diffusion models were later introduced, offering both faster training and higher-quality generation \cite{rombach_high-resolution_2022, podell2024sdxl, esser2024scaling}. 
+More recently, RGB image synthesis has been further advanced through representation alignment~\cite{yu_representation_2025, leng_repa-e_2025, tian_u-repa_2025, yao_reconstruction_2025}, where diffusion models are trained to align their internal representations with powerful self-supervised features such as those from DINOv2~\cite{oquab2024dinov2}. These methods show that aligning with pretrained representations accelerates training and improves generation quality.
+
+
+3D LiDAR point cloud scene generation has followed a similar path. Some diffusion models target point-level generation \cite{nunes2024scaling, martyniuk2025lidpm, xiong_ultralidar_2023},  while other approaches focus on range image representations of point clouds~\cite{zyrianov2022learning,nakashima_fast_2025,nakashima_lidar_2024}, which offer structural advantages over unorganized point sets and enable more efficient use of latent space \cite{hu_rangeldm_2024, ran_towards_2024}.
+
+However, recent advancements in state-of-the-art image diffusion models have not been leveraged for 3D data. First, existing approaches for LiDAR scene generation do not exploit powerful self-supervised 3D representations similar to REPA \cite{yu_representation_2025}. 
+Second, they are trained entirely from scratch, usually on mid-scale datasets such as nuScenes \cite{caesar2020nuscenes} or KITTI-360 \cite{liao2022kitti}, whereas image diffusion and flow matching models typically leverage large-scale datasets such as ImageNet \cite{deng2009imagenet} or LAION \cite{schuhmann2022laion}.
+
+Inspired by recent advances in representation alignment for image generation, we aim to enhance representation learning in LiDAR scene generation from range images. We argue that such representations are essential for achieving realistic LiDAR scene generation, enabling tasks such as completion and denoising. 
+We propose \ours, the first unconditional LiDAR point cloud generator to leverage both RGB image priors and 3D representations for high-fidelity LiDAR scene generation. \NS{We provide an overview of our method in Figure \ref{fig:tuning}.} Our contributions:
+\begin{itemize}
+    \item To our knowledge, \ours is the first work to repurpose the weights of a pretrained natural image flow matching (FM) model for LiDAR scene synthesis. While directly initializing a 3D generative model with these weights does not improve generation quality, our proposed training strategy enables the transfer of rich priors learned from large-scale RGB image collections, compensating for the limited scale of LiDAR datasets.    
+    \item We are also the first to leverage self-supervised 3D features for representation alignment in LiDAR point cloud generation. We demonstrate that, similar to image generation, representation alignment with self-supervised 3D features significantly improves generation quality.
+    \item Finally, as our model is aligned with self-supervised 3D features during training, it enables controllable scene editing at inference for free. By incorporating feature guidance into our unconditional model, we demonstrate two applications: object inpainting and scene mixing.
+\end{itemize}
+On the standard KITTI-360 benchmark, our experiments show that our method significantly improves generation quality of \NS{3D LiDAR point clouds}, surpassing the previous state of the art by at least 17\%. 
+

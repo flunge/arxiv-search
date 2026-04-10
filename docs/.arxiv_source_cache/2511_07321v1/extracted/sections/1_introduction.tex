@@ -1,0 +1,40 @@
+\section{Introduction}
+Feedforward Gaussian Splatting~\citep{pixelsplat,gslrm} has emerged as a promising direction for accelerating 3D scene reconstruction, directly predicting 3D Gaussian parameters~\citep{3dgs} from input images. This approach bypasses the time-consuming per-scene optimization required by methods like NeRF~\citep{nerf} and the original 3D Gaussian Splatting (3DGS)~\citep{3dgs}. However, the real-world applicability of existing feedforward models is often constrained by restrictive assumptions, such as the need for accurate camera poses~\citep{pixelsplat, depthsplat}, calibrated intrinsics~\citep{noposplat, flare}, or a fixed, limited number of input views~\citep{noposplat, mvsplat}.
+
+In practice, scene reconstruction needs to operate under flexible and unconstrained conditions: camera poses may be unavailable or noisy, camera intrinsics unknown, and the number of images may vary significantly. Designing a single model that generalizes across these diverse settings -- varying number of views, posed or unposed, calibrated or uncalibrated -- remains an open challenge.
+
+In this work, we introduce YoNoSplat, a feedforward model that reconstructs 3D scenes from an arbitrary number of unposed and uncalibrated images, while also seamlessly integrating ground-truth camera information when available. Recent pose-free methods~\citep{noposplat, splatt3r} have shown impressive results on sparse inputs (2-4 views) by predicting Gaussians directly into a unified canonical space. However, this approach struggles to scale to a larger number of views. To ensure scalability and versatility, YoNoSplat adopts a different paradigm: it first predicts per-view local Gaussians and their corresponding camera poses, which are then aggregated into a global coordinate system.
+
+This local-to-global design, however, introduces a significant training challenge: the joint learning of camera poses and 3D geometry is highly entangled. Errors in pose estimation can corrupt the learning signal for the Gaussians, and vice-versa. 
+A naive approach that aggregates Gaussians using the model’s own predicted poses, known as the self-forcing mechanism~\citep{self-forcing}, leads to unstable training and poor performance (Fig.~\ref{fig:pose_source}a). Conversely, the teacher-forcing approach, which relies solely on ground-truth poses for aggregation, decouples the tasks but introduces exposure bias~\citep{exposure-bias}. In this case, the model is never trained on its own imperfect pose predictions, causing performance to degrade at inference when it must depend on them (Fig.~\ref{fig:pose_source}b).
+To resolve this dilemma, we propose a novel \emph{mix-forcing} training strategy. Training begins with pure teacher-forcing to establish a stable geometric foundation. As training progresses, we gradually introduce the model's predicted poses into the aggregation step. This curriculum balances stability with robustness, enabling YoNoSplat to operate effectively with either ground-truth or predicted poses at test time (Fig.~\ref{fig:pose_source}c).
+
+\begin{figure}[t]
+    \centering
+    \vspace{-5mm}
+    \includegraphics[width=1\linewidth, trim={0mm 0cm 0 0cm},clip]{images/pose_source.pdf}
+    \vspace{-5mm}
+    \caption{\textbf{Effect of different global Gaussian aggregation strategies during training}. (a) Aggregating global Gaussians with predicted camera poses results in poor rendering quality because errors in pose estimation and Gaussian learning compound each other. (b) Using ground-truth poses introduces exposure bias (as indicated by the green arrow: training with ground-truth poses but testing with predicted poses causes misalignment of local Gaussians across different views). (c) Our mix-forcing training achieves high rendering quality in both pose-free and pose-dependent settings.
+    }
+    \vspace{-6mm}
+    \label{fig:pose_source}
+\end{figure}
+
+A second fundamental challenge is scale ambiguity, which is particularly pronounced when ground-truth depth is unavailable. This ambiguity arises from two sources: training data poses are often defined only up to an arbitrary scale, and jointly estimating intrinsics and extrinsics is an ill-posed problem without a consistent scale reference. Inspired by NoPoSplat~\citep{noposplat}, which highlighted the importance of camera intrinsics for scale recovery, we develop a pipeline that not only uses intrinsic information but also predicts it, enabling reconstruction from uncalibrated images. To address the data-level ambiguity, we systematically evaluate several scene-normalization strategies and find that normalizing by the maximum pairwise camera distance is most effective, as it aligns with the relative pose supervision used during training~\citep{pi3}.
+
+
+
+Extensive experiments show that our model, even without ground-truth camera inputs, outperforms prior pose-dependent methods, highlighting the strong geometric and appearance priors learned through our training strategy. The approach generalizes across datasets and varying numbers of views, and reconstructs a complete 3D scene from 100 images in just 2.69 seconds.
+
+Our main contributions are as follows:
+\begin{itemize}[leftmargin=*, nosep]
+    \item We introduce YoNoSplat, the first feedforward model to achieve state-of-the-art performance in both pose-free and pose-dependent settings for an arbitrary number of views.
+    \item We identify the entanglement of pose and geometry learning as a key challenge and propose a mix-forcing training strategy that effectively mitigates training instability and exposure bias.
+    \item We resolve the scale ambiguity problem through an intrinsic-prediction-and-conditioning pipeline and a pairwise distance normalization scheme, enabling reconstruction from uncalibrated images.
+\end{itemize}
+
+
+
+
+
+

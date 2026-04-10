@@ -1,0 +1,79 @@
+
+\input{figure/tex/architecture}
+\section{Methodology}
+\label{sec:method}
+We introduce \ours, a compact 3D Gaussian splatting decoder built upon a transformer~\cite{vaswani2017attention} that takes multi-view images of a scene as input and produces a compact set of 3D Gaussians that best represent the scene. We start by introducing the problem~(\textbf{\S~\ref{subsec:problem_def}}), followed by our architectural details~(\textbf{\S~\ref{subsec:architecture}}), and the training setup~(\textbf{\S~\ref{subsec:training}}). We further analyze the emergent properties in our learned \mbox{\ours~(\textbf{\S~\ref{subsec:analysis}})}, and show how this property can be leveraged to effectively lift any 2D features into 3D in a view-invariant manner~(\textbf{\S~\ref{subsec:feature_lifting}}).
+
+
+\subsection{Problem definition and notation}
+\label{subsec:problem_def}
+Given a set of $V$ multi-view images $\{I_v\}_{v=1}^V$ capturing the same scene where $I_v\in\mathbb{R}^{H \times W \times 3}$, the model outputs a set of $N$ 3D Gaussians $\{\mathbf{G}_i\}_{i=1}^N$ with $\mathbf{G}_i=\{\mu_i,\sigma_i,\Sigma_i,c_i\}_{i=1}^N$, where $\mu_i \in\mathbb{R}^3$ denotes 3D Gaussian center, $\sigma_i \in [0,1)$ represents opacity, $\Sigma_i \in \mathbb{R}^{3 \times 3}$ denotes the covariance matrix, and $c_i \in \mathbb{R}^{3(L+1)}$ indicates spherical harmonics coefficients with $L$ levels that encode color attributes. Although other formats of 3D scene representations (e.g., point clouds~\cite{wang2025vggt,wang2024dust3r}, polygons~\cite{nan2017polyfit}) could be considered, we adopt 3D Gaussians~\cite{kerbl20233d} as our default representation due to their efficient rendering speeds and simplicity to further incorporate features as an additional attribute that enables multiple downstream tasks. 
+
+\subsection{Architecture}
+\label{subsec:architecture}
+Drawing inspiration from how humans naturally form abstract scene representations through selective attention, we design a remarkably simple architecture that learns to decode compact 3D Gaussians from multi-view observations. 
+\paragrapht{Multi-view feature encoding.}
+To decode the 3D Gaussians, given the $V$ input images $\{I_v\}_{v=1}^V$, we first extract visual features using a pre-trained visual encoder $\mathcal{E}(\cdot)$, yielding feature maps $\mathbf{F}_v \in \mathbb{R}^{h \times w \times d}$ for each view, where $h$ and $w$ are the height and width of the feature map and $d$ is the feature dimension. To effectively encode multi-view images, we follow prior works and adopt VGGT~\cite{wang2025vggt} as our default visual encoder, which has learned rich geometric priors from large-scale geometry learning.
+
+\paragrapht{Query-based scene decoding.} 
+At the core of our architecture is the compact set of $N$ learnable query tokens $\mathbf{Q} \in \mathbb{R}^{N \times d}$, where each token is tasked with discovering and representing a specific region of the 3D scene. These tokens serve as abstraction units that learn to aggregate relevant information from the extracted multi-view features $\mathbf{F}_v$ to form coherent 3D Gaussians. Unlike per-pixel Gaussian estimation methods~\cite{ye2024no, charatan2024pixelsplat} that rigidly map each pixel to Gaussians, our query tokens can flexibly attend to any region across all input views, learning to allocate representational capacity where it is most needed.
+
+
+\paragrapht{Cross-view attention aggregation.}
+The key to our approach lies in how query tokens interact with multi-view features. We concatenate the learnable query tokens with the image features to form a unified sequence: \mbox{$\mathbf{X} = [\mathbf{Q}; \mathbf{F}] \in \mathbb{R}^{N + (V \times h \times d) \times d}$}. This combined representation is processed through $L$ transformer layers with full self-attention, enabling bidirectional information flow. Through these attention layers, each query token learns to: (1) aggregate relevant visual information from specific regions across all input views, (2) exchange information with other query tokens to avoid redundancy and ensure comprehensive coverage, and (3) progressively refine its understanding of which 3D region it should represent.
+
+\paragrapht{Gaussian parameter decoding.}
+After the transformer blocks, we extract the refined query tokens \mbox{${\bar{\mathbf{Q}}_i} \in \mathbb{R}^{N \times d}$} and decode each token ${\bar{\mathbf{Q}}_i}$ into a single Gaussian $\mathbf{G}_i$, estimating Gaussian attributes through lightweight MLP heads.
+
+\subsection{Training}
+\label{subsec:training}
+Unlike previous methods that learn scene decompositions from ground-truth labels~\cite{fedele2025superdec,paschalidou2019superquadrics}, adopting 3D Gaussians as our representation enables our framework to be learned solely through the objective of novel view synthesis.
+
+\paragrapht{Learning compact scene representations from novel view synthesis.}
+Given the predicted 3D Gaussians $\{\mathbf{G}_i\}_{i=1}^N$ from our query tokens, we train the model by rendering these Gaussians at novel target viewpoints and minimizing the photometric difference with ground-truth images. Following feed-forward novel view synthesis frameworks~\cite{ye2024no}, we project the 3D Gaussians to a target view $I_t \notin \{I_v\}_{v=1}^V$ with known camera pose $\pi_t$ during training. Each pixel ${p}$ of the target view image is rendered via alpha blending of Gaussian color attributes according to their depth order~\cite{kerbl20233d}:
+\begin{equation}
+\hat{I}_t({p}) = \sum_{i=1}^N {c}_i\sigma_i\mathbf{G}^\text{2D}_i({p}) \prod_{j=1}^{i-1}(1-\sigma_j \mathbf{G}^\text{2D}_j({p})),
+\end{equation}
+where ${c}_i$ is the view-dependent color attribute of each Gaussian obtained by decoding spherical harmonics coefficients, and $\mathbf{G}^\text{2D}_i$ is the 3D Gaussian projected onto 2D screen space. Our training objective combines the mean squared error between rendered and ground-truth images $\mathcal{L}_{\text{MSE}}$ and the perceptual loss $\mathcal{L}_{\text{LPIPS}}$ as: 
+\begin{equation}
+\mathcal{L}_\text{novel} = \lambda_{\text{MSE}} \mathcal{L}_{\text{MSE}}(\hat{I}_t,I_t) + \lambda_{\text{LPIPS}} \mathcal{L}_{\text{LPIPS}}(\hat{I}_t,I_t),
+\end{equation}
+following prior works~\cite{ye2024no}, where $\lambda_{\text{MSE}}$ and $\lambda_{\text{LPIPS}}$ are hyperparameters.
+
+\paragrapht{Low-pass filtering for robust training.} 
+One of the key challenges in learning feed-forward 3D Gaussian splatting is correctly locating Gaussian positions~($\mu_i$). Without accurate positions, prior works show that the Gaussians often fail to be positioned inside the view frustum of the target image viewpoint, leading to sparse gradients and mode collapse~\cite{charatan2024pixelsplat, hong2024pf3plat}. Aligned with these analyses, we also observe that naively training the network with photometric loss leads to unstable training. To address this, we adopt the progressive low-pass filter from RAIN-GS~\cite{jung2024relaxing}. For rendering Gaussian $\mathbf{G}_i$, the projected 2D Gaussian $\mathbf{G}^\text{2D}_i$ is defined as follows:
+\begin{equation}
+   \mathbf{G}^\text{2D}_{i}(p) = e^{-\frac{1}{2}(p-\mu_{i}^\text{2D})^T(\Sigma_{i}^\text{2D}+s\mathbf{I})^{-1}(p-\mu_{i}^\text{2D})},
+\end{equation}
+where $p$ is the 2D pixel location, $\mathbf{I}$ is the identity matrix, $s$ controls the Gaussian size and $\mu_i^\text{2D}$ and $\Sigma_i^\text{2D}$ denote 2D projected positions and covariance of $\mathbf{G}_i$. While 3DGS~\cite{kerbl20233d} uses $s=0.3$ to ensure 1-pixel coverage, RAIN-GS shows that progressively annealing from $s=300$ to $s=0.3$ stabilizes per-scene optimization by allowing Gaussians to learn from enlarged regions initially. We adopt this strategy in our feed-forward training pipeline, gradually annealing $s$ during training. This ensures robust gradients during early training when position predictions are suboptimal, while enabling fine-grained detail to be modeled as the network learns accurate positions. Our ablations~(\textbf{\S~\ref{subsec:ablation}}) further verify that this strategy is crucial for stable training.
+
+\subsection{Analysis}
+\label{subsec:analysis}
+Although we do not provide any supervision for how the $N$ query tokens should partition the scene, we observe that the model eventually learns to effectively estimate a set of $N$ Gaussians that best reconstructs the scene purely from the photometric reconstruction objective. 
+
+\paragrapht{Emergent properties within learned attentions.}
+To understand how each query token learns to aggregate information from multi-view features, we examine the attention weights between learnable tokens $\mathbf{Q}$ and the multi-view image features $\mathbf{F}_v$ inside the \textit{self-attention blocks} of \mbox{\ours}. As visualized in Fig.~\ref{fig:framework}-(a), we examine the attention weights where the attention query is from the $N$ learnable tokens $Q_G$ and the attention key is from the multi-view image features $K_I$. 
+
+As illustrated in Fig.~\ref{fig:framework}-(b), when we select a specific Gaussian and visualize its corresponding query token's attention map across input views, we observe sharp, focused attention patterns on spatially coherent regions across multiple views, effectively discovering multi-view correspondences without any explicit supervision~\cite{an2025cross}. For instance, the target Gaussian highlighted in red attends strongly to the corresponding object regions across different viewpoints. We believe that this emergent behavior arises from an implicit optimization pressure: to accurately reconstruct novel views with a limited number of $N$ Gaussians, the model has learned to position 3D Gaussians to geometrically coherent regions.
+
+\subsection{Any-feature 3D lifting}
+\input{figure/tex/architecture_mini}
+\label{subsec:feature_lifting}
+Building upon the emergent property within the self-attention maps of \ours~(\textbf{\S~\ref{subsec:analysis}}), we present a simple yet effective approach for lifting arbitrary 2D features into view-invariant 3D features, dubbed \oursF.
+
+\paragrapht{Challenges in existing feature lifting approaches.}
+Previous methods~\cite{zeid2025dino,marrie2025ludvig, cheng2024occam} for lifting 2D features to 3D face two fundamental challenges: (1) \textit{Correspondence identification}: for each 2D patch whose features need to be lifted, they must identify which 3D Gaussians contribute to rendering that pixel location, often requiring computationally expensive backward mapping operations~\cite{zeid2025dino, lee2025cf3, cheng2024occam, marrie2025ludvig, jun2025dr}. (2) \textit{Multi-view inconsistency}: since image encoders extract features independently for each view, patches corresponding to the same 3D region can produce different feature representations across views, requiring additional aggregation schemes~\cite{fan2024large, burgess2006spatial}.
+
+\paragrapht{View-invariant feature decoder.}
+Surprisingly, we find that the learned self-attention patterns of \ours\ can be used to sidestep both challenges elegantly. For the correspondence identification, each learnable token shows high attention weights to the regions in each image where the 3D Gaussians are projected, removing the need for expensive backward mapping. For multi-view inconsistency, we directly use attention weights as interpolation weights to aggregate inconsistent features, instead of heuristically defining them as in previous works~\cite{cheng2024occam}.
+
+Building on this insight, we introduce an efficient method to initialize a new \textit{view-invariant feature decoder} \oursF\, which leverages the geometric understanding already learned by our \ours~(Fig.~\ref{fig:arch_mini}). The input of \oursF\ is a set of features $\mathbf{F}_v' \in \mathbb{R}^{h \times w \times d'}$ extracted from the same set of input images $\{I_v\}_{v=1}^V$, but with a different visual encoder $\mathcal{E}'(\cdot)$ the user wants to lift to 3D. To consider different feature dimension sizes between $\mathcal{E}(\cdot)$ and $\mathcal{E}'(\cdot)$, we also initialize new learnable feature tokens $\mathbf{Q}' \in \mathbb{R}^{N \times d'}$. 
+
+To effectively utilize the learned knowledge of the attention weights within our Gaussian decoder, we initialize \oursF\ by copying \ours's architecture and parameters, but only allow value projections inside the attention operation to be trainable while \textit{freezing the learned attention weights}. This ensures each feature token attends to the same multi-view regions as its corresponding Gaussian token, effectively reusing learned emergent correspondences within \ours\ for feature aggregation. The refined tokens $\bar{\mathbf{Q}}'$ pass through an MLP head to produce multi-view aggregated features $\mathbf{F}''_i \in \mathbb{R}^{d'}$ for each Gaussian $\mathbf{G}_i$.
+
+The multi-view aggregated features $\mathbf{F}''_i$ are then attached to their corresponding Gaussians as additional attributes, enabling rendering of novel view feature maps via the same alpha-blending process. We train \oursF\ by minimizing the feature similarity loss with the ground truth feature and rendered feature at the target image $I_t$ at target pose $\pi_t$ as
+\begin{equation}
+\mathcal{L}_\text{feat} = 1 - \cos(\hat{\mathbf{F}}_t/\|\hat{\mathbf{F}}_t\|,
+\mathbf{F}'_t/\|\mathbf{F}'_t\|
+)\end{equation}
+where $\hat{\mathbf{F}}_t$ is the rendered feature map and $\mathbf{F}'_t$ is the ground truth feature, $\cos(\cdot,\cdot)$ indicates the cosine similarity operation, and $\|\cdot\|$ is the L2-norm operation.

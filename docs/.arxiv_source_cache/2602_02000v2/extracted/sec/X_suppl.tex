@@ -1,0 +1,117 @@
+\appendix
+
+\section{Technical Appendices and Supplementary Material}
+\subsection{Encoder Architecture}
+\label{encoder}
+We adopt a dual-branch encoder design to extract both monocular and multi-view features for robust 3D reasoning, following the architecture proposed by DepthSplat~\cite{xu2024depthsplat}.
+
+\paragraph{Multi-view Branch.}
+The multi-view encoder begins with a lightweight ResNet-style backbone composed of stride-2 convolutional layers, yielding spatially downsampled feature maps by a factor of \( s \). To enable view aggregation, we employ a multi-view Swin Transformer~\cite{liu2021swin} consisting of 6 stacked self- and cross-attention layers. This module outputs multi-view-aware features \(\left\{\boldsymbol{F}^i\right\}_{i=1}^N\), where \(\boldsymbol{F}^i \in \mathbb{R}^{\frac{H}{s} \times \frac{W}{s} \times C}\).
+
+We further adopt the plane-sweep stereo technique~\cite{collins1996space,xu2023unifying} to construct geometric consistency. We uniformly sample \( D \) candidate depths between near and far bounds. Given reference view \( i \) and source view \( j \), we warp features \(\boldsymbol{F}_j\) to view \( i \) at each depth \( d_m \), resulting in \(\left\{\boldsymbol{F}_{d_m}^{j \rightarrow i}\right\}_{m=1}^D\). These warped volumes are compared to \(\boldsymbol{F}_i\) via dot-product similarity to construct a cost volume \(\boldsymbol{C}^i \in \mathbb{R}^{\frac{H}{s} \times \frac{W}{s} \times D}\).
+
+\paragraph{Single-view Branch.}
+We utilize the ViT backbone from Depth Anything V2 model~\cite{yang2024depth} to extract monocular features. The output has a spatial resolution of \(1/14\) relative to the original image and is bilinearly upsampled to match the cost volume resolution, yielding monocular features \(\boldsymbol{F}_{\text{m}}^i \in \mathbb{R}^{\frac{H}{s} \times \frac{W}{s} \times C_\text{m}}\).
+
+\paragraph{U-Net and Depth Prediction.}
+The monocular and multi-view features \(\boldsymbol{F}_\text{m}^i\) and \(\boldsymbol{C}^i\) are concatenated along the channel dimension and processed by a 2D U-Net to produce depth candidates \(\boldsymbol{D}^i \in \mathbb{R}^{\frac{H}{s} \times \frac{W}{s} \times D}\). A softmax operation is applied over the depth axis, followed by a weighted summation to generate the predicted depth map.
+
+To enhance depth quality, we employ a hierarchical cascade structure~\cite{gu2020cascade}, refining the predicted depth to \(\boldsymbol{D}_{ds}^i \in \mathbb{R}^{\frac{2H}{s} \times \frac{2W}{s}}\), which is subsequently upsampled to full resolution using a DPT head~\cite{ranftl2021vision}.
+
+\paragraph{Attribute Prediction.}
+The predicted depth is used to reconstruct Gaussian positions. For estimating the remaining Gaussian attributes—such as scale multipliers, high-frequency SH coefficients, and opacity—we apply an additional DPT head, conditioned on a concatenation of the input image, predicted depth, and encoder features.
+
+\paragraph{Hyperparameter Selection.}
+The downsample scale $s$ is set to 4. Channel number $C$ is set to 128, channel number $D$ is set to 128. The channel number $C_\text{m}$ of the monocular feature is set to 64 for small model, 96 for base model, 128 for large model.
+
+
+\vspace{0.5em}
+\noindent\textbf{Note:} Our implementation is consistent with DepthSplat~\cite{xu2024depthsplat} for reproducibility. No architectural modifications are made to the encoder unless otherwise stated.
+
+% \begin{figure}[h]
+%   \centering
+%   \includegraphics[width=0.9\linewidth]{images/encoder_architecture.pdf}
+%   \caption{\textbf{Encoder overview.} The encoder consists of a dual-path design: a single-view branch using ViT from Depth Anything V2~\cite{yang2024depth}, and a multi-view branch using Swin Transformers with plane-sweep stereo for cost volume construction. The outputs are fused for depth and Gaussian attribute regression.}
+%   \label{fig:encoder_arch}
+% \end{figure}
+
+\subsection{Hyperparameter Sensitivity.} 
+% \paragraph{Hyperparameter Sensitivity.}  
+We further investigate the influence of the hyperparameters $\tau_{\text{opa}}$ and $\tau_{\alpha}$ in Table~\ref{hyper}. Our results indicate that SurfSplat is robust to the exact threshold values, maintaining strong performance as long as the thresholds remain within a reasonable range. This demonstrates the stability and generality of the forced alpha blending technique.
+
+\begin{table}[ht]
+\centering
+\caption{\textbf{Ablations study on hyperparameter sensitivity.}}
+\label{hyper}
+\fontsize{7}{11.5}\selectfont
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lccc|ccc|ccc|ccc}
+\toprule
+& \multicolumn{3}{c|}{256$\times$256 (\textbf{Standard})} & \multicolumn{3}{c|}{512$\times$512 (\textbf{HRRC})} & \multicolumn{3}{c|}{1024$\times$1024 (\textbf{HRRC})} & \multicolumn{3}{c}{Average} \\
+Method & PSNR↑ & SSIM↑ & LPIPS↓ & PSNR↑ & SSIM↑ & LPIPS↓ & PSNR↑ & SSIM↑ & LPIPS↓ & PSNR↑ & SSIM↑ & LPIPS↓ \\
+\midrule
+Ours  & \textbf{27.001} & \textbf{0.883} & \textbf{0.118} & \textbf{25.989} & \textbf{0.860} & \textbf{0.223} & \textbf{24.535} & \textbf{0.835} & \textbf{0.325} & \textbf{25.842} & \textbf{0.859} & \textbf{0.222} \\
+$\tau_\alpha = 0.3$  & 26.921 & 0.881 & 0.120 & 25.930 & 0.860 & 0.222 & 24.816 & 0.843 & 0.317 & 25.889 & 0.861 & 0.220 \\
+$\tau_{\text{opa}} = 0.4$ & 26.992 & 0.883 & 0.118 & 25.957 & 0.860 & 0.222 & 24.538 & 0.835 & 0.323 & 25.829 & 0.859 & 0.221 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+\subsection{Extended Results at Higher Resolution}
+\label{hq}
+
+To further demonstrate the scalability and generalization capability of our model, we train and evaluate an extended version at higher input resolution ($256 \times 448$). 
+
+Quantitative results are summarized in Table~\ref{tab:appendix_highres}, showing consistent improvements across standard and high-resolution metrics. We also visualize the rendered images and depth maps at multiple output resolutions ($\times$1, $\times$2, and $\times$4) in Figure~\ref{fig:appendix_highres_vis}, Figure~\ref{fig:appendix_highres_vis_2} and Figure~\ref{fig:appendix_highres_vis_3}, highlighting the enhanced geometric detail and texture fidelity enabled by the higher-resolution input.
+
+
+
+
+\begin{table}[ht]
+\centering
+\caption{Quantitative performance of the high-resolution model.}
+\label{tab:appendix_highres}
+\fontsize{7}{11.5}\selectfont
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lccc|ccc|ccc|ccc}
+\toprule
+& \multicolumn{3}{c|}{256$\times$448(\textbf{Standard})} & \multicolumn{3}{c|}{512$\times$896(\textbf{HRRC})} & \multicolumn{3}{c|}{1024$\times$1792(\textbf{HRRC})} & \multicolumn{3}{c}{Average} \\
+Method & PSNR↑ & SSIM↑ & LPIPS↓ & PSNR↑ & SSIM↑ & LPIPS↓ & PSNR↑ & SSIM↑ & LPIPS↓ & PSNR↑ & SSIM↑ & LPIPS↓ \\
+\midrule
+Ours-B & 26.190 & 0.871 & 0.134 & 25.553 & 0.861  & 0.234 & 24.197 & 0.842 & 0.329 & 25.313 & 0.858 & 0.232 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+
+
+% \subsection{LLM usage}
+% Large Language Models (LLMs) were used only for minor language polishing of the manuscript. They did not contribute to research ideation, experimental design, analysis, or substantive writing.
+
+
+
+
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=\linewidth]{images/app1.pdf}
+  \caption{\textbf{Visualization of the high-resolution model.} We present rendering results (image and depth) at multiple output resolutions. As the resolution increases, our model preserves coherent geometry and appearance, revealing finer details of the scene.}
+  \label{fig:appendix_highres_vis}
+\end{figure}
+
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=\linewidth]{images/app2.pdf}
+    \caption{\textbf{Visualization of the high-resolution model.} We present rendering results (image and depth) at multiple output resolutions. As the resolution increases, our model preserves coherent geometry and appearance, revealing finer details of the scene.}
+    \label{fig:appendix_highres_vis_2}
+\end{figure}
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=\linewidth]{images/app3.pdf}
+    \caption{\textbf{Visualization of the high-resolution model.} We present rendering results (image and depth) at multiple output resolutions. As the resolution increases, our model preserves coherent geometry and appearance, revealing finer details of the scene.}
+     \label{fig:appendix_highres_vis_3}
+\end{figure}

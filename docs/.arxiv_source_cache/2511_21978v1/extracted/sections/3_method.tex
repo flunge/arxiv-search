@@ -1,0 +1,97 @@
+\section{Method}
+
+
+\begin{figure*}
+    \centering
+    \begin{overpic}
+    [width=\linewidth]{figures/pipeline.pdf}
+    \end{overpic}
+
+    \vspace{-0.4cm}
+    \caption{ \textbf{Overview of our text-to-3D scene generation pipeline.}
+    (a) Given an input text, a reference image is first generated to capture spatial relations among objects, from which 3D assets are generated using vision foundation models, and a scene tree is extracted using a VLM. (b) Assets are arranged into an initial layout using 3D priors from monocular depth estimation (left), then refined with the scene tree to produce an intersection-free configuration for simulation (right). (c) Forward simulation ensures physical plausibility but may distort semantics (left). We address this with simulation-in-the-loop optimization, enforcing semantic consistency and physical validity (right).
+    }
+    \label{fig:pipeline}
+\end{figure*}
+
+Our framework comprises three stages: \textit{3D object and spatial relation extraction} (\autoref{sec:data_preparation}), where 3D assets are generated from text and its spatial relation are organized into a scene tree; \textit{layout initialization} (\autoref{sec:intersec_free_initial_layout}), which first arranges generated assets using monocular depth priors obtained from refernece image and uses scene tree to refine them into an intersection-free configuration; and \textit{layout optimization} (\autoref{sec:layout_opt}), where a simulation-in-the-loop optimization procedure is applied to ensure physical plausibility and improve semantic consistency of 3D scene.
+
+
+\subsection{3D Object and Spatial Relation Extraction}
+\label{sec:data_preparation}
+
+Since directly producing both 3D objects and layouts with text-to-3D models and LLMs often fails to capture complex spatial relations, we instead employ a text-to-image model to generate a reference image that guides object generation and scene tree construction. See \autoref{fig:pipeline}(a).
+
+\subsubsection{3D Objects Generation} 
+\label{sec:3d_generation}
+
+
+To generate individual objects for the scene specified by the text prompt, a VLM is queried with the reference image to obtain object class labels, and the image is segmented with Grounded-SAM~\cite{kirillov2023segany, ren2024grounded, liu2023grounding} accordingly. Based on the segmented object regions, we further prompt the VLM to generate detailed text descriptions encompassing object semantics, material, color, and orientation. These descriptions are fed into a text-to-3D pipeline~\cite{hunyuan3d22025tencent} to synthesize high-quality, textured 3D assets that are both semantically consistent and visually realistic.
+
+
+
+
+\subsubsection{Spatial Relation Extraction}\label{sec:scene_analysis}
+
+
+We then extract the relative spatial relations among objects in the scene from the reference image and analyze their physical dependencies. This information provides essential guidance for intersection-free layout initialization (\autoref{sec:intersec_free_initial_layout}) and subsequent optimization (\autoref{sec:layout_opt}). Specifically, for each pair of segmented objects that appear with similar horizontal positions and adjacent vertical positions in the reference image, we prompt a VLM to infer their dependency along the gravity axis, identifying relations such as on, contain, and support. The resulting pairwise relations are then organized into a hierarchical scene tree that encodes how objects support one another under gravity. Starting with the ground as the root node, we traverse the scene and iteratively add objects as nodes in the tree. For each unvisited object that has a direct physical dependency with an existing node, we insert it as a child of that node. This recursive process continues until all objects have been included. Additional details are provided in Algorithm \ref{alg:build_scene_tree}, and an example is shown in \autoref{fig:pipeline}(a).
+
+
+\subsection{Layout Initialization}\label{sec:intersec_free_initial_layout}
+
+
+To obtain an intersection-free and semantically consistent initial layout for the subsequent simulation-in-the-loop optimization, we first compute the translational and scaling transformations to build a preliminary layout consistent with the reference image, and then refine it using the extracted scene tree to ensure no object intersection and stronger physical constraints. See \autoref{fig:pipeline}(b).
+
+\subsubsection{Preliminary Layout}
+
+
+Our straightforward approach to arranging the objects generated in \autoref{sec:3d_generation} into a layout consistent with the reference image is to back-project the 2D reference image with depth estimation to obtain each object’s 3D point cloud. Scaling and translational transformations can then be computed by aligning the object’s center with the centroid of its point cloud. In practice, however, heavy occlusions in the 2D image make scaling unreliable when derived directly from partial point clouds. To address this, we first query the VLM to identify the least occluded object in the scene and use it as an anchor to compute a global scaling transformation for the entire scene. We then compute relative scaling for the other objects by prompting the VLM to inpaint occluded regions of the 2D image and estimating scaling factors from the bounding boxes of the inpainted objects. Each object’s final transformation is obtained by combining the global and relative scaling factors, followed by alignment with the projected 3D point cloud. This procedure produces the preliminary layout shown in \autoref{fig:pipeline}(b).
+
+\subsubsection{Refined Initial Layout} \label{subsec:xz_optim}
+
+
+To refine the layout under physical dependency constraints and ensure non-intersection, we traverse the scene tree in a breadth-first manner and apply horizontal and vertical refinements at each node.
+
+\textbf{Horizontal refinement.} We enforce two rules: (1) Parent–child: the projection of the child must lie entirely within that of the parent (e.g., fruits inside a basket); (2) Sibling: objects sharing the same parent must have non-overlapping projections (e.g., a vase, plate, and fork on a table).
+
+\textbf{Vertical refinement.} Each child is lifted above the bounding box of its parent along the gravity axis, preventing intersections.
+
+This simple strategy, compared with more complex optimization methods, efficiently resolves intersections while preserving semantic constraints, providing favorable initial conditions for simulation. The refined results are shown in \autoref{fig:pipeline}(b).
+
+
+
+
+\subsection{Layout Optimization}
+\label{sec:layout_opt}\label{sec:diff_sim_optim}
+
+After simulation, gravity causes child objects to fall onto or into their respective parents, and sibling objects naturally adopt physically plausible poses. However, due to complex inter-object interactions, simulation alone may cause the scene to deviate from its intended semantics. 
+To address this, we introduce a simulation-in-the-loop optimization to improve semantic consistency in the simulated scene. See \autoref{fig:pipeline}(c).
+
+% \subsubsection{Differentiable Simulation}
+
+Specifically, we refine our intersection-free initialization $q_0$ so that the final equilibrium state $q_{n+1}$ better aligns with the scene tree:
+\begin{equation}
+    \min_{q_0} L(q_{n+1}(q_0)) 
+    \quad \text{s.t.} \quad f(q_{n+1}) = 0,
+    \label{eq:loss}
+\end{equation}
+where $L$ measures semantic inconsistency and $f$ denotes the net force on all objects..
+
+For each object $i$ with container $t$, we define its projected bounding box on the horizontal plane as 
+$\text{BBox}_i = \{\mathbf{p}^i_{\min}, \mathbf{p}^i_{\max}\}$.  
+The local loss penalizes deviations of the corners of $i$ from $\text{BBox}_t$:
+\begin{equation}
+    l_i = d(\mathbf{p}^i_{\min}, \text{BBox}_t)^2 +
+          d(\mathbf{p}^i_{\max}, \text{BBox}_t)^2,
+    \label{eq:local_loss}
+\end{equation}
+where $d(\mathbf{p}, \text{BBox})=0$ if $\mathbf{p}\in\text{BBox}$, otherwise, $d$ is the Euclidean distance from $\mathbf{p}$ to the box boundary.  
+The total loss is defined as
+\begin{equation}
+    L(q_{n+1}(q_0)) = \sum_{i=1}^{N} l_i,
+    \label{eq:total_loss}
+\end{equation}
+where $N$ is the total number of objects in the scene.
+
+Direct gradients of $q_{n+1}$ with respect to $q_0$ cannot be obtained by differentiating the static equilibrium constraint $f(q_{n+1}) = 0$, since $q_0$ serves only as the initial guess and is not part of the constraint. Differentiating through the nonlinear solver is also prohibitively expensive.  
+Instead, we adopt an artificial time-stepping formulation~\cite{fang2021guaranteed}, in which the quasi-static system gradually evolves toward equilibrium across intermediate states. This enables efficient backpropagation from $q_{n+1}$ to $q_0$ via implicit differentiation at each step. See \autoref{sec:diff_sim_detail} for more details on our forward simulation method and the derivation of differentiation.

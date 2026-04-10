@@ -1,0 +1,589 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%2345678901234567890123456789012345678901234567890123456789012345678901234567890
+%        1         2         3         4         5         6         7         8
+
+\documentclass[letterpaper, 10 pt, conference]{ieeeconf}  % Comment this line out if you need a4paper
+\usepackage{graphicx}
+\usepackage{amsmath,amsfonts}
+\usepackage{booktabs}   % 定义 \toprule \midrule \bottomrule \cmidrule
+\usepackage{multirow}   % 若用了 \multirow
+\usepackage{comment}  % 多行注释代码。\begin{comment}这里面的内容都会被完全忽略可以包含多行、图表、环境等 \end{comment}
+
+%\documentclass[a4paper, 10pt, conference]{ieeeconf}      % Use this line for a4 paper
+
+\IEEEoverridecommandlockouts                              % This command is only needed if 
+                                                          % you want to use the \thanks command
+
+\overrideIEEEmargins                                      % Needed to meet printer requirements.
+
+%In case you encounter the following error:
+%Error 1010 The PDF file may be corrupt (unable to open PDF file) OR
+%Error 1000 An error occurred while parsing a contents stream. Unable to analyze the PDF file.
+%This is a known problem with pdfLaTeX conversion filter. The file cannot be opened with acrobat reader
+%Please use one of the alternatives below to circumvent this error by uncommenting one or the other
+%\pdfobjcompresslevel=0
+%\pdfminorversion=4
+
+% See the \addtolength command later in the file to balance the column lengths
+% on the last page of the document
+
+% The following packages can be found on http:\\www.ctan.org
+%\usepackage{graphics} % for pdf, bitmapped graphics files
+%\usepackage{epsfig} % for postscript graphics files
+%\usepackage{mathptmx} % assumes new font selection scheme installed
+%\usepackage{times} % assumes new font selection scheme installed
+%\usepackage{amsmath} % assumes amsmath package installed
+%\usepackage{amssymb}  % assumes amsmath package installed
+
+\title{\LARGE \bf
+LR-SGS: Robust LiDAR-Reflectance-Guided Salient Gaussian Splatting for Self-Driving Scene Reconstruction
+}
+
+
+\author{Ziyu Chen$^{1,2}$, Fan Zhu$^{1,2}$, Hui Zhu$^{1}$, Deyi Kong$^{1}$, Xinkai Kuang$^{1,2}$, Yujia Zhang$^{1,2}$, Chunmao Jiang$^{1,*}$% <-this % stops a space
+\thanks{This work was supported by China Postdoctoral Science Foundation under Grant 2025M781668 and Anhui Province Key Research and Development Plan under Grant 202423k09020037.}
+%\thanks{Ziyu Chen, Fan Zhu, Hui Zhu, Kong Deyi, Xinkai Kuang, Yujia Zhang, Chunmao Jiang are with Hefei Institutes of Physical Science, Chinese Academy of Sciences, Hefei, Anhui 230031 China (e-mail: chenzy1831@mail.ustc.edu.cn; zhufan\_misaki@mail.ustc.edu.cn; hzhu@iim.ac.cn; kongdy@iim.ac.cn; kxk296097205@mail.ustc.edu.cn; zhangyujia@mail.ustc.edu.cn; sa252@mail.ustc.edu.cn;) (\textit{Corresponding authors: Chunmao Jiang}).}%
+%\thanks{Ziyu Chen, Fan Zhu, Xinkai Kuang and Yujia Zhang are also with the University of Science and Technology of China, Hefei, Anhui 230026 China.}%
+\thanks{$^{1}$Hefei Institutes of Physical Science, Chinese Academy of Sciences, Hefei, China.}%
+\thanks{$^{2}$University of Science and Technology of China, Hefei, China.}%
+\thanks{$^{*}$Corresponding author: Chunmao Jiang (sa252@mail.ustc.edu.cn).}%
+}
+
+
+\begin{document}
+
+
+
+\maketitle
+\thispagestyle{empty}
+\pagestyle{empty}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{abstract}
+
+Recent 3D Gaussian Splatting (3DGS) methods have demonstrated the feasibility of self-driving scene reconstruction and novel view synthesis. However, most existing methods either rely solely on cameras or use LiDAR only for Gaussian initialization or depth supervision, while the rich scene information contained in point clouds, such as reflectance, and the complementarity between LiDAR and RGB have not been fully exploited, leading to degradation in challenging self-driving scenes, such as those with high ego-motion and complex lighting. To address these issues, we propose a robust and efficient LiDAR-reflectance-guided Salient Gaussian Splatting method (LR-SGS) for self-driving scenes, which introduces a structure-aware Salient Gaussian representation, initialized from geometric and reflectance feature points extracted from LiDAR and refined through a salient transform and improved density control to capture edge and planar structures. Furthermore, we calibrate LiDAR intensity into reflectance and attach it to each Gaussian as a lighting-invariant material channel, jointly aligned with RGB to enforce boundary consistency. Extensive experiments on the Waymo Open Dataset demonstrate that LR-SGS achieves superior reconstruction performance with fewer Gaussians and shorter training time. In particular, on Complex Lighting scenes, our method surpasses OmniRe by 1.18 dB PSNR.
+% recent 3D Gaussian Splatting (3DGS) methods have demonstrated the feasibility of 自动驾驶场景的重建与新视角合成。However，most existing methods relying solely on cameras 或将激光雷达点云用作3D高斯初始化或深度先验，而点云内包含的丰富的场景信息如反射率，以及雷达与RGB的互补性尚未被充分的exploit，导致在面对自车高速移动和复杂光照条件等挑战性的自动驾驶场景时发生退化。为了解决这些问题，我们提出了一个用于自动驾驶场景的激光雷达反射引导显著高斯散斑框架，**LR-SGS**，。LR-SGS引入了一种结构感知的显著高斯表示，该表示由从LiDAR中提取的几何和反射率特征点初始化，并通过显著变换和加密策略进行细化，捕获场景中的边缘和平面结构。此外，我们将激光雷达强度校正为反射率，并利用反射率作为光照不变的物质通道，通过交叉模态联合损失与RGB联合对齐以增强边界一致性。
+% 在Waymo开放数据集上进行的大量实验（包括密集运动、高速自我运动和挑战性照明(—including Dense Traffic, high-speed and challenging lighting—)）表明，LR-SGS以较少的高斯和减少的训练时间实现在场景重建方面实现了最先进的性能（achieve state-of-the-art performance in scene reconstruction），例如在PSNR方面比OmniRe提升了1.18dB在具有挑战行照明条件的场景中（e.g., an improvement of 1.18dB in PSNR over OmniRe on the Challenging Lighting scenes）。
+
+\end{abstract}
+
+\section{INTRODUCTION}
+
+High-fidelity reconstruction and novel view synthesis techniques for self-driving scenes are of significant value to the testing and training of end-to-end self-driving models. For model testing, they can reproduce the critical safety events that are difficult to handle in real-world driving scenes into the controllable digital space, enabling more flexible and safer retesting of improved algorithms. For model training, a single scenario enables diverse expansion to synthesize richer and more diverse training data, simulate data generation under new sensor arrangements, and obviate the requirement for re-collecting training data when transferring end-to-end self-driving models across different vehicles \cite{ref34}.
+% 自动驾驶场景的高保真重建和新的视点合成技术对于端到端自动驾驶模型的测试和训练具有重要价值。对于模型测试，他们可以将在真实驾驶场景中难以处理的关键安全事件复制到可控数字空间中，从而使改进算法的重新测试更加灵活和安全。对于模型训练，单一场景支持多样化扩展，以合成更丰富、更多样化的训练数据，模拟新传感器布置下的数据生成，并避免在跨不同车辆传输端到端自驾模型时重新收集训练数据的要求。
+
+In recent years, reconstruction methods represented by image-based 3D Gaussian Splatting (3DGS)  \cite{ref1} have demonstrated fast and high-fidelity photorealistic rendering performance, and numerous studies have attempted to apply these methods to outdoor driving scenes, aiming to synthesize testing and training data for self-driving models under novel views. However, in self-driving scenes, camera-only methods \cite{ref8,ref11,ref15,ref37} are susceptible to complex lighting conditions and significant ego-motion, which leads to texture inconsistencies and unstable optimization. Notably, the multi-modal data captured by multiple onboard sensors are typically available. Fully exploiting this complementary information within a unified explicit representation to achieve accurate reconstruction and real-time rendering remains an open and critical challenge.
+%、近年来，3D Gaussian Splatting（3DGS）凭借显式基元和高效渲染，正成为隐式辐射场的有力替代。然而在驾驶场景中，纯相机方案易受极端光照和大幅自车运动的影响，进而引发纹理不一致与优化不稳定。值得注意的是，通常可获取由多个车载传感器捕获的各种模态的数据。然而，在统一的显式表示框架中，充分挖掘这些互补信息，以实现对驾驶场景进行精确重建和实时渲染，仍是亟待解决的关键问题。(Fortunately, in autonomous vehicle settings, data from various modalities captured by multiple sensors are typically available. However, fully leveraging different modality data from multi-sensors for precise modeling and real-time rendering in urban scenes remains an open question in the field.来自TCLC-GS)
+
+\begin{figure}[t]
+	\centering
+	\includegraphics[width=3.4in]{pic1.pdf}
+	\caption{\textbf{Overview of LR-SGS.} Given RGB and LiDAR sequences as input, the method produces high-fidelity geometry, reflectance, and RGB renderings (left). Accurate modeling of background and objects enables realistic scene editing, including replacement and deletion (right).}
+	%  LR-SGS 概览。以 RGB 与 LiDAR 序列为输入，输出高保真的几何、反射率与 RGB 渲染（左）。对背景与目标的精确建模使场景编辑（替换、删除）具有逼真效果（右）。
+	\label{Overview_of_LRSGS}
+\vspace{-6pt}
+\end{figure}
+
+In 3DGS-based scene reconstruction, relying solely on the RGB images captured by cameras cannot reliably ensure geometric and appearance consistency in reconstruction, as RGB signals are susceptible to disturbances from lighting, exposure, and other external factors. LiDAR provides accurate depth and is insensitive to lighting variations, making it a strong complement to RGB image information. Beyond depth, raw LiDAR returns also contain intensity measurements that can be calibrated into material-related reflectance, which is approximately lighting-invariant \cite{ref3, ref4}. However, most existing methods \cite{ref5, ref6, ref9, ref10} for integrating LiDAR into Gaussian Splatting rely on direct Gaussian initialization and depth supervision using point clouds, without fully exploiting the geometric and textural information carried by LiDAR; these methods struggle to impose stable constraints at material boundaries and in weak-texture regions, resulting in performance degradation in challenging self-driving scenes with high ego-motion and complex lighting.
+% 在基于3DGS的场景重建中，由于RGB信号容易受到光照、曝光等外部因素的干扰，单纯依靠相机拍摄的RGB图像无法可靠地保证重建的几何和外观一致性。激光雷达提供精确的深度，对光照变化不敏感，是对图像RGB信息的有力补充。除了深度之外，原始激光雷达回波还包含强度测量值，这些测量值可以校准为与材料相关的反射率，这近似于照明不变。然而，大多数现有的将激光雷达集成到高斯散斑的方法都依赖于直接的高斯初始化和使用点云的深度监控，而没有充分利用激光雷达所携带的几何和纹理信息。这些方法难以在材料边界和弱纹理区域施加稳定约束，导致在面对自车高速移动和复杂光照条件等挑战性的自动驾驶场景时发生退化。
+
+
+\begin{figure*}[!t]
+    \centering
+    \includegraphics[width=1.0\textwidth]{pic2.pdf}
+    \caption{\textbf{Method Overview.} The initial scene Gaussians comprise Salient Gaussians from LiDAR feature points and Non-Salient Gaussians from SfM points. The scene is represented as a 3DGS scene graph with background, dynamic objects, and sky nodes. After obtaining the rendered Color, Depth, and Reflectance (Refle.) images, we optimize the scene parameters by minimizing a weighted sum of the Color, LiDAR, and Joint losses.}
+	% 方法概述。场景初始高斯由LiDAR特征点初始化的显著高斯与 SfM 初始化的非显著高斯共同构成。场景表示为具有背景、动态对象和天空节点的3DGS场景图。在获得渲染的颜色、深度和反射（Refle.）图像后，我们通过最小化颜色、激光雷达和联合损失的加权和来优化场景参数。
+    \label{Method_Overview}
+\vspace{-6pt}
+\end{figure*}
+
+To address these issues, we propose a LiDAR-reflectance-guided Salient Gaussian Splatting method (LR-SGS) designed for robust reconstruction in challenging self-driving scenes, as shown in Fig. \ref{Method_Overview}. Specifically, we calibrate LiDAR intensity to ``\emph{reflectance}'' and attach it as an additional attribute channel to each Gaussian primitive, providing a new lighting-invariant material channel. Moreover, we introduce a structure-aware Salient Gaussian representation—each Salient Gaussian is endowed with a dominant direction, while the remaining two axes share a single scale, thereby reducing parameters without compromising the ability to accurately characterize contours and planar structures. To align Salient Gaussians with key structures from the outset, we initialize them from a set of LiDAR feature points comprising geometric edge points, geometric planar points, and reflectance edge points. We further develop an improved density control strategy for Salient Gaussians and a salient transform method that adaptively switches Gaussians between salient and non-salient states based on linearity and planarity of Gaussian ellipsoids. In addition, we enhance boundary consistency by aligning the gradient direction and magnitude between the reflectance and grayscale-converted RGB image, thereby reducing blur and improving reconstruction quality. Our method is validated on the Waymo Open Dataset across three representative challenging scene types, including Dense Traffic, High-Speed, and Complex Lighting, and also on static scenes. The experiments show that our method achieves consistently better results while requiring fewer Gaussians and shorter training time. In addition, we demonstrate editable reconstructions of real self-driving scenes based on our method, as shown in Fig. \ref{Overview_of_LRSGS}. Reliable scene reconstruction further enables scalable training data synthesis and realistic simulation environments, which are critical for advancing self-driving. In summary,  our contributions are as follows:
+% 为了解决这些问题，我们提出了一种适用于自动驾驶场景的激光雷达反射引导显著高斯散斑方法（LR-SGS），如图2所示。具体地说，我们将激光雷达强度校准为反射率，并将其作为附加属性通道附加到每个高斯基元，从而提供一个新的光照不变的材料通道。此外，我们还引入了一个显著的高斯表示来精确地捕捉环境结构。在优化过程中，边上的高斯分布逐渐拉长，平面上的高斯分布逐渐变平。为了表征这种各向异性，我们为每个显著的高斯分布指定一个主导方向，并为剩余的两个轴共享一个尺度，在不影响精确描述轮廓和平面结构的能力的情况下减少参数。为了从一开始就将显著高斯点与关键结构对齐，我们从一组包含几何边缘点、几何平面点和反射边缘点的LiDAR特征点对其进行初始化。我们进一步发展了一种改进的显著高斯密度控制和显著变换，该变换基于线性和平面性自适应地在显著和非显著状态之间切换高斯。此外，我们还通过调整反射率和灰度转换后的RGB图像之间的梯度方向和幅度来增强边界一致性，从而减少模糊，提高重建质量。我们的方法在Waymo开放数据集上进行了验证，验证了三种具有代表性的挑战性场景类型，包括密集交通、高速和复杂照明,以及静态场景。实验结果表明，该方法在要求较少的高斯分布和较短的训练时间的同时，取得了较好的效果。此外，我们展示了基于我们的方法的真实自动驾驶场景的可编辑重建，如图所示。可靠的场景重建进一步实现了可扩展的训练数据合成和逼真的仿真环境，这对于推进自动驾驶至关重要。总之，我们的贡献如下：
+
+
+\begin{itemize}
+
+\item We introduce LR-SGS, a robust LiDAR-reflectance-guided Salient Gaussian Splatting method for self-driving scenes that jointly optimizes geometry, appearance, and reflectance within a 3DGS scene graph.
+
+\item We propose a structure-aware Salient Gaussian representation, initialized from LiDAR feature points and equipped with an improved density control strategy and a salient transform, achieving high-fidelity reconstruction of structural features in the environment.
+
+\item A new lighting-invariant reflectance channel is proposed as an additional Gaussian attribute and supervision component, with direction and magnitude consistency between its gradients and grayscale RGB gradients enforced to sharpen material boundaries.
+% A new lighting-invariant reflectance channel is proposed as an additional Gaussian attribute and supervision component, with direction and magnitude consistency enforced between its gradients and grayscale RGB gradients enforced to sharpen material boundaries.
+
+\end{itemize}
+
+
+\section{Related Work}
+\subsection{Driving Scene Reconstruction}
+
+Numerous approaches have been explored for self-driving scene reconstruction. Point-based \cite{ref26,ref27} and mesh-based \cite{ref28} methods recover geometry but struggle with high-fidelity appearance. With the development of neural scene representations, several methods \cite{ref7,ref13, ref14, ref35} have employed NeRF \cite{ref2} to reconstruct self-driving scenes, but they do not handle dynamics. Compositional neural representations \cite{ref34,ref16,ref17,ref18,ref22} model dynamic vehicles but suffer from high training costs and slow rendering. 
+% 自驾车场景重建的方法很多。基于点的\引用{ref26，ref27}和基于网格的\引用{ref28}方法恢复几何体，但难以获得高保真外观。随着神经场景表征技术的发展，已有几种方法利用NeRF{ref8，ref13，ref14，ref35}重建自驾车场景，但它们不处理动态场景。合成神经表征\引用{ref16，ref17，ref18，ref34，ref22}模型动态车辆，但训练成本高，渲染速度慢。
+
+By contrast, 3DGS \cite{ref1} achieves high-quality novel view synthesis and real-time rendering. Several studies \cite{ref10, ref23,ref24} extend 3DGS to dynamic self-driving scene reconstruction by incorporating temporal cues. HUGS \cite{ref11} achieves per-object dynamic decomposition. DeformableGS \cite{ref12} uses a set of deformable 3D Gaussians to model dynamic scenes.  PVG \cite{ref9} extends 3DGS with a time dimension for efficient large-scale dynamic scene reconstruction without annotations or pretrained models. StreetGS \cite{ref5} decomposes driving scenes into a static background and vehicle-centric dynamic Gaussians. OmniRe \cite{ref6} introduces a multi-type Gaussian scene graph that unifies rigid and non-rigid representations. These methods achieve strong temporal consistency, but under complex lighting and significant ego-motion they still struggle to recover the texture and geometry of both backgrounds and dynamic objects.
+% 与之相反，3DGS实现了高质量的新视图合成和实时绘制，一些研究通过引入时间线索将3DGS扩展到动态自驾车场景重建。HUGS\cite{ref11}实现每个对象的动态分解。变形腿\引用{ref12}使用一组可变形的3D高斯函数对动态场景建模。PVG{参考文献9}扩展了具有时间维度的3DGS，实现了无需标注或预训练模型的大规模动态场景重建。StreetGS \引用{参考文献5}将驾驶场景分解为静态背景和以车辆为中心的动态高斯。OmniRe\cite{ref6}和InvRGB+L\cite{ref21}引入了一种多类型高斯场景图，将刚性和非刚性表示统一起来。这些方法实现了很强的时间一致性，但在复杂的光照和显著的自我运动下，它们仍然难以恢复背景和运动对象的纹理和几何结构。
+
+\subsection{LiDAR-Enhanced Gaussian Splatting}
+
+3DGS \cite{ref1} initializes Gaussians from SfM points. However, this approach faces challenges in self-driving scenes, particularly under sparse viewpoints, where SfM often fails to accurately and completely recover scene geometry \cite{ref8,ref11,ref15}. Several methods \cite{ref6,ref9,ref10,ref29} use LiDAR to initialize Gaussians or as depth supervision.  StreetGS \cite{ref5}  initializes the 3DGS for both background and objects using LiDAR point clouds, while leveraging SfM points to compensate for LiDAR’s limited coverage over large areas. TCLC-GS \cite{ref25} tightly couples LiDAR and cameras by building a colorized LiDAR mesh and octree features to initialize and enrich Gaussians, and uses mesh-derived dense depth for supervision. InvRGB+L \cite{ref21} jointly reconstructs geometry, lighting, and materials in large dynamic scenes from a single camera and LiDAR sequence. 
+% 3DGS引用{ref1}从SfM点初始化高斯。然而，这种方法在自动驾驶场景中面临挑战，特别是在稀疏视点下，SfM通常无法准确、完整地恢复场景几何。几种方法引用{ref9，ref10，ref6}使用激光雷达初始化高斯或作为深度监控。街道\引用{参考文献5}使用LiDAR点云初始化背景和对象的3DG，同时利用SfM点补偿LiDAR在大面积上的有限覆盖。TCLC-GS\cite{参考文献25}通过构建彩色激光雷达网格和八叉树特征来初始化和丰富高斯分布，并使用网格导出的密集深度进行监控，从而将激光雷达和相机紧密耦合。InvRGB+L\cite{参考文献28}从单个相机和LiDAR序列联合重建大型动态场景中的几何体、照明和材质。
+
+Our method exploits the potential of LiDAR data by extracting feature points from its geometry and reflectance to initialize Salient Gaussians that capture key structures, and by integrating an RGB–LiDAR cross-modal consistency constraint to achieve more accurate reconstruction.
+% 我们的方法利用激光雷达数据的潜力，从其几何结构和反射率中提取特征点来初始化捕获关键结构的显著高斯点，并通过集成RGB–LiDAR交叉模态一致性约束来实现更精确的重建。
+
+\section{Methodology}
+
+\subsection{LiDAR Intensity Calibration}
+
+LiDAR obtains the spatial coordinates and reflection intensity of target points by emitting laser pulses and recording the time-of-flight along with the returned energy of the reflected signals. The intensity $I$ can be formulated as \cite{ref36}:
+
+\begin{equation}
+	\label{eq1}
+I  =\eta_{all}\frac{\rho\cos\alpha}{R^{2}}
+\end{equation}
+where $\eta_{all}$ denotes a LiDAR-related constant. Thus, the reflectance $\rho$ of the object can be represented using the intensity corrected by distance and angle. $R$ is the easily measurable distance. $\alpha$ is the incident angle between the object surface and the laser beam \cite{ref3}:
+
+\begin{equation}
+	\label{eq2}
+\cos\alpha = \frac{\mathbf{p}^{\text{T}}\cdot\mathbf{n}}{\|\mathbf{p}\|} ,   \mathbf{n}=\frac{\left(\mathbf{p}-\mathbf{p}_{1}\right) \times\left(\mathbf{p}-\mathbf{p}_{2}\right)}{\|\mathbf{p}-\mathbf{p}_{1}\| \cdot\|\mathbf{p}-\mathbf{p}_{2}\|}
+\end{equation}
+where $\mathbf{n}$ denotes the local normal at point $\mathbf{p}$, $\mathbf{p}_{1}$ and $\mathbf{p}_{2}$ are neighboring points of point $\mathbf{p}$. 
+
+Using the camera extrinsic $\mathbf{T}_{CL}$ and intrinsic $\mathbf{K}$, the point cloud is projected onto the camera plane, resulting in a sparse LiDAR reflectance image $F_{gt}$.  The reflectance values are then normalized to the range [0,1].
+% 使用相机外部$\mathbf{T}_{CL}$和固有$\mathbf{K}$，将点云投影到相机平面上，得到稀疏的LiDAR反射图像$F{gt}$。然后将反射率值归一化为范围[0,1]。
+
+To further capture the material variations, we introduce the reflectance gradient. Typically, edges between different materials exhibit significant reflectance gradient. For pixel $i$, its reflectance gradient is defined as:
+
+\begin{equation}
+	\label{eq3}
+g_i=\sqrt{\left(\frac{I_i-I_j}{\|\mathbf{p}_i-\mathbf{p}_j\|}\right)^2+\left(\frac{I_i-I_k}{\|\mathbf{p}_i-\mathbf{p}_k\|}\right)^2}
+\end{equation}
+where $I_i$ denotes the reflectance of pixel $i$, $\mathbf{p}_i$ represents its corresponding 3D point, and $j,k$ are the neighboring pixels in the horizontal and vertical directions. When a direction lacks valid neighbors, its gradient is assigned zero. Consequently, the reflectance gradient image $F_{gt}^{\prime}$ is obtained.
+
+We employ the generated reflectance image $F_{gt}$ and its gradient image $F_{gt}^{\prime}$ as extra supervision to constrain the geometric and texture consistency of Gaussians.
+
+\subsection{Salient Gaussians}
+
+Self-driving scenes contain rich geometric and textural structures, such as object contours, road boundaries and ground plane. Accurate modeling of both edge and planar regions is crucial for high-fidelity reconstruction. Inspired by \cite{ref31}, we propose a scene representation guided by Salient Gaussians. Specifically, Gaussians located on scene edges gradually elongate along the edge during optimization, and their max-scale direction is regarded as the dominant direction $d_{\text{spec}}$. Gaussians in planar areas tend to flatten, with their dominant direction $d_{\text{spec}}$ corresponding to the min-scale direction. We refer to such Gaussians that characterize environmental features as Salient Gaussians. Thus, the covariance matrix $\Sigma$ of each Salient Gaussian $g$ can be formulated as: 
+
+\begin{equation}
+	\label{eq6}
+\begin{cases}
+\Sigma_{\text {edge }}=\mathbf{R} \operatorname{diag}\left(\sigma_{\|}^{2}, \sigma_{\perp}^{2}, \sigma_{\perp}^{2}\right) \mathbf{R}^{\text{T}} \\
+\Sigma_{\text {plane }}=\mathbf{R} \operatorname{diag}\left(\sigma_{\perp}^{2}, \sigma_{\perp}^{2}, \sigma_{\|}^{2}\right) \mathbf{R}^{\text{T}} & 
+\end{cases}
+\end{equation}
+where $\mathbf{R}$ denotes the rotation matrix converted from the quaternion $q$. The $\sigma_{\|}$ and $\sigma_{\perp}$ denote the scales along the salient and non-salient directions, respectively.
+
+For each Salient Gaussian, we optimize a dominant scale $\sigma_{\|}$ and a shared non-dominant scale $\sigma_{\perp}$, which preserves high-fidelity geometric and textural structures while reducing optimization parameters and computational overhead. 
+
+Building on this, we initialize the Salient Gaussians using LiDAR, which captures structured geometric features at object contours and key structural positions. Moreover, LiDAR intensity and its gradient reveal surface reflectance and texture, providing additional reflectance feature points. The geometric and reflectance feature points together form a high-confidence point set: the former are mainly distributed along edges and planes, providing global structural and contour constraints; the latter emphasize material differences and compensate for RGB weaknesses in low-texture regions. Unlike methods \cite{ref5,ref6} that initialize Gaussians directly from LiDAR points without feature extraction, we initialize Salient Gaussians from the high-confidence point set, establishing a stable scaffold at the start of training to accelerate convergence and improve reconstruction fidelity.
+
+Specifically, we first extract geometric feature points by computing the smoothness of each LiDAR point \cite{ref32}:
+
+\begin{equation}
+	\label{eq7}
+c_{j}=\frac{1}{|K| \cdot\left\|\mathbf{p}_{j}\right\|}\left\|\sum_{\mathbf{p}_{i} \in \mathcal{P}_{j}, i \neq j}\left(\mathbf{p}_{i}-\mathbf{p}_{j}\right)\right\|
+\end{equation}
+where $\mathcal{P}_{j}$ denotes the set of neighboring points of LiDAR point $\mathbf{p}_{j}$, containing $K$ neighbors. Based on the smoothness $c_j$, points are divided into edge and planar points to represent the edge and planar structures of the scene.
+% 其中$\mathcal{P}_{j} $表示LiDAR点$\mathbf的相邻点集{p}_{j} $，包含$K$邻居。基于平滑度$c\j$，将点分为边缘点和平面点来表示场景的边缘和平面结构。
+
+In addition to geometric features, we leverage LiDAR reflectance to extract additional edge points. For point $\mathbf{p}_{i}$, we take its left and right neighboring point sets ${\mathbf{P}}_M$ and ${\mathbf{P}}_N$ along the same ring, and compute the reflectance gradient as:
+
+\begin{equation}
+	\label{eq8}
+G_j=\left|\frac{1}{M+1}\left(I_j+\sum_{{\mathbf{p}}_m^M\in{\mathbf{P}}_M}I_m\right)-\frac{1}{N}\sum_{{\mathbf{p}}_n^N\in{\mathbf{P}}_N}I_n\right|
+\end{equation}
+where $M$ and $N$ are the numbers of points in ${\mathbf{P}}_M$ and ${\mathbf{P}}_N$, respectively. Based on the reflectance gradient $G_{j}$, we select reflectance edge points.
+% 其中，$M$和$N$分别是${\mathbf{P}}}U M$和${\mathbf{P}}}}U N$中的点数。并且基于反射率梯度${G\u j}$我们选择反射率边缘点。
+%where $M$ and $N$ are the number of points in ${\mathbf{P}}_M$ and ${\mathbf{P}}_N$, respectively. When the reflectance gradient ${G_j}$ exceeds $0.1{I_j}$, the point $\mathcal{P}_{j}$ is selected as a reflectance edge point.
+% 其中，$M$和$N$分别是${\mathbf{P}}}U M$和${\mathbf{P}}}}U N$中的点数。当反射率梯度${G\u j}$超过$0.1{I\u j}$时，点$\mathcal{P}_{j} 选择$作为反射边点。
+
+We denote Salient Gaussians instantiated from geometric and reflectance edge points as Edge Salient Gaussians, and those from geometric planar points as Planar Salient Gaussians. Because LiDAR does not cover the entire scene, we initialize SfM points as Non-Salient Gaussians.
+% 我们将几何和反射边缘点实例化的显著高斯表示为边缘显著高斯，将几何平面点实例化的显著高斯表示为平面显著高斯。由于LiDAR不能覆盖整个场景，我们将SfM点初始化为非显著高斯点。
+
+Moreover, we improve density control to adapt it to Salient Gaussians, as shown in Fig. \ref{Our_Transform_and_Split}. During split, Edge Salient Gaussians are split along their dominant direction, while Planar Salient Gaussians are split within the plane orthogonal to the dominant direction. New Gaussians created by split or clone inherit the type as the parent. For Non-Salient Gaussians, we follow the density control from \cite{ref6}.
+
+
+
+
+\begin{figure}[t]
+	\centering
+	\includegraphics[width=3.4in]{pic3.pdf}
+	\caption{\textbf{Our Transform and Split.} The dashed line represents the Gaussian shape before executing split. $\uparrow$ and $\downarrow$ denote that the high and low threshold conditions are satisfied, respectively.}
+	% 我们的转换和分裂。虚线表示执行split之前的的形状。↑和↓分别表示满足高和低阈值条件。
+	\label{Our_Transform_and_Split}
+\vspace{-6pt}
+\end{figure}
+
+To ensure adequate coverage of environmental features by Salient Gaussians, we introduce a salient transform strategy that enables mutual conversion between Salient and Non-Salient Gaussians. Specifically, Salient Gaussians that lack clear directionality are degraded, while Non-Salient Gaussians that stably capture structural features are upgraded, thereby strengthening the representation of key structures.
+
+
+%For a Gaussian with ordered scales $s_{1}\geq s_{2}\geq s_{3}$, we define linearity $L(g)=({s_{1}-s_{2}})/{s_{1}}$ and planarity $P(g)=({s_{2}-s_{3}})/{s_{1}}$. At each density control step, all Gaussians are evaluated. When $\max \{L(g), P(g)\}$ exceeds a set threshold $\tau_{\text{max}}$ in two successive evaluations, the Non-Salient Gaussian is upgraded to a Salient Gaussian. The type is determined by the dominant direction. When $L(g)\geq P(g)$, it becomes an Edge Salient Gaussian with scales initialized as $(\sigma_{\|}=s_{1}, \sigma_{\perp}=(s_{2}+s_{3})/2)$. Otherwise, it becomes a Planar Salient Gaussian with $(\sigma_{\perp}=(s_{1}+s_{2})/2, \sigma_{\|}=s_{3})$.
+% 对于有序标度为$s\u{1}\geqs\u{2}\geqs\u{3}$的高斯函数，我们定义了线性度$L（g）=（{s_{1}-s_{2} }）/{s\u{1}}$和平面度$P（g）=（{s_{2}-s_{3} }）/{s\u{1}}}$。在每个密度控制步骤中，对所有高斯函数进行评估。当一个非显著高斯在两次连续求值中拥有更大的线性度或平面度，将其升级为显著高斯。类型由主导方向决定。当$L（g）\geq P（g）$时，它变为边显著高斯，标度初始化为$（\sigma\uU{\ |}=s\uU{1}，\sigma\uU{\ perp}=（s\uU{2}+s\uU{3}）/2）$。否则，它将变为$（\sigma\uu{\ perp}=（s\u{1}+s\u{2}）/2，\sigma\u{\ 124;}=s\u{3}）$的平面显著高斯。
+
+For a Gaussian with ordered scales $s_{1}\geq s_{2}\geq s_{3}$, we define linearity $L(g)=({s_{1}-s_{2}})/{s_{1}}$ and planarity $P(g)=({s_{2}-s_{3}})/{s_{1}}$. At each density control step, all Gaussians are evaluated. When $\max \{L(g), P(g)\}$ exceeds a set threshold $\tau_{\text{max}}$ in two successive evaluations, the Non-Salient Gaussian is upgraded to a Salient Gaussian. The type is determined by the dominant direction. When $L(g)\geq P(g)$, it becomes an Edge Salient Gaussian with scales initialized as $(\sigma_{\|}=s_{1}, \sigma_{\perp}=(s_{2}+s_{3})/2)$. Otherwise, it becomes a Planar Salient Gaussian with $(\sigma_{\perp}=(s_{1}+s_{2})/2, \sigma_{\|}=s_{3})$.
+% 对于有序标度为$s\u{1}\geqs\u{2}\geqs\u{3}$的高斯函数，我们定义了线性度$L（g）=（{s_{1}-s_{2} }）/{s\u{1}}$和平面度$P（g）=（{s_{2}-s_{3} }）/{s\u{1}}}$。在每个密度控制步骤中，对所有高斯函数进行评估。当$\ max \{L（g），P（g）\}$在两次连续求值中超过设定的阈值$\ tau \{\ text{max}}$时，将非显著高斯升级为显著高斯。类型由主导方向决定。当$L（g）\geq P（g）$时，它变为边显著高斯，标度初始化为$（\sigma\uU{\ |}=s\uU{1}，\sigma\uU{\ perp}=（s\uU{2}+s\uU{3}）/2）$。否则，它将变为$（\sigma\uu{\ perp}=（s\u{1}+s\u{2}）/2，\sigma\u{\ 124;}=s\u{3}）$的平面显著高斯。
+
+Conversely, when the salient and non-salient scales of a Salient Gaussian become similar, its ability to characterize environmental features diminishes. When ${\text{max}}\{{L(g), P(g)}\}$ remains below the set threshold $\tau_{\text{min}}$ for two consecutive evaluations, the Salient Gaussian is degraded to a non-salient one. This keeps Salient Gaussians focused on key structural regions, thereby improving reconstruction accuracy and efficiency.
+% 反之，当显著高斯的显著尺度和非显著尺度变得相似时，其表征环境特征的能力减弱。当${\text{max}}{{L（g），P（g）}}$连续两次低于设定的阈值$\tau\u{\ text{min}}$时，显著高斯退化为非显著高斯。这使得显著高斯聚焦于关键结构区域，提高了重建精度和效率。
+
+
+
+\subsection{Forward Rendering}
+
+During rendering, the color $C$, depth $D$, and reflectance $F$ of the pixel $p$ are computed by $\alpha$-blended volume rendering:
+
+\begin{equation}
+	\label{eq9}
+\begin{cases}
+C_\mathcal{G}=\sum_{i \in \mathcal{I}(p)} {c}_{i} \alpha_{i} \prod_{j=1}^{i-1}\left(1-\alpha_{j}\right) \\
+D_\mathcal{G}=\sum_{i \in \mathcal{I}(p)} {d}_{i} \alpha_{i} \prod_{j=1}^{i-1}\left(1-\alpha_{j}\right) \\
+F_\mathcal{G}=\sum_{i \in \mathcal{I}(p)} {f}_{i} \alpha_{i} \prod_{j=1}^{i-1}\left(1-\alpha_{j}\right) & 
+\end{cases}
+\end{equation}
+where $\mathcal{I}(p)$ denotes the ordered set of Gaussians projected onto the pixel, sorted by depth from the camera center. $\alpha_{i}=o_{i} \exp \left(-\frac{1}{2}(p-\mu_{i}^{2D})^{T} \Sigma_{i}^{-1}(p-\mu_{i}^{2D})\right)$ represents the opacity weight, where $\mu_{i}^{2D}$ and $\Sigma_{i}$ are the 2D coordinates and covariance matrix, respectively.
+
+The final rendering color is obtained by compositing the $C_\mathcal{G}$ with the $C_{sky}$ corresponding to the sky node:
+
+\begin{equation}
+	\label{eq10}
+C_{\mathrm{final}}=C_{\mathcal{G}}+\left(1-O_{\mathcal{G}}\right) C_{\mathrm{sky}}
+\end{equation}
+where $O_{\mathcal{G}}=\sum_{i \in \mathcal{I}(p)} \alpha_{i} \prod_{j=1}^{i-1}(1-\alpha_{j})$ denotes the opacity mask of Gaussians. Since LiDAR cannot measure the sky region, the final rendered reflectance and depth are $F_{\mathrm{final}} = F_\mathcal{G}$ and $D_{\mathrm{final}} = D_\mathcal{G}$, respectively.
+
+\subsection{Scene Optimization}
+
+Based on the combined input of RGB and LiDAR data, we perform joint inference and optimization of the scene, enabling the simultaneous reconstruction of the geometry, appearance, and reflectance properties. Accordingly, in a single stage, we update the full set of Gaussian primitive attributes, including position, opacity, scale, rotation, appearance, and reflectance, and the parameter weights of the sky model. Finally, the scene graph $S$ is optimized using the overall loss function defined as follow:
+
+\begin{equation}
+	\label{eq11}
+\mathcal{L}= \mathcal{L}_{rgb} + \mathcal{L}_{lidar} + \mathcal{L}_{joint}
+\end{equation}
+where $\mathcal{L}_{rgb}$ constrains photometric consistency between the rendered output and the ground truth images, $\mathcal{L}_{lidar}$ incorporates geometric and reflectance constraints from LiDAR, and $\mathcal{L}_{joint}$ ensures cross-modal consistency.
+
+
+
+% --- begin scaled table (Option B) ---
+\begin{table*}[t]
+  \centering
+  \caption{Quantitative Comparisons on the Waymo Open Dataset.}
+		% 在waymo开放数据集上的定量实验。
+  \label{Quantitative_comparisons}
+  \resizebox{\textwidth}{!}{%
+  \begin{tabular}{lccccccccccccc}
+    \toprule
+    & \multicolumn{4}{c}{Dense Traffic} & \multicolumn{3}{c}{High-Speed} & \multicolumn{3}{c}{Complex Lighting} & \multicolumn{3}{c}{Static} \\
+    Method & PSNR $\uparrow$ & PSNR* $\uparrow$ & SSIM $\uparrow$ & LPIPS $\downarrow$
+           & PSNR $\uparrow$ & SSIM $\uparrow$ & LPIPS $\downarrow$
+           & PSNR $\uparrow$ & SSIM $\uparrow$ & LPIPS $\downarrow$
+           & PSNR $\uparrow$ & SSIM $\uparrow$ & LPIPS $\downarrow$\\ 
+    \midrule
+    3DGS* \cite{ref1}        &24.49&16.71&0.781&0.123&25.95&0.824&0.147&28.85&0.703&0.292&{28.19}&\underline{0.872}&\underline{0.121}\\
+    DeformGS* \cite{ref12}   &26.08&19.55&0.817&0.102&26.02&0.839&0.139&29.01&0.717&0.285&28.14&0.863&0.124\\
+    PVG \cite{ref9}          &27.95&21.67&0.841&0.093&26.24&0.845&0.139&29.12&0.709&0.284&28.05&0.854&0.126\\
+    StreetGS \cite{ref5}     &27.01&21.73&0.831&0.095&28.06&\underline{0.878}&0.137&29.16&0.721&0.282&28.15&0.858&0.126\\
+    OmniRe \cite{ref6}       &\underline{28.44}&\underline{23.72}&\underline{0.847}&\underline{0.085}&\underline{28.12}&0.871&\underline{0.135}&\underline{29.33}&\underline{0.727}&\underline{0.278}&\underline{28.23}&0.865&0.123\\
+    \midrule
+    Ours                     &\textbf{28.89}&\textbf{24.02}&\textbf{0.869}&\textbf{0.081}&\textbf{28.77}&\textbf{0.896}&\textbf{0.122}&\textbf{30.51}&\textbf{0.755}&\textbf{0.236}&\textbf{28.73}&\textbf{0.880}&\textbf{0.116}\\
+    \bottomrule
+  \end{tabular}}
+\vspace{-6pt}
+\end{table*}
+
+\subsubsection{Color Loss}
+To evaluate the photometric difference between the rendered image $C$ and the ground truth $C_{\mathrm{gt}}$, we employ a weighted combination of L1 loss and D-SSIM:
+
+\begin{equation}
+	\label{eq12}
+\mathcal{L}_{rgb}=(1-\lambda_{c}) \mathcal{L}_{1}+\lambda_{c} \mathcal{L}_{D-SSIM}
+\end{equation}
+% where $ \lambda_{c} $ is set to 0.2.
+
+\subsubsection{LiDAR Loss}
+LiDAR provides reliable depth and reflectance for the scene. During optimization, we utilize both its precise depth constraints and integrate reflectance and its gradient constraints, thereby providing additional constraints in weak-texture regions. The LiDAR loss is defined as:
+
+\begin{equation}
+	\label{eq13}
+\mathcal{L}_{lidar}= \lambda_{depth}\mathcal{L}_{depth} + \lambda_{fle}\mathcal{L}_{fle} + \lambda_{fle}^{\prime}\mathcal{L}_{fle}^{\prime}
+\end{equation}
+
+
+
+The reflectance distortion loss $\mathcal{L}_{fle}$ is the L1 loss between the rendered reflectance $F$ and the LiDAR-projected reflectance $F_{gt}$, which enforces global reflectance consistency. In addition, we employ a mask to account for the sparsity in LiDAR observations, ensuring that constraints are applied only to valid pixels. The reflectance gradient consistency loss $\mathcal{L}_{fle}^{\prime}$ is the L1 loss between the rendered reflectance gradient obtained from Eq. \eqref{eq3} and $F_{gt}^{\prime}$. The depth distortion loss $\mathcal{L}_{depth}$ is computed in the same manner as $\mathcal{L}_{fle}$. 
+
+%The $\lambda_{depth}$ and $\lambda_{fle}$ are set to 0.1, and the $\lambda_{fle}^{\prime}$ is set to 0.05.
+
+
+
+\subsubsection{Joint Loss}  
+To improve cross-modal consistency, we design a Joint Loss. Regions such as object boundaries, plane intersections, or material changes typically exhibit significant texture variations, making them the stable anchors for cross-modal alignment. By jointly enforcing gradient magnitude and direction consistency between LiDAR reflectance and RGB information in these regions, the reconstruction accuracy of texture boundaries and local structures is improved.
+% 为了提高跨模态一致性，我们设计了一种联合损耗。对象边界、平面交点或材质更改等区域通常会显示显著的纹理变化，使它们成为跨模态对齐的稳定锚定。通过联合增强这些区域的激光雷达反射率和RGB信息之间的梯度大小和方向一致性，提高了纹理边界和局部结构的重建精度。
+
+Before gradient computation, the rendered RGB image $C$ is converted to a grayscale image $C^{g}$ to eliminate interference caused by channel differences. Then, $C^{g}$ and the rendered reflectance image $F$ are Gaussian-smoothed to reduce noise while retaining the primary boundary structures:
+% 在梯度计算之前，将渲染的RGB图像$C$转换为灰度图像$C^{g}$，以消除由通道差异引起的干扰。然后，对$C^{g}$和渲染反射图像$F$进行高斯平滑以减少噪声，同时保留主要边界结构：
+
+\begin{equation}
+	\label{eq14}
+\tilde{I}=G_{\sigma} * I,I=(F,C^{g})
+\end{equation}
+where $G_{\sigma}$ is a gaussian kernel with a standard deviation of $\sigma = 1.2$ pixels. 
+
+The gradients of the smoothed images $\tilde{I}$ are computed using the Scharr kernel, with mirrored padding at the edges, yielding the following gradient:
+
+\begin{equation}
+	\label{eq15}
+g_{I}=\sqrt{I_{x}^{2}+I_{y}^{2}}
+\end{equation}
+where $I_{x}$ and $I_{y}$ represent the gradient components in the horizontal and vertical directions, respectively. 
+
+The Joint Loss consists of two components: direction consistency and magnitude consistency, as follows:
+% 联合损耗由两部分组成：方向一致性和幅值一致性。如下
+
+\begin{equation}
+	\label{eq16}
+\mathcal{L}_{joint}= \lambda_{dir}\mathcal{L}_{dir} + \lambda_{val}\mathcal{L}_{val}
+\end{equation}
+where $\mathcal{L}_{dir}=1-(\hat{\nabla} F \cdot \hat{\nabla} C^{g})$ is the gradient direction consistency loss, where $\hat{\nabla} F = \left(F_{x}, F_{y}\right)/g_{F}$ and $\hat{\nabla} C^{g} = \left(C_{x}^{g}, C_{y}^{g}\right)/g_{C^{g}}$ are the normalized gradient vectors of the reflectance and grayscale images, respectively, used to enforce consistency in edge orientation. $\mathcal{L}_{val}=\left\| g_{F}/{F} - g_{C^{g}}/{C^{g}} \right\|_{1}$ denotes the normalized magnitude consistency loss, which removes cross-modal scale differences via normalization while preserving edge prominence. 
+
+% The $\lambda_{dir}$ is set to 0.1 and the $\lambda_{val}$ is set to 0.2.
+
+
+
+
+\section{Experiments}
+\subsection{Experimental Setup}
+\subsubsection{Datasets}
+
+We conduct experiments on the Waymo Open Dataset \cite{ref30}, containing RGB images from five cameras and 64-beam LiDAR data with intensity. During training, we use the three front-facing cameras and LiDAR. To thoroughly assess our method, we select 24 sequences across four  categories: Dense Traffic (125050, 767010, 112520, 104859, 152664, 882250), High-Speed (100508, 107707, 109239, 113924, 118396, 114626), Complex Lighting (128560, 755420, 129008, 102261, 718760, 848780), and Static (100613, 102751, 106762, 113792, 117240, 128796), each with approximately 100 frames. Every fourth frame is used for testing, and the rest for training.
+% 我们在Waymo开放数据集{ref30}上进行了实验，该数据集包含来自五台相机的RGB图像和具有强度的64束激光雷达数据。在训练过程中，我们使用了三个前置摄像头和相应的激光雷达。为了全面评估我们的方法，我们选择了24个序列，跨越四个代表性类别：密集交通（125050、767010、112520、104859、152664、882250）、高速（100508、107707、109239、113924、118396、114626）、复杂照明（128560、755420、129008、102261、718760、848780）和静态无动态对象（100613、102751、106762、113792、117240、128796）。每个序列包含大约100帧。我们选择序列中的每四帧作为测试帧，其余帧用于训练。
+
+\subsubsection{Baselines}
+
+We compare our method against several state-of-the-art methods, including 3DGS \cite{ref1}, DeformGS \cite{ref12}, PVG \cite{ref9}, StreetGS \cite{ref5}, and OmniRe \cite{ref6}. We evaluate RGB rendering using PSNR, SSIM, and LPIPS \cite{ref33}, while for LiDAR reflectance, we assess performance using RMSE. We report PSNR on moving objects (PSNR*) in Dense Traffic scenes to assess reconstruction of dynamic objects.
+
+%PSNR* denotes the PSNR of dynamic objects.
+% 我们将我们的方法与几种最新的方法进行了比较，包括3DGS\cite{ref1}、DeformGS\cite{ref12}、PVG\cite{ref9}、StreetGS\cite{ref5}、OmniRe\cite{ref6}。我们使用PSNR、SSIM和LPIPS来评估RGB渲染，而对于LiDAR反射，我们使用RMSE评估性能。其中，PSNR*表示移动物体的PSNR。（“PSNR*” denotes the PSNR of moving objects.）
+
+% We compare our method against several state-of-the-art methods, including 3DGS \cite{ref1}, DeformGS \cite{ref12}, PVG \cite{ref9}, StreetGS \cite{ref5}, and OmniRe \cite{ref6}. To ensure fairness, we use the implementation with LiDAR depth supervision for 3DGS and DeformGS, denoted as 3DGS* and DeformGS*. For the other methods, we adopt their official implementations with default configurations. We evaluate RGB rendering quality using PSNR, SSIM, and LPIPS \cite{ref33}, while for LiDAR reflectance, we assess performance using RMSE.
+
+\subsubsection{Implementation Details}
+
+%All experiments are run on a single NVIDIA RTX 3090 GPU for 30k training iterations. For fairness, we report the average results over five runs. We use the implementation with LiDAR depth supervision for 3DGS and DeformGS, denoted as 3DGS* and DeformGS*, and the official implementations with default configurations for all other methods. The loss weights were $\lambda_{c}=\lambda_{val}=0.2$, $\lambda_{depth}=\lambda_{fle}=\lambda_{dir}=0.1$, and $\lambda_{fle}^{\prime}=0.05$.
+% 所有实验均在单个NVIDIA RTX 3090 GPU上运行，训练迭代次数为30k。为了公平起见，我们报告了五次运行的平均结果。我们对3DGS和DeformGS使用LiDAR深度监控的实现，表示为3DGS*和DeformGS*，对所有其他方法使用默认配置的官方实现。显著变换阈值设置为$\tau\uu{\ text{max}}=0.5$，而$\tau\u{\ text{min}}=0.1$。损失权重为$\lambda\uu{c}=\lambda\u{val}=0.2$，$\lambda\u{depth}=\lambda\u{fle}=\lambda\u{dir}=0.1$，以及$\lambda\u{fle}^{\prime}=0.05$。
+
+All experiments are conducted for 30k training iterations. For fairness, we report the mean over five runs. We use the implementations of 3DGS and DeformGS with LiDAR depth supervision (3DGS* and DeformGS*), and the official implementations with default settings for all other methods. Object masks are obtained following \cite{ref21}. The input image resolution is 1066×1600. The salient transform thresholds are set as hyperparameters to $\tau_{\text{max}}=0.5$ and $\tau_{\text{min}}=0.1$. Loss weights are set to $\lambda_{c}=\lambda_{val}=0.2$, $\lambda_{depth}=\lambda_{fle}=\lambda_{dir}=0.1$, and $\lambda_{fle}^{\prime}=0.05$.
+% 所有实验均在单个NVIDIA RTX 3090 GPU上运行，训练迭代次数为30k(All experiments are conducted on a single NVIDIA RTX 3090 GPU with 30k training iterations.)。为了公平起见，我们报告了五次运行的平均结果。我们对3DGS和DeformGS使用LiDAR深度监控的实现，表示为3DGS*和DeformGS*，对所有其他方法使用默认配置的官方实现。我们采用和[omnire]相同的方式来获取目标掩码。并且输入图像的分辨率为1066×1600。显著变换阈值作为超参数设置为$\tau\uu{\ text{max}}=0.5$，而$\tau\u{\ text{min}}=0.1$。损失权重为$\lambda\uu{c}=\lambda\u{val}=0.2$，$\lambda\u{depth}=\lambda\u{fle}=\lambda\u{dir}=0.1$，以及$\lambda\u{fle}^{\prime}=0.05$。
+
+% 并且输入图像的分辨率为1066×1600。and the input image resolution is 1066×1600.
+
+
+\begin{figure*}[!t]
+    \centering
+    \includegraphics[width=1.0\textwidth]{pic4.pdf}
+    \caption{\textbf{Qualitative Comparison of Novel View Synthesis.} (a) shows the Dense Traffic scene. (b) shows the High-Speed scene. (c) and (d) show the scene with Complex Lighting conditions. (e) shows the Static scene. Our method not only achieves high-quality reconstruction of dynamic objects, but also recovers very fine details of the background environment, maintaining consistent and stable reconstructions even under complex lighting conditions.}
+		% 新视角合成的定性比较。(a)是Dense Traffic场景。（b）是High-Speed场景。（c）是Complex Lighting Conditions场景。（d）和（e）是Static 场景。我们的方法不仅对动态目标进行高质量的重建（high-quality reconstruction），同时还能恢复背景环境中非常精细的细节（very fine details），即使在复杂光照条件下亦能保持重建的一致性和稳定性。
+    \label{Qualitative_Comparison_of_Novel_View_Synthesis}
+\vspace{-6pt}
+\end{figure*}
+
+\subsection{Qualitative and Quantitative Results}
+
+Table \ref{Quantitative_comparisons} presents quantitative results for novel view synthesis comparing our method with the baselines. The best and second-best results are highlighted in bold and underlined, respectively. Across all metrics, our method achieves competitive performance over the different scene categories, demonstrating stronger adaptability and generalization.
+% 表ref{Quantitative\u Compariations}给出了新视图合成的定量结果，并将我们的方法和基线进行了比较。最佳和次最佳结果分别以粗体和下划线突出显示。在所有的度量指标中，我们的方法在不同的场景类别中都取得了有竞争力的性能，表现出较强的适应性和泛化能力。此外， 我们在Dense Traffic场景中额外比较了移动目标的PSNR以验证我们的方法对移动目标重建的提升。
+
+% 表I显示了我们的方法与基准方法[1,2,3,4]在新视角合成上的定量比较结果。在为3DGS添加了LiDAR初始化和深度监督模块后，其在静态场景中拥有与StreetGS相当的性能。但在三类挑战性的场景普遍包含动态对象，而3DGS无法模拟动态对象，因此整体性能受限(After adding LiDAR-based initialization and depth supervision to 3DGS, it achieves performance comparable to StreetGS in static scenes. However, the three challenging categories generally contain dynamic objects, which 3DGS cannot model, thereby constraining its overall performance.)。对于所有指标(For all the metrics)，我们的方法在不同类型的场景中均取得了最优表现，体现出更强的适应性与泛化能力。
+
+Fig. \ref{Qualitative_Comparison_of_Novel_View_Synthesis} shows qualitative results on the Waymo Open Dataset. In scenes with dynamic objects, benefiting from the cooperation of the Salient Gaussians and LiDAR reflectance constraints, our method recovers object appearance more faithfully. As shown in Fig. \ref{Qualitative_Comparison_of_Novel_View_Synthesis}(a), the taillights and roof outline of the gray vehicle are clearly reconstructed, while StreetGS and OmniRe exhibit blurred artifacts. Additionally, under high-speed that lowers co-visibility across frames, our approach is more sensitive to geometric and textural boundaries, as shown in Fig. \ref{Qualitative_Comparison_of_Novel_View_Synthesis}(b), capturing details such as wall protrusions and lane markings. Under complex lighting conditions, such as the nighttime scene in Fig. \ref{Qualitative_Comparison_of_Novel_View_Synthesis}(c), lighting-invariant LiDAR reflectance provides stable constraints, effectively mitigating artifacts in StreetGS and OmniRe and maintaining consistent scene reconstruction. For the static scene in Fig. \ref{Qualitative_Comparison_of_Novel_View_Synthesis}(e), Salient Gaussians establish stronger priors on critical geometric and textural structures, and together with complementary texture information and boundary cues from reflectance, improve global consistency and detail recovery in static environment. Overall, our method achieves higher-fidelity reconstruction of dynamic objects and static environments, producing novel view synthesis rich in geometric and textural details even under challenging conditions.
+% 图3展示了在Waymo数据集上的定性结果。对于包含移动对象的场景，受益于显著高斯与LiDAR反射率约束的协同作用，我们的方法能够更细致地恢复目标外观。如图3(a)所示，灰色车辆尾灯和车顶轮廓被清晰重建，而StreetGS和OmniRe呈现出模糊外形。此外，当自车快速移动导致帧间共视度降低时，我们的方法对环境中的几何和纹理边界更敏感，如图3(b)所示，能捕获墙壁凸起和车道线等细节。在具有挑战性灯光条件下，如在图3(c)所示的夜间场景，对光照变化不敏感的LiDAR反射率能提供稳定约束，从而有效抑制StreetGS和OmniRe中出现的视觉伪影，保持了场景的一致性。在(e)的静态场景中，我们所提出的显著高斯在关键几何和纹理结构处形成更强先验，配合反射率提供的互补纹理信息和边界特征，提高了在静态背景中的全局一致性与细节还原。总体而言，我们的方法实现了动态对象和静态环境的高保真重建，即使在具有挑战性的条件下也能产生丰富的几何和纹理细节的新颖视图合成。
+
+
+\begin{figure}[t]
+	\centering
+	\includegraphics[width=3.4in]{pic5.pdf}
+	\caption{\textbf{Ablation study on Salient Gaussians.} Salient Gaussians enable finer reconstruction of structural features in the environment.}
+	% 显著高斯的消融。显著高斯能够对环境中的结构特征进行更精细的重建。
+	\label{Ablation_study_on_Salient_Gaussian}
+\vspace{-6pt}
+\end{figure}
+
+\begin{table}[t]
+  \centering
+  \caption{Ablation study of each component on the Waymo Open Dataset.}
+  \label{Ablation_study}
+  \begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lccc}
+    \toprule
+    Method              & PSNR $\uparrow$ & SSIM $\uparrow$ & LPIPS $\downarrow$ \\
+    \midrule
+    w/o SG              & 28.74           & 0.830           & 0.152 \\
+    w/o LF-Init         & 28.94           & 0.839           & 0.144 \\
+    w/o Reflectance     & 28.87           & 0.831           & 0.147 \\
+    w/o Joint Loss      & 28.96           & 0.835           & 0.144 \\
+    Ours                & \textbf{29.22}  & \textbf{0.850}  & \textbf{0.139} \\
+    \bottomrule
+  \end{tabular*}
+\vspace{-6pt}
+\end{table}
+
+
+
+
+\begin{table}[t]
+  \centering
+  \caption{Ablation study on the seg100613 sequence.}
+  \label{Ablation_study_on_the_seg100613_Scene}
+  \resizebox{\linewidth}{!}{
+    \begin{tabular}{c|l|llll}
+      \toprule
+      \multicolumn{1}{l|}{Iteration} & \multicolumn{1}{c|}{Method} & PSNR $\uparrow$ & SSIM $\uparrow$ & LPIPS $\downarrow$ & Training $\downarrow$ \\
+      \midrule
+      \multirow{3}{*}{7k}  & w/o LiDAR & 25.50 & 0.816 & 0.213 & 13m12s \\
+                           & w/o SG    & 25.52 & 0.824 & 0.209 & 13m48s \\
+                           & Ours      & \textbf{26.41} & \textbf{0.839} & \textbf{0.188} & \textbf{11m05s} \\
+      \midrule
+      \multirow{3}{*}{15k} & w/o LiDAR & 27.98 & 0.860 & 0.140 & 30m34s \\
+                           & w/o SG    & 27.54 & 0.858 & 0.143 & 31m17s \\
+                           & Ours      & \textbf{28.13} & \textbf{0.863} & \textbf{0.136} & \textbf{28m54s} \\
+      \midrule
+      \multirow{3}{*}{30k} & w/o LiDAR & 28.76 & 0.890 & 0.115 & 68m37s \\
+                           & w/o SG    & 28.51 & 0.874 & 0.119 & 70m21s \\
+                           & Ours      & \textbf{28.96} & \textbf{0.894} & \textbf{0.112} & \textbf{61m57s} \\
+      \bottomrule
+    \end{tabular}
+  }
+\vspace{-6pt}
+\end{table}
+
+
+\subsection{Ablation Study}
+
+We validate the design choices of our method on all selected sequences of the Waymo Open Dataset. Table \ref{Ablation_study} presents the quantitative results averaged over all sequences. 
+% 我们在Waymo开放数据集的所有选定序列上验证了我们方法的设计选择。表ref{消融研究}给出了定量结果，所有序列的指标均为平均值。
+
+
+
+
+\subsubsection{Salient Gaussian}
+
+We conduct an ablation by removing Salient Gaussians and using LiDAR feature points to initialize Non-Salient Gaussians, in order to assess the effectiveness of Salient Gaussians, denoted as w/o SG. Table \ref{Ablation_study_on_the_seg100613_Scene} reports novel view synthesis metrics and training time on the seg100613 sequence. The results show that introducing Salient Gaussians improves rendering quality, accelerates convergence, and reduces training time. This improvement arises because Salient Gaussians better match edges and planar structures in the environment and require fewer parameters. Fig. \ref{Ablation_study_on_Salient_Gaussian}(b) and \ref{Ablation_study_on_Salient_Gaussian}(c) compare reconstructions with and without Salient Gaussians. Even in regions not covered by LiDAR, structural details are well reconstructed. This benefit stems from our salient transform strategy, which enables Salient Gaussians to grow beyond their initial coverage and distribute across entire scene.
+
+
+
+
+\begin{figure}[t]
+	\centering
+	\includegraphics[width=3.4in]{pic6.pdf}
+	\caption{\textbf{Ablation study on LiDAR Reflectance.} We show the rendered image and depth of our method with and without LiDAR Reflectance. For clearer visual comparison, we increased the brightness in the zoomed-in regions.}
+		% 在LiDAR Reflectance上的消融实验。We show the rendered image and depth of our method with and without LiDAR Reflectance. 为了更好的可视化对比，我们调高了局部放大的亮度。
+	\label{Ablation_of_LiDAR_Reflectance}
+\vspace{-6pt}
+\end{figure}
+
+
+\begin{figure}[t]
+	\centering
+	\includegraphics[width=3.4in]{pic7.pdf}
+	\caption{\textbf{Ablation of the Joint Loss.} (a) the rendered image. (b) the rendered reflectance.}
+	% 联合损失的消融。（a）是渲染的图片。（b）是渲染的反射率图像。
+	\label{Ablation_of_Joint_Loss}
+\vspace{-6pt}
+\end{figure}
+
+
+
+\begin{table}[t]
+  \centering
+  \caption{Ablation Study on Joint Loss.}
+  \label{Ablation_Study_on_Joint_Loss}
+  {\setlength{\tabcolsep}{10pt}% 可按需调整列间距
+  \begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lcccc}
+    \toprule
+    Method           & PSNR $\uparrow$ & SSIM $\uparrow$ & LPIPS $\downarrow$ & RMSE $\downarrow$ \\
+    \midrule
+    w/o Joint Loss   & 30.08           & 0.913           & 0.057              & 0.1063 \\
+    w/ Joint Loss    & \textbf{30.39}  & \textbf{0.917}  & \textbf{0.053}     & \textbf{0.0854} \\
+    \bottomrule
+  \end{tabular*}}
+\vspace{-6pt}
+\end{table}
+
+
+\begin{table}[t]
+  \centering
+  \caption{Efficiency Analysis.}
+  \label{Efficiency_analysis}
+  {\setlength{\tabcolsep}{10pt}% 可按需调节列间距
+  \begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lcccc}
+    \toprule
+    Method & PSNR $\uparrow$ & Number $\downarrow$ & Training $\downarrow$ & FPS $\uparrow$ \\
+    \midrule
+    StreetGS \cite{ref5} & 28.20 				& 2,929,851 					& \underline{64m30s} & \underline{33.61}\\ 
+    OmniRe \cite{ref6}   & \underline{28.62} & \underline{2,744,275} 	& 67m11s 					&30.55\\				
+    Ours                 & \textbf{28.95} 	& \textbf{2,510,883} 		& \textbf{59m25s} 		&\textbf{36.95}\\	
+    \bottomrule
+  \end{tabular*}}
+\vspace{-6pt}
+\end{table}
+
+
+\subsubsection{LiDAR Feature Initialization}
+
+We evaluate the impact of LiDAR feature-point initialization (LF-Init) of Salient Gaussians on reconstruction. Without LF-Init, we bypass feature extraction, initialize Non-Salient Gaussians from raw LiDAR and SfM points, and rely solely on the salient transform strategy to produce Salient Gaussians during training. Table \ref{Ablation_study} shows that initializing Salient Gaussians with LiDAR feature points improves rendered image quality. Moreover, Table \ref{Ablation_study_on_the_seg100613_Scene} shows that such initialization provides a better starting point for Salient Gaussians to align with critical geometric and textural structures early on, yielding faster convergence and higher reconstruction accuracy.
+% 我们评估了显著高斯点的LiDAR特征点初始化（LF Init）对重建的影响。在不使用LF Init的情况下，我们绕过特征提取，仅依靠显著性变换策略在训练过程中产生显著高斯点，并将LiDAR点和SfM点初始化非显著高斯点。表ref{Ablation\u study}表明，使用LiDAR特征点初始化显著高斯可以提高渲染图像质量。此外，表ref{Ablation\u study\u on\u the\u seg100613\u Scene}表明，这种初始化为显著高斯提供了一个更好的起点，以便尽早与关键几何和纹理结构对齐，从而产生更快的收敛和更高的重建精度。
+
+% We evaluate the impact of LiDAR feature-point initialization (LF-Init) of Salient Gaussians on reconstruction. Without LF-Init, we bypass feature extraction and initialize Non-Salient Gaussians using raw LiDAR points together with SfM points, relying solely on the salient transform strategy to produce Salient Gaussians during training. Table \ref{Ablation_study} shows that initializing Salient Gaussians with LiDAR feature points improves rendered image quality. Moreover, Table \ref{Ablation_study_on_the_seg100613_Scene} shows that such initialization provides a better starting point for Salient Gaussians to align with critical geometric and textural structures early on, yielding faster convergence and higher reconstruction accuracy.
+% 我们评估了显著高斯点的LiDAR特征点初始化（LF Init）对重建的影响。在不使用LF Init的情况下，我们绕过特征提取，使用原始LiDAR点和SfM点初始化非显著高斯点，仅依靠显著性变换策略在训练过程中产生显著高斯点。表ref{Ablation\u study}表明，使用LiDAR特征点初始化显著高斯可以提高渲染图像质量。此外，表ref{Ablation\u study\u on\u the\u seg100613\u Scene}表明，这种初始化为显著高斯提供了一个更好的起点，以便尽早与关键几何和纹理结构对齐，从而产生更快的收敛和更高的重建精度。
+
+\subsubsection{LiDAR Reflectance}
+
+
+
+
+
+We evaluate the impact of LiDAR reflectance by comparing our full method to a variant using only Color Loss and LiDAR Depth Loss. Table \ref{Ablation_study} shows that introducing LiDAR reflectance as an additional Gaussian attribute, together with the associated supervision, significantly improves rendering quality. Moreover, Fig. \ref{Ablation_of_LiDAR_Reflectance} indicates that the lighting-invariant LiDAR reflectance supplies stable constraints under complex lighting conditions, enabling more accurate geometric reconstruction and fewer blurry artifacts.
+% 我们评估的影响，激光雷达反射率通过比较我们的完整方法的变体，只使用颜色损失和激光雷达深度损失。表ref{Ablation\u study}表明，将LiDAR反射率作为附加的高斯属性，以及相关的监督，可显著提高渲染质量。此外，图ref{LADAR\U反射率的消融}表明，光照不敏感的LiDAR反射率在复杂光照条件下提供稳定的约束，能够实现更精确的几何重建和更少的模糊伪影。
+
+
+\subsubsection{Joint Loss}
+
+To evaluate the effect of the proposed Joint Loss, we conduct an ablation study where only the RGB Loss and LiDAR Loss terms are used. Specifically, we disable the Joint Loss to decouple the mutual influence between RGB and LiDAR during optimization. Table \ref{Ablation_Study_on_Joint_Loss} provides ablation studies of the Joint Loss on the seg125050 scene. As shown in Fig. \ref{Ablation_of_Joint_Loss}, vehicles appear blurry without Joint Loss, whereas introducing Joint Loss preserves clear vehicle contours, indicating that the combined textural cues from RGB and LiDAR reflectance effectively improve overall reconstruction accuracy. Furthermore, the Joint Loss makes the rendered reflectance closer to the Ground Truth. For example, highlights in the license-plate and front-light regions are reconstructed more accurately, and crosswalk and platform boundaries become clearer and more consistently aligned.
+% 为了评估拟议的联合损失对我们的框架的影响，我们进行了一项烧蚀研究，其中仅使用RGB损失和LiDAR损失项。具体地说，我们在优化过程中禁用联合损耗来解耦RGB和LiDAR之间的相互影响。表\ref{Ablation\u Study\u on\u Joint\u Loss}提供了seg125050场景中关节损耗的烧蚀研究。如图.\ref{Ablation\u of\u Joint\u Loss}所示，在没有关节丢失的情况下，车辆显得模糊，而引入关节丢失可以保持清晰的车辆轮廓，这表明RGB和LiDAR反射的组合纹理线索有效地提高了整体重建精度。此外，联合损失使渲染反射率更接近地面真实值。例如，车牌和前照灯区域中的高光将被更精确地重建，人行横道和平台边界将变得更清晰和一致。
+
+
+
+
+\subsection{Efficiency Analysis}
+
+We select four sequences, one from each scene category, to evaluate the number of Gaussians, training time, and FPS. Table \ref{Efficiency_analysis} reports the mean results across these four sequences. Compared with the baseline methods, our method achieves the best performance. This advantage is attributed to the well-initialized Salient Gaussians that capture critical scene structures, thereby suppressing redundant Gaussians. Moreover, the reduced parameterization of Salient Gaussians further shortens training time. Our approach achieves improved reconstruction quality while also improving efficiency.
+% 我们选择分别来自各类场景中的四个序列（125050, 100508, 718760, 100613）来评估的高斯数，以及在3090GPU上的训练时间和FPS。表ref{效率分析}给出了这四个序列的均值结果。与基线方法相比，我们的方法取得了最好的结果。这种优势归因于良好初始化的显著高斯捕捉关键场景结构，从而抑制冗余高斯。此外，显著高斯参数化的简化进一步缩短了训练时间。我们的方法实现了改进的重建质量，同时提高了效率。
+
+%We select four sequences, one from each scene category (125050, 100508, 718760, 100613), to evaluate training time and the number of Gaussians. Table \ref{Efficiency_analysis} reports the mean results across these four sequences. Compared with the baseline methods, our method achieves the best performance. This advantage is attributed to the well-initialized Salient Gaussians that capture critical scene structures, thereby suppressing redundant Gaussians. Moreover, the reduced parameterization of Salient Gaussians further shortens training time. Our approach achieves improved reconstruction quality while also improving efficiency.
+% 我们选择分别来自各类场景中的四个序列（125050, 100508, 718760, 100613）来评估的训练时间和高斯数。表ref{效率分析}给出了这四个序列的均值结果。与基线方法相比，我们的方法取得了最好的结果。这种优势归因于良好初始化的显著高斯捕捉关键场景结构，从而抑制冗余高斯。此外，显著高斯参数化的简化进一步缩短了训练时间。我们的方法实现了改进的重建质量，同时提高了效率。
+
+
+%We evaluated the training time and the number of Gaussians on the seg125050 sequence. Table \ref{Efficiency_analysis} compares our method with the baselines and shows that it achieved the best results. This advantage is attributed to the well-initialized Salient Gaussians captured critical scene structures, thereby suppressing redundant Gaussians. Moreover, the reduced parameterization of Salient Gaussians further shortens training time. Our approach achieves improved reconstruction quality while also improving efficiency.
+% 我们评估了seg125050序列的训练时间和高斯数。表ref{效率分析}将我们的方法与基线进行了比较，并表明它取得了最好的结果。这种优势归因于良好初始化的显著高斯捕捉关键场景结构，从而抑制冗余高斯。此外，显著高斯参数化的简化进一步缩短了训练时间。我们的方法实现了改进的重建质量，同时提高了效率。
+
+
+
+
+
+\section{Conclusion}
+
+In this work, we proposed a robust LiDAR-reflectance-guided Salient Gaussian Splatting method (LR-SGS) tailored for self-driving scenes. By calibrating LiDAR intensity to obtain a lighting-invariant reflectance channel, initializing structure-aware Salient Gaussians from LiDAR geometric and reflectance feature points, LR-SGS achieves improved fidelity and robustness under challenging conditions. Moreover, the editable scene representations of LR-SGS enable scalable training data generation and realistic simulation environments for self-driving. We believe our work significantly contributes to advancing self-driving. Future work will cover broader scenarios and larger-scale self-driving scenes.
+% 在这项工作中，我们提出了一个稳健的激光雷达反射引导显著高斯散斑方法（LR-SGS）为自驾场景定制。LR-SGS通过将激光雷达强度标定为光照不变的反射通道，从激光雷达几何特征点和反射特征点初始化结构感知的显著高斯，在复杂条件下提高了保真度和鲁棒性。此外，可编辑场景表示支持自主驾驶系统的训练数据的生成和逼真的仿真环境( training data generation and realistic simulation environments)。我们相信，我们的工作对推进自动驾驶有重大贡献。未来的工作将针对更大规模的自动驾驶场景、在线部署以及与下游自治任务的集成。
+
+
+%\begin{thebibliography}{99}
+
+\bibliographystyle{IEEEtran} 
+
+\bibliography{ref}
+
+
+%\end{thebibliography}
+
+
+
+
+\end{document}

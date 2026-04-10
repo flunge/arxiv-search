@@ -1,0 +1,479 @@
+% This is a modified version of Springer's LNCS template suitable for anonymized MICCAI 2025 main conference submissions. 
+% Original file: samplepaper.tex, a sample chapter demonstrating the LLNCS macro package for Springer Computer Science proceedings; Version 2.21 of 2022/01/12
+
+\documentclass[runningheads]{llncs}
+%
+\usepackage[T1]{fontenc}
+% T1 fonts will be used to generate the final print and online PDFs,
+% so please use T1 fonts in your manuscript whenever possible.
+% Other font encodings may result in incorrect characters.
+%
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx,verbatim}
+\usepackage{amsmath}
+\usepackage{multirow}
+\usepackage{graphicx}  % 图片支持
+\usepackage{amsmath}   % 数学公式
+\usepackage{amssymb}   % 数学符号
+\usepackage{cite}      % 引用
+\usepackage{algorithmic} % 算法
+\usepackage{array}     % 表格
+\usepackage{url}       % URL
+\usepackage{hyperref}  % 超链接
+\usepackage{bm}
+\usepackage{booktabs}  % 用于\toprule等命令，创建专业表格
+\usepackage{caption}   % 表格标题格式
+\usepackage{xcolor}      % 基本颜色支持
+\usepackage{colortbl}    % 表格颜色支持（如果需要单元格颜色）
+\usepackage{subcaption}  % 在导言区添加
+\makeatletter
+\def\@makefnmark{\hbox{\@textsuperscript{\@thefnmark}}}
+\makeatother
+\begin{document}
+%
+\title{DSA-SRGS: Super-Resolution Gaussian Splatting for Dynamic Sparse-View DSA Reconstruction}
+\titlerunning{DSA-SRGS}
+% If the paper title is too long for the running head, you can set
+% an abbreviated paper title here
+%
+\begin{comment}  
+\author{%
+Shiyu Zhang\inst{1}\orcidID{待补充}\thanks{These authors contributed equally to this work and should be considered co-first authors} \and
+Zhicong Wu\inst{1}\orcidID{待补充}\thanks{These authors contributed equally to this work and should be considered co-first authors} \and
+Huangxuan Zhao\inst{1}\orcidID{待补充} \and
+Zhentao Liu\inst{2}\orcidID{待补充} \and
+Lei Chen\inst{3}\orcidID{待补充} \and
+Yong Luo\inst{1}\orcidID{待补充} \and
+Lefei Zhang\inst{1}\orcidID{待补充} \and
+Zhiming Cui\inst{2}\orcidID{待补充} \and
+Ziwen Ke\inst{2}\orcidID{待补充} \and
+Bo Du\inst{1}\orcidID{待补充}\thanks{Corresponding author: \texttt{dubo@whu.edu.cn}}
+}
+
+\authorrunning{S. Zhang et al.}
+
+\institute{%
+School of Computer Science, Wuhan University, Wuhan, China\\
+\email{17730496303@163.com} (S. Zhang), \email{zhicongwu@stu.xmu.edu.cn} (Z. Wu), 
+\email{zhao\_huangxuan@sina.com} (H. Zhao), \email{luoyong@whu.edu.cn} (Y. Luo),
+\email{zhanglefei@whu.edu.cn} (L. Zhang), \email{dubo@whu.edu.cn} (B. Du) \and
+School of Biomedical Engineering \& State Key Laboratory of Advanced Medical Materials and Devices, ShanghaiTech University, Shanghai, China\\
+\email{liuzht2022@shanghaitech.edu.cn} (Z. Liu), \email{cuizhm@shanghaitech.edu.cn} (Z. Cui),
+\email{zw.ke@siat.ac.cn} (Z. Ke) \and
+Union Hospital, Tongji Medical College, Huazhong University of Science and Technology, Wuhan, China\\
+\email{chan0812@126.com} (L. Chen)
+}
+
+\end{comment}
+% 有邮箱的
+% \author{%
+% Shiyu Zhang\inst{1}\thanks{These authors contributed equally to this work} \and
+% Zhicong Wu\inst{2}\thanks{These authors contributed equally to this work} \and
+% Huangxuan Zhao\inst{1} \and
+% Zhentao Liu\inst{3} \and
+% Lei Chen\inst{4} \and
+% Yong Luo\inst{1} \and
+% Lefei Zhang\inst{1} \and
+% Zhiming Cui\inst{3} \and
+% Ziwen Ke\inst{3} \and
+% Bo Du\inst{1}\thanks{Corresponding author: \texttt{dubo@whu.edu.cn}}
+% }
+
+% \authorrunning{S. Zhang et al.}
+
+% \institute{%
+% School of Computer Science, Wuhan University, Wuhan, China\\
+% \email{17730496303@163.com} (S. Zhang), 
+% \email{zhao\_huangxuan@sina.com} (H. Zhao), \email{luoyong@whu.edu.cn} (Y. Luo),
+% \email{zhanglefei@whu.edu.cn} (L. Zhang), \email{dubo@whu.edu.cn} (B. Du) \and
+% Institute of Artificial Intelligence, Xiamen University, Xiamen, China\\
+% \email{zhicongwu@stu.xmu.edu.cn} (Z. Wu) \and
+% School of Biomedical Engineering \& State Key Laboratory of Advanced Medical Materials and Devices, ShanghaiTech University, Shanghai, China\\
+% \email{liuzht2022@shanghaitech.edu.cn} (Z. Liu), \email{cuizhm@shanghaitech.edu.cn} (Z. Cui),
+% \email{zw.ke@siat.ac.cn} (Z. Ke) \and
+% Union Hospital, Tongji Medical College, Huazhong University of Science and Technology, Wuhan, China\\
+% \email{chan0812@126.com} (L. Chen)
+% }
+
+\author{%
+Shiyu Zhang\inst{1}\protect\footnotemark[1] \and
+Zhicong Wu\inst{2}\protect\footnotemark[1] \and
+\setcounter{footnote}{3}
+Huangxuan Zhao\inst{1}\protect\footnotemark[4] \and
+Zhentao Liu\inst{3} \and
+Lei Chen\inst{4} \and
+Yong Luo\inst{1} \and
+Lefei Zhang\inst{1} \and
+Zhiming Cui\inst{3} \and
+Ziwen Ke\inst{3}\protect\footnotemark[4] \and
+Bo Du\inst{1}\protect\footnotemark[4]
+}
+
+\authorrunning{S. Zhang et al.}
+
+\institute{%
+School of Computer Science, Wuhan University, Wuhan, China \and
+Institute of Artificial Intelligence, Xiamen University, Xiamen, China \and
+School of Biomedical Engineering \& State Key Laboratory of Advanced Medical Materials and Devices, ShanghaiTech University, Shanghai, China \and
+Union Hospital, Tongji Medical College, Huazhong University of Science and Technology, Wuhan, China
+}
+
+
+  
+\maketitle              % typeset the header of the contribution
+\renewcommand{\thefootnote}{\fnsymbol{footnote}}
+\footnotetext[1]{Equal Contribution.}
+\footnotetext[4]{Corresponding authors.}
+% : \texttt{zhao\_huangxuan@sina.com}, \texttt{zw.ke@siat.ac.cn}, \texttt{dubo@whu.edu.cn}}
+%
+\begin{abstract}
+% R-WZC 数字减影血管造影（DSA）是脑血管疾病诊断和治疗的关键成像技术。
+Digital subtraction angiography (DSA) is a key imaging technique for the auxiliary diagnosis and treatment of cerebrovascular diseases. 
+% R-WZC 已有进展
+Recent advancements in gaussian splatting and dynamic neural representations have enabled robust 3D vessel reconstruction from sparse dynamic inputs.
+% R-WZC 现有方法缺陷
+However, these methods are fundamentally constrained by the resolution of input projections, where performing naive upsampling to enhance rendering resolution inevitably results in severe blurring and aliasing artifacts.
+% R-WZC 进一步阐述缺陷
+Such lack of super-resolution capability prevents the reconstructed 4D models from recovering fine-grained vascular details and intricate branching structures, which restricts their application in precision diagnosis and treatment. 
+% R-WZC 一句话说明我们的框架
+To solve this problem, this paper proposes DSA-SRGS, the first super-resolution gaussian splatting framework for dynamic sparse-view DSA reconstruction.
+% R-WZC 一句话具体介绍模型
+Specifically, we introduce a Multi-Fidelity Texture Learning Module that integrates high-quality priors from a fine-tuned DSA-specific super-resolution model, into the 4D reconstruction optimization.
+% R-WZC 纹理学习
+To mitigate potential hallucination artifacts from pseudo-labels, this module employs a Confidence-Aware Strategy to adaptively weight supervision signals between the original low-resolution projections and the generated high-resolution pseudo-labels.
+% R-WZC 致密化
+Furthermore, we develop Radiative Sub-Pixel Densification, an adaptive strategy that leverages gradient accumulation from high-resolution sub-pixel sampling to refine the 4D radiative gaussian kernels.
+% R-WZC 实验证明
+Extensive experiments on two clinical DSA datasets demonstrate that DSA-SRGS significantly outperforms state-of-the-art methods in both quantitative metrics and qualitative visual fidelity.
+
+\keywords{Sparse-View DSA Reconstruction \and Gaussian Splatting  \and Super Resolution.}
+%Digital subtraction angiography \and 4D reconstruction \and super-resolution \and deep learning \and vascular imaging.
+% Authors must provide keywords and are not allowed to remove this Keyword section.
+
+\end{abstract}
+%
+%
+%
+\section{Introduction}  % 引言
+%对应摘要的介绍DSA和已有进展：
+% 数字减影血管造影以高时空分辨率二维成像清晰呈现血管动态，为病变诊疗提供关键依据。
+Digital subtraction angiography (DSA)\cite{harrington1982digital} clearly presents vascular dynamics with high spatiotemporal resolution two-dimensional imaging, providing a key basis for the diagnosis and treatment of lesions\cite{liu2018digital}\cite{wang2019diagnostic}\cite{chen2020role}. 
+% 传统DSA的清晰成像依赖于密集投影采集，导致辐射剂量高且易引入运动伪影。因此在稀疏视角条件下实现高质量的4D DSA重建已成为该领域的重要研究方向。 2-26改后
+The clear imaging of traditional DSA relies on dense projection acquisition, resulting in high radiation dose and easy introduction of motion artifacts. Therefore, achieving high-quality 4D DSA reconstruction under sparse-view conditions has become an important research direction in this field\cite{zhao2025large}\cite{zhao2026generative}\cite{xu2025garamost}\cite{xu2024most}.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.8\textwidth]{first.pdf}
+\caption{Overview of traditional post-upsampling paradigm vs. our DSA-SRGS.} \label{first}
+\end{figure}
+
+% 现有方法缺陷（宏观）
+% 尽管已有研究成功将3D高斯溅射应用于医学影像领域，并针对DSA时间序列引入了动态建模与累积剪枝策略，但其重建质量仍受限于输入投影的分辨率。低分辨率条件下，渲染结果易出现边缘模糊、混叠伪影及噪声敏感等问题，严重制约了其在精准诊疗中的临床应用。
+Although some studies have successfully applied 3D gaussian splatting\cite{kerbl20233d} to the field of medical imaging\cite{zha2024rectifying} and introduced dynamic modeling and cumulative pruning strategies for DSA time series\cite{zhang2025togs}\cite{liu20254drgs}, the reconstruction quality is still limited by the resolution of the input projection. Under low-resolution conditions, the rendering results are prone to problems such as edge blurring, aliasing artifacts and noise sensitivity, which seriously restricts its clinical application in precision diagnosis and treatment\cite{el2023optimization}\cite{ruedinger20214d}\cite{sandoval20164d}\cite{lang20174d}\cite{sandoval2015comparison}.
+% Although the above-mentioned general model performs well on natural images, it faces significant domain differences when directly applied to DSA medical images. 
+
+% 值得注意的是，解决图像分辨率受限问题的主流计算机视觉方法是图像超分辨率（Super-Resolution, SR）技术。SR研究主要围绕网络架构创新展开，从SRCNN \cite{srcnn}、EDSR \cite{edsr}、RCAN \cite{rcan}等CNN方法，到SwinIR \cite{swinir}、DAT \cite{dat}、HAT \cite{hat}等Transformer模型，以及Real-ESRGAN \cite{realesrgan}等GAN方法，性能持续提升。针对轻量化需求，CATANet \cite{catanet} 通过内容感知token聚合实现高效长程信息交互，在轻量化超分任务上取得领先性能。  2-27加
+It is worth noting that the mainstream computer vision method for solving the problem of limited image resolution is image super-resolution (SR) technology. SR research mainly focuses on network architecture innovation, covering CNN methods\cite{lecun2002gradient} sSRCNN\cite{dong2014learning}, EDSR\cite{lim2017enhanced}, and RCAN\cite{zhang2018image}. The performance has been continuously improved by Transformer models\cite{vaswani2017attention} such as SwinIR\cite{liang2021swinir}, DAT\cite{chen2023dat}, Mambair\cite{guo2025mambairv2}and HAT\cite{chen2023hat}, as well as GAN methods\cite{goodfellow2014generative} like Real-ESRGAN \cite{wang2021realesrgan}. In response to the demand for lightweighting, CATANet\cite{liu2025catanet} achieves efficient and long-range information interaction through content-aware token aggregation, and has achieved leading performance in lightweight super-resolution tasks.
+% 引入SRGS及其局限性
+While recent frontiers like SRGS \cite{feng2024srgs} have begun integrating SR priors into Gaussian splatting, their efficacy remains limited in medical contexts. 
+% 核心矛盾：领域差异
+Due to the significant domain gap, these general-purpose models often introduce "hallucination artifacts" that compromise the physical fidelity and clinical reliability of vascular structures.
+
+%介绍我们的创新
+To address resolution bottlenecks, this paper proposes DSA-SRGS, a super-resolution gaussian splatting framework for dynamic sparse-view DSA reconstruction that unifies super-resolution learning and 4D dynamic reconstruction in end-to-end optimization, as shown in Fig.~\ref{first}.
+% 具体而言，我们的方法首先利用微调后的超分模型对低分辨率输入图像进行超分辨，以恢复原始分辨率下的细节信息；随后引入多保真学习策略，在吸收超分模型所提供的高频纹理信息的同时，保持与原始观测一致的结构真实性。为抑制超分模型可能产生的幻觉纹理，我们进一步设计置信度感知融合机制，对多源监督信号进行自适应加权。在渲染阶段，我们提出辐射子像素致密化策略，通过在高分辨率子像素采样过程中累积梯度，引导高斯核在纹理丰富区域自适应分裂，从而增强模型对精细结构的还原能力。
+Specifically, our method first uses a fine-tuned super-resolution model to perform super-resolution on the low-resolution input image to restore the detailed information at the original resolution. Subsequently, a multi-fidelity learning is introduced, which absorbs the high-frequency texture information provided by the super-resolution model while maintaining the structural authenticity consistent with the original observations. To suppress the illusory textures that may occur in the super-resolution model, we further design a confidence-aware fusion mechanism to adaptively weight the multi-source supervised signals. During the rendering stage, we propose a radiation sub-pixel densification strategy. By accumulating gradients during the sampling process of high-resolution sub-pixels, we guide the gaussian kernel to adaptively split in texture-rich regions, thereby enhancing the model's ability to restore fine structures.
+
+In summary, the main contributions of this article include:
+\begin{enumerate}
+    \item We introduce DSA-SRGS, the first super-resolution gaussian splatting framework for dynamic sparse-view DSA reconstruction.
+    % 我们构建了首个面向动态DSA的超分辨率高斯溅射框架DSA-SRGS
+     % 通过引入超分先验知识与自适应高斯球致密化策略。by introducing super-resolution prior knowledge and an adaptive gaussian sphere densification strategy.
+
+    \item We propose the Multi-fidelity Texture Learning Module and Radiative Sub-pixel Densification Strategy to enhance micro-vascular modeling.
+    % 我们提出了一个具有自信感知融合的多保真纹理学习模块来平衡纹理和结构，以及一个辐射亚像素密度策略，利用高分辨率采样的梯度积累来增强微血管建模。
+
+    % \item 
+    % 我们微调了一个适用于DSA数据的超分模型，
+
+    \item Experiments on two clinical DSA datasets have shown that DSA-SRGS outperforms the current SOTA method.
+    % 在两个临床DSA数据集上的定量指标和视觉质量均超越当前SOTA方法，验证了其在低剂量稀疏采样条件下实现高保真4D血管重建的有效性。
+\end{enumerate}
+
+% \section{RELATED WORK}  %Preliminary
+% \subsection{Image Super-Resolution}
+% % 图像超分辨率研究主要围绕网络架构创新展开。从SRCNN、EDSR、RCAN等CNN方法，到SwinIR、DAT、HAT等Transformer模型，以及Real-ESRGAN等GAN方法，性能持续提升。针对轻量化需求，CATANet通过内容感知token聚合实现高效长程信息交互，在轻量化超分任务上取得领先性能。
+% % 上述通用模型虽在自然图像上表现优异，但直接应用于DSA医学图像时面临显著领域差异。
+% Research on image super-resolution mainly focuses on the innovation of network architecture. From CNN methods\cite{lecun2002gradient} such as SRCNN\cite{dong2014learning}, EDSR\cite{lim2017enhanced}, and RCAN\cite{zhang2018image} to Transformer models\cite{vaswani2017attention} like SwinIR\cite{liang2021swinir}, DAT\cite{chen2023dat}, Mambair\cite{guo2025mambairv2}and HAT\cite{chen2023hat}, as well as GAN methods\cite{goodfellow2014generative} like Real-esRGAN\cite{wang2021realesrgan}, performance has been continuously improving. In response to the demand for lightweighting, CATANet\cite{liu2025catanet} achieves efficient and long-range information interaction through content-aware token aggregation, and has achieved leading performance in lightweight super-resolution tasks.
+% Although the above-mentioned general model performs well on natural images, it faces significant domain differences when directly applied to DSA medical images. 
+
+% \subsection{4D DSA New Perspective Generation}
+% % NeRF隐式建模计算开销大，3DGS则通过显式高斯球实现实时高质量重建。后续研究将其拓展至医学影像：R²-Gaussian将其引入X射线断层重建，TOGS和4DRGS实现了DSA动态建模。然而，现有方法重建分辨率受限于输入图像，缺乏超分机制。因此，亟需在保持4DRGS动态能力的同时突破分辨率瓶颈，实现超分辨率重建。 2-26改后
+% NeRF's\cite{mildenhall2021nerf} implicit modeling incurs high computational overhead, while 3DGS\cite{kerbl20233d} achieves real-time high-quality reconstruction through explicit Gaussian spheres. Subsequent studies have extended it to medical imaging: R$^2$-Gaussian\cite{zha2024rectifying} has introduced it into X-ray tomography reconstruction, and TOGS\cite{zhang2025togs} and 4DRGS\cite{liu20254drgs} have achieved dynamic modeling of DSA. However, the existing methods for reconstruction resolution are limited by the input image and lack a super-resolution mechanism. Therefore, it is urgent to break through the resolution bottleneck while maintaining the dynamic capabilities of 4K RGS and achieve super-resolution reconstruction.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\textwidth]{second.pdf}
+\caption{Architecture of the proposed DSA-SRGS.} \label{second}
+\end{figure}
+
+\section{Method} %Super-resolution Implementation Method
+\subsection{Problem Definition}
+% R-WZC:LR和HR的上标可能可以修改。
+% 我们给定一个动态DSA序列的低分辨率投影输入\(\mathcal{I}^{LR} = \{I_{t,v}^{LR} \mid t = 1, \dots, T, v = 1, \dots, V\}\)，其中 \(T\) 为时间帧数，\(V\) 为稀疏采样视角数
+Given a low-resolution projection input $\mathcal{I}^{LR} = \{I_{t,v}^{LR} \in \mathbb{R}^{\frac{H}{4} \times \frac{W}{4}} \mid t = 1, \dots, T, v = 1, \dots, V\}$ of a dynamic DSA sequence, where \(T\) and \(V\) denote the total time frames and sparse viewpoints, respectively.
+% 每张低分辨率图像 \(I_{t,v}^{LR} \in \mathbb{R}^{h \times w}\) 通过双线性插值从原始高分辨率图像下采样4倍获得。
+% Each low-resolution image \(I_{t,v}^{LR} \in \mathbb{R}^{h \times w}\) is obtained by downsampling the original high-resolution image by a factor of 4 using bilinear interpolation\cite{lorensen1998marching}. 
+% 对于每个视角 \(v\)，我们基于其对应的采集几何参数构建投影矩阵 \(P_v = K_v[R_v \mid t_v]\)。
+For each view \(v\), we construct the projection matrix \(P_v = K_v[R_v \mid t_v]\) based on its corresponding collected geometric parameters. 
+% DSA-SRGS的目标是从这些稀疏采样的低分辨率动态投影中，直接重建出高保真的四维血管模型，并渲染出任意视角、任意时刻的高分辨率DSA图像 \(I^{HR} \in \mathbb{R}^{H \times W}\)（其中 \(H = 4h, W = 4w\)）。
+DSA-SRGS aims to directly reconstruct a high-fidelity four-dimensional vascular model from these sparsely sampled low-resolution dynamic projections, and render high-resolution DSA images \(I^{HR} \in \mathbb{R}^{H \times W}\) from arbitrary viewpoints and at arbitrary time points.
+
+\subsection{Radiative Sub-pixel Densification}% 创新点1：4DRGS+致密化
+% R-WZC:少出现4DRGS
+% 我们通过将动态血管场景建模为一组可学习的辐射高斯核\(\mathcal{G} = \{g_i\}_{i=1}^{N}\)，同时引入随时间变化的中心衰减函数，用以刻画造影剂浓度的动态演变。为预测这一衰减值我们设计了动态神经衰减场（DNAF）：
+We represent vascular segments as gaussian kernels \(\mathcal{G} = \{g_i\}_{i=1}^{N}\), while introducing a time-dependent central attenuation function to capture the dynamic evolution of contrast agent concentration. To predict this attenuation value, we design a Dynamic Neural Attenuation Field (DNAF):
+\begin{equation}
+\rho_i(t) = \Phi\left(H_{3D}(\bm{\mu}_i) \oplus H_{4D}(\bm{\mu}_i, t)\right),
+\end{equation}
+% 其中 \(\mu_i\) 为高斯核位置，\(H_{3D}(\cdot)\) 和 \(H_{4D}(\cdot,\cdot)\) 分别提取静态场景特征和时空动态特征，\(\Phi(\cdot)\) 为MLP将特征映射为衰减值 \(\rho_i(t)\)。
+where \(\mu_i\) denotes the position of the gaussian kernel, \(H_{3D}(\cdot)\)\cite{muller2022instant} and \(H_{4D}(\cdot,\cdot)\)\cite{park2023temporal} extract static scene features and spatio-temporal dynamic features respectively, and \(\Phi(\cdot)\) is an MLP that maps the features to the attenuation value \(\rho_i(t)\).
+
+% R-WZC:不讲别人的技术沿用。
+% 渲染方面，我们使用了X射线光栅化管线与累积衰减剪枝策略：
+For rendering, We employ X-ray rasterization pipelines and cumulative attenuation pruning strategies:
+\begin{equation}
+\bar{\rho}_i = \frac{1}{N_{\text{iter}}} \sum_{k=1}^{N_{\text{iter}}} \rho_i(t_k),
+\end{equation}
+where $N_{\text{iter}}$ is the number of iterations within a pruning interval, and $t_k$ is the timestamp at the $k$-th iteration. %2-26改后
+
+% 剪枝虽能清理背景，但无法解决分辨率不足导致的细节缺失。为此，本文受Pixel-GS等启发提出辐射子像素致密化策略，通过在高分辨率子像素采样中累积梯度，引导高斯核在纹理丰富区域自适应分裂，从而增强对细小血管分支的还原能力。
+Although pruning can clear the background, it cannot solve the problem of detail loss caused by insufficient resolution. To this end, inspired by Pixel-GS et al.\cite{zhang2024pixel}\cite{bulo2024revising}, this paper proposes the radiative sub-pixel densification strategy. By accumulating gradients in high-resolution sub-pixel sampling, it guides the gaussian kernel to adaptively split in texture-rich regions, thereby enhancing the ability to restore small vascular branches.
+
+%2-26改后：放到该策略根据高斯核的投影梯度动态识别需要细化的区域后面,公式3对于变量的解释全放在where里面
+% 该策略根据高斯核的投影梯度动态识别需要细化的区域。梯度越大的区域越需要增加高斯核密度。定义高斯核 \(g_i\) 的累积梯度为 \(\nabla_i\)，则致密化条件为：
+% 该策略根据高斯核的投影梯度动态识别需要细化的区域。梯度越大的区域越需要增加高斯核密度。因此致密化条件为：
+This strategy dynamically identifies regions requiring refinement based on the projection gradients of gaussian kernels. Regions with larger gradients require higher gaussian kernel density. Therefore, the densification condition is formulated as:
+\begin{equation}
+\mathcal{D}_{\text{RSD}} = \{g_i \mid \|\nabla_i\| > \tau_{\text{grad}} \cdot \eta_{\text{iter}}\},
+\end{equation}
+% 其中 \(g_i\) 为高斯核，\(\nabla_i\)为累积梯度，\(\tau_{\text{grad}}\) 为梯度阈值，\(\eta_{\text{iter}}\) 为迭代衰减系数。
+where \(g_i\) is the gaussian kernel, \(\nabla_i\) is the accumulated gradient, \(\tau_{\text{grad}}\) is the gradient threshold and \(\eta_{\text{iter}}\) is an iteration-dependent decay coefficient.
+
+% 对于满足条件的种子核 \(g_i\)，RSD生成 \(K\) 个子高斯核，新生成的高斯核在父核周围形成更精细的覆盖：
+For each seed kernel \(g_i\) that meets the condition, RSD generates \(K\) sub-kernels, and the newly generated kernels form a finer overlay around the parent kernel:
+\begin{equation}
+\boldsymbol{\mu}_{i}^{(k)} = \boldsymbol{\mu}_i + \Delta\boldsymbol{\mu}_{i}^{(k)}, \quad \Delta\boldsymbol{\mu}_{i}^{(k)} \sim \mathcal{N}(0, \boldsymbol{\Sigma}_i \cdot \alpha),
+\end{equation}
+\begin{equation}
+\boldsymbol{s}_{i}^{(k)} = \beta \cdot \boldsymbol{s}_i, \quad \beta \in (0,1),
+\end{equation}
+% 其中 \(\alpha\) 控制位置偏移，\(\beta\) 为尺度衰减因子。新生成的高斯核在父核周围形成更精细的覆盖。
+where \(\alpha\) controls the position offset magnitude and \(\beta\) is the scale decay factor.
+%2-26改后：对于满足条件的种子核 \(g_i\)，RSD生成 \(K\) 个子高斯核
+
+% 此外，This strategy引入残差引导机制，利用渲染图像与真实图像的差异图，在高残差区域主动添加小尺度高斯核：
+Furthermore, this strategy introduces a residual-guided mechanism that actively adds small-scale gaussian kernels in high-residual regions using the difference map between rendered and ground-truth images.
+% \begin{equation}
+% \mathcal{L}_{\text{res}} = |I_{\text{render}} - I_{\text{GT}}| > \tau_{\text{res}}.
+% \end{equation}
+\subsection{Multi-fidelity Texture Learning}%创新点2：纹理学习
+% 尽管子像素约束促进了高斯核致密化，但输入低分辨率图像缺乏高频纹理，仅靠内部约束难以恢复血管精细结构。
+Although sub-pixel constraints promote gaussian kernel densification, the input low-resolution image lacks high-frequency textures, and it is difficult to restore the fine structure of blood vessels solely by internal constraints.
+% % 为此，我们引入面向DSA的专用超分模型生成高分辨率纹理，为4D重建提供外部先验；并进一步提出多保真学习策略，通过自适应融合机制在吸收超分纹理的同时，抑制幻觉纹理并保持对原始观测的保真度约束，逐像素评估超分结果可靠性：
+% To this end, we introduce a dedicated super-resolution model for DSA to generate high-resolution textures, providing external priors for 4D reconstruction. Furthermore, a multi-fidelity learning strategy is proposed. Through an adaptive fusion mechanism, it absorbs super-resolution textures while suppressing illusory textures and maintaining the fidelity constraints of the original observations, we further design a confidence-aware fusion mechanism that evaluates the reliability of super-resolution results at the pixel level:
+% \begin{equation}
+% C = \sigma\left(\alpha \cdot \mathcal{S}(I_{\text{SR}}, I_{\text{LR}}^{\uparrow}) + \beta \cdot \mathcal{T}(I_{\text{SR}})\right),
+% \end{equation}
+% % 其中 \(I_{\text{LR}}^{\uparrow}\) 为上采样的低分辨率图像，\(\mathcal{S}(\cdot,\cdot)\) 为局部结构一致性评估函数SSIM，\(\mathcal{T}(\cdot)\) 为纹理丰富度评估函数，\(\alpha,\beta\) 为可学习参数，\(\sigma(\cdot)\) 为Sigmoid函数。
+% where \(I_{\text{LR}}^{\uparrow}\) is the upsampled low-resolution image, \(\mathcal{S}(\cdot,\cdot)\) denotes the local structural consistency function SSIM, \(\mathcal{T}(\cdot)\) denotes the texture richness assessment function, \(\alpha,\beta\) are learnable parameters, and \(\sigma(\cdot)\) is the Sigmoid function.
+
+% % 基于置信度图构造教学参考图：
+% Based on the confidence map, we construct a teaching reference image:
+% \begin{equation}
+% I_{\text{teach}} = C \odot I_{\text{SR}} + (1 - C) \odot I_{\text{LR}}^{\uparrow},
+% \end{equation}
+% % 其中 \(\odot\) 表示逐元素乘法。该教学参考图在高置信度区域保留超分模型的纹理增强结果，在低置信度区域则退回到原始上采样图像，从而避免模型学习到不可靠的幻觉纹理。
+% where \(\odot\) denotes element-wise multiplication. This teaching reference image retains the texture enhancement results of the super-resolution model in the high-confidence region and reverted to the original upsampled image in the low-confidence region, thereby avoiding the model from learning unreliable illusory textures. % 2-26 这个句子要写到前面去，公式7和8可以写在一起，where放一块
+% 2-26改后
+% 为了为四维重建提供外部先验，我们引入了一个专用的超分辨率（SR）模型，用于DSA生成高分辨率纹理。为了降低模型学习不可靠的虚假工件的风险，我们进一步设计了一种多保真度学习策略。具体而言，构建了一个自信感知的教学参考图像，该图像在高置信度区域保留了sr增强的纹理，而在低置信度区域恢复到原始的上采样观测值：
+To provide external priors for 4D reconstruction, we introduce a dedicated super-resolution (SR) model for DSA to generate high-resolution textures. To mitigate the risk of the model learning unreliable illusory artifacts, we further design a multi-fidelity learning strategy. Specifically, a confidence-aware teaching reference image is constructed, which preserves SR-enhanced textures in high-confidence regions while reverting to the original upsampled observations in low-confidence areas:
+\begin{equation}
+C = \sigma\left(\alpha \cdot \mathcal{S}(I_{\text{SR}}, I_{\text{LR}}^{\uparrow}) + \beta \cdot \mathcal{T}(I_{\text{SR}})\right),
+\end{equation}
+\begin{equation}
+I_{\text{teach}} = C \odot I_{\text{SR}} + (1 - C) \odot I_{\text{LR}}^{\uparrow},
+\end{equation}
+where $I_{\text{SR}}$ and $I_{\text{LR}}^{\uparrow}$ denote the SR-generated and upsampled LR images respectively; $\mathcal{S}(\cdot,\cdot)$ represents SSIM for local consistency; $\mathcal{T}(\cdot)$ is a texture richness assessment function; $\alpha, \beta$ are learnable scaling parameters; $\sigma(\cdot)$ denotes the Sigmoid function; and $\odot$ denotes element-wise multiplication.
+
+% % 总损失由高保真损失 \(\mathcal{L}_{\text{gt}}\) 和低保真损失 \(\mathcal{L}_{\text{sr}}\) 加权构成：
+% The total loss is composed of weighted high-fidelity loss \(\mathcal{L}_{\text{gt}}\) and low-fidelity loss \(\mathcal{L}_{\text{sr}}\).
+% % \begin{equation}
+% % \mathcal{L}_{\text{total}} = \lambda_{\text{gt}} \mathcal{L}_{\text{gt}} + \lambda_{\text{sr}} \mathcal{L}_{\text{sr}}.
+% % \end{equation}
+% % 2-26改后：最好公式里不要有句号     直接删吧
+% % 其中高保真损失 \(\mathcal{L}_{\text{gt}}\) 在低分辨率空间计算，保证对原始观测的忠实度：
+% The high-fidelity loss \(\mathcal{L}_{\text{gt}}\) is computed in the low-resolution space to ensure fidelity to the original observations:
+% \begin{equation}
+% \mathcal{L}_{\text{gt}} = (1 - \lambda_{\text{dssim}}) \| I_{\text{render}}^{\downarrow} - I_{\text{LR}} \|_1 + \lambda_{\text{dssim}} (1 - \text{SSIM}(I_{\text{render}}^{\downarrow}, I_{\text{LR}})),
+% \end{equation}
+% % \(I_{\text{render}}^{\downarrow}\) 为渲染图像下采样至输入分辨率的结果。低保真损失 \(\mathcal{L}_{\text{sr}}\) 在高分辨率空间利用教学参考图进行监督：
+% where \(I_{\text{render}}^{\downarrow}\) is the rendered image downsampled to the input resolution. The low-fidelity loss \(\mathcal{L}_{\text{sr}}\) is supervised in the high-resolution space using the teaching reference image:    % 2-26：半行缩进去
+% \begin{equation}
+% \mathcal{L}_{\text{sr}} = (1 - \lambda_{\text{dssim}}) \| I_{\text{render}} - I_{\text{teach}} \|_1 + \lambda_{\text{dssim}} (1 - \text{SSIM}(I_{\text{render}}, I_{\text{teach}})).
+% \end{equation}
+% 2-26改后
+The total loss is formulated as a weighted combination of a high-fidelity loss $\mathcal{L}_{\text{gt}}$ and a low-fidelity loss $\mathcal{L}_{\text{sr}}$. Specifically, $\mathcal{L}_{\text{gt}}$ is computed in the low-resolution space to ensure strict adherence to the original observations, while $\mathcal{L}_{\text{sr}}$ provides supervision in the high-resolution space via the teaching reference image:
+\begin{equation}
+\left\{
+\begin{aligned}
+\mathcal{L}_{\text{gt}} &= (1 - \lambda_{\text{ssim}}) \| I_{\text{rend}}^{\downarrow} - I_{\text{LR}} \|_1 + \lambda_{\text{ssim}} (1 - \text{SSIM}(I_{\text{rend}}^{\downarrow}, I_{\text{LR}})) \\[1.2ex]
+\mathcal{L}_{\text{sr}} &= (1 - \lambda_{\text{ssim}}) \| I_{\text{rend}} - I_{\text{teach}} \|_1 + \lambda_{\text{ssim}} (1 - \text{SSIM}(I_{\text{rend}}, I_{\text{teach}}))
+\end{aligned}
+\right.,
+\end{equation}
+where $I_{\text{rend}}$ and $I_{\text{rend}}^{\downarrow}$ denote the rendered high-resolution projection and its downsampled low-resolution version, respectively; $I_{\text{LR}}$ is the original input projection; $I_{\text{teach}}$ represents the confidence-aware teaching reference; $\lambda_{\text{ssim}}$ is the balancing weight between the $\ell_1$ distance and the structural similarity index.
+
+\section{Experiments} %Experiments
+\subsection{Experiment Setup}% 数据集、评价方法、评价指标、GPU基于什么东西，介绍超参数。
+% 我们在两个临床DSA数据集上评估模型性能：数据集1源自4DRGS工作（15例），数据集2为自采数据（28例），涵盖左、右及后脑等多中心样本。此外，额外收集135例临床动态DSA序列，经数字减影处理获得17,822张血管减影图像，用于超分模型微调。 2-26：改两个数据集名称
+\subsubsection{Datasets}We evaluated the model performance on two clinical DSA datasets: DSA-15 was derived from the 4DRGS work (15 cases), and DSA-28 was self-collected data (28 cases), covering multi-center samples from the left, right, and back of the brain. In addition, an extra 135 clinical dynamic DSA sequences were collected. After digital subtraction processing, 17,822 vascular subtraction images were obtained for fine-tuning the super-resolution model.
+
+\begin{table}[t]
+  \centering
+  % \renewcommand{\arraystretch}{0.8}    % 控制行间距，默认值为1，调小可缩小行间距
+  \caption{Comparison with other reconstruction methods.  Bold indicates the best results. Underline indicates the second-best result.}
+  \label{tab:1}
+  \setlength{\tabcolsep}{8pt}    % 增加列间距，根据需要调整数值
+    \begin{tabular}{cc|cc|cc}
+    \toprule
+    \multirow{2}{*}{View} & \multirow{2}{*}{Method} & \multicolumn{2}{c|}{DSA-28} & \multicolumn{2}{c}{DSA-15} \\
+\cmidrule{3-6}          &       & PSNR $\uparrow$ & SSIM $\uparrow$ & PSNR $\uparrow$ & SSIM $\uparrow$ \\
+    \midrule
+    \multirow{4}{*}{30} & R$^2$-Gaussian & 28.163  & 0.7895  & 28.499  & 0.7871  \\
+          & TOGS  & 33.338  & 0.8362  & 33.273  & 0.8349  \\
+          & 4DRGS & \underline{33.819}  & \underline{0.8541}  & \underline{33.687}  & \underline{0.8433}  \\
+          & Ours  & \textbf{34.323} & \textbf{0.8563} & \textbf{34.198} & \textbf{0.8543} \\
+    \midrule
+    \multirow{4}{*}{40} & R$^2$-Gaussian & 28.394  & 0.7947  & 28.716  & 0.7934  \\
+          & TOGS  & 33.448  & 0.8384  & 33.417  & 0.8377  \\
+          & 4DRGS & \underline{34.129}  & \underline{0.8568}  & \underline{34.017}  & \underline{0.8472}  \\
+          & Ours  & \textbf{34.742} & \textbf{0.8600} & \textbf{34.645} & \textbf{0.8587} \\
+    \bottomrule
+    \end{tabular}%
+  % \caption*{\footnotesize Dataset 1: from 4DRGS; Dataset 2: clinical DSA data. \underline{Underline}: the second-best result. \textbf{Bold}: the best results.}          % 2-26改后：标横线，然后把这句话放到表格的上面写，只要写标横线和粗体的就好了，后面的不用标，PSNR小数点后三位，SSIM小数点后四位
+\end{table}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.8\textwidth]{third.pdf}
+\caption{Qualitative comparison of different models..} \label{third}
+\end{figure}
+
+% 评估标准。我们使用三个互补的指标来评估每个视角的DSA图像的生成质量：像素级PSNR用于重建质量，斑块级SSIM[35]用于结构一致性。
+\subsubsection{Evaluation Criteria}We use three complementary metrics to evaluate the generation quality of DSA images using three complementary metrics: pixel-level PSNR for reconstruction quality, patch-level SSIM\cite{wang2004image} for structural consistency.
+
+% 实验细节。对于辐射亚像素密度化，我们设置了100次迭代的梯度积累窗口，分裂阈值与原密度控制一致。剪枝沿用累积衰减策略，阈值 \(\epsilon=1\times10^{-6}\)。高斯核初始数量 \(M=30k\)，阈值 \(\delta=0.016\)。多保真学习权重 \(\beta=0.4\)，SSIM损失权重 \(\lambda_{\text{ssim}}=0.2\)。实验在单张RTX 3090上进行，单例重建约15分钟。   2-26改后：最后一个词缩进去，优化能不提的不提，删除：自适应密度控制每200次迭代调整一次，位置梯度阈值为 \(1\times10^{-4}\)。有界缩放激活边界设为体素间距的0.1倍和10倍，因为我们前面没怎么提到有界缩放激活边界
+% Adaptive density control is performed every 200 iterations with a position gradient threshold of \(1\times10^{-4}\). Bounded scaling activation bounds are set to 0.1 $\times$ and 10 $\times$ the voxel spacing. 
+\subsubsection{Implementation Details}For radiative sub-pixel densification, we set a gradient accumulation window of 100 iterations, using the same splitting threshold as the density control. Pruning follows the accumulated attenuation strategy with threshold \(\epsilon=1\times10^{-6}\). The initial number of gaussian kernels is \(M=30k\) with threshold \(\delta=0.016\). The multi-fidelity learning weight \(\beta=0.4\) and SSIM loss weight \(\lambda_{\text{ssim}}=0.2\). Experiments are conducted on a single RTX 3090 GPU, with each case reconstructed in approximately 15 minutes.
+
+
+
+\subsection{Comparison With State-of-The-Art}%定量和定性
+% 为全面评估DSA-SRGS的有效性，我们在两个临床DSA数据集上进行定量对比实验。对比方法包括：R²-Gaussian、TOGS、4DRGS以及本文提出的DSA-SRGS。所有方法均在30个视角和40个视角两种稀疏采样设置下进行训练与测试。 2-26改后：缩写
+To evaluate DSA-SRGS, we conducted quantitative comparisons against R$^2$-Gaussian, TOGS, and 4DRGS on two clinical datasets. 
+%All models were benchmarked under sparse-view configurations of 30 and 40 projections.
+
+
+
+% 定量分析。表1表明，DSA-SRGS在所有设置下均取得最优性能。相较于现有方法，该方法在30视图下PSNR达34.32dB，LPIPS低至0.147，视觉真实感提升显著。从30到40视图，DSA-SRGS的PSNR提升幅度优于4DRGS，展现出更强的稀疏采样鲁棒性。在两个数据集上，DSA-SRGS表现一致，SSIM均达0.85以上，验证了其在临床场景中的有效性与泛化能力。   2——26改
+% 定量分析。表1表明，DSA-SRGS在所有设置下均取得最优性能。相较于现有动态方法，该方法通过超分渲染、多保真学习及置信度筛选，在稀疏视角下实现了持续改进，尤其从30到40视角的PSNR提升幅度优于4DRGS，展现出更强的稀疏采样鲁棒性。在两个临床数据集上，DSA-SRGS表现一致，且在自采数据上提升更为显著，验证了其在真实临床场景中的有效性与泛化能力。
+\subsubsection{Quantitative analysis}Table~\ref{tab:1} show that DSA-SRGS achieves optimal performance under all settings. Compared with the existing methods, this method achieves a PSNR of 34.32dB under 30 views and an LPIPS as low as 0.147, significantly enhancing the visual realism. From 30 to 40 views, the PSNR improvement of DSA-SRGS is superior to that of 4DRGS, demonstrating stronger sparse sampling robustness. On the two datasets, the performance of DSA-SRGS was consistent, and the SSIM was all above 0.85, verifying its effectiveness and generalization ability in clinical scenarios.
+
+
+
+% 定性分析。图X展示了30个视角下不同方法的DSA投影对比。R²-Gaussian结构缺失，伪影严重；TOGS轮廓粗糙放大后呈明显马赛克现象；4DRGS整体结构完整但细小分支细节丢失。相比之下，DSA-SRGS显著优于对比方法，清晰还原了血管边缘与细微结构。  2-26改
+% 定性分析。图X展示了30个视角下不同方法的DSA投影对比。R²-Gaussian存在严重边缘模糊与结构缺失；TOGS轮廓粗糙、背景噪声明显；4DRGS整体结构完整但细小分支细节丢失。相比之下，DSA-SRGS显著优于对比方法，清晰还原了血管边缘与细微结构。
+\subsubsection{Qualitative analysis}Fig.~\ref{third}) shows the comparison of DSA projections of different methods from 30 perspectives. The R$^2$-Gaussian structure is missing and artifacts are severe. The TOGS contour is rough and shows a distinct mosaic effect when magnified. The structure of 4DRGS is complete, but the details of the small branches are lost. In contrast, DSA-SRGS is significantly superior to the comparison methods, restoring the vascular margins and fine structures.
+
+\subsection{Ablation Analysis}% 要说明验证XXX的有效性，这个比baseline高多少、为什么？第一部分（第一段写纹理学习的有效性由表里面的好多行证明、第二段写致密化的有效性（很难写不放也没事）、第二部分不同超分模型的影响
+
+% 为验证所提出各模块的有效性，我们在两个临床DSA数据集上进行了消融实验。如表2所示，我们以4DRGS作为基线（Baseline），逐步添加超分渲染（SR）、模糊监督（BS）、伪标签（PL）、多保真学习（MF）以及置信度感知融合（C）等组件，系统分析各模块对重建性能的影响。（加超分模型的影响）
+% We evaluate our design choices through two targeted ablation studies on clinical datasets. First, we assess the incremental contribution of each architectural component, including the multi-fidelity module and confidence-aware fusion (Table \ref{tab:ablation_study_final}). Second, we benchmark various SOTA SR backbones to justify our choice of CATANet and the efficacy of domain-specific fine-tuning (Table \ref{tab:sr_model_comparison}). These results collectively demonstrate the necessity of our proposed modules for artifact suppression and micro-vascular enhancement.
+We validate key components and super-resolution model effectiveness via ablation studies on clinical datasets as shown in table~\ref{tab:ablation_study_final} and ~\ref{tab:sr_model_comparison}.
+
+\begin{table}[t]
+\centering
+\caption{Ablation Study of Core Components for DSA-SRGS. SR: SR Rendering, BS: Blurry Supervision, PL: Pseudo-label, MF: Multi-fidelity Learning, C: Confidence.}
+\label{tab:ablation_study_final}
+\setlength{\tabcolsep}{5pt}
+\footnotesize
+\begin{tabular}{cccccc|cc|cc}
+\toprule
+\multicolumn{6}{c|}{Components} & \multicolumn{2}{c|}{DSA-28} & \multicolumn{2}{c}{DSA-15} \\
+\cmidrule{1-10}
+Baseline & SR & BS & PL & MF & C & PSNR $\uparrow$ & SSIM $\uparrow$ & PSNR $\uparrow$ & SSIM $\uparrow$ \\
+\midrule
+$\checkmark$ & & & & & & 33.163 & 0.8405 & 33.819 & 0.8541 \\
+$\checkmark$ & $\checkmark$ & $\checkmark$ & & & & 33.243 & 0.8417 & 34.030 & 0.8543 \\
+$\checkmark$ & $\checkmark$ & & $\checkmark$ & & & 33.533 & 0.8312 & 34.144 & 0.8214 \\
+$\checkmark$ & $\checkmark$ & $\checkmark$ & $\checkmark$ & & & 33.572 & 0.8493 & 34.223 & 0.8537 \\
+$\checkmark$ & $\checkmark$ & & $\checkmark$ & $\checkmark$ & & \underline{33.673} & \underline{0.8504} & \underline{34.287} & \underline{0.8544} \\
+$\checkmark$ & $\checkmark$ & & $\checkmark$ & $\checkmark$ & $\checkmark$ & \textbf{34.198} & \textbf{0.8543} & \textbf{34.323} & \textbf{0.8563} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% 消融实验验证了各模块的有效性。引入模糊监督（+BS）带来轻微性能提升，但缺乏高频信息改善有限；引入伪标签（+PL）后性能提升更为显著，但单独使用会导致结构失真，联合模糊监督后结构真实性得以恢复。进一步引入多保真学习（+MF），在伪标签监督的同时联合原始投影约束，实现细节增强与结构保真的动态平衡。在此基础上加入置信度感知融合与致密化（+MF+C）后，模型取得最优性能：RSD策略通过高分辨率子像素采样累积梯度，引导高斯核在纹理丰富区域自适应分裂，增强了对细小分支的建模能力；置信度感知机制则有效抑制幻觉纹理。完整模型在结构相似性上提升显著，体现了其对结构优化的侧重，与视觉质量改善一致。
+% \subsubsection{Module validity}The introduction of fuzzy supervision (+BS) brings about a slight performance improvement, but the lack of high-frequency information leads to limited improvement. The performance improvement is more significant after the introduction of pseudo-labels (+PL), but their use alone can lead to structural distortion. The authenticity of the structure is restored after combined fuzzy supervision. Further introduce multi-fidelity learning (+MF), and combine the pseudo-label supervision with the original projection constraints to achieve a dynamic balance between detail enhancement and structural fidelity. After adding confidence awareness fusion and densification (+MF+C) on this basis, the model achieves the best performance: The RSD strategy accumulates gradients through high-resolution sub-pixel sampling, guiding the gaussian kernel to adaptively split in texture-rich regions, thereby enhancing the modeling ability for fine branches; The confidence perception mechanism effectively suppresses illusory textures. The complete model has significantly improved in structural similarity, reflecting its emphasis on structural optimization, which is consistent with the improvement of visual quality.
+
+\subsubsection{Effect of Core Components} Table~\ref{tab:ablation_study_final} validates the incremental contribution of each component. Starting from the 4DRGS baseline (33.819 dB PSNR on DSA-15), Blurry Supervision (+BS) yields a marginal gain (+0.211 dB). While Pseudo-Labels (+PL) boost PSNR to 34.144 dB, they induce a notable SSIM degradation (-0.0327), signaling structural hallucinations. Integrating BS mitigates this distortion (+PL+BS: SSIM 0.8537). The Multi-Fidelity module (+MF) further optimizes the trade-off between high-frequency details and observational constraints. Ultimately, the full model (+MF+C) achieves peak performance (34.323 dB/0.8563), demonstrating that confidence-aware fusion effectively suppresses artifacts while Radiative Sub-pixel Densification enhances micro-vascular modeling. Consistent trends on DSA-28 verify generalization.
+
+\begin{table}[t]
+\centering
+\caption{Quantitative comparison of super-resolution models.}
+\label{tab:sr_model_comparison}
+\setlength{\tabcolsep}{10pt}    % 增加列间距，根据需要调整数值
+\small
+\begin{tabular}{l|cc|cc}
+\toprule
+\multirow{2}{*}{SR Model} & \multicolumn{2}{c|}{DSA-28} & \multicolumn{2}{c}{DSA-15} \\
+\cmidrule(lr){2-3} \cmidrule(lr){4-5}
+ & PSNR $\uparrow$ & SSIM $\uparrow$ & PSNR $\uparrow$ & SSIM $\uparrow$ \\
+\midrule
+SwinIR\cite{liang2021swinir} & 33.547 & 0.8479 & 34.190 & 0.8536 \\
+Real-ESRGAN\cite{wang2021realesrgan} & 32.988 & 0.8430 & 33.601 & 0.8468 \\
+EDT\cite{li2021efficient} & 33.536 & 0.8475 & 34.176 & 0.8526 \\
+HAT\cite{chen2023hat} & 33.526 & 0.8485 & 34.164 & 0.8532 \\
+Mambair\cite{guo2025mambairv2} & 33.621 & 0.8499 & 34.253 & 0.8554 \\
+CATANet\cite{liu2025catanet} & \underline{33.805} & \underline{0.8518} & \underline{34.257} & \underline{0.8554} \\
+\textbf{Ours} & \textbf{34.198} & \textbf{0.8543} & \textbf{34.323} & \textbf{0.8563} \\
+\bottomrule
+\end{tabular}
+% \caption*{\footnotesize Dataset 1: from 4DRGS; Dataset 2: clinical DSA data. \underline{Underline}: the second-best result. \textbf{Bold}: the best results.}
+\end{table}
+
+% % 超分模型选择与微调分析。为选择最适合DSA-SRGS框架的伪标签生成器，我们在两个数据集上对比了多种主流超分模型，结果如表~\ref{tab:sr_model_comparison}所示。
+% \subsubsection{Super-resolution Model} To select the most suitable pseudo-label generator for the DSA-SRGS framework, we compared several mainstream super-resolution models on the two datasets, and the results are shown in table ~\ref{tab:sr_model_comparison}.
+
+
+% % 基于实验结果，我们选择CATANet作为微调基础模型。在数据集2上，CATANet显著优于SwinIR和Mambair等方法；在数据集1上，CATANet同样保持领先且跨数据集性能差异最小。此外，CATANet的交叉注意力机制能够更好地建模DSA图像的血管动态特征，与4DRGS框架兼容性更高，因此成为DSA-SRGS中超分伪标签生成器的最优选择。
+% Based on the experimental results, we chose CATANet as the fine-tuning base model. On dataset 2, CATANet significantly outperformed methods such as SwinIR and Mambair; On dataset 1, CATANet also maintained a leading position and had the smallest performance difference across datasets. In addition, CATANet's cross-attention mechanism can better model the vascular dynamic features of DSA images and has higher compatibility with the 4DRGS framework. Therefore, it becomes the optimal choice for the super-resolution pseudo-label generator in DSA-SRGS.
+
+% % 使用DSA数据集对CATANet进行微调后，其性能进一步提高。在数据集1上，PSNR增加了0.0895，SSIM增加了0.0015。在数据集2上，PSNR增加了0.1477，SSIM增加了0.0022。
+% After fine-tuning CATANet using the DSA dataset, its performance was further enhanced. On the dataset 1, PSNR increased by 0.0661, SSIM increased by 0.0009.On the dataset 2, PSNR increased by 0.3935, SSIM increased by 0.0025.
+
+\subsubsection{Effect of Super-resolution Model} To establish the optimal pseudo-label generator, we benchmarked mainstream super-resolution architectures across both clinical datasets as shown in table~\ref{tab:sr_model_comparison}. 
+%
+CATANet emerged as the superior base model, exhibiting robust cross-center generalization with minimal performance variance, attributed to its content-aware token aggregation mechanism that effectively models vascular dynamics. 
+% that effectively models vascular dynamics
+%
+Crucially, our domain-specific fine-tuning yielded consistent gains across both clinical datasets, surpassing the pre-trained CATANet by 0.066/0.393 dB in PSNR and 0.0009/0.0025 in SSIM, respectively. This simultaneous improvement in fidelity and structural similarity underscores the necessity of adapting general SR priors to the DSA domain. 
+%By effectively mitigating hallucination artifacts while preserving vascular topology, the fine-tuned CATANet is validated as the optimal core engine for DSA-SRGS.
+
+\section{Conclusion} % Discussion and Conclusion
+% 本文提出DSA-SRGS，一种面向动态稀疏视图DSA重建的超分辨率高斯溅射框架。该方法通过多保真纹理学习模块将超分模型先验融入4D重建，以置信度感知策略平衡多源监督、抑制幻觉伪影；同时引入辐射子像素致密化，引导高斯核在纹理丰富区域自适应分裂，增强对细小血管的建模能力。实验表明，DSA-SRGS在定量指标和视觉质量上均超越现有方法。未来工作将探索自监督超分重建并进一步优化重建速度，拓展其临床应用。
+This paper proposes DSA-SRGS, a super-resolution gaussian splatting framework for DSA reconstruction of dynamic sparse views. This method integrates the prior of the super-resolution model into 4D reconstruction through a multi-fidelity texture learning module, and uses a confidence-aware strategy to balance multi-source supervision and suppress illusion artifacts. At the same time, radiative sub-pixel densification is introduced to guide the gaussian kernel to adaptively split in texture-rich areas, enhancing the modeling ability for small blood vessels. Experiments show that DSA-SRGS outperforms existing methods in both quantitative indicators and visual quality. Future work will explore self-supervised super-resolution reconstruction and further optimize the reconstruction speed to expand its clinical application.
+\bibliographystyle{splncs04}  % LNCS的引用格式
+\bibliography{DSA-SRGS_arxiv}     % 引用references.bib文件
+\end{document}

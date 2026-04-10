@@ -1,0 +1,141 @@
+
+
+\section{Feedforward 4D reconstruction from two unposed images}
+\label{sec:method}
+Our method, \ourmethod{}, performs feedforward 4D reconstruction from a pair of unposed images. 
+As in \cref{fig:teaser}, given two images and their camera intrinsics, \ourmethod{} directly predicts the relative camera pose and a set of dynamic 3D Gaussians in the coordinate system of the first camera. 
+This explicit 4D representation enables not only the synthesis of novel views and interpolated time steps, but also the direct rendering of various geometric and motion attributes, \eg, 3D point and 3D scene flow. As a result, we can leverage both view synthesis and downstream reconstruction tasks for supervision.
+
+\paragraph{Formulation.}
+
+Given input unposed images $\mathbf{I}_t$ and $\mathbf{I}_{t+1}$, our model $f_{\theta}$ maps them to the scene representation ($\mathcal{G}$, $\mathbf{P}$), consisting of a set of dynamic 3D Gaussians $\mathcal{G}$ and a relative camera pose $\mathbf{P}$:
+\begin{gather}
+f_{\theta}(\mathbf{I}_t, \mathbf{I}_{t+1}) \mapsto (\mathcal{G}, \mathbf{P}), 
+\;\; \text{with} \;\; \mathcal{G} = \{ ( \boldsymbol\mu, \, \mathbf{v}, \, \mathbf{r}, \, \mathbf{s}, \, \mathbf{h}, \, o)_{\mathbf{p}} \, | \, \mathbf{p}\in \gD( \mathbf{I}_{t}) \cup \gD(\mathbf{I}_{t+1}) \},
+\label{eq:d3dgs}
+\end{gather}
+where the set $\gD(\mathbf{I})$ denotes a set of pixels in the image $\mathbf{I}$.
+Each dynamic 3D Gaussian~\citep{Luiten:2024:D3D} comprises its 3D center $\boldsymbol\mu \in \mathbb{R}^3$, 3D motion $\mathbf{v} \in \mathbb{R}^3$, covariance matrix parameterized by quaternion rotation $\mathbf{r} \in \mathbb{R}^4$ and size $\mathbf{s} \in \mathbb{R}^3$, view-dependent color represented by spherical harmonics in each color channel $\mathbf{h} \in \mathbb{R}^k$, and opacity $o \in [0,1]$.
+Our model estimates one 3D Gaussian for each pixel from each image $\mathbf{I}_t$ and $\mathbf{I}_{t+1}$, with the 3D motion $\mathbf{v}$ for Gaussians of $\mathbf{I}_{t}$ being forward motion ($t{\rightarrow}t{+}1$) and those for $\mathbf{I}_{t+1}$ being backward motion ($t{+}1{\rightarrow} t$).
+Before rasterization, we translate the 3D center of Gaussians for $\mathbf{I}_{t+1}$ with their motion (\ie~$\mu {+} \mathbf{v}$) and inverse their motion vector (\ie~$-\mathbf{v}$) to align with the Gaussians for $\mathbf{I}_{t}$ to be at the time step.
+The union of the Gaussians from the two images explicitly represents the dense 4D scene elements that are visible in one or both images.
+All of the Gaussians $\mathcal{G}$ and the relative camera pose $\mathbf{P}$ are defined in the coordinate of first image $\mathbf{I}_t$, which serves as the canonical space.
+Following~\citep{Ye:2025:NPN}, we additionally input camera intrinsics, which are commonly available in commercial devices. 
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=\textwidth]{figure/method/architecture.pdf}
+\caption{\textbf{Network architecture.} Given a pair of input images $\mathbf{I}_t$ and $\mathbf{I}_{t+1}$ and camera intrinsics $\mathbf{K}$, \ourmethod{} outputs parameters for dynamic 3D Gaussians and relative camera pose in a feed-forward manner. Given the estimates, \ourmethod{} can render image, point, and motion at any interpolated time and view. 
+While the intrinsic token needs the real camera intrinsics, the pose token is a learnable parameter and does not require the inference-time pose input.
+}
+
+\label{fig:architecture}
+\end{figure}
+
+\paragraph{Network architecture.}
+Figure~\ref{fig:architecture} presents an overview of our network architecture, inspired by DUSt3R~\citep{Wang:2024:DUS} and NoPoSplat~\citep{Ye:2025:NPN}.
+The weight-sharing encoder~\citep{Dosovitskiy:2021:VIT} processes each input image into image tokens separately.
+The encoded tokens are concatenated with an intrinsic token and a pose token and then fed into a ViT-based decoder.
+The intrinsic token is obtained after feeding camera intrinsics into a linear layer~\citep{Ye:2025:NPN}.
+Pose token is a learnable parameter that is optimized during training.
+Here, cross-attention layers within each attention block are responsible for matching and integrating information between the two input images~\citep{Chen:2025:EED,An:2024:CVC}.
+
+Next, we connect heads to read out parameters of dynamic 3D Gaussians for each image and a relative camera pose as defined in \cref{eq:d3dgs}.
+The center head predicts the 3D center $\boldsymbol\mu$ of each Gaussian.
+The attributes head predicts its quaternion rotation $\mathbf{r}$, scale $\mathbf{s}$, spherical harmonics $\mathbf{h}$ and opacity $o$; and a velocity head predicts its 3D motion vector $\mathbf{v}$. % from time $t$ to $t+1$. 
+These heads use a DPT-based architecture~\citep{Ranftl:2021:DPT} with different output channel dimensions.
+The pose head, a 3-layer MLP, predicts the relative camera pose $\mathbf{P}$ comprising a translation $\boldsymbol\tau$ and quaternion $\mathbf{q}$.
+The estimated pose is used for rasterizing image, depth, and motion at time $t+1$ during both training and inference time.
+This direct estimation of pose not only makes inference-time post regression \citep{Wang:2024:DUS,Zhang:2025:MST} unnecessary but also gives better accuracy (\cref{tab:exp:pose_pnp} in Appendix).
+
+
+\begin{figure}[t]
+    \centering
+    \subcaptionbox{Translation \label{fig:rast:trans}}
+        {\includegraphics[width=0.3\textwidth]{figure/method/gaussian_translation.pdf}} \quad \quad \quad
+    \subcaptionbox{Rasterization \label{fig:rast:rast}}
+        {\includegraphics[width=0.3\textwidth]{figure/method/gaussian_rasterization.pdf}}
+    \caption{\textit{(a)} Each Gaussian is translated with its motion to represent 3D scene at time $t+\Delta t$. \textit{(b)} Point and motion as well as an image are rasterized together.}
+    \label{fig:rast}
+\end{figure}
+
+
+\paragraph{Differentiable 4D rasterization.}
+Our method relies on a unified and differentiable rasterization process that is critical for both model training and downstream 4D perception tasks.
+We extend the standard 3D Gaussian rasterizer to render not only color images but also dense pointmaps and scene flow at any intermediate time $t'\in[t, t+1]$.
+To achieve this, we first model the scene at a continuous time $t'=t+\Delta t$ (where $\Delta t \in [0, 1]$) by assuming linear motion.
+The set of Gaussians $\mathcal{G}(t')$ is formed by updating the position of each predicted Gaussian along its velocity vector:
+\begin{gather}
+\mathcal{G}(t') = \{ ( \boldsymbol\mu+\Delta t {\cdot} \mathbf{v},\,  \mathbf{v},\,  \mathbf{r},\, \mathbf{s},\, \mathbf{h},\,  \mathbf{c},\, o)_{\mathbf{p}} \},
+\label{eq:gaussian_t}
+\end{gather}
+with $\mathbf{p}\in \gD( \mathbf{I}_{t}) \cup \gD(\mathbf{I}_{t+1})$.
+
+
+The temporal evolution is shown in~\cref{fig:rast:trans}. 
+To render an image, we then follow the standard alpha-blending pipeline from 3DGS~\citep{Kerbl:2023:3DG, Luiten:2024:D3D}.
+For a given camera view, the color $\hat{\mathbf{I}}_{t'}(\mathbf{p})$ at each pixel is computed by $\alpha$-blending of $\mathcal{N}$-ordered depth-sorted Gaussians along each ray:
+\begin{equation}
+    \hat{\mathbf{I}}_{t'}(\mathbf{p}) = \sum_{i \in \mathcal{N}^{t'}_{\mathbf{p}}}{\mathbf{c}_i}{o_i \prod_{j=1}^{i-1}{(1-o_j)}},
+\label{eq:rast_img}
+\end{equation}
+where the set $\mathcal{N}^{t'}_{\mathbf{p}}$ contains all the Gaussians that contribute to pixel $\mathbf{p}$, $\mathbf{c}_i$ is the view-dependent color derived from spherical harmonics, and $o$ is the opacity computed from the projected 2D Gaussian. 
+Note that, depth orders of each Gaussian can change with $\Delta t$, and this rasterization process naturally handles occlusion and disocclusion.
+
+A key aspect of our method is applying this rendering principle to geometry and motion.
+While prior work often uses only the sparse Gaussian primitive centers~\citep{Luiten:2024:D3D}, we produce dense, geometrically consistent maps by substituting the color $\mathbf{c}_i$ in the blending formula with other intrinsic Gaussian attributes. 
+Toward more precise and dense reconstruction of 3D surface and motion, we render points $\mathbf{X}_{t'} \in \mathbb{R}^3$ and 3D scene flow maps $\mathbf{V}_{t'} \in \mathbb{R}^3$ as follows:
+\begin{subequations}
+\begin{eqnarray}
+    \mathbf{X}_{t'}(\mathbf{p}) &= \sum_{i \in \mathcal{N}^{t'}_\mathbf{p}}{\boldsymbol\mu_i}{o_i \prod_{j=1}^{i-1}{(1-o_j)}}, \\
+    \mathbf{V}_{t'}(\mathbf{p}) &= \sum_{i \in \mathcal{N}^{t'}_\mathbf{p}}{\mathbf{v}_i}{o_i \prod_{j=1}^{i-1}{(1-o_j)}}.
+    \label{eq:rast_mp}
+\end{eqnarray}
+\end{subequations}
+This unified approach, visualized in \cref{fig:rast:rast}, is fully differentiable~\citep{Matsuki:2024:GSS}.
+The critical advantage is that it allows supervision signals from rendered images, point maps, and flow maps to be backpropagated through the rasterizer, enabling robust, joint optimization of all heads with a single framework.
+
+\paragraph{Loss.}
+Our method takes a semi-supervised learning approach.
+The total loss $L_\text{total}$ consists of a supervised loss $L_\text{sup}$ and a self-supervised loss $L_\text{self}$:
+\begin{align}
+    L_\text{total} = L_\text{sup} + L_\text{self}.
+    \label{eq:loss:total}
+\end{align}
+The supervised loss $L_\text{sup}$ penalizes the differences between predictions and ground truth for motion, point, and pose:
+\begin{subequations}
+\begin{gather}
+ L_\text{sup} = L_\text{motion} + w_{\text{point}} L_\text{point} + w_{\text{pose}} L_\text{pose}, \\
+ L_\text{motion} =  \textstyle\sum_{u \in \{t, t+1\}} \frac{1}{|\mathbf{V}^{\text{GT}}_u|} \big( || {\mathbf{v}}_u - \mathbf{V}^{\text{GT}}_u || + || {\mathbf{V}}_u - \mathbf{V}^{\text{GT}}_u || \big) \label{eq:loss:supervised:motion}, \\
+ L_\text{point} = \textstyle\sum_{u \in \{t, t+1\}} \frac{1}{|\mathbf{X}^{\text{GT}}_u|} \big( || {\boldsymbol \mu}_u - \mathbf{X}^{\text{GT}}_{u} || + || \mathbf{X}_u - \mathbf{X}^{\text{GT}}_{u} || \big), \label{eq:loss:supervised:point} \\ 
+ L_\text{pose} = || \mathbf{q} - \mathbf{q}_{\text{GT}} || + || \mathbf{\boldsymbol\tau} - \mathbf{\boldsymbol\tau}_{\text{GT}} ||.
+\end{gather}
+\label{eq:loss:supervised}
+\end{subequations}
+We apply $L_\text{motion}$ at each Gaussian center's motion $\mathbf{v}$ as well as rasterized motion $\mathbf{V}$, normalized by the number of valid ground truth $|\mathbf{V}^{\text{GT}}_u|$, and the same for $L_\text{point}$,
+We enforce $L_\text{pose}$ for translation and quaternion separately. 
+For datasets with sparse annotated ground truth, we apply the losses on the outputs and pixels with valid ground truth.
+
+We also include two self-supervised losses on rasterized images, rasterized point and motion:
+\begin{subequations}
+\begin{gather}
+    L_\text{self} = L_\text{photo} + w_{\text{smooth}} L_\text{smooth}, \\
+    L_\text{photo} = \textstyle\sum_{u \in \{t, t+1\}} \big( {\text{mse}(\hat{\mathbf{I}}_u, \mathbf{I}_u) + w_{\text{lpips}} \text{lpips}(\hat{\mathbf{I}}_u, \mathbf{I}_u)} \big), \\
+    L_\text{smooth} = \textstyle\sum_{u \in \{t, t+1\}} \textstyle\sum_{\mathbf{d} \in \{ \mathbf{X}, \mathbf{V}\}} \big( |\partial_x \mathbf{d}_u|e^{-|\partial_x \mathbf{I}_u|} + |\partial_y \mathbf{d}_u|e^{-|\partial_y \mathbf{I}_u |} \big),
+\label{eq:loss:self}
+\end{gather}
+\end{subequations}
+where photometric loss applies mean square error (MSE) and LPIPS~\citep{LPIPS} loss between input images ($\mathbf{I}_t$ and $\mathbf{I}_{t+1}$) and respective rasterized images ($\hat{\mathbf{I}}_{t}$ and $\hat{\mathbf{I}}_{t+1}$).
+The smoothness loss that encourages spatial smoothness on predicted outputs is applied at rasterized motion, $\mathbf{V}_{t}$ and $\mathbf{V}_{t+1}$, and rasterized point maps, $\mathbf{X}_{t}$ and $\mathbf{X}_{t+1}$, based on an edge-aware smoothness loss \citep{Godard:2017:UMD,Godard:2019:DIS}.
+We find that the smoothness loss effectively clean up floaters in rasterized point and motion.
+
+\paragraph{Downstream 2D/3D tasks.}
+By default, our method estimates outputs for 3D perception tasks, \ie, point, 3D scene flow, and camera poses. 
+From them, 2D perception tasks are naturally solved by projecting them into 2D space. 
+Depth is the last channel of estimated point, optical flow is obtained by projecting 3D scene flow, and moving objects are segmented by thresholding the scene flow.
+
+\paragraph{4D interpolation.} 
+The dynamic nature of our representation enables full 4D interpolation.
+Given our estimated set of dynamic 3D Gaussians, our method can interpolate image, point, and motion between two time steps at any camera view point inbetween.
+As described in \cref{eq:gaussian_t}, interpolated 3D scene can be represented as $\mathcal{G}(t')$ by translating each 3D Gaussians by its motion.
+We can then simply rasterize image, point, and motion at any view based on the rasterization~\cref{eq:rast_img,eq:rast_mp}.

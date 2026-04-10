@@ -168,6 +168,29 @@ def test_surfsplat_post_keeps_distinct_surface_scale_equation_explanations() -> 
     assert html.count("这条式子根据局部切向量的投影长度定义两个基础尺度") == 1
 
 
+def test_gaussfusion_post_exposes_generic_scope_metadata_for_batch_a() -> None:
+    html = (REPO_ROOT / "site" / "posts" / "2603_25053v2.html").read_text(encoding="utf-8")
+    match = re.search(r"<!--\s*generic-tech-scope:\s*(.*?)-->", html, flags=re.IGNORECASE | re.DOTALL)
+    assert match, "GaussFusion should expose generic-tech-scope metadata after Batch A"
+
+    meta = {}
+    for field in match.group(1).split(";"):
+        if "=" not in field:
+            continue
+        key, value = field.split("=", 1)
+        meta[key.strip()] = value.strip()
+
+    assert "GaussFusion" in meta.get("source", "")
+    assert "Artifact Simulation" in meta.get("source", "")
+    assert meta.get("missing", "") == ""
+
+
+def test_streetforward_post_covers_training_and_implementation_sections() -> None:
+    html = (REPO_ROOT / "site" / "posts" / "2603_19552v1.html").read_text(encoding="utf-8")
+    assert "<h3>4 Training</h3>" in html
+    assert "<h3>5 Implementation</h3>" in html
+
+
 def test_equation_explanations_are_human_readable_for_golden_patterns() -> None:
     surfsplat_explain = _source_grounded_equation_explanation(
         r"f_\theta : \{(I^v, \mathbf{k}^v, \mathbf{T}^v)\}_{v=1}^{V} \mapsto \{(\boldsymbol{\mu}, \boldsymbol{\alpha}, \mathbf{r}, \mathbf{s}, \mathbf{c})\}",
@@ -296,6 +319,46 @@ def test_ucpe_and_diffusion_equations_get_non_generic_explanations() -> None:
     )
     assert "奖励" in omega_guidance
     assert ("偏离" in omega_guidance) or ("范围" in omega_guidance)
+
+
+def test_ucpe_post_places_equations_near_their_source_subsections() -> None:
+    html = (REPO_ROOT / "site" / "posts" / "2512_07237v2.html").read_text(encoding="utf-8")
+
+    idx_311 = html.index("3.1.1 相机作为射线映射")
+    idx_312 = html.index("3.1.2 绝对相机编码")
+    idx_313 = html.index("3.1.3 相对相机编码")
+    idx_321 = html.index("3.2.1 相对射线编码")
+    idx_322 = html.index("3.2.2 绝对方向编码")
+    idx_331 = html.index("3.3.1 带混合编码的空间注意力")
+
+    idx_ray_world = html.index(r"\boldsymbol{d}_{u,v} = \mathbf{R} \boldsymbol{d}_{u,v}^{\textrm{cam}}")
+    idx_cape = html.index(r"{O} = \operatorname{Attn}\big(\mathbf{D}^{\top}\odot {Q}")
+    idx_ray_tuple = html.index(r"\boldsymbol{r}_t = \big(\boldsymbol{o}_t,\, \boldsymbol{d}_t\big)")
+    idx_lat = html.index(r"\text{Lat}_t = \arctan2")
+
+    assert idx_311 < idx_ray_world < idx_312
+    assert idx_313 < idx_cape < idx_321
+    assert idx_321 < idx_ray_tuple < idx_322
+    assert idx_322 < idx_lat < idx_331
+
+
+def test_ucpe_post_places_figures_near_their_source_sections() -> None:
+    html = (REPO_ROOT / "site" / "posts" / "2512_07237v2.html").read_text(encoding="utf-8")
+
+    idx_31 = html.index("<h3>3.1 预备知识</h3>")
+    idx_33 = html.index("<h3>3.3 用于 UCPE 注入的空间注意力适配器</h3>")
+    idx_42 = html.index("<h3>4.2 与以往方法比较</h3>")
+    idx_43 = html.index("<h3>4.3 消融研究</h3>")
+
+    idx_fig2 = html.index("../assets/2512_07237v2/rays.png")
+    idx_fig3 = html.index("../assets/2512_07237v2/pipeline.png")
+    idx_fig4 = html.index("../assets/2512_07237v2/panshot.png")
+    idx_fig5 = html.index("../assets/2512_07237v2/re10k.png")
+
+    assert idx_fig2 < idx_33
+    assert idx_33 < idx_fig3 < idx_42
+    assert idx_42 < idx_fig4 < idx_43
+    assert idx_42 < idx_fig5 < idx_43
 
 
 def test_streamrl_and_riskmvdpo_equations_get_non_generic_explanations() -> None:

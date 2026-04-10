@@ -1,0 +1,67 @@
+\section{Related Work}
+%Traditional 3D reconstruction typically relies on Structure-from-Motion (SfM) to achieve camera pose estimation and to generate a point cloud from a given set of images taken from various viewpoints. Afterward, Multi-View Stereo (MVS) and surface reconstruction techniques such as Poisson reconstruction are used~\cite{NeRF-Analysis, SFM-Survey, kazhdan2006poisson}. These methods perform well in textured and opaque scenes but struggle with transparent materials, and sparse or low-overlap views. Neural Radiance Fields (NeRF)~\cite{NeRFOriginal} represent scenes by continuous volumetric functions. This makes them capable of producing photorealistic novel views and handling view-dependent effects more accurately. However, a downside is that NeRFs are quite demanding in terms of computation. As a result, we see more efficient variants like \textit{Instant-NGP}~\cite{mueller2022instantngp}, \textit{PlenOctree}~\cite{PlenOctree} and \textit{EfficientNeRF}~\cite{EfficientNerf} that drastically shorten the training and rendering time. More recently, \textit{3D Gaussian Splatting} (3DGS)~\cite{3dgs2023} has emerged as a new method that improves on training and rendering speed by replacing the implicit radiance field of NeRF-based methods with an explicit representation. Its core idea is to use 3D Gaussians both for optimization and for rendering via rasterization, therefore achieving real-time rendering without losing either fine details or transparency. Advanced 3DGS methods, such as \textit{PGSR: Planar-based Gaussian Splatting for Efficient and High-Fidelity Surface Reconstruction} (PGSR)~\cite{pgsr2024}, improve Gaussian surface alignment with the help of planar Gaussians and multi-view consistency losses. However, reconstruction from sparse views remains challenging and PGSR still relies on SfM for initialization and camera pose estimation. To improve performance in sparse-view scenarios, researchers have augmented 3DGS with depth regularization, structural constraints, or additional supervision terms. Depth supervision from a single camera is used in \textit{Depth-Regularized 3D Gaussian Splatting}~\cite{depthreg3dgs}, \textit{Few-shot NVS with Depth-Aware 3D Gaussian Splatting}~\cite{few-shotNVS3DGS}, and \textit{DNGaussian}~\cite{DNGaussian}. Meanwhile, \textit{DropGaussian}~\cite{DropGaussian} and \textit{DropoutGS}~\cite{DropoutGS} deactivate Gaussians at random in order to counteract overfitting. SfM-free or pose-optimized methods such as \textit{COLMAP-Free 3D Gaussian Splatting}~\cite{COLMAPFREE3DGS} and \textit{InstantSplat}~\cite{InstantSplat}, on the other hand, eliminate the need for SfM by jointly optimizing the 3D Gaussians as well as the camera poses and using depth estimations for point cloud initialization. These methods are able to handle sparse-view situations more robustly. More recent works incorporate diffusion priors not only to stabilize the reconstruction, but also to generate additional views from the limited number of input views. \textit{ReconFusion}~\cite{ReconFusion}, \textit{SparseGS}~\cite{SparseGS}, \textit{Gaussian Scenes}~\cite{GaussianScenes}, and \textit{Intern-GS}~\cite{InternGS} are some of the methods where these advantages can also be observed. While these methods achieve impressive results, they often struggle with high-frequency textures and view inconsistencies due to depth ambiguities and inaccurate Gaussian alignment.
+
+This section reviews prior work on 3D reconstruction, covering classical geometry-based pipelines, neural radiance fields,
+and Gaussian splatting approaches, with a focus on sparse-view and pose-free scenarios.
+
+\subsection{Traditional 3D Reconstruction}
+Classical 3D reconstruction pipelines typically rely on Structure-from-Motion (SfM) to achieve camera pose estimation
+and to generate a point cloud from a given set of images taken from various viewpoints.
+Afterward, Multi-View Stereo (MVS) and surface reconstruction techniques such as Poisson reconstruction are used~\cite{NeRF-Analysis, SFM-Survey, kazhdan2006poisson}.
+These methods perform well in textured and opaque scenes but struggle with transparent materials and sparse or low-overlap views.
+Moreover, they are highly sensitive to SfM failures, which can lead to unstable surface reconstruction.
+
+\subsection{Neural Radiance Fields}
+Neural Radiance Fields (NeRF)~\cite{NeRFOriginal} represent scenes by continuous volumetric functions.
+This makes them capable of producing photorealistic novel views and handling view-dependent effects more accurately.
+However, a downside is that NeRFs are quite demanding in terms of computation.
+As a result, we see more efficient variants like \textit{Instant-NGP}~\cite{mueller2022instantngp},
+\textit{PlenOctree}~\cite{PlenOctree} and \textit{EfficientNeRF}~\cite{EfficientNerf} that drastically shorten
+the training and rendering time by incorporating optimized data structures and improving the architecture.
+
+\subsection{3D Gaussian Splatting}
+\textit{3D Gaussian Splatting} (3DGS)~\cite{3dgs2023} has emerged as a new method
+that improves on training and rendering speed by replacing the implicit radiance field
+of NeRF-based methods with an explicit representation. Its core idea is to use 3D Gaussians
+both for optimization and for rendering via rasterization, therefore achieving real-time rendering
+without losing either fine details or transparency. Advanced 3DGS methods, such as
+\textit{PGSR: Planar-based Gaussian Splatting for Efficient and High-Fidelity Surface Reconstruction}
+(PGSR)~\cite{pgsr2024}, improve Gaussian surface alignment with the help of planar Gaussians and multi-view
+consistency losses.
+However, these methods generally rely on SfM for initialization and are optimized for dense and overlapping views.
+
+\subsection{Sparse-View Gaussian Splatting}
+Reconstruction from sparse views remains a major challenge for 3DGS.
+Several augmentations exist that address sparse-view reconstruction by introducing additional constraints and regularization terms.
+Depth-based supervision is explored in \textit{Depth-Regularized 3D Gaussian Splatting}~\cite{depthreg3dgs},
+\textit{Few-shot NVS with Depth-Aware 3D Gaussian Splatting}~\cite{few-shotNVS3DGS}, and
+\textit{DNGaussian}~\cite{DNGaussian}. This type of supervision results in fast convergence and reduces depth ambiguities.
+Meanwhile, \textit{DropGaussian}~\cite{DropGaussian} and \textit{DropoutGS}~\cite{DropoutGS}
+deactivate Gaussians at random in order to counteract overfitting.
+There are also more advanced methods like FSGS: Real-Time Few-Shot View Synthesis using Gaussian Splatting~\cite{fsgs} which
+introduces a pooling strategy and fine-tunes the splitting strategy to improve sparse view reconstruction across different datasets.
+While these methods achieve very robust results in sparse-view scenarios, they typically rely on accurate camera poses from SfM.
+
+\subsection{SfM-Free Methods}
+Methods such as \textit{COLMAP-Free 3D Gaussian Splatting}~\cite{COLMAPFREE3DGS}
+and \textit{InstantSplat}~\cite{InstantSplat}, eliminate the need for SfM by jointly optimizing the 3D Gaussians
+as well as the camera poses and using depth estimations for point cloud initialization. These methods are able to
+handle sparse-view situations more robustly and recover from inaccurate camera poses.
+
+\subsection{Diffusion-Based Priors}
+More recent works incorporate diffusion priors not only to stabilize the reconstruction,
+but also to generate additional views from the limited number of input views.
+\textit{GenFusion}~\cite{GenFusion}, \textit{SparseGS}~\cite{SparseGS},
+\textit{Gaussian Scenes}~\cite{GaussianScenes}, and \textit{Intern-GS}~\cite{InternGS}
+are some of the methods where these advantages can also be observed.
+While these methods achieve impressive results, they often struggle with high-frequency textures
+and view inconsistencies due to depth ambiguities and inaccurate Gaussian alignment.
+\\\\
+Our method differs fundamentally from diffusion-based and optimization-heavy approaches.
+Instead of synthesizing novel views using generative priors, we improve reconstruction
+quality through dense geometric initialization and strong generalizability across datasets.
+We leverage depth and normal supervision from estimated depth maps and explicitly model depth
+uncertainty through confidence-aware constraints, allowing deviations from noisy estimates. Camera poses
+and point representations are predicted by a feed-forward network, reducing reliance on iterative optimization
+and increasing robustness in sparse-view settings. Consequently, our approach focuses on geometric consistency and
+generalization without relying on view hallucination or diffusion-based priors.

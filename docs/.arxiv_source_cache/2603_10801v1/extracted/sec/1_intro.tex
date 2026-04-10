@@ -1,0 +1,62 @@
+\section{Introduction}
+
+Accurate and robust reconstruction of reflective surfaces is essential for applications such as real-time 
+virtual reality, digital content creation, and inverse rendering. Reflective materials remain challenging for 
+3D reconstruction because their view-dependent specular appearance violates the photometric consistency 
+assumptions widely used by multi-view stereo and neural rendering methods. Therefore, jointly modeling 
+light--surface interaction and geometric consistency with physically grounded constraints remain a fundamental open problem.
+
+Most existing reflective-surface reconstruction methods are built on implicit neural representations~\citep{mildenhall2020nerf}, 
+such as Ref-NeRF~\citep{verbin2022ref} and NeRO~\citep{liu2023nero}. 
+These methods model view-dependent reflectance and typically recover geometry through an implicit Signed Distance Field (SDF). 
+Polarization-based approaches further improve reconstruction quality by injecting physically grounded cues. 
+Some methods~\citep{dave2022pandora,han2024nersp,li2024neisf,li2025neisf++} leverage the polarimetric bidirectional reflectance distribution function (pBRDF)~\citep{baek2018simultaneous}, 
+while others~\citep{zhao2022polarimetric,cao2023multi,han2024nersp,chen2024pisr} exploit angle-of-polarization (AoP) observations to constrain surface normals and reduce geometric ambiguity. 
+Nevertheless, these methods still rely heavily on implicit optimization with volumetric sampling and MLP-based fitting, leading to high computational overhead and slow reconstruction.
+
+In contrast, 3D Gaussian Splatting (3DGS)~\citep{kerbl20233d} provides an explicit representation with highly efficient rendering. 
+However, this efficiency does not directly translate to strong shape modeling, since 3DGS lacks direct supervision and structural regularization for surface normals. 
+Consequently, geometric constraints remain weak and reconstructions are often unreliable; this limitation is more pronounced on reflective surfaces.
+Therefore, most 3DGS-based reconstruction methods mainly focus on diffuse scenes~\citep{chen2023neusg,yu2024gsdf,lyu20243dgsr,guedon2024sugar,dai2024high,huang20242d}. 
+
+To address these issues, we propose \textbf{\polgs}, a physically-guided polarimetric Gaussian Splatting framework for fast reflective surface reconstruction. 
+By leveraging \emph{photometric} cues from polarization, we build a pBRDF model in explicit 3DGS to decouple diffuse and specular components, providing physically grounded supervision for reflective appearance and shape recovery. 
+To realize this design, we adopt an enhanced 3DGS representation (\gs) as the geometric backbone and incorporate a Cubemap Encoder inspired by \dr\ to model specular reflections. 
+This pBRDF-guided decomposition retains the efficiency of explicit Gaussian rendering while improving reflective shape reconstruction.
+
+Beyond photometric cues, we also aim to exploit \emph{geometric} cues from polarization to further improve reconstruction quality. 
+A natural choice is the multi-view tangent-space consistency (TSC) loss~\citep{cao2023multi,han2024nersp}. However, the existing TSC constrain is developed for implicit surface representations and relies on explicit ray-surface intersections to determine cross-view visibility masks, which is highly time-consuming. 
+Due to splatting-based rasterization, this formulation cannot be directly applied to 3DGS.
+
+To enable TSC in the Gaussian Splatting pipeline, we design a \emph{depth-guided visibility mask acquisition} mechanism that avoids ray-tracing during optimization. 
+Specifically, we estimate visibility by comparing rendered depth maps with the point-to-camera distances of candidate surface points. 
+This design enables, for the first time, the integration of multi-view tangent-space constraints into a 3DGS-based reconstruction framework, bridging the gap between implicit SDF-based methods and explicit Gaussian representations.
+
+With these polarimetric constraints, \polgs resolves shape ambiguities that cannot be handled by RGB-only supervision and accurately reconstructs \textbf{\emph{reflective}} and \textbf{\emph{texture-less}} objects within $10$ minutes. 
+As shown in \fref{fig.teaser} and \Tref{table:comparison}, \polgs achieves reconstruction quality comparable to state-of-the-art SDF-based methods while maintaining over $80\times$ speedup, making it suitable for real-time and large-scale reflective surface reconstruction.
+\input{table/00_table.tex}
+
+
+% At a higher level, our work is motivated by an observation about explicit point-based representations. Unlike implicit models that naturally induce continuous surfaces, 3DGS provides neither direct supervision nor strong structural regularization for surface normals, often leading to weak shape constraints and noisy geometry. By integrating polarization cues into the 3DGS pipeline, we introduce dense and physically grounded supervision on surface orientation. As a result, \polgs recovers smooth, high-fidelity geometry while preserving the computational efficiency that makes 3DGS attractive.
+
+In summary, we advance the reflective surface reconstruction by proposing:
+\begin{itemize}
+\item \polgs, a physically-guided polarimetric 3D Gaussian Splatting framework for fast reflective surface reconstruction.
+
+\item A pBRDF module in 3DGS that constrains both diffuse and specular components of reflective surfaces.
+
+\item A depth-guided visibility mask acquisition mechanism that enables multi-view tangent-space consistency loss in the 3DGS framework without ray--surface intersection.
+\end{itemize}
+
+
+The preliminary version of this work, PolGS~\citep{han2025polgs}, considered only pBRDF integration with 3DGS and did not fully exploit polarimetric cues. 
+This journal article extends PolGS~\citep{han2025polgs} by introducing a multi-view TSC constraint in 3DGS architecture and enabling it through the proposed depth-guided visibility mask acquisition strategy. 
+This extension resolves azimuth ambiguity in monocular polarimetric cues and enforces stronger cross-view geometric consistency. 
+Specifically, in \sref{sec:Depth-guided Visibility}, we provide a detailed analysis of the depth-guided visibility mask acquisition mechanism. 
+In \sref{sec:exp}, we present more comprehensive evaluations, including expanded ablations on polarimetric information and the threshold used in the depth-guided visibility mask. We also provide broader validation on synthetic and real-world datasets, demonstrating improved robustness and reconstruction quality.
+
+% Our method achieves reconstruction quality comparable with SDF-based approaches while significantly 
+% improving reconstruction time within 10 minutes. Compared to existing 3DGS methods, PolGS delivers enhancements in 
+% reconstruction quality.
+% The remainder of this article is organized as follows. In \Sref{sec:related}, we start with and introducing of existing methods in 3D reconstruction techniques, focusing on reflective surfaces through SDF-based methods, 3DGS methods, and polarized image-based reconstruction. Then in \Sref{sec:prelim}, we provide a brief overview of the 3D Gaussian Splatting representation and the polarimetric constraints commonly used in reflective surface reconstruction.
+% Then in \Sref{sec:method}, we first analyze the difference surface representation between SDF-based methods and 3DGS-based methods, and then introduce the details of our method, including the integration of polarimetric constraints into the 3DGS architecture and the depth-guided visibility mask acquisition mechanism. In \Sref{sec:exp}, we provide comprehensive experimental evaluations on both synthetic and real-world datasets, demonstrating the effectiveness and efficiency of our method. Finally, we conclude in \Sref{sec:conclusion} with a summary of our contributions and potential future directions.

@@ -45,7 +45,15 @@
     pre { white-space: pre-wrap; background:#f7f7f7; border-radius:8px; padding:12px; overflow-x:auto; }
     figure { margin: 24px 0; }
     figcaption { color: #666; font-size: 13px; }
-    img.paper-fig { width: 100%; border: 1px solid #ddd; border-radius: 8px; }
+    .article figure { width: min(100%, 760px); margin: 24px auto; }
+    img.paper-fig { display:block; width:auto; max-width:100%; max-height:460px; margin:0 auto; border: 1px solid #ddd; border-radius: 8px; background:#fafafa; cursor: zoom-in; box-sizing:border-box; }
+    .page-lightbox { position: fixed; inset: 0; z-index: 9999; display:flex; align-items:center; justify-content:center; padding:24px; background: rgba(15, 23, 42, 0.82); box-sizing:border-box; }
+    .page-lightbox[hidden] { display:none; }
+    .page-lightbox-inner { position: relative; max-width: min(96vw, 1400px); max-height: 92vh; display:flex; flex-direction:column; align-items:center; gap:12px; }
+    .page-lightbox-image { display:block; max-width: min(96vw, 1400px); max-height: calc(92vh - 64px); width:auto; height:auto; border-radius:12px; box-shadow: 0 18px 48px rgba(0,0,0,0.35); background:#fff; }
+    .page-lightbox-caption { max-width: min(92vw, 960px); color:#f3f4f6; font-size:13px; line-height:1.7; text-align:center; }
+    .page-lightbox-close { position:absolute; top:-12px; right:-12px; width:40px; height:40px; border:none; border-radius:999px; background:rgba(255,255,255,0.96); color:#111827; font-size:24px; line-height:1; cursor:pointer; box-shadow: 0 8px 24px rgba(0,0,0,0.22); }
+    .page-lightbox-close:hover { background:#ffffff; }
     .post-item { border:1px solid #e5e5e5; border-radius:8px; padding:10px 12px; margin:10px 0; }
     .layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 28px; align-items: start; justify-content: center; position: relative; }
     .sidebar { position: sticky; top: 18px; align-self: start; border-right: 1px solid #eee; padding-right: 16px; transition: width .2s ease, min-width .2s ease, padding .2s ease, border-color .2s ease; }
@@ -128,6 +136,56 @@
         resizeObserver.observe(shell);
       }
     });
+
+    function setupImageLightbox() {
+      var lightbox = document.getElementById('page-lightbox');
+      var lightboxImage = document.getElementById('page-lightbox-image');
+      var lightboxCaption = document.getElementById('page-lightbox-caption');
+      if (!lightbox || !lightboxImage || !lightboxCaption) return;
+
+      function closeLightbox() {
+        lightbox.setAttribute('hidden', 'hidden');
+        lightbox.setAttribute('aria-hidden', 'true');
+        lightboxImage.removeAttribute('src');
+        lightboxImage.alt = '';
+        lightboxCaption.textContent = '';
+        document.body.style.overflow = '';
+      }
+
+      function openLightbox(img) {
+        var src = img.getAttribute('data-full-src') || img.currentSrc || img.src;
+        if (!src) return;
+        var figure = img.closest('figure');
+        var caption = figure ? figure.querySelector('figcaption') : null;
+        lightboxImage.src = src;
+        lightboxImage.alt = img.alt || '';
+        lightboxCaption.textContent = caption ? caption.textContent.trim() : (img.alt || '');
+        lightbox.removeAttribute('hidden');
+        lightbox.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+      }
+
+      document.addEventListener('click', function(event) {
+        var target = event.target;
+        if (!target || !target.closest) return;
+        var clickedImage = target.closest('img.paper-fig');
+        if (clickedImage && !clickedImage.closest('#page-lightbox')) {
+          openLightbox(clickedImage);
+          return;
+        }
+        if (target === lightbox || target.closest('.page-lightbox-close')) {
+          closeLightbox();
+        }
+      });
+
+      document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape' && !lightbox.hasAttribute('hidden')) {
+          closeLightbox();
+        }
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', setupImageLightbox);
   </script>
 
   <script>
@@ -157,7 +215,7 @@
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
-<!-- source-grounding: arxiv_id=2511.13309v1; pdf=2511_13309v1_DriveLiDAR4D Sequential and Controllable LiDAR Scene Generation for Autonomous D.pdf; source_dir=C:\Users\XPENG_USER\Documents\docs\文献\feedforward\docs\.arxiv_source_cache\2511_13309v1\extracted; sections=4; figures=6; equations=4 -->
+<!-- source-grounding: arxiv_id=2511.13309v1; pdf=2511_13309v1_DriveLiDAR4D Sequential and Controllable LiDAR Scene Generation for Autonomous D.pdf; source_dir=docs\.arxiv_source_cache\2511_13309v1\extracted; sections=4; figures=6; equations=4 -->
 
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
@@ -172,18 +230,26 @@
 
     <h2 id='summary'>简单摘要</h2>
     <p>尽管最近的 3D LiDAR 点云生成方法已经显示出显着的改进，但它们仍然面临着显着的局限性。在本文中，我们介绍了一种由多模态条件和新颖的顺序噪声预测模型组成的新型激光雷达生成管道。</p>
-<figure><img class='paper-fig' src='../assets/2511_13309v1/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：nuScenes 数据集中示例的多模态条件的可视化（图像已调整大小以实现更好的可视化）</figcaption></figure>
+
     <p>为了缓解这个问题，LidarDM 建议通过单独建模静态场景和动态对象来生成 LiDAR 序列。然而，它缺乏背景控制，并且其两阶段合成策略可能会损害所得点云分布的真实性和连贯性。</p>
 
     <h2 id='innovation'>核心创新</h2>
-    <p>第一，在本文中，我们介绍了一种由多模态条件和新颖的序列噪声预测模型组成的新型激光雷达生成管道。</p>
-    <p>第二，据我们所知，这是第一个以端到端方式解决具有完整场景操纵能力的激光雷达场景顺序生成的工作。</p>
-    <p>第三，在训练过程中，我们首先推导三个多模态条件。</p>
+    <p>第一个关键新意是：在本文中，我们介绍了一种由多模态条件和新颖的序列噪声预测模型组成的新型激光雷达生成管道。这部分不是单独的小修小补，而是在原论文方法链路里承担了明确作用。</p>
+    <p>第二个关键新意是：据我们所知，这是第一个以端到端方式解决具有完整场景操纵能力的激光雷达场景顺序生成的工作。这部分不是单独的小修小补，而是在原论文方法链路里承担了明确作用。</p>
+    <p>第三个关键新意是：在训练过程中，我们首先推导三个多模态条件。这部分不是单独的小修小补，而是在原论文方法链路里承担了明确作用。</p>
+    <p>第四个关键新意是：在本节中，我们首先详细介绍多模态条件，然后详细说明 LiDAR4DNet 的具体细节。这部分不是单独的小修小补，而是在原论文方法链路里承担了明确作用。</p>
 
+    <!-- equation-placement: source=3.1||3.1||3.1||3.1; rendered=3.1||3.1||3.1||3.1; tail_pile=0 -->
+    <!-- figure-placement: source=4.3||4.3||4.4; rendered=4.3||4.3||4.4; tail_pile=0 -->
     <h2 id='technical'>技术细节</h2>
-    <p>通过将等距矩形时空扩散模型与多模态调节能力相结合来解决上述限制的框架。在训练过程中，我们首先推导三个多模态条件。在推理过程中，LiDAR4DNet 再次利用三个多模态条件重建等距柱状图像序列。</p>
-<figure><img class='paper-fig' src='../assets/2511_13309v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：我们首先从给定的道路场景中导出多模态条件，包括道路草图、场景标题和对象先验（参见第 2 节）；然后，提出的\基于多模态条件预测序列噪声，其中等矩形时空卷积（EST-Conv）和等矩形时空卷积（EST-Trans）强制执行</figcaption></figure>
-<figure><img class='paper-fig' src='../assets/2511_13309v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：\ 在 nuScenes val split 上不同条件下生成的 LiDAR 场景</figcaption></figure>
+    <p>框架通过将等距矩形时空扩散模型与多模态调节能力相结合来解决上述局限性。在训练过程中，我们首先推导三个多模态条件。在推理过程中，LiDAR4DNet 再次利用三个多模态条件重建等距柱状图像序列。</p>
+    <p>有道路施工标志，表明附近正在施工，右侧有一个公交车站，目前有一辆公交车停在该站。整体场面平静，没有明显的不良路况，交通显得畅通无阻。多模态条件的可视化管道。</p>
+
+
+
+
+
+
 
     <p>$$ q(\boldsymbol{x}_t|\boldsymbol{x}) = \mathcal{N} (\alpha_t\boldsymbol{x}, \sigma^2_t \boldsymbol{I}), $$</p>
     <p>这条式子给出了论文中的一条核心计算关系。理解时重点看左侧最终输出是什么，以及右侧各部分分别承担什么作用。</p>
@@ -194,25 +260,36 @@
     <p>$$ \mathcal{L} = \mathbb{E}_{\boldsymbol{x}, \boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I}, t)} [ \| \boldsymbol{\epsilon} - \hat{\boldsymbol{\epsilon}}(\boldsymbol{x}_t, t, \boldsymbol{c}) \| ^2 ], $$</p>
     <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
 
+    <!-- table-placement: source=4.3||4.4||4.4||4.5||4.6; rendered=4.3||4.4||4.4||4.5||4.6; tail_pile=0 -->
     <h2 id='experiment'>实验结论</h2>
-    <p>实验部分主要围绕 显然，道路草图调节的影响尤其显着，FRD 提高了 15.34%（从 210.55 到 178.24），MMD 提高了 53.80%（从 1.84 到 0） 展开。结果表明，可以看出，\ 比 LidarDM 和 UniScene 获得了更低的 FRD、MMD 和 JSD 分数，表明生成的场景的空间保真度和多样性有所提高。</p>
-    <div class='card'><strong>源论文表 6（预览）</strong><div style='margin-top:6px;'>nuScenes val split 上不同方法生成的 LiDAR 场景的 3D 物体检测结果。</div><div style='overflow-x:auto;margin-top:10px;'><table style='width:100%;border-collapse:collapse;font-size:12px;'><tr><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'></th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>mAP</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>GT Agg.^1</th></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>GT</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.804</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>100.0%</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>UniScene</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.078</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>9.7%</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>LidarDM</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.140</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>17.4%</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>color_ours \ w.o. object priors</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.123</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>15.3%</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>color_ours \</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.407</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>50.6%</td></tr><tr><td colspan='3' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>1: GT Agg. denotes aggrements with mAP of GT.</td></tr></table></div><div style='font-size:12px;color:#666;margin-top:8px;'>表格为 source 预览；复杂排版、部分行列或强调格式可能已做简化。</div></div>
-    <div class='card'><strong>源论文表 1（预览）</strong><div style='margin-top:6px;'>不同方法在KITTI-360测试集和nuScenes val split上的无条件生成结果。</div><div style='overflow-x:auto;margin-top:10px;'><table style='width:100%;border-collapse:collapse;font-size:12px;'><tr><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'></th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Venues</th><th colspan='3' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>KITTI-360</th><th colspan='3' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>nuScenes</th></tr><tr><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'></th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'></th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>FRD</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>MMD^1</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>JSD</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>FRD</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>MMD^1</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>JSD</th></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>LiDARGen</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>ECCV2022</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>2040.1</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>3.87</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.067</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>-</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>19.00</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.160</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>R2DM^2</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>ICRA2024</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>275.67</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>5.55</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.049</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>-</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>-</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>-</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Text2LiDAR^2</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>ECCV2024</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>831.64</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>4.36</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.044</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>-</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>-</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>-</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>RangeLDM^2</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>ECCV2024</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>2022.71</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.75</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.035</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>492.49</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>2.75</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.054</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>color_ours</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'></td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>244.25</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>3.31</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.042</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>210.55</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>1.84</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.045</td></tr><tr><td colspan='5' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>1: MMD has been multiplied by \(10^4.\)</td><td colspan='3' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'></td></tr><tr><td colspan='5' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>2: We reproduced the results with their released source codes.</td><td colspan='3' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'></td></tr></table></div><div style='font-size:12px;color:#666;margin-top:8px;'>表格为 source 预览；复杂排版、部分行列或强调格式可能已做简化。</div></div>
-<figure><img class='paper-fig' src='../assets/2511_13309v1/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：nuScenes val split 上不同方法生成的 LiDAR 场景的比较；\ 是第一个实现序列激光雷达场景生成的作品，具有高度可控的场景操纵能力，包括前景控制、背景控制和物体保真度增强</figcaption></figure>
-<figure><img class='paper-fig' src='../assets/2511_13309v1/figure6_full.png' alt='Figure 6:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：nuScenes val split 上通过不同方法生成的序列 LiDAR 场景；请注意，\ 生成 20 帧的序列，我们提供其中三个代表性帧以进行清晰比较</figcaption></figure>
-<figure><img class='paper-fig' src='../assets/2511_13309v1/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 6：nuScenes val 分割上 \ 的细粒度场景操作的可视化</figcaption></figure>
+    <p>实验部分主要围绕 可以看出， \ 在 KITTI-360 数据集上实现了与 RangeLDM 相当的生成质量，具有优越的 FRD 和略逊于 MMD 和 JSD 的性能 展开。结果表明，然而，\ 在 nuScenes 数据集上的所有三个指标（FRD、MMD 和 JSD）上都超过了 RangeLDM。</p>
+    <p>实验部分主要围绕 结合场景标题条件（如图所示）后，前景对象（红红圆圈 2）和背景元素（红红圆圈 1）都表现出更完整的结构 展开。结果表明，这种改进源于场景字幕的综合性，它封装了前景和背景上下文信息。</p>
+
+
+
+
+
+
     <h3>4.1 实验设置</h3>
-    <p>实验部分主要围绕 我们在两个现实世界自动驾驶数据集 KITTI-360 和 nuScenes 数据集上验证了 \ 的有效性 展开。结果表明，KITTI-360 数据集采用 Velodyne-64E LiDAR，具有 64 个光束和 360 度水平 FOV。</p>
+    <p>实验部分主要围绕 我们在两个现实世界自动驾驶数据集 KITTI-360 和 nuScenes 数据集上验证了 \ 的有效性 展开。结果表明，KITTI-360 数据集采用具有 64 个光束和 360 度水平 FOV 的 Velodyne-64E LiDAR。</p>
     <h3>4.2 无条件 LiDAR 场景生成</h3>
-    <p>实验部分主要围绕 我们将 \ 与 SOTA LiDAR 场景生成方法 LiDARGen 、 R2DM 、 Text2LiDAR 和 RangeLDM 进行比较 展开。结果表明，可以看出， \ 在 KITTI-360 数据集上实现了与 RangeLDM 相当的生成质量，具有优越的 FRD 和稍逊色的 MMD 和 JSD。</p>
+    <p>实验部分主要围绕 我们将 \ 与 SOTA LiDAR 场景生成方法 LiDARGen 、 R2DM 、 Text2LiDAR 和 RangeLDM 进行比较 展开。结果表明，可以看出， \ 在 KITTI-360 数据集上实现了与 RangeLDM 相当的生成质量，具有优越的 FRD 和略逊于 MMD 和 JSD 的性能。</p>
     <h3>4.3 有条件的 LiDAR 场景生成</h3>
-    <p>实验部分主要围绕 选项卡显示了 nuScenes val 分割上不同条件下 \ 的结果 展开。结果表明，显然，道路草图调节的影响尤其显着，FRD 提高了 15.34%（从 210.55 到 178.24），MMD 提高了 53.80%（从 1.84 到 0）。</p>
+    <p>实验部分主要围绕 显然，道路草图调节的影响尤其显着，FRD 提高了 15.34%（从 210.55 到 178.24），MMD 提高了 53.80%（从 1.84 到 0） 展开。结果表明，图显示了在 nuScenes val split 上不同条件下由 \ 生成的 LiDAR 场景的定性比较。</p>
+<figure><img class='paper-fig' src='../assets/2511_13309v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：\ 在 nuScenes val split 上不同条件下生成的 LiDAR 场景</figcaption></figure>
+<figure><img class='paper-fig' src='../assets/2511_13309v1/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：nuScenes val 分割上 \ 的细粒度场景操作的可视化，用于说明这一类高效路线的关键结构与输入输出关系。</figcaption></figure>
+    <div class='card'><strong>源论文表 2（预览）</strong><div style='margin-top:6px;'>nuScenes val split上不同条件下\的条件生成结果。</div><div style='overflow-x:auto;margin-top:10px;'><table style='width:100%;border-collapse:collapse;font-size:12px;'><tr><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'></th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>tabular[c]@c@Road</th></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>sketch</td><td colspan='1' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'></td></tr></table></div><div style='font-size:12px;color:#666;margin-top:8px;'>表格为 source 预览；复杂排版、部分行列或强调格式可能已做简化。</div></div>
     <h3>4.4 顺序且可控的 LiDAR 场景生成</h3>
     <p>实验部分主要围绕 我们将 \ 与 SOTA 顺序 LiDAR 生成方法 LidarDM 和 UniScene 进行比较 展开。结果表明，UniScene 是一种联合 RGB-LiDAR 生成方法，我们评估其生成的 LiDAR 场景的质量。</p>
+<figure><img class='paper-fig' src='../assets/2511_13309v1/figure6_full.png' alt='Figure 6:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：nuScenes val split 上通过不同方法生成的序列 LiDAR 场景；请注意，\ 生成 20 帧的序列，我们提供其中三个代表性帧以进行清晰比较</figcaption></figure>
+    <div class='card'><strong>源论文表 3（预览）</strong><div style='margin-top:6px;'>nuScenes val split上不同方法的顺序生成结果。</div><div style='overflow-x:auto;margin-top:10px;'><table style='width:100%;border-collapse:collapse;font-size:12px;'><tr><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'></th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>MMD^1</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>JSD</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>FRD</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>FVD</th></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>LidarDM</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>25.38</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.153</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>1604.10</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>28.41</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>UniScene</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>21.22</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.141</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>1007.89</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>20.28</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>color_ours</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>2.13</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.049</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>292.28</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>14.86</td></tr><tr><td colspan='5' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>1: MMD has been multiplied by \(10^4.\)</td></tr></table></div><div style='font-size:12px;color:#666;margin-top:8px;'>表格为 source 预览；复杂排版、部分行列或强调格式可能已做简化。</div></div>
+    <div class='card'><strong>源论文表 4（预览）</strong><div style='margin-top:6px;'>nuScenes val split上不同方法的顺序生成结果。</div><div style='overflow-x:auto;margin-top:10px;'><table style='width:100%;border-collapse:collapse;font-size:12px;'><tr><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'></th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>MMD^1</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>JSD</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>FRD</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>FVD</th></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>LidarDM</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>25.53</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.155</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>1800.18</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>28.48</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>UniScene</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>21.66</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.143</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>1182.94</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>21.04</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>color_ours</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>2.94</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.069</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>743.13</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>16.96</td></tr><tr><td colspan='5' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>1: MMD has been multiplied by \(10^4.\)</td></tr></table></div><div style='font-size:12px;color:#666;margin-top:8px;'>表格为 source 预览；复杂排版、部分行列或强调格式可能已做简化。</div></div>
     <h3>4.5 模型配置的影响</h3>
     <p>实验部分主要围绕 我们通过评估以下模型配置来研究 EST-Conv 和 EST-Trans 对 \ 的影响 展开。结果表明，配置 A 指的是我们删除 \ 中的 EST-Trans 并用常规 2D 卷积块替换 EST-Conv 的模型。</p>
+    <div class='card'><strong>源论文表 5（预览）</strong><div style='margin-top:6px;'>不同模块配置的\的顺序生成结果。</div><div style='overflow-x:auto;margin-top:10px;'><table style='width:100%;border-collapse:collapse;font-size:12px;'><tr><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'></th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>tabular[c]@c@EST-Conv</th></tr></table></div><div style='font-size:12px;color:#666;margin-top:8px;'>表格为 source 预览；复杂排版、部分行列或强调格式可能已做简化。</div></div>
     <h3>4.6 真实世界 3D 物体检测评估</h3>
-    <p>实验部分主要围绕 物体定位的准确性和物体点的保真度在现实自动驾驶场景中至关重要，因为这些因素显着影响感知系统的性能 展开。结果表明，选项卡显示了在 nuScenes val split 上通过不同方法生成的 LiDAR 场景中的汽车 3D 对象检测结果。</p>
+    <p>实验部分主要围绕 在现实世界的自动驾驶场景中，物体定位的准确性和物体点的保真度至关重要，因为这些因素会显着影响感知系统的性能 展开。结果表明，选项卡显示了在 nuScenes val split 上通过不同方法生成的 LiDAR 场景中的汽车 3D 对象检测结果。</p>
+    <div class='card'><strong>源论文表 6（预览）</strong><div style='margin-top:6px;'>nuScenes val split 上不同方法生成的 LiDAR 场景的 3D 物体检测结果。</div><div style='overflow-x:auto;margin-top:10px;'><table style='width:100%;border-collapse:collapse;font-size:12px;'><tr><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'></th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>mAP</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>GT Agg.^1</th></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>GT</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.804</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>100.0%</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>UniScene</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.078</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>9.7%</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>LidarDM</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.140</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>17.4%</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>color_ours \ w.o. object priors</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.123</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>15.3%</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>color_ours \</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.407</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>50.6%</td></tr><tr><td colspan='3' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>1: GT Agg. denotes aggrements with mAP of GT.</td></tr></table></div><div style='font-size:12px;color:#666;margin-top:8px;'>表格为 source 预览；复杂排版、部分行列或强调格式可能已做简化。</div></div>
 
     <h2 id='takeaway'>理解评价</h2>
     <p>如果把这篇论文放回问题背景里看，它真正的价值在于：尽管最近的 3D LiDAR 点云生成方法已经显示出显着的改进，但它们仍然面临着显着的局限性，包括缺乏顺序生成功能以及无法生成精确定位的前景物体。这说明作者不是只补一个局部模块，而是在重新组织问题该怎样被解决。</p>
@@ -222,6 +299,13 @@
   </article>
 </div>
 
+  </div>
+</div>
+<div id='page-lightbox' class='page-lightbox' hidden aria-hidden='true'>
+  <div class='page-lightbox-inner'>
+    <button type='button' class='page-lightbox-close' aria-label='关闭大图' title='关闭'>&times;</button>
+    <img id='page-lightbox-image' class='page-lightbox-image' alt='' />
+    <div id='page-lightbox-caption' class='page-lightbox-caption'></div>
   </div>
 </div>
 </body>

@@ -1,0 +1,289 @@
+\section{Method}
+\label{sec:method}
+
+\subsection{Preliminaries}
+\paragraph{Range Image: A Reversible and Compact Representation for LiDAR Data.}
+Range images offer a compact representation of LiDAR data by parametrizing unstructured point clouds in 3D space into a 2D pixel space. 
+Specifically, for a point \( p = (x, y, z) \in \mathbb{R}^3 \) in Cartesian coordinates, it is transformed to the spherical coordinates \( (r, \theta, \phi) \) via spherical projection.
+We adopt the corrected range image representation \cite{hu2024rangeldm} as follows:
+\begin{equation}
+\label{corrected_range}
+\begin{aligned}
+    r &= \sqrt{x^{2} + y^{2} + (z - h_{j})^{2}}, \\
+    \theta &= \arctan(y, x), \quad \phi = \phi_{j},
+\end{aligned}
+\end{equation}
+where \( r \) denotes the depth value, \( \theta \) is the azimuth angle, \( \phi \) is the elevation angle, \( h_{j} \) and \( \phi_{j} \) denote the sensor height and elevation angle estimated by Hough voting.
+Next, we convert the spherical coordinates \( (r, \theta, \phi) \) into pixel coordinates \( (u, v) \) of the range image using the equations:
+\begin{equation}
+\label{rasterization_2d}
+u = W - ((\theta + \pi) / 2\pi) \cdot W, \quad v = H - j,
+\end{equation}
+where \( W \) and \( H \) are the width and height of the image in pixels.
+Finally, we normalize the depth and intensity values of the point cloud to obtain a two-channel range image \( I \).
+
+\vspace{-2mm}
+%--------------------------------------------------------------
+\paragraph{Latent Diffusion Model for LiDAR Generation.}
+We employ the Latent Diffusion Model \cite{rombach2022high} for LiDAR data generation. 
+LDM consists of two components: a Variational Autoencoder (VAE) and a 2D UNet.
+The VAE encodes the input range image \( I \in \mathbb{R}^{H \times W \times 2} \) into a latent representation \( \hat{z} \in \mathbb{R}^{h \times w \times c} \). 
+The decoder then takes latent \( \hat{z} \) as input and generates the reconstructed range image \( \hat{I} \in \mathbb{R}^{H \times W \times 2} \).
+
+%During the diffusion process, the initial latent variable \( z_{0} \) is progressively perturbed by adding noise, resulting in a noisy latent variable \( z_{t} \), where the noise level increases as the timestep \( t \in (1, 2, \ldots, T) \) progresses. 
+During the diffusion process, noise is progressively added to the initial latent \( z_{0} \) to obtain noisy latent \( z_{t} \), with the noise level increasing as the timestep \( t \in \{1, 2, \ldots, T\} \) advances.
+The UNet is trained to predict the noise added to the latent feature \( \hat{z} \) at each timestep \( t \).
+The training loss of the LDM is defined as:
+\begin{equation}
+\label{ldm_loss}
+\mathcal{L}_{\text{LDM}}=\mathbb{E}_{\epsilon_{t} \in \mathcal{N}(0,1), t \in \mathcal{U}[0, T], c}\left[\left\| \epsilon_{t}-\epsilon_{\theta}\left(z_{t} ; t, c\right)\right\| ^{2}\right],
+\end{equation}
+where \( z_{t} \) denotes the noisy latent at timestep \( t \), \( \epsilon_{\theta} \) is the noise prediction network to be trained, and \( c \) is the encoded conditional information.
+During inference, LDM generates range images by iteratively removing the noise predicted by UNet from randomly sampled Gaussian noise over \( T \) steps.
+
+%--------------------------------------------------------------
+\subsection{Overall Framework}
+Given the first frame of LiDAR data for a driving scenario \( P^{0} \in \mathbb{R}^{N^{0} \times 4} \), our objective is to recursively generate subsequent LiDAR frames\( P^{s} \), for \( s = 1, 2, \ldots, S \), in accordance with the actual motion of the ego-vehicle.
+In autonomous driving simulators, the following information for each frame of the driving scenario can be tracked \cite{karnchanachari2024towards}:
+\begin{itemize}[leftmargin=*]
+%\begin{enumerate}[label=\arabic*), leftmargin=*, align=left]
+\item 3D bounding boxes and semantic labels: \( B^{s} = \{(b_{i}, c_{i})\}_{i = 1}^{N_{b}} \), where \( b_{i} = (x_{j}, y_{j}, z_{j})_{j = 1}^{8} \in \mathbb{R}^{8 \times 3} \) denotes the bounding boxes of dynamic and static objects (such as vehicles, pedestrians, and obstacles) within a predefined range, and \( c_{i} \in C_{box} \) is the associated semantic category.
+\item Ego states: \( E^{s} = \{E_{\text{ego}},E_{\text{trans}}\} \), where \( E_{\text{ego}} \) includes ego-vehicle speed, acceleration and steering angle information, while \( E_{\text{trans}} \) is the transformation matrix from the ego-vehicle to the global coordinate frame.
+%\end{enumerate} 
+\end{itemize} 
+Accordingly, at each step of the generation process, we aim to generate the current LiDAR frame based solely on the previous frame, while incorporating 3D bounding box information and ego-vehicle states from the previous and current frames. 
+%This can be expressed as:
+%\begin{itemize}[leftmargin=*]
+%\item \textbf{Input}: Previous frame's LiDAR point cloud \( P^{s-1} \in \mathbb{R}^{N^{s-1} \times 4} \), 3D bounding box information for the previous and current frames \( B^{s-1}, B^{s} \), and ego-vehicle state for the previous and current frames \( E^{s-1}, E^{s} \);
+%\item \textbf{Output}: Current frame's LiDAR point cloud \( P^{s} \).
+%\end{itemize}
+The pipeline of LaGen is shown in Figure ~\ref{overview}.
+
+%--------------------------------------------------------------
+\subsection{Strongly Spatiotemporally Consistent LiDAR Scene Generator and Inference Framework}
+To achieve autoregressive LiDAR scene generation, a key requirement is to design a generator capable of producing LiDAR data with strong temporal coherence.
+In our framework, this generator is instantiated as a latent diffusion model, which can integrate multiple forms of conditional information during the diffusion process to generate spatiotemporally consistent sequences of LiDAR data for autonomous driving scenarios, as illustrated in Figure~\ref{pipeline}.
+
+%------------------------------------------------------------------
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{./figs/pipeline.pdf}\\
+  \caption{\label{pipeline}
+    The schematic diagram of the LiDAR generator architecture. It mainly comprises a VAE and a U-Net. Additionally, it includes the following modules:  a) Spherical projection module, which provides a compact representation of 3D data;  b) SDE module, designed to enhance the model's ability to learn detailed features;  c) NM module, which mitigates error accumulation during long-horizon generation by introducing noise modulation.}
+
+\vspace{-4mm}
+\end{figure}
+%------------------------------------------------------------------
+
+%--------------------------------------------------------------
+\subsubsection{Multi condition control generation process}
+\paragraph{Previous Frame's LiDAR Data.}
+Using the previous frame's LiDAR point cloud \( P^{s-1} \in \mathbb{R}^{N^{s-1} \times 4} \) as one of the control conditions in the generation process is crucial for endowing the generator with autoregressive inference capability.
+To incorporate previous frame information into the denoising process, we first convert the 3D point cloud \( P^{s-1} \) into a 2D range image \( I^{s-1} \in \mathbb{R}^{2 \times H \times W} \) using Equation~(\ref{corrected_range}). The variational autoencoder then projects \( I^{s-1} \) into the latent space as a latent variable \( z^{s-1} \in \mathbb{R}^{c \times h \times w} \).
+
+We can perform the following computation:
+\begin{equation}
+\label{trans_metrix}
+E_{\text{rel}}^{s-1} = (E_{\text{ego2glb}}^{s} \cdot E_{\text{li2ego}}^{s})^{-1} \cdot (E_{\text{ego2glb}}^{s-1} \cdot E_{\text{li2ego}}^{s-1}),
+\end{equation}
+to obtain the transformation matrix \( E_{\text{rel}}^{s-1} \in \mathbb{R}^{4 \times 4} \), which represents the coordinate transformation from the previous frame's LiDAR sensor to the current frame's LiDAR sensor.
+Here, \( E_{\text{ego2glb}}^{s-1} \) and \( E_{\text{ego2glb}}^{s} \) are the transformation matrices from the ego-vehicle to the global coordinate system, while \( E_{\text{li2ego}}^{s-1} \), \( E_{\text{li2ego}}^{s} \) denote the transformation matrices from the LiDAR sensor to the ego-vehicle.
+Next, we apply a Feature-wise Linear Modulation (FiLM) layer to adjust the latent feature \( z^{s-1} \) of the previous frame's LiDAR data:
+\begin{equation}
+\label{film}
+\hat{z}^{s-1} = FiLM(z^{s-1}, E_{\text{rel}}^{s-1}),
+\end{equation}
+and inject it into the latent diffusion process of the model.
+
+\vspace{-3mm}
+%--------------------------------------------------------------
+\paragraph{Object-Level 3D Bounding Box Projection.}
+3D bounding box information is one of the most important cues in autonomous driving scenarios.
+To fully exploit this information, we first extract the four corner vertices of \( b_{i} \) that are closest to the ground and perform pairwise interpolation between these vertices to obtain a point cloud \( \hat{b}_{i} \) that encloses the object region.
+Next, according to the semantic label \( c_{i} \), we using Equation~(\ref{corrected_range}) to project point clouds of different classes into range image binary masks \( M_{B} \in \mathbb{R}^{D \times H \times W} \), where \( D \) denotes the number of categories.
+Then, we encode these masks into latent features \( H_{B} \in \mathbb{R}^{N \times D} \) in the latent space using an object-level mask encoder \( \mathcal{E}_{mask} \).
+
+Subsequently, we inject \( H_{B} \) into multiple layers of the UNet via a cross-attention mechanism:
+\begin{equation}
+\label{cross_attention}
+q = H_{B}, \quad k = H_{B}^{\text{prev}},\quad v = H_{B}^{\text{cur}},
+\end{equation}
+where \( q \), \( k \), \( v \) denote the query, key, and value in the cross-attention layer, and \( H_{B}^{\text{cur}} \), \( H_{B}^{\text{prev}} \) are the features of bounding box projections for the current and previous frames.
+
+\vspace{-4mm}
+%--------------------------------------------------------------
+\paragraph{Ego States.}
+We encode the ego-vehicle state \( E_{\text{ego}} \) along with the transformation matrix \( E_{\text{trans}} \) from the ego-vehicle to the global coordinate system to obtain features at multiple level, which are then injected into the UNet.
+
+By leveraging multiple control conditions to guide the denoising process, the latent diffusion model can generate high-fidelity samples, thereby ensuring robust performance in autoregressive LiDAR data generation scenarios.
+
+%------------------------------------------------------------------
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{./figs/sde_model.pdf}\\
+  \caption{\label{sde_model}
+    The schematic diagram of scene decoupling estimation module. This module performs a coarse estimation of current foreground and background based on the previous frame’s scene and the object-level bounding box information of the current frame.}
+\vspace{-5mm}
+\end{figure}
+%------------------------------------------------------------------
+
+%--------------------------------------------------------------
+\subsubsection{Scene Decoupling Estimation}
+Having established the basic framework for LiDAR data generation conditioned on multiple control conditions, we further design a Scene Decoupling Estimation (SDE) module to improve the quality of generated details (see Figure ~\ref{sde_model}).
+This module decouples the previous frame's LiDAR scene into foreground (such as vehicles and pedestrians) and background parts. 
+It then provides a coarse estimation of the foreground and background in the current frame based on the ego-vehicle’s transformation matrix between adjacent frames. 
+The design is described in detail below.
+
+For the previous frame LiDAR point cloud \( P^{s-1} \in \mathbb{R}^{N^{s-1} \times 4} \), we decouple it into foreground and background components based on its associated bounding box information \( B^{s-1} \). 
+The foreground point cloud \( P^{s-1}_{\text{obj}} \) consists of all points in \( P^{s-1} \) that fall within any of the bounding boxes:
+\begin{equation}
+\label{foreground_estimate}
+P^{s-1}_{\text{obj}}=\{p_{ij}\},i \in\{1,2,...,D\}, j \in\{1,2,...,K_i\},
+\end{equation}
+where \( p_{ij} \) denotes the set of points within the \( j \)-th bounding box of the \( i \)-th category, \( D \) is the total number of semantic categories of bounding boxes, and \( K_i \) is the total number of bounding boxes in category \( i \). 
+The background point cloud \( P^{s-1}_{\text{bg}} \) is defined as the set of all points in \( P^{s-1} \) that lie outside the bounding boxes.
+For each \( p_{ij}^{s-1} \), we first adjust the viewpoint of the point cloud according to the coordinate transformation matrix of the sensor between the two frames:
+\begin{equation}
+\label{trans_pij}
+\hat{p}_{ij}^{s-1} = trans(P_{ij}^{s-1}, E_{\text{rel}}^{s-1} ),
+\end{equation}
+To estimate the position of \( \hat{p}_{ij} \) in the current-frame scene, we further design a nearest neighbor search algorithm targeting the centers of bounding boxes of the same category.
+
+Specifically, we first compute the centers \( C_{ij}^{s-1} \) and \( C_{ij}^{s} \) of all bounding boxes in the two adjacent frames. 
+% For a bounding box \( b_{ij}^{s} \) in the current scene, we search within the same category in the previous frame for the bounding box whose center is closest to \( C_{ij}^{s} \), denoted as \( b_{ij'}^{s-1} \). 
+For each bounding box \( b_{ij}^{s} \) in the current scene, we search among the bounding boxes of the same semantic category in the previous frame for the one whose center is nearest to \( C_{ij}^{s} \), denoted as \( b_{ij'}^{s-1} \).
+%Thus, we obtain an estimate for each foreground object point cloud \( p_{ij}^{s} \):
+Thus, we obtain an estimated foreground object point cloud \( p_{ij}^{s} \) for the current frame by:
+\begin{equation}
+\label{estimation_foreground}
+ \widetilde{p}_{ij}^{s} = \hat{p}_{ij}^{s-1} + (C_{ij}^{s} - C_{ij'}^{s-1}), \quad i \in\{1,2,...,D\}.
+\end{equation}
+Then, we aggregate all \( \widetilde{p}_{ij}^{s} \) to obtain an estimate \( \widetilde{P}^{s}_{\text{obj}} \) of the foreground point cloud \( P^{s}_{\text{obj}} \) in the current scene.
+
+%------------------------------------------------------------------
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{./figs/nm_model.pdf}\\
+  \caption{\label{nm_model}
+    The schematic diagram of noise modulation module. This module adds noise to the latent features containing previous frame information at each autoregressive step.}
+\vspace{-5mm}
+\end{figure}
+%------------------------------------------------------------------
+
+%-------------------------------------------------------------------
+\begin{figure*}[ht]
+  \centering
+  \includegraphics[width=1.0\linewidth]{./figs/results.pdf}\\
+  \vspace{-0.5em}
+  \caption{\label{results} 
+    \textbf{Qualitative results.} LaGen, based on single-frame input, clearly outperforms other baseline methods in prediction accuracy.}
+    \vspace{-3mm}
+  \end{figure*}
+%-------------------------------------------------------------------
+Based on the characteristics of real LiDAR data acquisition, we estimate the background point cloud \( P^{s}_{\text{bg}} \) using only the rotation matrix:
+\begin{equation}
+\label{estimation_background}
+\widetilde{P}^{s}_{\text{bg}} = trans(P^{s-1}_{\text{bg}}, E_{\text{rotate}}^{s-1}).
+\end{equation}
+% Finally, we project \( \widetilde{P}^{s}_{\text{obj}} \) and \( \widetilde{P}^{s}_{\text{bg}} \) into the range-view space, and after encoding them with the VAE, inject the resulting features into the diffusion process. 
+Finally, we project both \( \widetilde{P}^{s}_{\text{obj}} \) and \( \widetilde{P}^{s}_{\text{bg}} \) into the range-view space and encode them using the VAE, after which the resulting features are injected into the diffusion process.
+
+It is worth noting that, compared with directly providing bounding box location information, the SDE module better captures object-level details.
+Mask information from bounding boxes only provides the model with a coarse understanding of each object's location within the scene, whereas SDE enables the model to better capture the detailed point distribution of each object.
+
+%--------------------------------------------------------------
+\subsubsection{Noise Modulation Module and Error Accumulation Mitigation}
+Autoregressive generation, which relies on information
+from the previous frame, often leads to a train-inference discrepancy. 
+Specifically, during training, the previous data is always ground truth, whereas during inference, it is generated by the model and inevitably contains some error compared to the real data. 
+As the recursive generation continues, these errors can accumulate, resulting in deviations from the actual situation when generating long-horizon data.
+
+To this end, we design a module to mitigate error accumulation and enhance temporal consistency in long-horizon generation. 
+The core idea of this module is to inject different levels of random noise into the previous frame’s image \cite{chen2024diffusion, deng2024streetscapes}, thereby reducing the model’s over-reliance on it.
+
+As shown in Figure \ref{nm_model}, we add Gaussian noise with varying intensities to the latent feature \( \hat{z}^{s-1} \) corresponding to the previous frame’s LiDAR point cloud:
+\begin{equation}
+\label{diffusion_forcing}
+\hat{z}_{\epsilon}^{s-1} =\sqrt{\overline{\alpha}_{n}} \cdot  \hat{z}^{s-1} +\sqrt{1-\overline{\alpha}_{n}} \cdot \epsilon,
+\end{equation}
+where \( \epsilon \sim \mathcal{N}(0, 1) \) is randomly sampled Gaussian noise, and \( n \in U[0, N] \) is the noise level.
+Similarly, we inject Gaussian noise to the encoded features of \( \widetilde{P}^{s}_{\text{obj}} \) and \( \widetilde{P}^{s}_{\text{bg}} \).
+
+This strategy ensures better spatiotemporal consistency for the model when inferring long-horizon scenes, while only causing minor impact on short-horizon generation.
+
+%--------------------------------------------------------------
+\begin{table*}[ht]
+\centering
+\caption{Comparison of our method with several state-of-the-art LiDAR prediction models. Given that prediction models rely on multiple frames of historical input, we evaluate the model architectures using 2-frame and 6-frame historical inputs, respectively. The underlined data represents the results obtained by introducing rolling inference on the original 4D-Occ model.}
+\renewcommand{\arraystretch}{1.17}
+\begin{tabular}{ccccccccccccc}
+\toprule
+ \textbf{Method} & \textbf{Input} &
+\multicolumn{11}{c}{\textbf{Chamfer Distance (m$^2$)$\downarrow$}} \\
+\cmidrule(l{3pt}r{3pt}){3-13} 
+&\textbf{frames}& 0.5s & 1.0s & 1.5s & 2.0s & 2.5s & 3.0s  & 3.5s & 4.0s & 5.5s & 7.5s & 9.5s\\
+\midrule
+4D-Occ \cite{khurana2023point}  
+& 2 
+& 1.15 & 1.61 & \underline{1.84} & \underline{2.15} & \underline{2.56} & \underline{3.10} & \underline{4.30} & \underline{6.24} & \underline{12.30} &  \underline{25.11} & \underline{55.47} \\
+4D-Occ  \cite{khurana2023point} 
+& 6 
+& \cellcolor{Lavender} 1.00 & \cellcolor{Lavender} 1.19 & \cellcolor{Lavender} 1.33 & \cellcolor{Lavender} 1.48 & \cellcolor{Lavender} 1.64 & \cellcolor{Lavender} 1.85 & \underline{2.41} &  \underline{3.49} & \underline{7.73} & \underline{12.82} & \underline{21.08} \\
+\midrule
+ViDAR \cite{yang2024visual} 
+& 2 
+& 1.15 & 1.36 & 1.56 & 1.75 & 1.98 & 2.22 & 2.50 & 2.81 & 3.79 & 5.18 & 6.37\\
+ViDAR \cite{yang2024visual} 
+& 6
+& 1.14 & 1.31 & 1.47 & 1.66 & 1.86 & 2.08 & \cellcolor{Lavender} 2.30 & \cellcolor{Lavender} 2.54 & \cellcolor{Lavender} 3.25 & \cellcolor{Lavender} 4.12 & \cellcolor{Lavender} 5.06\\
+\midrule
+LaGen & 
+\cellcolor{rowgray}1
+& \cellcolor{LightPink} \textbf{0.50} & \cellcolor{LightPink} \textbf{0.61} & \cellcolor{LightPink} \textbf{0.71} & \cellcolor{LightPink} \textbf{0.81} & \cellcolor{LightPink} \textbf{0.92} & \cellcolor{LightPink} \textbf{1.08}  & \cellcolor{LightPink} \textbf{1.22} & \cellcolor{LightPink} \textbf{1.32} &  \cellcolor{LightPink} \textbf{1.73} & \cellcolor{LightPink} \textbf{2.14} & \cellcolor{LightPink} \textbf{2.66} \\
+\bottomrule
+\end{tabular}
+\label{table_prediction}
+\vspace{-3mm}
+\end{table*}
+%--------------------------------------------------------------
+
+%--------------------------------------------------------------
+\subsubsection{Frame-by-Frame Inference Framework for Autoregressive LiDAR Scene Generation}
+We have already developed a generator capable of producing high-quality LiDAR data. Building upon this, we design an inference framework for autoregressive LiDAR scene generation.
+In summary, at each step of the autoregressive generation process, the inputs to the generator include:
+\begin{itemize}[leftmargin=*]
+%\begin{enumerate}[label=\arabic*), leftmargin=*, align=left]
+\item The range image corresponding to the previous frame’s LiDAR point cloud: \( I^{s-1} \in \mathbb{R}^{H \times W \times 2} \);
+\item The 3D bounding boxes and semantic labels of objects in the driving scene: \( B^{s} = \{(b_{i}, c_{i})\}_{i = 1}^{N_{b}} \);
+\item The ego-vehicle state in the driving scene: \( E^{s} \in \mathbb{R}^{N_{e}} \);
+\item The range images of the estimated foreground and background point clouds for the current frame provided by the scene decoupling estimation module: \( \widetilde{I}_{\text{obj}}^{s} \) , \( \widetilde{I}_{\text{bg}}^{s} \).
+%\end{enumerate} 
+\end{itemize}
+Based on this control information, the model can generate the LiDAR data for the current frame.
+
+In this process, the input LiDAR data is generated iteratively; in other words, the LiDAR data input at the current step is the output from the generator at the preceding step.
+Meanwhile, during inference, the SDE module is also computed based on the generated data.
+Consistent with the training phase, during inference the NM module also adds varying levels of noise to these data.
+
+%--------------------------------------------------------------
+\begin{table}[ht]
+\centering
+\caption{The results of LaGen and baseline models on Nuscenes dataset. MMD values are reported in $10^{-4}$ and JSD in $10^{-2}$.}
+\renewcommand{\arraystretch}{1.1}
+\begin{tabular}{cccc}
+\toprule
+\textbf{Method} &
+\textbf{Years} &
+\textbf{MMD $\downarrow$} & 
+\textbf{JSD $\downarrow$} \\
+\midrule 
+LiDARGen \cite{LiDARGen2022}  & ECCV'22 & 5.89 & 9.66  \\
+LiDM \cite{ran2024towards}     & CVPR'24 & 3.32 & 6.75  \\
+RangeLDM \cite{hu2024rangeldm} & ECCV'24 & 1.92 & 5.47 \\
+LaGen    & - & \textbf{0.35} & \textbf{3.97} \\
+\bottomrule
+\end{tabular}
+\label{table_generation}
+\vspace{-3mm}
+\end{table}
+%--------------------------------------------------------------

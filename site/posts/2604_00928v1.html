@@ -45,7 +45,15 @@
     pre { white-space: pre-wrap; background:#f7f7f7; border-radius:8px; padding:12px; overflow-x:auto; }
     figure { margin: 24px 0; }
     figcaption { color: #666; font-size: 13px; }
-    img.paper-fig { width: 100%; border: 1px solid #ddd; border-radius: 8px; }
+    .article figure { width: min(100%, 760px); margin: 24px auto; }
+    img.paper-fig { display:block; width:auto; max-width:100%; max-height:460px; margin:0 auto; border: 1px solid #ddd; border-radius: 8px; background:#fafafa; cursor: zoom-in; box-sizing:border-box; }
+    .page-lightbox { position: fixed; inset: 0; z-index: 9999; display:flex; align-items:center; justify-content:center; padding:24px; background: rgba(15, 23, 42, 0.82); box-sizing:border-box; }
+    .page-lightbox[hidden] { display:none; }
+    .page-lightbox-inner { position: relative; max-width: min(96vw, 1400px); max-height: 92vh; display:flex; flex-direction:column; align-items:center; gap:12px; }
+    .page-lightbox-image { display:block; max-width: min(96vw, 1400px); max-height: calc(92vh - 64px); width:auto; height:auto; border-radius:12px; box-shadow: 0 18px 48px rgba(0,0,0,0.35); background:#fff; }
+    .page-lightbox-caption { max-width: min(92vw, 960px); color:#f3f4f6; font-size:13px; line-height:1.7; text-align:center; }
+    .page-lightbox-close { position:absolute; top:-12px; right:-12px; width:40px; height:40px; border:none; border-radius:999px; background:rgba(255,255,255,0.96); color:#111827; font-size:24px; line-height:1; cursor:pointer; box-shadow: 0 8px 24px rgba(0,0,0,0.22); }
+    .page-lightbox-close:hover { background:#ffffff; }
     .post-item { border:1px solid #e5e5e5; border-radius:8px; padding:10px 12px; margin:10px 0; }
     .layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 28px; align-items: start; justify-content: center; position: relative; }
     .sidebar { position: sticky; top: 18px; align-self: start; border-right: 1px solid #eee; padding-right: 16px; transition: width .2s ease, min-width .2s ease, padding .2s ease, border-color .2s ease; }
@@ -128,6 +136,56 @@
         resizeObserver.observe(shell);
       }
     });
+
+    function setupImageLightbox() {
+      var lightbox = document.getElementById('page-lightbox');
+      var lightboxImage = document.getElementById('page-lightbox-image');
+      var lightboxCaption = document.getElementById('page-lightbox-caption');
+      if (!lightbox || !lightboxImage || !lightboxCaption) return;
+
+      function closeLightbox() {
+        lightbox.setAttribute('hidden', 'hidden');
+        lightbox.setAttribute('aria-hidden', 'true');
+        lightboxImage.removeAttribute('src');
+        lightboxImage.alt = '';
+        lightboxCaption.textContent = '';
+        document.body.style.overflow = '';
+      }
+
+      function openLightbox(img) {
+        var src = img.getAttribute('data-full-src') || img.currentSrc || img.src;
+        if (!src) return;
+        var figure = img.closest('figure');
+        var caption = figure ? figure.querySelector('figcaption') : null;
+        lightboxImage.src = src;
+        lightboxImage.alt = img.alt || '';
+        lightboxCaption.textContent = caption ? caption.textContent.trim() : (img.alt || '');
+        lightbox.removeAttribute('hidden');
+        lightbox.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+      }
+
+      document.addEventListener('click', function(event) {
+        var target = event.target;
+        if (!target || !target.closest) return;
+        var clickedImage = target.closest('img.paper-fig');
+        if (clickedImage && !clickedImage.closest('#page-lightbox')) {
+          openLightbox(clickedImage);
+          return;
+        }
+        if (target === lightbox || target.closest('.page-lightbox-close')) {
+          closeLightbox();
+        }
+      });
+
+      document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape' && !lightbox.hasAttribute('hidden')) {
+          closeLightbox();
+        }
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', setupImageLightbox);
   </script>
 
   <script>
@@ -157,7 +215,7 @@
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
-<!-- source-grounding: arxiv_id=2604.00928v1; pdf=2604_00928v1_Autoregressive Appearance Prediction for 3D Gaussian Avatars.pdf; source_dir=C:\Users\XPENG_USER\Documents\docs\文献\feedforward\docs\.arxiv_source_cache\2604_00928v1\extracted; sections=6; figures=8; equations=2 -->
+<!-- source-grounding: arxiv_id=2604.00928v1; pdf=2604_00928v1_Autoregressive Appearance Prediction for 3D Gaussian Avatars.pdf; source_dir=docs\.arxiv_source_cache\2604_00928v1\extracted; sections=6; figures=8; equations=2 -->
 
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
@@ -171,47 +229,64 @@
     </div>
 
     <h2 id='summary'>简单摘要</h2>
-    <p>逼真且身临其境的人类化身体验需要捕捉精细的、特定于个人的细节，例如衣服和头发的动态、微妙的面部表情和特征性的运动模式。我们提出了一个 3D 高斯 Splatting 化身模型，其空间 MLP 主干以姿势和潜在外观为条件。</p>
-<figure><img class='paper-fig' src='../assets/2604_00928v1/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：我们用由每个锚点空间 MLP 控制的分层 3D 高斯结构来表示姿势化身；每个锚点通过基于蒙皮权重的姿势参数掩蔽（以及 的面部区域掩蔽）以及外观潜在 l 来接收局部驾驶特征</figcaption></figure>
+    <p>我们提出了一个 3D 高斯 Splatting 化身模型，其空间 MLP 主干以姿势和潜在外观为条件。然而，增加模型容量会带来第二个密切相关的挑战。</p>
+
     <p>然而，增加模型容量会带来第二个密切相关的挑战。我们提出了一种基于 3DGS 的头像模型，可以解决虚假姿势相关性和姿势外观模糊性，同时保持高视觉保真度、动态效果和平滑的外观过渡。</p>
 
     <h2 id='innovation'>核心创新</h2>
-    <p>第一，实现这一目标需要大型、高质量的数据集，当非常相似的姿势对应于不同的外观时，这些数据集通常会引入歧义和虚假相关性。</p>
-    <p>第二，我们提出了一个 3D 高斯 Splatting 化身模型，其空间 MLP 主干以姿态和潜在外观为条件。</p>
-    <p>第三，接下来，我们介绍我们的外观建模方法，包括训练期间学习的每帧潜在变量以及用于获取它的编码器（subsec:method）。</p>
+    <p>第一个关键新意是：实现这一目标需要大型、高质量的数据集，当非常相似的姿势对应于不同的外观时，这些数据集通常会引入歧义和虚假相关性。这部分不是单独的小修小补，而是在原论文方法链路里承担了明确作用。</p>
+    <p>第二个关键新意是：在训练过程中适合这些细节的模型可能会过度拟合，并为新姿势产生不稳定、突然的外观变化。这部分不是单独的小修小补，而是在原论文方法链路里承担了明确作用。</p>
+    <p>第三个关键新意是：我们提出了一个 3D 高斯 Splatting 化身模型，其空间 MLP 主干以姿态和潜在外观为条件。这部分不是单独的小修小补，而是在原论文方法链路里承担了明确作用。</p>
+    <p>第四个关键新意是：接下来，我们介绍我们的外观建模方法，包括训练期间学习的每帧潜在变量以及用于获取它的编码器（subsec:method）。这部分不是单独的小修小补，而是在原论文方法链路里承担了明确作用。</p>
 
+    <!-- equation-placement: source=3.2||3.1; rendered=3.1||3.2; tail_pile=0 -->
+    <!-- figure-placement: source=3.2||3.3||3.4||4.1.2||4.1.2||4.1.2; rendered=3.2||3.3||3.4||4.1.2||4.1.2||4.1.2; tail_pile=0 -->
     <h2 id='technical'>技术细节</h2>
-    <p>我们首先对表示和调节策略进行高级概述（子秒：方法）。然后，我们描述如何在每个锚点构建局部姿势特征，以减轻虚假姿势-外观相关性并减少过度拟合（亚秒：方法）。我们使用一些用于人体头像重建的常用损失来训练我们的模型。</p>
-<figure><img class='paper-fig' src='../assets/2604_00928v1/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：我们的外观预测器的架构；变换器根据之前的 N 个姿势（值，加上通过有限差分计算出的速度和加速度）以及之前的潜在值来预测下一个潜在值</figcaption></figure>
-<figure><img class='paper-fig' src='../assets/2604_00928v1/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：我们在模板网格上初始化分层点云，由锚点/控制点/高斯组成（在我们的示例中为 300/10k/200k，颜色为橙色/蓝色/红色）；每个锚点都有一个 MLP，其输出由最近的三个锚点的控制点和高斯插值来计算其位置位移和高斯校正</figcaption></figure>
+    <p>我们首先对表示和条件化策略进行高级概述（subsec:method）。然后，我们描述如何在每个锚点构建局部姿势特征，以减轻虚假姿势-外观相关性并减少过度拟合（亚秒：方法）。我们使用许多用于人体头像重建的常用损失来训练我们的模型。</p>
+
+
+
+
     <h3>3.1 概述</h3>
-    <p>给定驾驶姿势参数和面部嵌入，我们的模型输出一个表示为一组 3D 高斯函数的姿势头像。我们遵循 的分层表示，使用一组稀疏的锚点和空间分布的 MLP，从每个锚点输入预测高斯参数（图：用于可视化的层次结构）。我们使用一些用于人体头像重建的常用损失来训练我们的模型。</p>
+    <p>给定驾驶姿势参数和面部嵌入，我们的模型输出一个表示为一组 3D 高斯的姿势头像。我们遵循 的分层表示，使用一组稀疏锚点和空间分布的 MLP，从每个锚点输入预测高斯参数（用于可视化）。我们使用许多用于人体头像重建的常用损失来训练我们的模型。</p>
+    <p>$$ \mathcal{L}= \lossL{1} + \lossterm{lpips} + \lossterm{opac} + \lossterm{scale} + \lossterm{cpt} + \lossterm{KL}. $$</p>
+    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
     <h3>3.2 本地化姿态参数</h3>
-    <p>对于模板网格上的锚点，我们跟踪从其蒙皮权重到姿势参数的连接，并构造一个二进制掩模 ，其中当且仅当任何非零蒙皮权重影响。类似地，我们构造一个掩码，如果锚点的纹理坐标位于面部区域内，则设置该掩码。</p>
-    <h3>3.3 外观造型</h3>
-    <p>长捕捉序列——尤其是穿着僵硬的衣服或松散的头发——通常会表现出明显的姿势——外观模糊。为了明确地将姿势与随时间变化的外观解耦，我们引入了可学习的每帧外观潜在特征。</p>
-    <h3>3.4 外观预测</h3>
-    <p>为了在没有 UV 纹理输入的情况下在测试时驱动化身，我们学习了一个外观预测器，该预测器可以从运动历史中推断每个锚点的外观潜伏。我们使用因果自回归转换器对潜在动力学进行建模，该转换器将先前的身体姿势和先前帧的外观代码作为上下文。除非另有说明，我们使用 ，它提供了足够的时间上下文，同时很好地概括了未见过的序列。</p>
+    <p>在完整姿势向量上调节每个锚点可能会引起远处表面区域参数之间的虚假相关性——头部旋转与特定的衬衫皱纹图案相关（ ）。对于模板网格上的锚点，我们跟踪从其蒙皮权重到姿势参数的连接，并构造一个二进制掩模 ，其中当且仅当任何非零蒙皮权重影响 时。类似地，我们构造一个蒙版，如果锚点的纹理坐标位于面部区域内，则设置该蒙版。</p>
+<figure><img class='paper-fig' src='../assets/2604_00928v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：颈部参数与无关区域（皱纹和手臂阴影）的虚假相关性，用于说明这一类高效路线的关键结构与输入输出关系。</figcaption></figure>
     <p>$$ \vect{\hat{\theta}}_i = \vect{m}^\theta_i \odot \vect{\theta}, \quad \vect{\hat{\phi}}_i = m^\phi_i \vect{\phi}, $$</p>
     <p>这条式子给出了论文中的一条核心计算关系。理解时重点看左侧最终输出是什么，以及右侧各部分分别承担什么作用。</p>
-    <p>$$ \mathcal{L}= \lossL{1} + \lossterm{lpips} + \lossterm{opac} + \lossterm{scale} + \lossterm{cpt} + \lossterm{KL}. $$</p>
-    <p>这条式子给出了训练阶段的优化目标。阅读时可以先看左侧到底在约束什么，再区分右侧每一项对应的是重建误差、正则项还是辅助监督。</p>
+    <h3>3.3 外观造型</h3>
+    <p>长捕捉序列——尤其是穿着僵硬的衣服或松散的头发——通常会表现出明显的姿势——外观模糊性。为了明确地将姿势与随时间变化的外观解耦，我们引入了可学习的每帧外观潜在特征。</p>
+<figure><img class='paper-fig' src='../assets/2604_00928v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：非常相似的姿势有不同的外观（折叠），用于说明论文中的关键模块、输入输出关系或核心实验现象</figcaption></figure>
+    <h3>3.4 外观预测</h3>
+    <p>为了在没有 UV 纹理输入的情况下在测试时驱动化身，我们学习了一个外观预测器，它可以从运动历史中推断每个锚点的外观潜伏。我们使用因果自回归转换器对潜在动态进行建模，该转换器将先前的身体姿势和前一帧的外观代码作为上下文，并预测当前帧的外观代码（请参阅参考资料）。除非另有说明，我们使用 ，它提供了足够的时间上下文，同时很好地概括了未见过的序列。</p>
+<figure><img class='paper-fig' src='../assets/2604_00928v1/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：我们的外观预测器的架构；变换器根据之前的 N 个姿势（值，加上通过有限差分计算出的速度和加速度）以及之前的潜在值来预测下一个潜在值</figcaption></figure>
 
+
+
+
+    <!-- table-placement: source=4.1.1||4.1.1; rendered=4.1.1||4.1.1; tail_pile=0 -->
     <h2 id='experiment'>实验结论</h2>
-    <p>实验部分主要围绕 我们在六个广泛的长形圆顶捕捉中评估了我们的方法，涵盖了一系列难度和动态外观效果 展开。结果表明，我们展示了所有六次捕获的定量和定性结果。</p>
+    <p>实验部分主要围绕 我们在六个广泛的长形圆顶捕捉中评估了我们的方法，涵盖了一系列难度和动态外观效果 展开。结果表明，我们提供了所有六次捕获的定量和定性结果。</p>
+    <p>编码器提供最接近真实情况的上限，而预测器在没有纹理输入的情况下产生时间平滑、合理的外观演化。</p>
+
+
+
+
+
+
+    <h3>4.1 结果</h3>
+    <p>实验部分主要围绕 我们提供了所有六次捕获的定量和定性结果 展开。结果表明，我们的评估重点是（i）每种方法对训练数据的过度拟合能力，（ii）我们的编码器泛化到看不见的纹理的能力。</p>
+    <h4>4.1.1 定量的</h4>
+    <p>实验部分主要围绕 我们报告标准重建指标，包括 PSNR、SSIM 和感知相似性指标 LPIPS 展开。结果表明，在训练集上，我们的方法取得了最好的分数，这表明添加的结构（局部调节和外观潜伏）可以实现训练数据的高质量拟合。</p>
     <div class='card'><strong>源论文表 1（预览）</strong><div style='margin-top:6px;'>由于外观本质上是不明确的，并且会随着时间的推移而漂移，因此我们使用编码器输出初始化我们的外观预测器；此外，我们还展示了每 30 帧重新初始化以及在驾驶过程中使用编码器的结果。</div><div style='overflow-x:auto;margin-top:10px;'><table style='width:100%;border-collapse:collapse;font-size:12px;'><tr><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'></th><th colspan='3' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Test</th><th colspan='3' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Train</th><th colspan='1' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'></th></tr><tr><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>(lr)2-4 (lr)5-7</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>PSNR</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>SSIM</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>LPIPS</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>PSNR</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>SSIM</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>LPIPS</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>#Params</th></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Ours</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!4032.99</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!400.939</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!400.063</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!4036.21</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!400.950</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!400.053</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>192.1M</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>MMLPs</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!0032.34</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!000.937</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!000.066</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!1536.13</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!400.950</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!150.054</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>187.2M</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>nRFGCA</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!1532.74</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!400.939</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!150.065</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!0035.94</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!400.950</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!000.055</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>155.9M</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Ours (re-init. 30)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!0033.85</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!000.942</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!000.060</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>--</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>--</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>--</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>192.1M</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Ours (encoder)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!0034.78</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!000.946</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!000.056</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>--</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>--</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>--</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>189.8M</td></tr></table></div><div style='font-size:12px;color:#666;margin-top:8px;'>表格为 source 预览；复杂排版、部分行列或强调格式可能已做简化。</div></div>
     <div class='card'><strong>源论文表 2（预览）</strong><div style='margin-top:6px;'>消融我们的组件。</div><div style='overflow-x:auto;margin-top:10px;'><table style='width:100%;border-collapse:collapse;font-size:12px;'><tr><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'></th><th colspan='3' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Test</th><th colspan='3' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Train</th></tr><tr><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>(lr)2-4 (lr)5-7</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>PSNR</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>SSIM</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>LPIPS</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>PSNR</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>SSIM</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>LPIPS</th></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Ours</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!4032.99</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!400.939</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!400.063</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!0036.21</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!000.950</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!000.053</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Ours w/o local pca</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!0032.86</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!000.938</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!000.064</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!1536.23</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!150.950</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!150.053</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Ours w/o local pose</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!1532.87</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!150.938</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!150.064</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!4036.29</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!400.951</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>best!400.052</td></tr></table></div><div style='font-size:12px;color:#666;margin-top:8px;'>表格为 source 预览；复杂排版、部分行列或强调格式可能已做简化。</div></div>
-<figure><img class='paper-fig' src='../assets/2604_00928v1/figure8_full.png' alt='Figure 8:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：我们的方法使用纹理编码器（看不见的纹理输入）与我们的外观预测器（无纹理）以及 MMLP^ 的测试序列比较；编码器提供最接近真实情况的上限，而预测器在没有纹理输入的情况下产生时间平滑、合理的外观演化</figcaption></figure>
-<figure><img class='paper-fig' src='../assets/2604_00928v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：颈部参数与无关区域（皱纹和手臂阴影）的虚假相关性</figcaption></figure>
-<figure><img class='paper-fig' src='../assets/2604_00928v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 6：非常相似的姿势有不同的外观（折叠），用于说明论文中的关键模块、输入输出关系或核心实验现象</figcaption></figure>
-<figure><img class='paper-fig' src='../assets/2604_00928v1/figure6_full.png' alt='Figure 6:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 7：MMLP，用于说明论文中的关键模块、输入输出关系或核心实验现象</figcaption></figure>
-<figure><img class='paper-fig' src='../assets/2604_00928v1/figure7_full.png' alt='Figure 7:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 8：测试序列中的两个时间相邻的帧以及相对于前一帧的相应剪切误差；由于显式的姿态-外观解缠和学习的外观预测器，我们的方法在时间上保持稳定，而 nRFGCA^ 和 MMLPs^ 表现出突然的、令人难以置信的外观变化</figcaption></figure>
-    <h3>4.1 结果</h3>
-    <p>实验部分主要围绕 我们展示了所有六次捕获的定量和定性结果 展开。结果表明，我们的评估重点是（i）每种方法对训练数据的过度拟合能力，（ii）我们的编码器泛化到看不见的纹理的能力。</p>
-    <h4>4.1.1 定量的</h4>
-    <p>实验部分主要围绕 我们报告标准重建指标，包括 PSNR、SSIM 和感知相似性指标 LPIPS 展开。结果表明，在训练集上，我们的方法取得了最好的分数，表明添加的结构（局部调节和外观潜伏）能够实现训练数据的高质量拟合。</p>
     <h4>4.1.2 定性的</h4>
-    <p>实验部分主要围绕 Fig:localpose 说明了我们的局部姿势调节如何减少虚假的远程相关性 展开。结果表明，相反，我们的方法仅在本地提供位姿参数，并在训练和测试时一致地应用局部 PCA，从而抑制不切实际的远程影响。</p>
+    <p>实验部分主要围绕 说明了我们的局部姿势调节如何减少虚假的远程相关性 展开。结果表明，相比之下，我们的方法仅在本地提供姿势参数，并在训练和测试时一致地应用局部 PCA，从而抑制不切实际的远程影响。</p>
+<figure><img class='paper-fig' src='../assets/2604_00928v1/figure6_full.png' alt='Figure 6:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：MMLP，用于说明论文中的关键模块、输入输出关系或核心实验现象</figcaption></figure>
+<figure><img class='paper-fig' src='../assets/2604_00928v1/figure7_full.png' alt='Figure 7:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：测试序列中的两个时间相邻的帧以及相对于前一帧的相应剪切误差；由于显式的姿态-外观解缠和学习的外观预测器，我们的方法在时间上保持稳定，而 nRFGCA^ 和 MMLPs^ 表现出突然的、令人难以置信的外观变化</figcaption></figure>
+<figure><img class='paper-fig' src='../assets/2604_00928v1/figure8_full.png' alt='Figure 8:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 6：我们的方法使用纹理编码器（看不见的纹理输入）与我们的外观预测器（无纹理）以及 MMLP^ 的测试序列比较；编码器提供最接近真实情况的上限，而预测器在没有纹理输入的情况下产生时间平滑、合理的外观演化</figcaption></figure>
 
     <h2 id='takeaway'>理解评价</h2>
     <p>如果把这篇论文放回问题背景里看，它真正的价值在于：我们提出了一个 3D 高斯 Splatting 化身模型，其空间 MLP 主干以姿势和潜在外观为条件。这说明作者不是只补一个局部模块，而是在重新组织问题该怎样被解决。</p>
@@ -221,6 +296,13 @@
   </article>
 </div>
 
+  </div>
+</div>
+<div id='page-lightbox' class='page-lightbox' hidden aria-hidden='true'>
+  <div class='page-lightbox-inner'>
+    <button type='button' class='page-lightbox-close' aria-label='关闭大图' title='关闭'>&times;</button>
+    <img id='page-lightbox-image' class='page-lightbox-image' alt='' />
+    <div id='page-lightbox-caption' class='page-lightbox-caption'></div>
   </div>
 </div>
 </body>

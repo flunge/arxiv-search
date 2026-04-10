@@ -1,0 +1,142 @@
+\section{Related Works}
+\label{sec:related_work}
+
+World Model have been proposed as the novel-approach as the novel solution for training the reinforcement learning based controller dues to the unreliability, excessiveness, and inefficent of the model that based on real-world interaction as \cite{dulacarnold_2019_challenges} suggested, while the vehicle constantly work under occlusion with unlimited knowledge on the world trigger the problems of inevitable uncertainty. These challenges co-align and trigger the need of reframe the training approach for the reinforcement-learning controller using the compact while semantic vivid representation for attaining the scalability and reliability  that inspired on human's biological mechanism on learning using affordance and imaginary \cite{LeCun2022, gibson_1979_the}.
+
+\subsection{From Model-Based Reinforcement Learning to Driving World Models}
+
+The conceptual roots of driving world models lie in model-based reinforcement learning (MBRL), where an agent learns a dynamics model and then plans by simulating futures. Progress in MBRL was enabled by shared tooling and standardized benchmarks. OpenAI Gym \cite{Brockman2016} made it easy to compare algorithms across tasks via a uniform API, while the DeepMind Control Suite \cite{Tassa2018} provided a curated set of continuous-control environments that encouraged rigorous evaluation of learning and control. These infrastructures fostered iterative improvements in learning dynamics models, representation learning, and planning.
+
+Modern latent-dynamics agents exemplify the “world model as an imagination engine” viewpoint. DreamerV3 \cite{Hafner2023} demonstrates strong and stable performance across a wide range of environments by learning a compact latent state and optimizing behavior via imagined rollouts. Although most Dreamer-style results are reported outside real driving, the core design principles—predictive latent state, stochastic dynamics, and planning or policy improvement through imagined trajectories—strongly influence driving world model designs. Complementary perspectives on embodied agent design and generalization in RL emphasize that robustness and scalable training protocols matter as much as raw model capacity \cite{Hansen2023}. In autonomous driving, these principles interact with additional constraints: safety, distribution shift, long-horizon decision-making, and multi-agent interactions.
+
+A growing line of work argues that the value of a world model should be judged by downstream utility (e.g., improved planning or safer decisions) rather than by generative fidelity alone. Planning-centric views highlight that an agent can exploit imperfections in a learned model, producing “good” rollouts that do not correspond to the real world. Analyses of embodied world models stress safety as a first-class concern and call for evaluation protocols that expose failure modes, especially those that emerge only in closed-loop control \cite{Baraldi2025}. These concerns become acute in autonomous driving, where rare events dominate risk and a small modeling error can cascade into catastrophic outcomes.
+
+\subsection{Self-Supervised and Predictive Representation Learning for Driving}
+
+Autonomous driving provides abundant unlabeled sensor streams but comparatively limited dense annotations, motivating self-supervised learning (SSL) as a foundation for world models. In vision, SSL matured from contrastive and clustering-based approaches to predictive and distillation-based schemes. DINO \cite{Caron2021} showed that self-distillation without labels can learn semantically meaningful features, and such ideas have inspired driving-specific pretraining efforts that seek transferable representations across time, viewpoint, and weather.
+
+However, driving data introduces distinct pitfalls for generic SSL. Contrastive learning requires defining “positive pairs” that represent the same underlying content under augmentations; in driving scenes with many objects and rapid ego-motion, naive augmentations can destroy correspondence and lead to negative transfer. Generative SSL that reconstructs masked inputs can be expensive for 3D data and may force the model to predict arbitrary surface details rather than planning-relevant semantics. Several recent works therefore advocate embedding-level prediction and variance regularization as alternatives to either contrastive pairs or explicit reconstruction \cite{Minh2022,Min2024,Zhu2025}.
+
+A particularly influential conceptual framework is the Joint Embedding Predictive Architecture (JEPA) viewpoint, which proposes learning representations by predicting the embeddings of unknown parts of the input given the known parts, rather than reconstructing pixels or using negative pairs \cite{LeCun2022}. Driving provides a compelling application: masked regions in LiDAR or camera space may correspond to multiple plausible surfaces, yet the semantics (e.g., “rear of a car,” “free space behind a truck”) can remain stable in an embedding space. JEPA-style methods can therefore better align with the uncertainty intrinsic to partial observability. For example, JEPA-based LiDAR pretraining predicts BEV embeddings for masked regions and uses explicit variance regularization to prevent representation collapse, yielding consistent gains in downstream 3D detection while reducing pretraining compute relative to dense reconstruction \cite{Zhu2025}.
+
+World models also benefit from discrete or structured latent spaces that stabilize learning and improve sample efficiency. Vector-quantized representations provide one path, but codebook collapse can limit capacity. Online codebook learning strategies such as clustering-based VQ updates aim to keep all codevectors active, improving utilization and reconstruction/generation quality \cite{ZhengVedaldi2023}. In driving, discretized latents may improve controllability, support efficient rollouts, and provide a bridge between geometric and semantic factors.
+
+\subsection{Spatial World States: BEV, Occupancy, and Geometric Abstractions}
+
+Many driving world models adopt spatially grounded world states rather than purely abstract latent vectors. BEV representations offer a convenient coordinate frame that aligns with planning: it naturally represents lanes, drivable space, and other agents, and it facilitates sensor fusion. BEV representations also reduce the burden of viewpoint variation, enabling models to focus on dynamics rather than perspective transformations. Consequently, BEV features are widely used as intermediate states for both perception and prediction, and they serve as a natural substrate for world modeling \cite{Li2022,Li2024}.
+
+Occupancy-based representations extend BEV by modeling 3D free space and occlusion, which are critical for safety. A world model that predicts occupancy can support collision checking, visibility reasoning, and planning under uncertainty. Recent LiDAR-oriented world models stress that camera-only generation may produce visually plausible but geometrically inconsistent futures, whereas occupancy prediction can enforce physical constraints and preserve 3D structure \cite{Bogdoll2025,Li2025}. These works highlight the importance of representing not just objects but also empty space, since the absence of obstacles is as planning-relevant as their presence.
+
+Geometric abstractions are also closely tied to mapping and scene priors. High-definition maps encode lane topology, boundaries, and crosswalks, and several world modeling pipelines treat maps as part of the world state, either as conditioning signals for generation or as latent factors to be predicted. Methods that jointly reason about agent trajectories and map structure aim to ensure that generated futures obey road geometry and traffic rules \cite{Zhao2024,WangDriveDreamer2023}. In addition, surveys of “physical world models” emphasize that effective world models should capture not only statistical regularities but also physically grounded structure and causal relations, particularly when extrapolating beyond the training distribution \cite{Chen2025}.
+
+\subsection{Transformers, Attention, and Interaction-Centric Modeling}
+
+Transformers and attention mechanisms have become central to autonomous driving because they support long-range dependencies and flexible fusion across heterogeneous inputs. In perception and prediction, attention helps focus computation on the most relevant actors and regions of the scene, and it provides a natural way to model interactions among agents. Transformer-based architectures are therefore widely used in modern driving world models, especially when combining multi-view images, point clouds, and map features \cite{Vasudevan2024}.
+
+Interaction-centric modeling is essential because other agents react to each other and to the ego vehicle. World models that treat agents as independent can systematically fail in dense traffic, merges, intersections, and other interactive contexts. Recent work emphasizes representations that capture agent-agent coupling, intent, and right-of-way, often using attention or graph-style message passing to represent joint futures \cite{Long2025,Feng2025}. These ideas are consistent with broader trends in embodied learning, where the world model must represent not only passive dynamics but also the consequences of actions and the strategic responses of others.
+
+Transformers are also influential in self-supervised pretraining and in building scalable “foundation-style” models that transfer across tasks. Papers exploring large-scale training regimes for world models argue that representation, prediction, and planning can be co-trained when the model is sufficiently expressive and the training data is diverse \cite{Wu2025,Xie2025}. This perspective connects to the wider discussion of how to unify perception and control under a single learned model, and it motivates architectures that can condition on both sensory history and action sequences.
+
+\subsection{Multi-Agent and V2X World Models: Cooperative Perception to Cooperative Prediction}
+
+Autonomous driving is inherently multi-agent, and connected autonomy introduces additional channels of information via V2X communication. Cooperative perception is an early instance of “distributed world modeling,” where multiple vehicles or infrastructure sensors share data or features to reduce occlusion and extend sensing range. Public benchmarks for cooperative perception have enabled systematic evaluation of fusion strategies, including early, late, and intermediate fusion \cite{Xu2021}. Intermediate feature sharing is often favored as a balance between accuracy and bandwidth, and it has motivated learned fusion modules that can tolerate localization noise and intermittent communication.
+
+Transformer-based fusion architectures extend cooperative perception by enabling attention over agents and multi-scale features. V2X-focused transformers incorporate mechanisms to handle pose uncertainty, varying sensor modalities, and temporal misalignment due to communication delay \cite{Xu2022}. These settings highlight a key difference between single-agent and multi-agent world models: the “state” is not merely what the ego sees, but a distributed set of partial observations that must be reconciled into a coherent representation. 
+
+Real-world datasets are crucial for validating these ideas because simulation can underrepresent sensor artifacts and the true distribution of road interactions. V2V4Real provides real-world multi-vehicle data with LiDAR, RGB, 3D bounding boxes, and HD maps, designed explicitly for cooperative perception tasks such as cooperative detection, tracking, and sim-to-real adaptation \cite{Xu2023}. Such datasets suggest that future world models for autonomous driving should be designed from the start to support multi-agent fusion and prediction, rather than retrofitting single-agent models to cooperative settings.
+
+Cooperative world models must go beyond “current-state fusion” to “future-state prediction” under shared information. This entails modeling how distributed observations evolve, how agents may act in response to each other, and how communication delays affect belief updates. Works that study cooperative forecasting and interaction in distributed settings argue for robust, uncertainty-aware fusion and for models that degrade gracefully when messages are delayed or missing \cite{Tu2025,Tu2025b}. This line of research also connects to simulators and benchmark environments that can test communication-aware policies under controlled conditions \cite{Audinys2025,Bouzaiene2025}.
+
+\subsection{Safety-Critical Modeling: Accident Prediction, Risk Anticipation, and Vulnerable Road Users}
+
+A primary promise of world models in driving is improved anticipation of rare and safety-critical events. Traditional trajectory prediction benchmarks emphasize average errors on non-critical behavior, which may not correlate with accident risk. Accident prediction benchmarks therefore play an important role in driving world model evaluation. DeepAccident introduces motion and accident prediction in V2X contexts, targeting the challenging setting where the model must predict not only where agents will move, but whether and when a collision will occur and which participants will be involved \cite{WangDeepAccident2023}. Such benchmarks force world models to represent risk factors that may be subtle or long-range, such as occluded cross traffic or rapidly changing gaps.
+
+Risk anticipation also motivates explicit modeling of occlusion and free space, which are critical to collision avoidance. Occupancy-based world models and LiDAR-centric methods emphasize that representing “unknown” regions and visibility is crucial: predicting an agent behind an occluder is a fundamentally different problem from predicting a visible agent. Recent risk-oriented world modeling studies therefore combine geometric priors with predictive uncertainty, aiming to represent multiple plausible futures rather than a single deterministic trajectory \cite{Guan2025,Bogdoll2025}.
+
+Safety also depends on modeling vulnerable road users (VRUs) such as pedestrians and cyclists, especially in dense, mixed traffic. High-resolution trajectory datasets that include VRUs provide essential supervision for interaction-aware world models. OnSiteVRU offers high-density trajectories across complex urban scenarios with fine temporal resolution and contextual information, enabling research on VRU behavior modeling, interaction risk, and safety evaluation \cite{Yan2025}. These datasets complement vehicle-centric benchmarks and highlight that world models must reason about heterogeneous participants with different kinematics, goals, and social norms.
+
+Finally, recent analyses argue that safety evaluation for world models should be multi-dimensional: generative realism is insufficient, and closed-loop planning tests can expose model exploitation or compounding errors. The “safety challenge” perspective calls for stress tests, counterfactual evaluation, and metrics that quantify whether planning with the model improves safety outcomes under distribution shift \cite{Baraldi2025}. This theme strongly motivates research into world models that are not only expressive but also calibrated, robust, and auditable.
+
+\subsection{Generative Simulation: Diffusion, Video World Models, and Language-Conditioned Scenario Generation}
+
+Generative world models have expanded rapidly, driven by diffusion models and advances in controllable video generation. In autonomous driving, video generation is appealing because it can synthesize diverse scenes, including rare events, that are hard to capture in real data. Several works frame driving world modeling as conditional generation of future observations given current context and candidate actions, often incorporating maps, bounding boxes, or trajectories as conditioning signals \cite{Fu2024,Chu2025}. Surveys and methodological papers in this area emphasize that diffusion-based dynamics modeling can produce high-fidelity samples and can incorporate structured priors, but they also note challenges in temporal consistency and action controllability \cite{Baraldi2025,Chen2025}.
+
+DriveDreamer-2 demonstrates a particularly influential direction: integrating language models with world models to enable user-driven simulation. In DriveDreamer-2, an LLM converts user prompts into agent trajectories, a diffusion-based component generates an HD map consistent with those trajectories, and a unified multi-view video generator synthesizes multi-camera driving videos \cite{Zhao2024}. This pipeline aims to generate long-tail scenarios (e.g., abrupt cut-ins) in a user-friendly way and to improve downstream perception training. Related efforts such as DriveDreamer variants emphasize improving cross-view coherence and temporal stability and highlight how structured intermediate representations (trajectories, maps) can improve controllability \cite{WangDriveDreamer2023}.
+
+Generative modeling is also used for counterfactual evaluation and data augmentation in planning-centric contexts. “Dreamer”-style rollouts provide imagined futures in latent space, while diffusion or video models provide rich sensory predictions. Integrative systems such as CarDreamer seek to couple world modeling with downstream decision-making and to use learned imagination as a training signal for driving policies \cite{Gao2024}. Other large-scale training efforts explore how to train world models that support both prediction and planning, often combining self-supervised objectives with policy learning \cite{Assran2025,Wu2025}. Across these works, a recurring open problem is aligning generative fidelity with decision utility: a model can produce realistic-looking videos while still being unreliable for safety-critical planning.
+
+\subsection{Evaluation and Benchmarking: Utility, Generalization, and the Reality Gap}
+
+A persistent difficulty is that there is no single metric that fully captures the quality of a driving world model. Generative metrics as FID - Fréchet Inception Distance, or FVD - Fréchet Video Distance,which can expressed as the Eq.~\eqref{eq:FID} and Eq.~\eqref{eq:FVD}. These metrics measure visual realism , however as  may ignore physical plausibility or planning relevance \cite{Baraldi2025}.
+
+\begin{equation}
+\label{eq:FID}
+\mathrm{FID}(\mathcal{X}_r, \mathcal{X}_g)
+=
+\|\boldsymbol{\mu}_r - \boldsymbol{\mu}_g\|_2^2
++
+\mathrm{Tr}
+\left(
+\boldsymbol{\Sigma}_r
++
+\boldsymbol{\Sigma}_g
+-
+2\left(
+\boldsymbol{\Sigma}_r \boldsymbol{\Sigma}_g
+\right)^{\frac{1}{2}}
+\right)
+\end{equation}
+
+\begin{equation}
+\label{eq:FVD}
+\mathrm{FVD}(\mathcal{V}_r, \mathcal{V}_g)
+=
+\|\boldsymbol{\mu}_r - \boldsymbol{\mu}_g\|_2^2
++
+\mathrm{Tr}
+\left(
+\boldsymbol{\Sigma}_r
++
+\boldsymbol{\Sigma}_g
+-
+2\left(
+\boldsymbol{\Sigma}_r \boldsymbol{\Sigma}_g
+\right)^{\frac{1}{2}}
+\right)
+\end{equation}
+
+Given that:
+\begin{itemize}
+    \item $\mathcal{X}_r$ and $\mathcal{X}_g$ denote the sets of real and generated image samples, respectively.
+    \item $\mathcal{V}_r$ and $\mathcal{V}_g$ denote the sets of real and generated video samples, respectively.
+    \item $\boldsymbol{\mu}_r \in \mathbb{R}^d$ and $\boldsymbol{\mu}_g \in \mathbb{R}^d$ represent the empirical mean vectors of deep feature embeddings extracted from real and generated samples.
+    \item $\boldsymbol{\Sigma}_r \in \mathbb{R}^{d \times d}$ and $\boldsymbol{\Sigma}_g \in \mathbb{R}^{d \times d}$ denote the empirical covariance matrices of the corresponding feature embeddings.
+    \item $\|\cdot\|_2$ denotes the Euclidean ($\ell_2$) norm.
+    \item $\mathrm{Tr}(\cdot)$ denotes the trace operator of a square matrix.
+    \item $(\boldsymbol{\Sigma}_r \boldsymbol{\Sigma}_g)^{\frac{1}{2}}$ denotes the matrix square root of the product of the two covariance matrices.
+    \item $d$ denotes the dimensionality of the feature embedding space.
+\end{itemize}
+
+Trajectory metrics based as ADE - Average Distance Error, and FDE - Final Distance Error measure average error but can miss long-tail risk as \cite{Caesar2021,Baraldi2025} suggests. In additional, planning-centric evaluation measures downstream driving performance, but it requires closed-loop testing and can be confounded by simulator limitations. Recent works therefore argue for multi-axis evaluation that includes: (i) predictive accuracy and calibration, (ii) robustness under distribution shift, (iii) usefulness for downstream tasks such as detection, tracking, or planning, and (iv) safety-critical stress tests \cite{Caesar2021,Baraldi2025}.
+
+Datasets and benchmarks shape progress by determining what is measurable. Waymo Open provides scale and diversity for training and evaluating models that must handle real sensor noise and complex urban scenarios \cite{Sun2020}. Cooperative datasets such as V2V4Real add the challenges of multi-agent fusion, localization error, and communication constraints \cite{Xu2023}. Accident-focused benchmarks like DeepAccident stress rare-event anticipation and interaction under occlusion \cite{WangDeepAccident2023}. VRU-focused datasets like OnSiteVRU emphasize mixed traffic and fine-grained interactions \cite{Yan2025}. Together, these resources suggest that “general” driving world models must learn from diverse data sources and must be evaluated across diverse tasks.
+
+The reality gap between simulation and the real world remains a central concern. Simulation allows scalable closed-loop testing, but it may underrepresent rare behaviors or sensor artifacts. Several works therefore emphasize sim-to-real adaptation, hybrid training (real + synthetic), and evaluation protocols that detect overfitting to simulator biases \cite{Xu2023,Li2024}. Framework discussions and surveys highlight the need for standardized reporting and reproducibility across toolchains, since seemingly small implementation choices can dominate conclusions \cite{Chen2025,Jia2025}.
+
+
+\subsection{Additional Consideration: Surveys, Physics, and Platform Considerations}
+
+Several additional threads in the provided corpus help connect autonomous-driving world models to broader scientific and engineering questions. First, surveys and position pieces emphasize that ``world modeling'' is an umbrella term spanning representations, learning objectives, and downstream uses, and they argue that progress depends on principled choices about what is modeled explicitly versus implicitly as \cite{DawidLeCun2024, LeCun2022}. Recent survey-style works discuss how physical knowledge (dynamics, constraints, and causal structure) can be embedded into learned representations to improve robustness and interpretability \cite{Chen2025,Chu2025}. These discussions are particularly relevant in driving because failures often arise from violations of basic physical plausibility (e.g., impossible motion, inconsistent occlusion) or from spurious correlations in training data - and ones solution suggested by \cite{kong_2015_kinematic, sobal_2022_separating} where integrate primitive and deterministic physical model of the world as microscopic approximation is considerable for learning the physical-affordance aligment as the purpose that world-model that is aim-at \cite{gibson_1979_the}.
+
+Furthermore, works of \cite{Brockman2016,Tassa2018,Audinys2025,Bouzaiene2025} strongly argue that evaluation in embodied domains is inseparable from the environment and platform used for training and testing. Practical benchmarking choices—sensor suites, map availability, traffic participant diversity, and even simulator fidelity—affect what a world model learns and how it generalizes. Platform- and tooling-oriented perspectives highlight that reproducible research requires careful specification of environments, data pipelines, and evaluation procedures. In driving, this connects to the well-known tension between rich simulation for closed-loop testing and real-world data for realism; which does suggest the novel hybrid pipelines that use simulation to explore long-tail scenarios and real data to anchor the model to real sensor statistics, which attempts in mimicing human's capability of acknowledging the physical-affordance \cite{gibson_1979_the}. 
+
+Finally, works as \cite{DawidLeCun2024,LeCun2022, Assran2025} in the World-Modeling showed that, difference modalities can lead to effective representations for downstream and continuous task training, however, such internal representation shall be roburst under enviroment stochasticity and unpredictability, which can be resolved by sequential-based reasoning model with latent-overshooting as \cite{hafner_2019_learning}.
+
+
+
+\subsection{Design Implications}
+
+Across these literatures, several design lessons emerge, which does become our result theoretical foundation; First, predictive representation learning that operates in embedding space (e.g., JEPA-style objectives) is increasingly favored over pixel-level reconstruction in driving, because it better matches partial observability and the capability of learning the latent-representation across multi-modal futures \cite{LeCun2022,Zhu2025}.Second, spatially grounded states such as BEV and occupancy are practical and planning-aligned world states, particularly when fused with map priors and explicit modeling of free space \cite{Li2022,Li2025,Bogdoll2025}.Third, multi-agent interaction and V2X communication are becoming core requirements: a driving world model must reconcile distributed observations and predict joint futures under delay and uncertainty \cite{Xu2022,Xu2023,Tu2025}. Finally, safety demands benchmarks that target rare events, accident prediction, shall be balance with efficiency and performance based metrics as reward  is a challenges need to be address in later studies \cite{WangDeepAccident2023,Yan2025,Baraldi2025}.
+
+
+

@@ -1,0 +1,38 @@
+\section{Introduction}
+\label{sec:introduction}
+3D scene generation has garnered wide attention due to its potential for creating realistic, physically coherent 3D scenes. These models offer a powerful approach to understanding and simulating the complexities of our 3D world. Among the various methods for 3D scene generation, probabilistic generative models have shown great promise in recent advancements. However, the stochastic nature of these models makes the generation process difficult to control precisely, emphasizing the need for an editable and controllable generation process.
+
+To enable controllable scene generation,
+%
+many methods leverage recent advances in 2D conditional generation, such as DALL-E~\cite{betker2023improving} and Stable Diffusion~\cite{rombach2022high}, where high-quality images are generated based on natural language. Inspired by these models, some approaches~\cite{lin2023magic3d, liu2024isotropic3d, liu2024one} use 2D views to guide 3D content generation. However, these methods are primarily object-centric and do not scale to complex outdoor scenes due to their large scales and interconnected structures. Other approaches apply text-based conditions to directly control 3D scene generation, such as Text2LiDAR~\cite{wu2024text2lidar}. Yet, text-to-3D provides insufficient control over both physical constraints and spatial details: it cannot effectively enforce real-world physical rules or precisely control scene elements (e.g., number of objects), leading to outputs that fail to meet specified requirements~\cite{zhang2023adding}.
+
+%
+
+
+One possible solution is to extend existing 3D indoor scene generation methods~\cite{zhai2025echoscene, zhai2023commonscenes, wei2024planner3d, yang2025mmgdreamer, hu2024mixed} to outdoor environments.
+%
+However, this adaptation is highly challenging. Indoor scene generation typically relies on multi-view images to synthesize bounded, textured surfaces, focusing on object appearance and spatial relationships. In contrast, outdoor scenes are unbounded and predominantly captured using textureless LiDAR point clouds, 
+which aims to model large-scale spatial layouts and background continuity.
+
+
+Recent outdoor scene generation research attempts to explore unique controls for 3D outdoor scene generation. For example, 
+~\cite{zhang2024urban, deng2023citygen} rely on BEV layouts or semantic maps, which require users to provide pixel-level control signals, posing a challenge in terms of interaction, especially for large-scale, complex 3D outdoor scenes. Therefore, selecting an appropriate medium for controllable 3D outdoor scene generation is crucial. In this context, the scene graph emerges as an ideal candidate due to its structured, regularized, and sparse representation, which makes it particularly well-suited for 3D outdoor scene generation and allows efficient control over complex layouts.
+Additionally, scene graphs are intuitive, enabling users to interact with and edit them easily. Motivated by these benefits, we propose a new framework that leverages the scene graph as a sparse-to-dense pipeline for 3D outdoor scene generation.
+
+%
+
+However, it is non-trivial to utilize scene graph as condition, due to its sparse and abstract nature. To resolve this, 
+we begin by employing a Graph Neural Network (GNN) that aggregates information from the scene graph through message passing. Next, a novel Allocation Module is developed to assign spatial positions to produce a Bird's Eye View Embedding Map (BEM). Finally, the BEM is used to condition a 3D Pyramid Discrete Diffusion Model~\cite{pdd} to generate the complete 3D scene. 
+%
+We jointly train the GNN and the diffusion model for seamless integration. 
+%
+To enhance scene understanding within the GNN, two auxiliary tasks are introduced: edge reconstruction and node classification, which further improve the model's ability to interpret and represent the scene graph effectively. 
+%
+Additionally, we develop an interactive system to enable intuitive scene graph creation and editing, allowing users to control scene content through both manual editing and text-based scene graph generation, bridging the gap between text input and 3D outdoor scene generation. To support our approach, we construct a scene graph dataset for each 3D scene in the CarlaSC dataset~\cite{carlasc}, defining node attributes and establishing edges based on spatial relationships. The primary contributions of our work are as follows:
+\begin{itemize}
+\item To the best of our knowledge, this is the first work that generates a large-scale 3D outdoor scene conditioning on a scene graph input.
+\item We propose a GNN equipped with a novel Allocation Module that converts a sparse scene graph to a compact scene embedding, which then conditions a diffusion model for 3D scene generation.
+\item We curate a large-scale dataset including paired 3D scenes and scene-graphs for model training. Extensive experiments demonstrate that our approach generates 3D outdoor scenes that closely align with the definitions in the scene graphs.
+\item We develop and provide a user-friendly system for constructing scene graphs, enabling users to flexibly create custom scene graphs to guide 3D outdoor scene generation according to their needs.
+\end{itemize}
+

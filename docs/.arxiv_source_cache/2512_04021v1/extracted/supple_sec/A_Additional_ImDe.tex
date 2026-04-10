@@ -1,0 +1,67 @@
+This appendix provides additional details on implementation, evaluation metrics, and qualitative results that could not be included in the main document due to space constraints. The document is organized as follows:
+
+\begin{itemize}
+    \item \textbf{Section~\ref{sec:implementation}} provides additional implementation details regarding the architecture of the Gaussian Decoder and the training details for Any-Feature 3D Lifting.
+    \item \textbf{Section~\ref{sec:settings}} details the experimental settings, including dataset descriptions, baseline configurations, and evaluation protocols for efficient novel view synthesis, 3D scene understanding, and multi-view feature encoding.
+    \item \textbf{Section~\ref{sec:ablation_discussion}} presents additional ablation studies comparing compact reconstruction strategies and analyzing components of \oursF, followed by discussions on the autoencoder design, FPS analysis, and limitations.
+    \item \textbf{Section~\ref{sec:additional_quant}} provides additional quantitative experimental results, including latent decoding or two-view novel view synthesis.
+    \item \textbf{Section~\ref{sec:additional_qual}} presents additional qualitative results, including visualizations of attention maps, 3D scene understanding, feature PCA, and renderings from 24-view inputs.
+\end{itemize}
+
+\section{Additional implementation details}
+\label{sec:implementation}
+\subsection{Details of Gaussian decoder}
+\paragrapht{Architecture details.}
+We first extract feature maps $\mathbf{F}_v = \mathcal{E}(I_v)$ from the visual encoder $\mathcal{E}(\cdot)$ given $V$ input images $\{I_v\}_{v=1}^V$. For VGGT~\cite{wang2025vggt} which supports multi-view inputs, we directly obtain $V$ feature maps $\{\mathbf{F}_v\}_{v=1}^V = \mathcal{E}(\{I_v\}_{v=1}^V)$ in a single feed-forward pass. For \mbox{DINOv3~\cite{simeoni2025dinov3}}, we obtain $V$ feature maps by passing each image to the encoder independently. We then concatenate the feature maps with the learnable tokens $\mathbf{Q}$, which are randomly initialized. This concatenated representation is processed through $L$ transformer layers $\mathcal{T}_\mathcal{G}(\cdot)$, which consists of self-attention layers and MLP layers with ReLU activation functions and layer normalization~\cite{ba2016layer}:
+\begin{equation}
+    [\bar{\mathbf{Q}};\bar{\mathbf{F}}] = \mathcal{T}_\mathcal{G}([\mathbf{Q};\mathbf{F}]),
+\end{equation}
+where $[\cdot,\cdot]$ denotes concatenation of dimension axis, $\bar{\mathbf{Q}}$ denotes refined learnable tokens and $\bar{\mathbf{F}}$ denotes refined features. 
+In the self-attention layer, learnable tokens and the feature tokens are each projected to query, key, and value features to process the attention calculation. The query, key and value features of learnable tokens $\mathbf{Q}$ and visual encoder features $\mathbf{F}$ is calculated as follows:
+\begin{align}
+Q = [Q_G;Q_I] = \mathcal{P}_Q([\mathbf{Q};\mathbf{F}]), \\ K = [K_G;K_I] = \mathcal{P}_K([\mathbf{Q};\mathbf{F}]), \\ V =[V_G;V_I] = \mathcal{P}_V([\mathbf{Q};\mathbf{F}]),
+\end{align}
+where $Q_G, Q_I$ denotes query features, $K_G, K_I$ denotes key features, and $V_G, V_I$ denotes value features of learnable token and visual encoder features, respectively. And $\mathcal{P}_Q$, $\mathcal{P}_K$, and $\mathcal{P}_V$ denote the projection layer of query, key, and value, respectively.
+
+Then, the resulting output of self-attention layer in $\mathcal{T}_G$ is computed as:
+\begin{equation}
+    \mathsf{Attn}(Q,K,V) = \mathsf{Softmax}(\frac{QK^\intercal}{\sqrt{d_Q}})V,
+\end{equation}
+where $d_Q$ denotes the channel dimension of query features.
+
+Each of the refined learnable tokens $\bar{\mathbf{Q}}_i$ are decoded as a single Gaussian $\mathbf{G}_i$ by passing the Gaussian head $H_\mathcal{G}(\cdot)$, which consists of a single linear layer:
+\begin{equation}
+    \mathbf{G}_i = H_\mathcal{G}(\bar{\mathbf{Q}}_i).
+\end{equation}
+
+\paragrapht{Attention visualization.}
+To visualize the attention map in Fig.~3-(b), we select one Gaussian $\mathbf{G}_i$ and its corresponding learnable tokens $\mathbf{Q}_i$. We then calculate the attention weights between the query features of the learnable token $Q_{G_i}$ and the key features $K_I$ as follows:
+\begin{equation}
+    A_i =  Q_{G_i} \cdot K_I^\intercal, A_i \in \mathrm{R}^{N_\text{head} \times h \times w},
+\end{equation}
+where $N_\text{head}$ denotes number of heads. We average the $A_i$ at the head dimension, then apply min-max normalization for better visualization.
+
+\subsection{Details of feature decoder}
+\paragrapht{Architecture details.}
+We initialize \oursF\ by copying the \ours's architecture and parameters, except for the learnable tokens and the Gaussian head. We first extract feature maps $\mathbf{F}'_v = \mathcal{E}'(I_v)$ using the user-desired visual encoder $\mathcal{E}'(\cdot)$. We then introduce new learnable feature tokens $\mathbf{Q}'$ and concatenate them with $\mathbf{F}_v$, which are then processed through $\mathcal{T}_\mathcal{F}(\cdot)$ with the same architecture as $\mathcal{T}_\mathcal{G}(\cdot)$:
+\begin{equation}
+    [\bar{\mathbf{Q}}';\bar{\mathbf{F}}'] = \mathcal{T}_\mathcal{F}([\mathbf{Q}';\mathbf{F}']),
+\end{equation}
+where $\bar{\mathbf{Q}}'$ denotes the refined learnable tokens and $\bar{\mathbf{F}}'$ denotes the refined features.
+In the self-attention layers of $\mathcal{T}_\mathcal{F}$, we reuse query $Q$ and key $K$ features from $\mathcal{T}_\mathcal{G}$ with stop-gradients, while only the value projection layer is newly trained:
+\begin{equation}
+    V' = [V'_G;V'_I] = \mathcal{P}'_V([\mathbf{Q'};\mathbf{F'}]),
+\end{equation}
+where $V'_G, V'_I$ denote the value features of the learnable feature tokens and features from $\mathcal{E}'$, respectively, and $\mathcal{P}'_V$ denotes the projection layer of value in $\mathcal{T}_\mathcal{F}$.
+
+Then, the resulting output of self-attention layer in $\mathcal{T}_\mathcal{F}$ is computed as:
+\begin{equation}
+    \mathsf{Attn}(Q,K,V') = \mathsf{Softmax}(\frac{QK^\intercal}{\sqrt{d_Q}})V'.
+\end{equation}
+
+These refined learnable feature tokens $\bar{\mathbf{Q}}'$ are converted to multi-view aggregated features $\mathbf{F}''_i$ for each Gaussian $\mathbf{G}_i$ by passing the feature head $H_\mathcal{F}$, which consists of a single linear layer:
+\begin{equation}
+    \mathbf{F}''_i = H_\mathcal{F}(\bar{\mathbf{Q}}_i').
+\end{equation}
+
+Note that the introduction of new learnable queries $\mathbf{Q}'$ is to enable \oursF\ to take features extracted from any user-desired visual encoder $\mathcal{E}'(\cdot)$ as input, considering that different features~($\mathcal{E}(\cdot), \mathcal{E}'(\cdot)$) will have different feature dimensions. When the two visual encoders are identical~($\mathcal{E}(\cdot) = \mathcal{E}'(\cdot)$), we can additionally copy the learned queries $\mathbf{Q}$ from \ours, only training the value projection layer $\mathcal{P}'_V(\cdot)$ and the feature head $H_\mathcal{F}(\cdot)$.

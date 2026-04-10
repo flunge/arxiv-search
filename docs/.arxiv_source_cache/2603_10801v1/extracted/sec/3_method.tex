@@ -1,0 +1,353 @@
+\section{Preliminaries}
+\label{sec:prelim}
+\subsection{Gaussian Surfels model}
+Our method adopts \gs as the base framework, leveraging its superior geometric representation capabilities. 
+Following \gs, we use a set of unstructured Gaussian kernels $\{G_i=\{\textbf{x}_i,\textbf{s}_i,\textbf{r}_i,o_i,C_i\}|i\in
+ \mathcal{N}\}$ to represent the structure of 3DGS, where  $\textbf{x}_i\in\mathbb{R}^3$ denotes the center 
+ position of each Gaussian kernel, $\textbf{s}_i=[s^x_i,s^y_i,0]^\top\in\mathbb{R}^3$ is the scaling factors of $x$ and 
+ $y$ axes after flatting the 3D Gaussians~\citep{kerbl20233d}, $\textbf{r}_i\in\mathbb{R}^4$ is the rotation quaternion, 
+ $o_i\in\mathbb{R}$ is the opacity, and $C_i\in\mathbb{R}^k$ represents the spherical harmonic coefficients of each Gaussian. 
+ The Gaussian distribution can be defined by the covariance matrix $\Sigma$ of a 3D Gaussian as:
+\begin{equation}
+    G(\textbf{x};\textbf{x}_i,\Sigma_i)=\text{exp}(-\frac{1}{2}(\textbf{x}-\textbf{x}_i)^\top\Sigma_i^{-1}(\textbf{x}-\textbf{x}_i)),
+\end{equation}
+where $\Sigma_i$ can be represented as:
+\begin{equation}
+\begin{aligned}
+	\label{equation:sigma}
+    \Sigma_i &= \textbf{R}(\textbf{r}_i)\textbf{s}_i\textbf{s}_i^\top\textbf{R}(\textbf{r}_i)^\top\\
+    &= \textbf{R}(\textbf{r}_i)\text{Diag}[(s^x_i)^2,(s^y_i)^2,0]\textbf{R}(\textbf{r}_i)^\top,
+\end{aligned}
+\end{equation}
+where Diag[·] indicates a diagonal matrix and $\textbf{R}(\textbf{r}_i)$ is a $3 \times 3$
+rotation matrix represented by $\textbf{r}_i$.
+
+\paragraph{Gaussian splatting\quad}
+The novel view rendering process can be represented as~\citep{kerbl20233d}: 
+\begin{equation}
+    C=\sum_{i=0}^nT_i\alpha_ic_i,
+\label{eq:gs_render}
+\end{equation}
+where $T_i=\prod_{j=0}^{i-1}(1-\alpha_j)$ is the transmittance, $\alpha_i = G'(\textbf{u};\textbf{u}_i,\Sigma'_i)o_i$ 
+is alpha-blending weight, which is the product of opacity and the Gaussian weight based on pixel $\textbf{u}$. 
+In order to speed up the rendering process, the 3D Gaussian in \eref{equation:sigma} 
+is re-parameterized in 2D ray space~\citep{zwicker2002ewa} as $G'$:
+\begin{equation}
+    G'(\textbf{u};\textbf{u}_i,\Sigma'_i)=\text{exp}(-\frac{1}{2}(\textbf{u}-\textbf{u}_i)^\top {\Sigma'_i}^{-1}(\textbf{u}-\textbf{u}_i)),
+\end{equation}
+where ${\Sigma'_i}= (\textbf{J}_k\textbf{W}_k\Sigma_i\textbf{W}_k^\top\textbf{J}_k^\top)[:2,:2]$ represents the covariance matrix in the 2D ray space. The $\textbf{W}_k$
+is a viewing transformation matrix for input image $k$ and $\textbf{J}_k$ is the affine approximation of the projective transformation.
+
+
+The depth $\tilde{D}$ and normal $\tilde{N}$ for each pixel can also be
+calculated via Gaussian splatting and alpha-blending~\citep{dai2024high}:
+\begin{equation}
+        \tilde{D}=\frac{1}{1-T_{n+1}}\sum_{i=0}^{n}T_i\alpha_id_i(\textbf{u}),
+\end{equation}
+\begin{equation}
+        \tilde{N}=\frac{1}{1-T_{n+1}}\sum_{i=0}^{n}T_i\alpha_i\textbf{R}_i[:,2].
+\label{eq:gs_normal}
+\end{equation}
+Specifically, according to~\gs, the depth of pixel $\textbf{u}$ for each Gaussian kernel $i$
+is computed by calculating the intersection of the ray cast through pixel $\textbf{u}$ 
+with the Gaussian ellipse during splatting. So $d_i(\textbf{u})$ can be represented by Taylor expansion as:
+\begin{equation}
+    d_i(\textbf{u}) = d_i(\textbf{u}_i) + (\textbf{W}_k\textbf{R}_i)[2,:]\textbf{J}_{pr}^{-1}(\textbf{u}-\textbf{u}_i),
+\end{equation}
+where $\textbf{J}_{pr}^{-1}$ is the Jacobian inverse mapping one pixel from image space to tangent plane of the Gaussian surfel~\citep{zwicker2001surface}, and $(\textbf{W}_k\textbf{R}_i)$ transforms the rotation matrix of a Gaussian surfel
+to the camera space.
+
+\subsection{Polarimetric image formation model}
+\label{sec:polar image formation}
+Polarization cameras can capture polarized images in a single shot, 
+which can be represented as four different polarized angles of images 
+$I=[I_0,I_{45},I_{90},I_{135}]$. 
+The Stokes vector $\V{s} = \{s_0,s_1,s_2,s_3\}$ can be calculated by:
+\begin{equation}
+    \V{s} = \begin{bmatrix}\frac{1}{2}
+        (I_0+I_{45}+I_{90}+I_{135})\\
+        I_{0}-I_{90}\\
+        I_{45}-I_{135}\\
+        0
+    \end{bmatrix},
+\end{equation}
+where we assume the light source is not circularly polarized following prior works~
+\citep{dave2022pandora,han2024nersp},
+thus the $s_3$ is 0. The Stokes vector can be used to compute the angle of polarization~(AoP), \ie
+\begin{eqnarray}
+	\varphi = \frac{1}{2}\arctan(\frac{s_2}{s_1}).
+\end{eqnarray}
+
+
+According to \pandora and \nersp, we assume the incident environmental illumination is unpolarized, and the Stokes vector for the incident light direction $\bm{\omega}$ can be expressed as:
+\begin{equation}
+    \V{s}_i(\bm{\omega}) = L(\bm{\omega}) [1, 0, 0, 0]^\top,
+    \label{eq:env_stok}
+\end{equation}
+where $L(\bm{\omega})$ represents the light intensity. The polarization camera captures outgoing light that becomes partially polarized due to 
+reflection, which is modeled using a $4 \times 4$ Muller matrix $\V{H}$. 
+The outgoing Stokes vector $\V{s}$ then is formulated as the integral of the incident Stokes vector multiplied by this Mueller matrix:
+\begin{equation}
+    \V{s}(\V{v}) = \int_{\Omega} \V{H} \V{s}_i(\bm{\omega}) \,\, d\bm{\omega},
+    \label{eq:out_stok}
+\end{equation}
+where $\V{v}$ indicates the view direction and $\Omega$ is the integral domain. 
+Following the polarized BRDF (pBRDF) model proposed by~\cite{baek2018simultaneous}, the output Stokes vector can be divided into diffuse and specular components, 
+represented by $\V{H}_d$ and $\V{H}_s$ respectively. $\V{s}$ 
+can be represented as:
+\begin{equation}
+    \V{s}(\V{v}) = \int_{\Omega} \V{H}_d \V{s}_i(\bm{\omega}) \,\, d\bm{\omega} + \int_{\Omega} \V{H}_s \V{s}_i(\bm{\omega}) \,\, d\bm{\omega}.
+    \label{eq:decomp_stok}
+\end{equation}
+
+Based on the derivations from \pandora and \nersp, The output Stokes vector can be 
+further specified as:
+\begin{eqnarray}
+    \V{s}(\V{v}) =   L_d \begin{bmatrix}
+        T_o^+ \\
+        T_o^- \cos(2 \phi_n) \\
+        - T_o^- \sin(2 \phi_n) \\
+        0
+    \end{bmatrix} +  L_s \begin{bmatrix}
+        R^+ \\
+        R^- \cos(2 \phi_h) \\
+        -R^- \sin(2 \phi_h) \\
+        0
+    \end{bmatrix},
+    \label{eq:photometric_cue}
+\end{eqnarray}
+where $L_d = \int_{\Omega} \rho L(\bm{\omega})  \bm{\omega}^\top \V{n} \, T_i^+T_i^-   \, d\bm{\omega}$ 
+denotes the diffuse radiance associated with the surface normal $\V{n}$, 
+Fresnel transmission coefficients~\citep{baek2018simultaneous} $T_{i, o}^+$ and 
+$T_{i, o}^-$. The diffuse albedo is represented by $\rho$, and $\phi_n$
+is the azimuth angle of the incident light. 
+
+Similarly, $L_s = \int_{\Omega} L(\bm{\omega})  \frac{DG}{4 \V{n}^\top\V{v}}   \,\, d\bm{\omega}$ 
+denotes the specular radiance, which involves Fresnel reflection coefficients~\citep{baek2018simultaneous} 
+$R^+$ and $R^-$, and the incident azimuth angle $\phi_h$ concerning the half vector 
+$\V{h} = \frac{\bm{\omega} + \V{v}}{\|\bm{\omega} + \V{v}\|_2^2}$. For the sake of simplification in our model, we assume that $\phi_h$
+is equivalent to $\phi_n$. The Microfacet model incorporates the normal distribution and shadowing terms represented by 
+$D$ and $G$~\citep{walter2007microfacet}. 
+
+\subsection{Multi-view tangent space consistency with AoP}
+Given AoP $\varphi$ (as mentioned in \sref{sec:polar image formation}), the azimuth angle of the surface can be either $\varphi + \pi /2$ or $\varphi + \pi$, known as the $\pi$ and $\pi / 2$ ambiguity, where $\pi / 2$ ambiguity depending on whether the surface is specular or diffuse dominant.
+
+Following \mvas, for a scene point $\V{x}$, its surface normal $\V{n}$ and the projected azimuth angle $\phi$ in one camera view follow the relationship as
+\begin{eqnarray}
+	\V{r}_1^\top \V{n} \cos\phi - \V{r}_2^\top \V{n} \sin\phi = 0,
+	\label{eq:azi_rotation}
+\end{eqnarray}
+where $\V{R} = [\V{r}_1, \V{r}_2, \V{r}_3]^\top$ is the rotation matrix of the camera pose. We can further  re-arrange \eref{eq:azi_rotation} to get the orthogonal relationship between surface normal and a projected tangent vector $\V{t}(\phi)$ as defined below,
+\begin{eqnarray}
+	\V{n}^\top \underbrace{(\cos\phi \V{r}_1 -  \sin\phi \V{r}_2 )}_{\V{t}(\phi)} = 0.
+	\label{eq:projected_tan}
+\end{eqnarray}
+The $\pi$ ambiguity between AoP and azimuth angle can be naturally resolved as \eref{eq:projected_tan} stands if we add $\phi$ by $\pi$. The $\pi/2$ ambiguity can be addressed by using a pseudo projected tangent vector $\hat{\V{t}}(\phi)$ such that
+\begin{eqnarray}
+	\V{n}^\top \underbrace{(\sin\phi \V{r}_1  +  \cos\phi \V{r}_2 )}_{\hat{\V{t}}(\phi)} = 0.
+	\label{eq:projected_tan_psu}
+\end{eqnarray}
+If one scene point $\V{x}$ is observed by $k$ views, we can stack \eref{eq:projected_tan} and \eref{eq:projected_tan_psu} based on $k$ different rotations and observed AoPs, leading to a linear system 
+\begin{eqnarray}
+	\V{T}(\V{x}) \V{n}(\V{x}) = \V{0}.
+	\label{eq:tangent_consistency}
+\end{eqnarray}
+
+In \mvas and \nersp, the above linear system is used to formulate a multi-view tangent space consistency loss to constrain the surface normal estimation in neural implicit representations. However, directly applying such constraints in Gaussian Splatting frameworks remains challenging due to the lack of an explicit visibility definition across views. In \sref{sec:Depth-guided Visibility}, we propose a depth-guided visibility mask acquisition mechanism to address it.
+\begin{figure}[t]
+	\centering
+	\includegraphics[width=\linewidth]{image/analysis.pdf}
+	\caption{Comparison between SDF-based and 3DGS-based method on geometry representation.  (\textbf{Top}) The surface normal of a point has a strong relationship with its opacity in NeuS~\citep{wang2021neus}. (\textbf{Bottom}) The surface normal of a point has no direct dependence on its opacity in \gs.}
+	\label{fig:normal-analysis}
+    \vspace{-1em}
+\end{figure}
+\vspace{-2em}
+\section{Proposed method}
+
+\label{sec:method}
+The \polgs framework integrates multi-view polarized images, their corresponding masks, and camera pose information to produce a rich output that includes diffuse and specular components represented as Stokes vectors across various views, a reconstructed geometric mesh, and estimated environment light. In this section, we will analyze the surface normal representations employed in SDF-based approaches and 3DGS methods. Then we introduce a theoretical foundation for our polarization-guided reconstruction pipeline by using the polarimetric image formation model and multi-view tangent space consistency constraint.
+\vspace{-1em}
+\begin{figure*}
+	\centering
+	\includegraphics[width=\linewidth]{image/pipeline.pdf}
+	\caption{Pipeline of \polgs. We re-rendered Stokes vectors $\hat{s}$ by using the diffuse color $C$ from 3DGS and specular color $L_r$ from Cubemap encoder module, which is supervised by the ground truth Stokes information. Tangent-space consistency constrain is applied to the surface normal estimated by 3DGS with the depth-guided visibility mask and AoP information.} 
+	\label{fig:pipeline}
+    \vspace{-1em}
+\end{figure*}
+\subsection{Analysis of surface normal representation}
+In implicit neural networks, researchers employ signed distance functions (SDFs) to define surface boundaries, where  
+ surface normals are derived from the gradients of SDF. However, 3DGS methods often treat the surface normal as inherent properties typically.
+In this section, we provide a comparative analysis of surface normal representations in SDF-based methods versus 3DGS, explaining the reason we use polarimetric cues in the Gaussian Splatting method.
+
+\vspace{-0.5em}
+\paragraph{SDF-based representation\quad}
+The implicit neural network approach, exemplified by NeuS~\citep{wang2021neus}, enhances the constraints on the reconstructed surface by incorporating a Signed Distance Function (SDF). As illustrated at the top of \fref{fig:normal-analysis}, the SDF value \( f(\textbf{x}) \), generated by the SDF Network, can be used to compute the normal vector \( \textbf{n}(\textbf{x}) \) at point \( \textbf{x} \). According to the definition in \citep{wang2021neus}, the opacity \( \rho(\textbf{x}) \)   is given by:
+\begin{equation}
+    \rho(\textbf{x}) = \max\left(\frac{-\frac{d\Phi_s}{dx}(f(\textbf{x}))}{\Phi_s(f(\textbf{x}))}, 0\right),
+\label{eq:neus_density}
+\end{equation}
+where \( \Phi_s \) is a sigmoid function.
+
+During optimization, the surface normal and the opacity at a given point influence each other. Consequently, after optimization, points farther from the surface tend to have lower opacity values, while the final normal vector is predominantly determined by points located on the surface. This mutual interaction results in a more precise and accurate representation of the surface.
+\vspace{-0.5em}
+\paragraph{3DGS-based representation\quad}
+In the case of \gs, surface normal is derived from the vector perpendicular to the plane of a 2D ellipsoid. As shown at the bottom of \fref{fig:normal-analysis}, for a single Gaussian kernel, there is no inherent relationship between opacity and the surface normal. 
+The pixel-level constraint in 3DGS creates a probabilistic representation where no single Gaussian kernel is definitively assigned to a surface. Consequently, multiple Gaussian kernel configurations can potentially represent equivalent surface geometries, introducing inherent reconstruction ambiguity. 
+The optimization mechanism effectively blends contributions from multiple Gaussian points, which offers reconstruction adaptability but compromises the precision of individual point geometric characterizations.
+
+
+
+It is obvious that using the normal prediction model~\citep{eftekhar2021omnidata} as a prior constraint in Gaussian Splatting benefits object reconstruction, as demonstrated by \gs. However, the normal prediction model is not always reliable especially in reflective cases, highlighting the need for a more robust method to provide prior information.
+\vspace{-0.8em}
+\paragraph{Polarimetric information for reflective surfaces\quad}
+Reflective surface reconstruction is challenging due to the view-dependent appearance. Unlike traditional RGB image inputs, polarimetric information can effectively constrain the surface normal during the rendering of Stokes Vectors with the pBDRF model~\citep{baek2018simultaneous} and multi-view tangent space consistency constrain.
+Leveraging this property, we incorporate polarimetric information as a prior in shape reconstruction and use the 3DGS-based method to accelerate this process.
+
+
+\subsection{Pipeline of \polgs}
+\label{sec:pipeline}
+
+\paragraph{Network structure\quad}
+The network structure of \polgs is shown in \fref{fig:pipeline}.
+The framework comprises two primary components: the Gaussian Surfels module and the CubeMap Encoder module. 
+Initially, the Gaussian Surfels module is employed to estimate the diffuse component of the object, similar to the original Gaussian Surfels framework. Subsequently, we utilize the CubeMap Encoder 
+to assess the specular component, akin to the approach taken in \dr. While the CubeMap Encoder does not provide the roughness component, it effectively handles reflective or rough surfaces and maintains high computational efficiency due to its CUDA-based implementation. 
+
+To enhance the rendering process, we incorporate a pBRDF model into the rendering formulation. 
+This addition introduces a polarimetric constraint that further refines the Gaussian Splatting method, 
+enabling more accurate and realistic 3D reconstructions.
+The final rendering formulation model following 
+\eref{eq:photometric_cue}
+can be represented as:
+\begin{equation}
+    \hat{\V{s}} = \begin{bmatrix}
+        \hat{s}_0 \\
+        \hat{s}_1 \\
+        \hat{s}_2 \\
+        0
+    \end{bmatrix}=C \begin{bmatrix}
+        T_o^+ \\
+        T_o^- \cos(2 \phi_n) \\
+        - T_o^- \sin(2 \phi_n) \\
+        0
+    \end{bmatrix}+ L_r\begin{bmatrix}
+        R^+ \\
+        R^- \cos(2 \phi_h) \\
+        -R^- \sin(2 \phi_h) \\
+        0
+    \end{bmatrix},
+\label{eq:final_stokes}
+\end{equation}
+where $C$ is the diffuse color after Gaussian Surfels rendering according to \eref{eq:gs_render} and 
+$L_r$ is the specular color after CubeMap rendering $E(\cdot)$, which can be represented as 
+$L_r = E(\textbf{r}_d-2(\textbf{r}_d\cdot \textbf{n})\textbf{n})$.
+
+\paragraph{Depth-guided visibility mask\quad}
+\label{sec:Depth-guided Visibility}
+In addition to the polarimetric rendering, \polgs employs multi-view tangent space consistency to constrain surface geometry~\citep{cao2023multi,han2024nersp}. However, a key prerequisite is a reliable visibility mask to indicate whether a surface point is observable from a neighboring view.
+In implicit SDF-based representations, visibility can be classically evaluated via ray-tracing with the signed distance field (SDF). As shown in \fref{fig:visibility}~(a), a surface point \( \textbf{x}_s \) can be confirmed along the ray originating at camera center $\textbf{x}_{c_0}$ with direction $r_d$ by iteratively stepping the ray by the SDF value until the first zero-crossing. To determine the visibility of $\textbf{x}_s$ from another view with camera center $\textbf{x}_{c_k}$, one traces the ray from $\textbf{x}_s$ to $\textbf{x}_{c_k}$ and checks whether any surface intersection occurs before exiting the bounding sphere. If no intersection is detected, the visibility mask from view $k$ is set as $\textbf{V}(\textbf{x}_s, k) = 1$; otherwise, $\textbf{V}(\textbf{x}_s, k) = 0$.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\linewidth]{image/visibility.pdf}
+    \caption{Comparison of visibility mask acquisition strategies between SDF-based methods and our method based on Gaussian Splatting.}
+    \label{fig:visibility}
+    \vspace{-0.5em}
+\end{figure}
+
+However, this strategy is not directly applicable to Gaussian Splatting frameworks because they lack an explicit ray--surface intersection test. In 3DGS-based methods, the surface is represented by a set of Gaussian surfels and rendered via splatting and alpha compositing, making it non-trivial to backtrace whether a surface point is visible from another view.
+To address this limitation, we propose a \emph{depth-guided visibility mask} acquisition strategy that leverages the depth maps produced during Gaussian Splatting.
+
+As shown in \fref{fig:visibility}~(b), we construct a set of pseudo-surface points
+\(\mathcal{X}=\{\mathbf{x}_{s}\in\mathbb{R}^3\}\) by back-projecting the rendered depth map of the reference view \(0\):
+\begin{equation}
+\mathbf{x}_{s}(\mathbf{u}) = \mathbf{x}_{c_0} + \tilde{\textbf{D}}_0(\mathbf{u})\,\mathbf{r}_0(\mathbf{u}),
+\end{equation}
+where \(\mathbf{x}_{c_0}\) is the camera center of the reference view, \(\tilde{\textbf{D}}_0\) denotes the rendered depth map,
+\(\mathbf{u}\) is the pixel coordinate, and \(\mathbf{r}_0(\mathbf{u})\) is the corresponding unit ray direction in world coordinates.
+
+For a neighboring view \(k\) with camera center \(\mathbf{x}_{c_k}\), we define the geometric distance from the camera to \(\mathbf{x}_{s}\) as
+\begin{equation}
+d_k(\mathbf{x}_{s}) = \| \mathbf{x}_{s} - \mathbf{x}_{c_k} \|_2.
+\end{equation}
+
+Meanwhile, \polgs renders a depth map \(\tilde{\textbf{D}}_k\) for view \(k\) at each splatting iteration.
+We cache \(\tilde{\textbf{D}}_k\) in an auxiliary buffer and detach it from backpropagation.
+By projecting \(\mathbf{x}_{s}\) onto the image plane of view \(k\), we obtain the corresponding pixel coordinate
+\(\mathbf{u}_k = \pi_k(\mathbf{x}_{s})\) and query the rendered depth value \(\tilde{\textbf{D}}_k(\mathbf{u}_k)\).
+
+Ideally, if \(\mathbf{x}_{s}\) is visible from view \(k\), the rendered depth along the viewing ray should agree with the geometric distance \(d_k(\mathbf{x}_{s})\).
+Therefore, we define the visibility mask as
+\begin{equation}\label{eq:visibility}
+\mathbf{V}(\mathbf{x}_{s}, k) =
+\begin{cases}
+1, & \left| \tilde{\textbf{D}}_k\!\big(\pi_k(\mathbf{x}_{s})\big) - d_k(\mathbf{x}_{s}) \right| < \tau, \\
+0, & \text{otherwise},
+\end{cases}
+\end{equation}
+where \(\tau\) is a tolerance threshold that accounts for depth uncertainty caused by Gaussian blending and discretization effects.
+
+\begin{figure}[t]
+	\centering
+	\includegraphics[width=\linewidth]{image/visi_mask.pdf}
+	\caption{Visualization of visibility masks of one current view in SDF-based networks and in \polgs.}
+	\label{fig:visi_mask}
+\end{figure}
+
+\Fref{fig:visi_mask} compares visibility masks of SDF-based networks and \polgs from one current view. In SDF-based methods, we use ground-truth normals to supervise and obtain the visibility mask. Our depth-guided visibility mask estimation yields comparable results without explicit ray-tracing. Building upon this, we can formulate our multi-view tangent-space consistency constraint directly corresponding to the defined linear system. Details of the ablation study about the visibility mask will be discussed in \sref{exp:visibility}.
+
+% \paragraph{Adjustment of spherical harmonic coefficients\quad}
+% Due to \eref{eq:final_stokes}, the diffuse color rendered by Gaussian Surfels must remain consistent across different viewing directions since the view-dependent specular highlights are modeled via the CubeMap Encoder and pBRDF. To strictly satisfy this constraint, we adjust the spherical harmonic (SH) coefficients of the Gaussian Surfels to zero-order, ensuring the splatting results represent purely view-independent diffuse color.
+
+\subsection{Training}
+The overall training loss in \polgs formulated as a comprehensive weighted sum of multiple loss components:
+\begin{equation}
+	\mathcal{L} = \mathcal{L}_{rgb}+\lambda_{1}\mathcal{L}_{pol}+ \lambda_{2}\mathcal{L}_{tsc}+\lambda_{3}\mathcal{L}_{m}+\lambda_{4}\mathcal{L}_{o}	+\lambda_{5}\mathcal{L}_{d},
+\end{equation}
+where we set $\lambda_{1}=1$, $\lambda_{2}=0.1$, $\lambda_{3}=0.1$, $\lambda_{4}=0.01$, $\lambda_{5}=0.01+0.1\cdot (iteration/15000)$ to balance the loss function.
+\vspace{-1em}
+
+\paragraph{Rendering Stokes loss $\mathcal{L}_{rgb}$ and $\mathcal{L}_{pol}$\quad}
+The rendering Stokes loss is combined with the $s_0$ (unpolarized image) rendering loss as 3DGS~\citep{kerbl20233d} and the 
+$s_1$, $s_2$ rendering loss as \pandora. These two loss functions can be represented as:
+\begin{align}
+        &\mathcal{L}_{rgb} = 0.8\cdot L_{1} (s_0,\hat{s}_0)+0.2\cdot L_{D-SSIM}(s_0,\hat{s}_0),\\
+        &\mathcal{L}_{pol} =L_{1} (s_1,\hat{s}_1)+L_{1} (s_2,\hat{s}_2).
+\end{align}
+
+\paragraph{Tangent-space consistency loss $\mathcal{L}_{\text{tsc}}$\quad}
+The tangent-space consistency loss aims to strengthen the constraints of multi-view polarization information on surface normal estimation.
+It ensures that the tangent plane consistency constraint is applied only when surface points are visible from the corresponding views. This is achieved through depth-guided visibility mask acquisition.
+It is defined as follows:
+\begin{equation}
+\mathcal{L}_{\text{tsc}}
+=
+\sum_{\mathbf{x}_{s} \in \mathcal{X}}
+\sum_{k \in K}
+\mathbf{V}(\mathbf{x}_{s}, k)
+\,
+\left\|
+\mathbf{T}_k(\mathbf{x}_{s})\,\mathbf{n}(\mathbf{x}_{s})
+\right\|_2^2,
+\end{equation}
+where $\mathcal{X}$ denotes the set of surface points, and $K$ represents the number of neighboring views.
+
+\paragraph{Mask loss $\mathcal{L}_{m}$}\quad
+The mask loss is used to make the rendering results of the object more accurate, which can be represented as:
+\begin{equation}
+    \mathcal{L}_{m} = \Sigma\text{BCE}(\textbf{M},\hat{\textbf{M}}).
+\end{equation}
+
+\paragraph{Opacity loss $\mathcal{L}_{o}$}\quad
+The opacity loss follows \gs to encourage the opacity of the Gaussian points to be close to 1 or 0. It can be represented as:
+\begin{equation}
+    \mathcal{L}_{o} = \Sigma\text{exp}(-{20(o_i-0.5)}^2).
+\end{equation}
+
+\paragraph{Depth-normal consistency loss $\mathcal{L}_{d}$}\quad
+The depth-normal consistency loss follows \gs to make the rendered depth and normal of the object to be more consistent.
+It can be represented as:
+\begin{equation}
+    \mathcal{L}_{d} = 1-\Tilde{\textbf{N}}\cdot N(V(\Tilde{\textbf{D} })),
+\end{equation}
+where $V(\cdot)$ transforms each pixel and its depth to a 3D point and $N(\cdot)$ calculates the normal from neighboring points using the cross product.

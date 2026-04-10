@@ -1,0 +1,89 @@
+\section{Introduction}
+\label{sec:intro}
+
+% 背景和现实需求
+Visual geometry learning is a fundamental problem in computer vision and serves as a core foundation for various applications in robotics ~\cite{yan2025ordermind} and autonomous driving ~\cite{WAM-Diff-2025, WAM-Flow-2025}. In recent years, feed-forward 3D models~\cite{driv3r, smart2024splatt3r, tian2025drivingforward} have achieved remarkable progress in static scene understanding by directly predicting geometric representations such as point clouds and 3D Gaussian from image inputs.  However, visual geometry learning in autonomous driving scenarios faces much greater complexity than in static scenes. Real-world driving environments are inherently dynamic, featuring diverse moving objects, changing long-range temporal dependencies. Although feed-forward architectures~\cite{wang2025vggt, wang2025moge} demonstrate strong performance on static datasets, they struggle to maintain both geometric accuracy and temporal consistency when extended to such dynamic conditions.
+This motivates the need for a unified feed-forward framework that can jointly model geometry and motion, enabling temporally consistent dynamic scene reconstruction.
+
+\begin{figure}[t]
+\centering
+    \includegraphics[width=0.95\columnwidth]{figs/figure1_v2.pdf}
+    \vspace{-2mm}
+    \captionof{figure}{
+        \textbf{DynamicVGGT} extends static multi-view 3D perception to dynamic 4D reconstruction by enabling 3D Gaussian rendering and adaptively modeling motion across multiple temporal scales without explicit camera extrinsic alignment.
+    }
+    \label{fig:framework}
+\end{figure}
+
+Current 3D foundation models~\cite{fan2024instantsplat, jiang2025anysplat} are typically trained on large-scale, well-labeled datasets and can achieve consistent and accurate 3D reconstruction across most scenes.
+However, applying them to real-world autonomous driving scenarios remains highly challenging.
+First, autonomous driving data often exhibit large-scale, high-noise, and sparse-depth characteristics, which can lead to a degradation of the model’s original dense prediction capability when trained directly on such data.
+Moreover, beyond static geometric perception, capturing dynamic geometric information is crucial in autonomous driving.
+Although several recent 3D foundation models~\cite{zhuo2025streaming, lin2025movies} have begun to explore dynamic scene modeling, their output representations are still primarily based on static point maps, lacking a unified dynamic representation that can directly support downstream autonomous driving tasks.
+
+
+
+
+
+To address these issues, we propose DynamicVGGT, a unified framework for high-fidelity dynamic scene reconstruction in a feed-forward manner. 
+As Fig.~\ref{fig:framework} shows, DynamicVGGT introduces a novel Dynamic Point Map (DPM) \cite{sucar2025dynamic} mechanism designed by two different dynamic tasks.
+Specifically, we introduce a Future Point Head that predicts the point map of the next frame and enforces consistency with the current frame, thereby enabling the model to implicitly learn point-wise motion. On the other hand, we introduce a Dynamic 3D Gaussian Splatting Head (DGSHead), which refines the predicted geometry using Gaussian primitives initialized from the geometric priors. 
+It further incorporates a lightweight motion-aware encoder that encodes motion flow through learnable motion tokens, supervised by scene flow.
+Extensive experiments demonstrate that DynamicVGGT achieves state-of-the-art performance across diverse driving datasets.  We summarize our main contributions as follows:
+\begin{itemize}
+
+\item We introduce a motion-aware temporal attention module that captures temporal dependencies without disrupting VGGT’s spatial attention, preserving stable training and geometric priors.
+
+\item We extend point-based representations towards a unified DPM by introducing a future point prediction task and a Dynamic 3D Gaussian Splatting Head.
+On top of this framework, the model learns point-wise motion through implicit consistency of inter-frame point motion and explicit supervision of Gaussian motion using scene flow.
+
+\item A stage-wise training scheme is adopted to mitigate the performance degradation observed on real-world driving data.
+On the Waymo dataset, our model achieves notable gains over VGGT and StreamVGGT, improving Accuracy by 0.5 and Completeness by 0.2.
+\end{itemize}
+
+
+% 当前的三维基础模型（3D Foundation Models）~\cite{wang2025vggt, jiang2025anysplat} 通常基于大规模、标注良好的数据进行训练，能够在大多数场景中实现一致且精确的三维重建。然而，当其应用于真实自动驾驶场景时，仍然具有较大的挑战。首先，自动驾驶场景往往具有大尺度、高噪声和稀疏深度等特征，直接在此类数据上进行训练容易导致模型原本的稠密预测能力退化。此外，自动驾驶场景的关键除了静态的几何感知以外，对于动态几何信息的感知更为重要。尽管近期一些三维基础模型~\cite{zhuo2025streaming, lin2025movies} 开始关注动态场景建模，但是他们的输出表征仍然是以静态点图为主，缺少一个统一的能够直接支持下游自动驾驶任务的动态表征。
+
+% Although recent feed-forward 3D models \cite{yang2024depth,wang2025moge, zhuo2025streaming} such as VGGT have demonstrated strong geometric reasoning in static environments, extending them to dynamic scene reconstruction remains highly challenging.
+% A key to this extension lies in enabling the model to learn dynamic representations.
+% However, achieving this goal is constrained by two major difficulties.
+% First, directly predicting accurate and spatially consistent 3D point maps is inherently difficult to optimize.
+% As discussed in VGGT, recovering point maps from estimated depth and camera pose often yields higher accuracy than direct point prediction, highlighting the intrinsic complexity of point-level optimization.
+% Second, learning dynamic cues from temporal evolution is equally challenging. The model must perceive and represent how points change over time while maintaining a consistent coordinate frame that jointly captures both scene motion and camera motion.
+
+% 尽管近年来的前馈式三维模型（如 VGGT）在静态环境中展现出了强大的几何推理能力，但将其扩展至动态场景重建仍面临诸多独特的挑战。
+% 实现这一扩展的关键在于让模型能够学习到动态表征（dynamic representations）——即能够随时间变化而非保持静止的几何结构。
+% 然而，这一目标受到两个主要困难的制约。
+% 首先，直接预测精确且空间一致的三维点图本身就是一个优化难度极高的问题。
+% 正如 VGGT 所指出的，从估计的深度图和相机位姿恢复点图的精度往往高于直接预测点图的结果，这侧面说明了点图优化任务的复杂性。
+% 其次，从时间变化中学习动态线索同样并非易事：模型必须能够感知并表示点随时间变化的规律，并在一致的坐标系下同时建模场景运动与相机运动。
+
+% This design ensures stable optimization in the early training epochs and preserves the pretrained geometric reasoning ability, allowing the model to focus on the new task of dynamic reconstruction.
+
+% However, the alternating attention (AA) mechanism of VGGT is primarily designed for static geometry reasoning and does not explicitly capture temporal feature dependencies.
+% A straightforward sequential extension, such as appending temporal attention layers in a StreamVGGT \cite{zhuo2025streaming} manner, may lead to unstable convergence during the early stage of training and even degrade geometric prediction accuracy.
+% To address this issue,
+
+% 在 DynamicVGGT 的核心，在于动态点图（Dynamic Point Maps, DPM） 这一核心机制——这是一种对点图表示形式的重新定义，用于将 VGGT 的静态建模能力扩展到动态场景中。这个概念在 DPM 中首次提出，用于将基于点的几何表示从静态场景扩展至动态场景。在 DynamicVGGT 中，我们在前馈式框架下对 DPM 进行了进一步的扩展，预测跨帧时间一致的点图表示。具体而言，对于每个图像序列，模型会同时预测当前帧与未来帧的点图，并将二者统一表达在同一参考坐标系下。 两者之间的位移差自然编码了场景流与运动线索，随后通过我们提出的基于高斯的动态优化模块进一步细化几何结果。通过在统一的坐标空间中联合建模场景与相机运动，DynamicVGGT 能够学习到时空一致的动态几何表示，从而在复杂的户外自动驾驶环境中实现高效且鲁棒的四维重建。
+
+
+% 值得一提的是，我们的框架并非从零开始训练，而是基于 VGGT 的预训练权重进行再训练。
+% 然而，VGGT 的交替注意力机制（Alternating Attention, AA）主要针对静态几何推理设计，无法显式地建模时序特征依赖。
+% 若直接采用类似 StreamVGGT 的串联方式加入时序注意力层，训练过程中可能会出现收敛不稳定，甚至影响原有几何预测精度。
+% 为此，我们提出了 并行时间注意力模块（Parallel Temporal Attention, MTA），在不破坏 VGGT 空间注意力结构的前提下，以并行方式学习相邻帧间的时序特征变化。
+% 这一设计保证了训练初期的稳定收敛，同时保持了预训练模型的几何感知能力，使网络能够专注于新的动态场景重建任务。
+
+% 此外，我们还提出了 动态高斯投影头（Dynamic Gaussian Splatting Head, DGSH），基于模型预测的几何先验对高斯基元进行初始化，并引入了感知时序变化的 motion token 编码层，以捕获特征层面的动态变化。
+% 最后，模型通过 光流监督 学习点级与物体级的运动信息，从而实现对动态场景的精确且一致的重建。
+% It surpasses recent 3D reconstruction methods, such as VGGT and $\pi^3$ \cite{wang2025pi3} in point map and camera estimation, significantly exceeding recent method AnySplat\cite{jiang2025anysplat} in novel view synthesis.
+
+% 我们的主要贡献总结如下：
+
+% 动态点图（Dynamic Point Maps, DPM）。
+% 通过在统一参考坐标系下预测跨帧时间一致的点图，我们将基于点的表示扩展至动态四维重建任务，从而显式地建模场景与相机的运动。
+
+% 并行时间注意力机制（Parallel Temporal Attention, MTA）。
+% 我们提出了一种并行时间注意力模块，在不破坏 VGGT 空间注意力结构的前提下高效捕获时序依赖关系，保证训练过程的稳定性并保持预训练模型的几何推理能力。
+
+% 动态高斯投影头（Dynamic Gaussian Splatting Head, DGSH）。
+% 我们设计了一个动态高斯投影模块，利用运动感知的高斯基元对预测几何进行优化，并在光流监督下同时学习点级与物体级的运动信息，从而在复杂驾驶场景中实现时序一致的四维动态重建。

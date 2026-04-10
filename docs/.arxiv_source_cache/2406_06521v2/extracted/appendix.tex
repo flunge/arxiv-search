@@ -1,0 +1,222 @@
+\clearpage
+% \appendix
+\setcounter{page}{13}
+\twocolumn[
+    \centering
+    \Large
+    \textbf{PGSR: Planar-based Gaussian Splatting for Efficient and High-Fidelity Surface Reconstruction} \\
+    \vspace{0.5em}Supplementary Document \\
+    \vspace{1.0em}
+] %< twocolumn
+\setcounter{section}{0}
+\setcounter{table}{0}
+\setcounter{figure}{0}
+\setcounter{equation}{0}
+\renewcommand{\thetable}{\thesection\arabic{table}}
+\renewcommand{\thefigure}{\thesection\arabic{figure}}
+\renewcommand{\theequation}{\thesection\arabic{equation}}
+
+% \documentclass[lettersize,journal]{IEEEtran}
+% \input{preamble} 
+% \usepackage{cuted}
+% % used to generate placeholder figures
+% \hyphenation{op-tical net-works semi-conduc-tor IEEE-Xplore}
+% \def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+%     T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+% \usepackage{balance}
+
+% \begin{document}
+
+
+% \title{PGSR: Planar-based Gaussian Splatting for Efficient and High-Fidelity Surface Reconstruction}
+
+% \maketitle
+\color{r}
+
+\section{Additional Implement Details}
+
+\subsection{Details of the Multi-View Regularization}
+\textbf{Building the image graph:} We use the camera poses from the training data to calculate the relative angles and positions between all training frames, sorting the frame distances first by relative angle and then by position distance. Based on the specific characteristics of the dataset, we set the corresponding maximum number of neighboring frames, maximum relative angle, minimum relative position, and maximum relative position. For any given reference frame in the training data, other training frames that meet the set conditions are grouped into the neighboring frame set of that reference frame. For the DTU~\cite{jensen2014large}, TnT~\cite{knapitsch2017tanks}, and Mip360~\cite{barron2021mip} datasets, we uniformly set a maximum of 8 neighboring frames, a maximum relative angle of 30 degrees, a minimum relative position of 0.01, and a maximum relative position of 1.5.
+
+\textbf{Select Neighboring Frames During Training:}
+During each training iteration, we randomly select one frame from the neighboring frame set of the reference frame to be used as the neighboring frame.
+
+\subsection{Depth Filtering}
+There are often erroneous noise points near the edges of the depth map. We filter out these noise points using the angle between the rays and the normals estimated from the depth map:
+\begin{equation}
+    \theta=acos(\frac{\mid\bm{N}_d(\bm{p})\cdot\bm{V}(\bm{p})\mid}{\left |\bm{N}_d(\bm{p})\right | \left |\bm{V}(\bm{p})\right |}),
+\end{equation}
+\begin{equation}
+    \bm{N}_d(\bm{p})=\frac{(\bm{P}_1-\bm{P}_0)\times(\bm{P}_3-\bm{P}_2)}{|(\bm{P}_1-\bm{P}_0)\times(\bm{P}_3-\bm{P}_2)|},
+\end{equation}
+For a pixel point $\bm{p}$, we sample four points from the neighboring pixels and project sampled depth points into 3D points $\{\bm{P}_j|j=1,...,4\}$ in the camera coordinate system, then calculate the normal $\bm{N}_d(\bm{p})$ for the pixel point $\bm{p}$. $\bm{V}(\bm{p})$ is the ray.
+
+When $\theta$ is greater than $80^{\circ}$, we consider the depth point to be noise. After completing the training for each scene, we apply depth filtering as post-processing to the rendered depth maps and then perform surface reconstruction using the TSDF algorithm. Fig~\ref{fig:depth_filter} shows that noise at the edges can be filtered out. We only applied depth filtering on the TnT dataset, and according to the ablation experiment results, normal-based depth filtering slightly improves surface reconstruction accuracy.
+
+\begin{figure*}[tb]\color{r}
+    \centering
+    \vspace{-0.3cm}
+    \includegraphics[width=0.75\linewidth]{figs/sing_view_ablation.pdf}
+    \captionsetup{font={footnotesize}}
+    \caption{\color{r}\textbf{Qualitative comparison of surface normals under different single-view regularization terms.} The baseline model does not include any geometric regularization terms. Adding the Single-View constraint without Image Edge-Aware loss on top of the baseline can produce relatively smooth surfaces, but some areas remain insufficiently flat. Incorporating the Image Edge-Aware Single-View constraint helps retain more details.}
+    \label{fig:single_view_ablation}
+\end{figure*}
+
+\begin{figure*}[tb]\color{r}
+    \centering
+    \includegraphics[width=0.85\linewidth]{figs/geo_ablations.pdf}
+    \captionsetup{font={footnotesize}}
+    \caption{\color{r}\textbf{Qualitative comparison of different geometric regularization terms.} Although the single-view regularization term can produce relatively smooth surfaces, it tends to create holes on highly specular metallic objects. Building on this, introducing a multi-view geometric regularization term, which enforces multi-view geometric consistency, can further improve surface smoothness, but some holes may still remain. By incorporating the complete geometric regularization term, it is possible to generate surfaces that are both smooth and rich in detail.}
+    \label{fig:geo_ablation}
+    \vspace{-0.3cm}
+\end{figure*}
+
+\begin{figure}[tb]\color{r}
+    \centering
+    \includegraphics[width=1\linewidth]{figs/ncc_ablation.pdf}
+    \captionsetup{font={footnotesize}}
+    \caption{\color{r}\textbf{Qualitative comparison of multi-view photometric without and with NCC.} Multi-view photometric consistency with NCC can reconstruct higher-quality surfaces.}
+    \label{fig:ncc_ablation}
+\end{figure}
+
+\begin{figure*}[tb]\color{r}
+    \centering
+    \includegraphics[width=0.8\linewidth]{figs/exposure.jpg}
+    \captionsetup{font={footnotesize}}
+    \caption{\color{r}\textbf{Qualitative comparison of rendered image without and with exposure compensation.} Exposure compensation can effectively adjust for overall brightness changes in the image. After compensation, the brightness of the adjusted image is closer to the ground truth image.}
+    \label{fig:exposure_compensation}
+\end{figure*}
+
+\begin{figure*}[!htb]
+    \centering
+    \includegraphics[width=0.7\linewidth]{figs/depth_filter.jpg}
+    \captionsetup{font={footnotesize}}
+    \caption{\color{r}\textbf{Qualitative comparison of point clouds without and with depth filtering.} Depth filtering can effectively remove noise at the edges.}
+    \label{fig:depth_filter}
+\end{figure*}
+
+\input{tables/detailed_ablations_major}
+\input{tables/detailed_psnr_ablations_major}
+\input{tables/ablations_2dgs}
+
+\section{Additional Results}
+
+\subsection{Additional Detailed Ablation Experiments}
+
+Table~\ref{tab:detailed_tnt_f1} shows the ablation results for each scene in the TnT dataset. It can be seen that each modification is necessary and contributes to improving surface reconstruction accuracy.
+
+\textbf{Image Edge-Aware Single-View:}
+From Table~\ref{tab:detailed_tnt_f1} and \ref{tab:detailed_tnt_psnr}, it can be observed that single-view constraints help improve surface reconstruction accuracy but slightly reduce rendering quality. Edge awareness offers only a slight improvement in surface reconstruction, but as seen in the comparison between (c) and (b) in Fig~\ref{fig:single_view_ablation}, edge awareness is beneficial for preserving more details.
+
+\textbf{Multi-View Geometric Consistency:}
+The qualitative effect of multi-view geometric consistency is shown in Fig~\ref{fig:geo_ablation}. By enforcing multi-view geometric consistency, surface smoothness is improved. For highly specular metallic objects, it is difficult to ensure geometric consistency relying on images and single-view constraints. By imposing multi-view geometric consistency, the reconstructed surface becomes more complete and smooth. Table~\ref{tab:detailed_tnt_f1} also shows that multi-view geometric consistency improves surface reconstruction accuracy across various scenes, though it slightly reduces rendering quality, as demonstrated in Table~\ref{tab:detailed_tnt_psnr}.
+
+\textbf{Multi-View Photometric Consistency:}
+The qualitative results of multi-view photometric consistency are shown in Figs~\ref{fig:geo_ablation} and~\ref{fig:ncc_ablation}. Fig~\ref{fig:geo_ablation} demonstrates that the proposed multi-view photometric consistency significantly improves surface reconstruction quality, producing smooth and detail-rich surfaces, especially in highly specular scenes. Fig~\ref{fig:ncc_ablation} illustrates the benefits of using NCC (Normalized Cross-Correlation) to compute photometric consistency. In highly specular scenes, directly measuring photometric consistency with the absolute difference between two pixel patches is sensitive to pixel intensity variations, resulting in poor surface reconstruction quality. In contrast, NCC calculates similarity based on correlation coefficients, making it less sensitive to brightness changes and more suitable for image matching, thereby achieving better surface quality. Table~\ref{tab:detailed_tnt_f1} and \ref{tab:detailed_tnt_psnr} shows that in various scenes, the multi-view photometric consistency constraint plays a crucial role in improving reconstruction quality, though it slightly reduces rendering quality.
+
+\textbf{Unbiased Depth:}
+Unbiased depth rendering is crucial for producing high-quality surface reconstructions. As shown in Table~\ref{tab:detailed_tnt_f1}, unbiased depth rendering is essential for improving surface reconstruction quality across all scenes. Table~\ref{tab:detailed_tnt_psnr} also demonstrates that unbiased depth rendering can slightly enhance rendering quality.
+
+\textbf{Exposure Compensation:}
+We assign two exposure coefficients to each frame to model the exposure variation across frames. The qualitative results of the Ignatius sequence from the Tanks and Temples dataset are shown in Fig~\ref{fig:exposure_compensation}. Most frames of the Ignatius sequence are relatively bright, with a few being darker. Without exposure compensation, the rendered images tend to appear overly bright, whereas the images with exposure compensation have overall brightness closer to the ground truth. As seen from Table~\ref{tab:detailed_tnt_f1} and Table~\ref{tab:detailed_tnt_psnr}, exposure compensation helps improve both surface reconstruction and rendering quality.
+
+\textbf{Depth Filter:}
+For the Tanks and Temples dataset, after training each scene, depth maps for each frame are rendered. Depth filtering is then applied to remove depth noise, followed by the use of the TSDF algorithm to fuse the cleaned depth maps and generate an SDF field, from which the mesh is extracted. Table~\ref{tab:detailed_tnt_f1} shows that depth filtering can slightly improve surface reconstruction quality. The ablation study Fig~\ref{fig:depth_filter} demonstrates the effectiveness of depth filtering.
+
+\textbf{Related to 2DGS:}
+For TnT scene, 2DGS~\cite{huang20242d} defaults to using median depth. 2DGS with expected depth, on the other hand, employs the expected depth mode. We conducted ablation comparisons between 2DGS and our multi-view regularization. As shown in the Table~\ref{tab:ablation_2dgs}, our multi-view regularization applies to 2DGS, significantly enhancing the surface reconstruction accuracy of 2DGS. However, due to the 'disk-aliasing' problem associated with median depth, the accuracy improvement is relatively limited compared to expected depth. Even with the addition of multi-view constraints, the surface accuracy of 2DGS is still inferior to that of PGSR.
+
+\color{black}
+\subsection{More Results}
+Figs~\ref{fig:dtu3} to \ref{fig:dtu6} present a comparison of surface reconstruction results across various scenes between PGSR, 2DGS~\cite{huang20242d}, and GOF~\cite{yu2024gaussian}. We provide additional results on various scenes and objects, further confirming the capability of our method, PGSR, in achieving high-fidelity geometric reconstruction, as shown in Fig~\ref{fig:reconstruction3}.
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=0.9\linewidth]{figs/dtu3.pdf}
+    % \vspace{-0.5cm}
+    \captionsetup{font={footnotesize}}
+    \caption{
+    Qualitative comparisons in surface reconstruction between PGSR, 2DGS~\cite{huang20242d}, and GOF~\cite{yu2024gaussian} on the DTU dataset.
+    }
+    \label{fig:dtu3}
+\end{figure*}
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=0.9\linewidth]{figs/dtu4.pdf}
+    % \vspace{-0.5cm}
+    \captionsetup{font={footnotesize}}
+    \caption{
+    Qualitative comparisons in surface reconstruction between PGSR, 2DGS, and GOF on the DTU dataset.
+    }
+    \label{fig:dtu4}
+\end{figure*}
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=0.9\linewidth]{figs/dtu5.pdf}
+    % \vspace{-0.5cm}
+    \captionsetup{font={footnotesize}}
+    \caption{
+    Qualitative comparisons in surface reconstruction between PGSR, 2DGS, and GOF on the DTU dataset.
+    }
+    \label{fig:dtu5}
+\end{figure*}
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=0.9\linewidth]{figs/mip360_tnt.pdf}
+    % \vspace{-0.5cm}
+    \captionsetup{font={footnotesize}}
+    \caption{
+    Qualitative comparisons in surface reconstruction between PGSR, 2DGS, and GOF.
+    }
+    \label{fig:dtu6}
+\end{figure*}
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=0.9\linewidth]{figs/reconstruction3.pdf}
+    % \vspace{-0.5cm}
+    \captionsetup{font={footnotesize}}
+    \caption{
+    % The rendering and mesh reconstruction results in various indoor and outdoor scenes that we have achieved. 
+    % PGSR achieves high-precision geometric reconstruction from a series of RGB images without requiring any prior knowledge.
+    PGSR achieves high-precision geometric reconstruction in various indoor and outdoor scenes from a series of RGB images without requiring any prior knowledge.
+    }
+    \label{fig:reconstruction3}
+\end{figure*}
+
+% \bibliographystyle{plain}
+% \bibliography{main}
+
+% \begin{thebibliography}{1}
+% \bibliographystyle{IEEEtran}
+
+% \bibitem{jensen2014large}
+% Rasmus Jensen, Anders Dahl, George Vogiatzis, Engin Tola, and Henrik Aan{\ae}s.
+% \newblock Large scale multi-view stereopsis evaluation.
+% \newblock In {\em Proceedings of the IEEE Conference on {C}omputer {V}ision and {P}attern {R}ecognition}, pages 406--413, 2014.
+
+% \bibitem{knapitsch2017tanks}
+% Arno Knapitsch, Jaesik Park, Qian-Yi Zhou, and Vladlen Koltun.
+% \newblock Tanks and temples: {B}enchmarking large-scale scene reconstruction.
+% \newblock {\em ACM Transactions on Graphics (ToG)}, 36(4):1--13, 2017.
+
+% \bibitem{barron2021mip}
+% Jonathan~T Barron, Ben Mildenhall, Matthew Tancik, Peter Hedman, Ricardo Martin-Brualla, and Pratul~P Srinivasan.
+% \newblock {Mip-NeRF}: {A} multiscale representation for anti-aliasing neural radiance fields.
+% \newblock In {\em Proceedings of the IEEE/CVF International Conference on Computer Vision}, pages 5855--5864, 2021.
+
+% \bibitem{huang20242d}
+% Binbin Huang, Zehao Yu, Anpei Chen, Andreas Geiger, and Shenghua Gao.
+% \newblock 2{D} {G}aussian {S}platting for {G}eometrically {A}ccurate {R}adiance {F}ields.
+% \newblock {\em arXiv preprint arXiv:2403.17888}, 2024.
+
+% \bibitem{yu2024gaussian}
+% Zehao Yu, Torsten Sattler, and Andreas Geiger.
+% \newblock Gaussian {O}pacity {F}ields: Efficient and compact surface reconstruction in unbounded scenes.
+% \newblock {\em arXiv preprint arXiv:2404.10772}, 2024.
+% \end{thebibliography}
+
+\end{document}

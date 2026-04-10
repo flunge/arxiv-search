@@ -1,0 +1,44 @@
+\section{Introduction}
+\label{sec:intro}
+
+Transformers~\cite{vaswani2017attention} have emerged as the foundation of modern architectures for novel view synthesis~\cite{jinlvsm}, 3D reconstruction~\cite{jiang2025rayzer}, and camera-controllable video generation~\cite{bahmani2025ac3d,he2024cameractrl,cheong2024boosting}, where networks must reason about how visual observations are formed by camera geometries (\eg, pose, intrinsics, projection model, lens distortion) in order to ground pixel sequences into 3D space.
+To maximize visual coverage from limited viewpoints, real-world applications in autonomous driving~\cite{yogamani2019woodscape,kumar2020fisheyedistancenet}, robotic perception~\cite{mei2006calibration,nayar1997catadioptric,zhang2016benefit}, and world models~\cite{team2025hunyuanworld,bar2025navigation,yang2025matrix} routinely use fisheye, catadioptric, and equirectangular projections for 360° panoramas.
+However, despite progress in Transformer backbones~\cite{jinlvsm,jiang2025rayzer,wan2025wan,yang2025cogvideox}, most camera-conditioned methods still rely on simplified pinhole assumptions, overlooking the highly nonlinear projections and strong lens distortions present in these diverse camera geometries.
+
+\input{figure/rays.tex}
+
+
+
+In practice, these pinhole-based assumptions manifest in the camera representations fed into the network, as summarized in~\cref{fig:rays} and detailed in~\cref{sec:prelim}, which can be categorized into \emph{absolute} and \emph{relative} encodings.
+Absolute encodings either feed raw camera parameters directly~\cite{bai2025recammaster,wang2024motionctrl} or adopt Pl\"ucker encoding~\cite{bahmani2025ac3d,he2024cameractrl} to represent rays under pinhole models.
+However, as shown in our experiments (\cref{sec:cmp}), their dependence on specific world-frame configurations limits generalization across diverse camera geometries.
+Recent relative encodings such as GTA~\cite{miyato2023gta} and PRoPE~\cite{li2025cameras} improve multi-view consistency in novel view synthesis by injecting geometry- or projection-aware relations into attention.
+Yet, they remain restricted to the pinhole projection and are not readily compatible with pretrained video diffusion models.
+\textit{Consequently, existing camera-conditioning methods still lack an encoding mechanism that explicitly models heterogeneous camera geometries, leading to limited generalization across varying intrinsics, distortion profiles, and viewpoint settings.}
+
+
+To address these limitations, we propose \emph{Relative Ray Encoding} (\cref{fig:rays}d), which reformulates positional encoding from relative-camera encoding into relative-ray encoding.
+By representing each token as a viewing ray expressed in local ray coordinates, this encoding enables the attention mechanism to operate directly in ray space rather than at the camera level, achieving geometry-consistent conditioning across heterogeneous camera lenses.
+
+To evaluate this capability under diverse controllability demands, we adopt camera-controlled text-to-video generation as a testbed task.
+However, existing camera-conditioned T2V methods~\cite{bahmani2025ac3d,he2024cameractrl} define camera poses only \emph{relative} to the first frame, leaving the global rotation frame ambiguous.
+In particular, two degrees of freedom---\emph{pitch} and \emph{roll}---cannot be uniquely established, making it impossible to specify or reproduce the absolute orientation of the initial view.
+To resolve this ambiguity, we introduce an \emph{Absolute Orientation Encoding} (third column of \cref{fig:teaser}), which anchors the camera to a gravity-aligned ``up'' direction.
+This encoding explicitly provides absolute pitch and roll angles as a latitube-up map, enabling precise and repeatable control over the camera's absolute orientation.
+
+
+
+Combining these two components, we arrive at \textbf{UCPE (Unified Camera Positional Encoding)}, a camera model-agnostic framework that injects complete camera geometry---including 6-DoF poses, intrinsics, and distortions---into Transformer attention.
+UCPE provides a consistent formulation that unifies heterogeneous camera geometries, enabling fine-grained control over lens type, viewpoint, and orientation, as illustrated in~\cref{fig:teaser}.
+Integrated into diffusion-based video generation through a lightweight spatial attention adapter, UCPE allows existing Diffusion Transformers to be fine-tuned with less than 1\% additional parameters.
+
+To support systematic training and evaluation, we further construct a large-scale video dataset spanning diverse intrinsics, distortion profiles, and camera motions, offering a comprehensive benchmark for camera-controllable generation.
+Experiments demonstrate that UCPE consistently improves camera controllability and visual fidelity across varied camera configurations, establishing a unified bridge between physical camera lenses and attention mechanisms for controllable video generation.
+
+In summary, our contributions are as follows:
+\begin{itemize}
+    \item We propose \emph{UCPE}, a unified framework that encodes complete camera geometry (6-DoF poses, intrinsics, lens distortions) into Transformers. UCPE adopts a hybrid formulation combining \emph{Relative Ray Encoding} for ray-space geometric reasoning and projection nonlinearity and \emph{Absolute Orientation Encoding} for a gravity-aligned reference enabling controllable camera orientation.
+    \item We introduce a lightweight \emph{attention injection method} that integrates UCPE into video Diffusion Transformers with less than 1\% of additional trainable parameters, enabling camera-aware video generation while preserving the visual fidelity of pretrained models.
+    \item We construct a \emph{large-scale video dataset} covering diverse camera intrinsics, distortion profiles, and motion trajectories, providing a benchmark for evaluating camera-controllable generation under varied camera geometries.
+    \item Extensive experiments demonstrate that UCPE not only enables accurate lens and orientation control, but also improves pose accuracy and generation quality for pinhole cameras and across diverse camera types.
+\end{itemize}

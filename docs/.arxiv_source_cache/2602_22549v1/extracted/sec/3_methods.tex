@@ -1,0 +1,135 @@
+\section{Methods}
+In this section, we first provide preliminary background on the denoising process of Stable Diffusion and the T2I-Adapter architecture for geometric conditioning. 
+We then present our DrivePTS framework, as illustrated in Fig.~\ref{fig.1}, including: \textbf{1)} a progressive learning strategy to mitigate inter-dependencies between geometric conditions, \textbf{2)} VLM-driven multi-view hierarchical scene description generation to enrich textual guidance, \textbf{3)} frequency-guided structure loss for improving structural details, and \textbf{4)} an overall training objective that unifies these components.
+\subsection{Preliminary}
+\subsubsection{Stable Diffusion.} We implement our method based on Stable Diffusion (SD)~\cite{rombach2022high}, a text-to-image LDM that performs denoising in the latent space through a UNet denoiser. The training objective is formulated as:
+\begin{equation}
+%	\small
+	L_{\text{diff}} = \mathbb{E}_{Z_{t},C,\epsilon,t}\left[\left\|\epsilon - \epsilon_{\theta}(Z_t,C)\right\|_2^2\right]
+\end{equation}
+where $Z_{t}$
+represents the noised latent feature at timestep $t$. 
+$C$ denotes condition information  and $\epsilon_{\theta}$ is the UNet denoiser function.
+During inference, the latents $Z_t$ are gradually denoised through $\epsilon_\theta$ conditioned on $C$ and $t$. Finally, the denoised latent is converted to an image by the decoder of the autoencoder.
+\subsubsection{T2I-Adapter.} 
+Previous approaches typically incorporate various conditions via ControlNet~\cite{zhang2023adding}, which involves intricate branched structures. Since our framework is designed to process two geometric conditions separately, utilizing parallel composed ControlNets would significantly increase computational cost.
+We therefore adopt the lightweight T2I-Adapter~\cite{mou2024t2i}. Specifically, we treat geometric conditions as image inputs and feed them into corresponding adapters, extracting multi-scale features that are directly injected into the UNet encoder. The process of extracting condition features is formulated as:
+\begin{align}
+%	\small
+	F_c = T(C), \quad \hat{F}_{enc}^{i} = F_{enc}^{i} + F_{c}^{i},\ i\in \{1,2,3,4\},
+\end{align}
+where $C$ denotes the geometric condition input, $T$ is the T2I-Adapter network, $F_c$ are the extracted condition features, $F_{enc}^{i}$ represents the encoder features at the $i$-th downsampling stage, and condition features are additively integrated at each scale.
+
+
+
+
+
+
+
+\subsection{Progressive Learning for Geometric Conditions}
+For driving scene generation, geometric constraints can be broadly classified into two types: HD maps and 3D bounding boxes. 
+This paper proposes a progressive learning strategy, emphasizing the principle that the generative model should first focus on constructing the road before introducing traffic objects. 
+To achieve this principle, the two types of geometric conditions are processed separately and incorporated into the model through distinct training stages. 
+
+\textbf{Stage 1: Separated Learning Geometric Conditions.} 
+
+\textit{{Road Generation:}}
+HD maps and text descriptions are utilized as condition inputs to generate the road and background elements. 
+During this process, regions occupied by traffic objects are explicitly excluded from consideration, allowing the model to focus exclusively on learning the distinctive features of road infrastructure and environmental context. 
+This targeted approach ensures that fundamental scene components are properly established before introducing dynamic elements.
+
+\textit{{Object Generation:}}
+Following the road-learning process, the model transitions to object generation, where 3D bounding boxes and textual descriptions serve as conditional inputs to produce traffic-related objects. 
+During this process, regions outside the scope of traffic-related objects are intentionally disregarded, which makes the model concentrate on accurately placing and rendering these objects.
+
+To mitigate the catastrophic forgetting of road-generation capabilities during object generation learning, we employ an alternating training strategy. This strategy ensures that both road and object generation are effectively learned with minimal mutual dependency. 
+
+
+\textbf{Stage 2: Dual Geometric Conditions Adaptation.}
+
+During this stage, both HD map and 3D bounding box conditions are simultaneously fed into the model. The cross-view module remains frozen while both adapters are fine-tuned. 
+This setup enables effective adaptation to concurrent inputs while mitigating inter-condition dependency that may arise during cross-view interactions.
+Additionally, a mutual information (MI) constraint is adopted to reduce inter-condition dependency between these two geometric features, encouraging each condition branch to focus independently on its respective semantic content.
+The MI constraint is implemented with a modified InfoNCE loss~\cite{oord2018representation}:
+\begin{equation}
+%	\small
+	{L}_{\text{MI}} = \mathbb{E}_{(f_m, f_b^+)} \left[ \log \frac{\exp(\text{sim}(f_m, f_b^+))}{\sum\limits_{j=1}^{N} \exp(\text{sim}(f_m, f_{b,j}))} \right],
+\end{equation}where $f_m$ and $f_b^+$ represent map and corresponding box features, $f_{b,j}$ includes all box features, $\text{sim}(\cdot, \cdot)$ a similarity measure, and $N$ is the total number of samples. 
+By minimizing this loss, the model is encouraged to reduce the similarity between the map and its corresponding box features, thereby facilitating independent learning for each condition.
+
+
+\subsection{Multi-View Hierarchical Scene Description Generation}
+Previous studies utilize the concise and view-invariant scene descriptions provided by the existing dataset as textual conditions for image generation. However, these brief descriptions often lack the details required to reconstruct complex environmental contexts and fail to capture the inherent heterogeneity across varied perspectives. 
+Several studies~\cite{nie2024compositional,lian2024llmgrounded, wu2025paragraph} demonstrate that fine-grained descriptions substantially enhance the quality and controllability of generation, facilitating precise manipulation of scene components. 
+These findings highlight the potential of leveraging detailed textual inputs to improve the fidelity and diversity of driving scene generation.
+Nevertheless, manually crafting such fine-grained descriptions is labor-intensive and time-consuming. 
+
+To address this challenge, we employ vision-language models (VLMs) to automatically generate high-quality and detailed scene descriptions.
+We fine-tune an open-source multimodal VLM with LoRA~\cite{hu2022lora} on driving-domain datasets (DriveLM~\cite{sima2024drivelm} and nuscenes-OmniDrive~\cite{wang2025omnidrive}) to reduce hallucinations and enhance scene understanding.
+To further align generated captions with factual scene attributes, we apply direct preference optimization (DPO)~\cite{rafailov2023direct} as a reinforcement correction mechanism, guiding the model toward human-consistent outputs. During description generation, the VLM processes all viewpoint images simultaneously to ensure cross-perspective consistency and semantic completeness.
+For each viewpoint, we extract a structured representation encompassing six semantically distinct aspects:
+\begin{itemize}
+	\item \textbf{Time}: Specifies the time of day (e.g., daytime, night, dawn, dusk), which influences scene lighting and ambiance.
+	\item \textbf{Weather}: Describes atmospheric conditions that impact visibility and the environment (e.g., sunny, overcast, foggy, rainy, snowy, etc.).
+	\item \textbf{Road Type}: Details the layout of the road, such as straight road, left-turn lane, T-junction, roundabout, etc.
+	\item \textbf{Surroundings}: Identifies the scene's location, such as commercial areas, rural areas, residential streets, construction zones, etc.
+	\item \textbf{Objects}: Lists both stationary and moving objects in the scene, including cars, pedestrians, traffic signs, trees, bicycles, cones, buildings, etc.
+	\item \textbf{Spatial Relationships}: Describes the geometric relationships and interactions among objects in the scene.
+\end{itemize}
+
+By explicitly modeling these elements, our crafted descriptions provide a comprehensive textual input that captures both global scene characteristics and fine-grained object relationships. 
+
+
+
+\subsection{Frequency-Guided Structure Loss}
+Existing scene generation methods treat all regions equally when computing the denoising loss, failing to emphasize critical foreground details such as boundaries and textures. However, effective scene generation should not merely involve coarse filling of regions with plausible content. It also requires accurate restoration of edges and textures, which correspond to high-frequency components.
+
+To address this limitation, we introduce a frequency-guided structure loss emphasizing high-frequency details in foregrounds, including the regions of roads and objects. This enhancement improves structural fidelity and visual clarity of the generated images.
+Specifically, we utilize Fourier transforms~\cite{brigham1988fast} to extract high-frequency components through a high-pass filter, formulated as:
+
+\begin{equation}
+%	\small
+	\begin{aligned}
+		\mathcal{H}(x) &= \mathcal{F}^{-1}(M(\omega) \cdot \mathcal{F}(x)), \\
+		M(\omega) &= 
+		\begin{cases}
+			0, & \|\omega\| \le \tau, \\
+			1, & \|\omega\| > \tau,
+		\end{cases}
+	\end{aligned}
+\end{equation}
+where $\mathcal{F}$ and $\mathcal{F}^{-1}$ denote the Fourier transform and its inverse, respectively. $M(\omega)$ represents the high-pass filter that selectively retains frequency components above the threshold $\tau$. Besides, $\omega$ refers to the frequency coordinates, $\|\omega\|$ denotes the frequency magnitude, and $\tau \in (0,1)$ determines the cutoff frequency for high-frequency retention, empirically set to 0.5.
+The frequency-guided structure loss is then formulated as:
+
+\begin{equation}
+%	\small
+	L_{\text{freq}} = \left\| \mathcal{H}(x_{\text{pred}}) - \mathcal{H}(x_{\text{target}}) \right\|_2^2.
+\end{equation}
+
+\subsection{Overall Training Objective}
+The overall training objective integrates multiple loss components to achieve distinct goals within our progressive learning strategy. 
+
+\textbf{Stage 1:} 
+During this stage, road and object generation are learned separately with an alternating training strategy.
+
+The loss function for \textit{road generation}  is defined as:
+\begin{equation}
+%	\small
+	L_{\text{road}} = L_{\text{diff}} \odot (M_{\text{map}} + M_{\text{bg}}) + \lambda_{\text{freq}} \cdot L_{\text{freq}} \odot M_{\text{map}},
+\end{equation}
+where $M_{\text{map}}$ and $M_{\text{bg}}$ denote binary masks for map and background regions, respectively, $\odot$ represents element-wise multiplication for region-specific loss, and $\lambda_{\text{freq}}$ is the weighting coefficient for frequency-guided structure loss.
+
+The loss function for \textit{object generation}  is given by:
+\begin{equation}
+%	\small
+	L_{\text{object}} = L_{\text{diff}} \odot M_{\text{box}} + \lambda_{\text{freq}} \cdot L_{\text{freq}} \odot M_{\text{box}},
+\end{equation}
+where $M_{\text{box}}$ denotes the binary mask of bounding box regions.
+
+\textbf{Stage 2:}
+Building upon the localized optimization achieved in Stage 1, this stage progresses toward modeling both maps and objects simultaneously:
+\begin{equation}
+%	\small
+	L_{\text{stage2}} = L_{\text{diff}} + \lambda_{\text{freq}} \cdot L_{\text{freq}} \odot (M_{\text{map}} + M_{\text{box}}) + \lambda_{\text{MI}} \cdot L_{\text{MI}},
+\end{equation}
+where $\lambda_{\text{MI}}$ is the weighting coefficient for mutual information constraint.

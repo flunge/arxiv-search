@@ -1,0 +1,639 @@
+\documentclass{article}
+
+\usepackage{arxiv}
+\usepackage{amsmath,amssymb}
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+\usepackage{lipsum}         % Can be removed after putting your text content
+\usepackage{graphicx}
+\usepackage{natbib}
+\usepackage{doi}
+\usepackage{subcaption} % you用了 \subcaption
+\usepackage{float}      % 支持 figure[H] 就地放图
+\usepackage{placeins}   % 支持 \FloatBarrier
+
+\title{Risk-Controllable Multi-View Diffusion for Driving Scenario Generation}
+
+\author{
+\begin{tabular}{c}
+\footnotesize
+Hongyi Lin$^{1,2}$\hspace{0.15em}
+Wenxiu Shi$^{3}$\hspace{0.15em}
+Heye Huang$^{4}$\textsuperscript{*}\hspace{0.15em}
+Dingyi Zhuang$^{2}$\textsuperscript{*}\hspace{0.15em}
+Song Zhang$^{5}$\hspace{0.15em}
+Yang Liu$^{1}$\hspace{0.15em}
+Xiaobo Qu$^{1}$\hspace{0.15em}
+Jinhua Zhao$^{2}$\\[2pt]
+\normalfont\mdseries\footnotesize
+$^{1}$School of Vehicle and Mobility, Tsinghua University, China \\
+\normalfont\mdseries\footnotesize$^{2}$Department of Urban Studies and Planning, Massachusetts Institute of Technology, USA \\
+\normalfont\mdseries\footnotesize$^{3}$Z-one Technology Co., Ltd., China \\
+\normalfont\mdseries\footnotesize$^{4}$Singapore-MIT Alliance for Research and Technology, Singapore\\
+\normalfont\mdseries\footnotesize$^{5}$ Chengdu Tianfu Invo Technology Co., Ltd.
+\end{tabular}
+}
+\date{}
+\renewcommand{\shorttitle}{Risk-Controllable Multi-View Diffusion}
+
+\hypersetup{
+pdftitle={Risk-Controllable Multi-View Diffusion for Driving Scenario Generation},
+pdfsubject={cs.CV},
+pdfauthor={Hongyi Lin, Wenxiu Shi, Heye Huang, Dingyi Zhuang, Song Zhang, Yang Liu, Xiaobo Qu, Jinhua Zhao},
+pdfkeywords={Autonomous Driving, Driving Scenario Generation, Risk-Controllable Generation, Multi-view Video Diffusion, Direct Preference Optimization},
+}
+
+\begin{document}
+\maketitle
+
+\begingroup
+\renewcommand{\thefootnote}{}
+\footnotetext{\textsuperscript{*}Corresponding authors. Email addresses: hy-lin22@mails.tsinghua.edu.cn (Hongyi Lin), venshow\_w@163.com (Wenxiu Shi), heye.huang@smart.mit.edu (Heye Huang), dingyi@mit.edu (Dingyi Zhuang), song.zhang@invo.cn (Song Zhang), thu\_ets\_ly@tsinghua.edu.cn (Yang Liu), xiaobo@tsinghua.edu.cn (Xiaobo Qu), jinhua@mit.edu (Jinhua Zhao).}
+\endgroup
+
+\begin{abstract}
+Generating safety-critical driving scenarios is crucial for evaluating and improving autonomous driving systems, but long-tail risky situations are rarely observed in real-world data and difficult to specify through manual scenario design. Existing generative approaches typically treat risk as an after-the-fact label and struggle to maintain geometric consistency in multi-view driving scenes. 
+We present RiskMV-DPO, a general and systematic pipeline for physically-informed, risk-controllable multi-view scenario generation. By integrating target risk levels with physically-grounded risk modeling, we autonomously synthesize diverse and high-stakes dynamic trajectories that serve as explicit geometric anchors for a diffusion-based video generator. To ensure spatial-temporal coherence and geometric fidelity, we introduce a geometry-appearance alignment module and a region-aware direct preference optimization (RA-DPO) strategy with motion-aware masking to focus learning on localized dynamic regions.
+Experiments on the nuScenes dataset show that RiskMV-DPO can freely generate a wide spectrum of diverse long-tail scenarios while maintaining state-of-the-art visual quality, improving 3D detection mAP from 18.17 to 30.50 and reducing FID to 15.70. Our work shifts the role of world models from passive environment prediction to proactive, risk-controllable synthesis, providing a scalable toolchain for the safety-oriented development of embodied intelligence. 
+\end{abstract}
+
+\keywords{Autonomous Driving, Driving Scenario Generation, Risk-Controllable Generation, Multi-view Video Diffusion, Direct Preference Optimization}
+
+\section{Introduction}
+\label{sec:intro}
+
+Autonomous driving systems are ultimately judged by how safely and reliably they behave in the open world, including rare but safety-critical events \cite{zhang2026world,he2025dual,fei2024critical}. Since real-world logs under-sample these cases, driving scenario generation has become essential for data augmentation, stress testing, and systematic safety evaluation \cite{mei2025llm,lin2023generative,wang2025safety}. With production vehicles relying heavily on camera suites, generating temporally coherent, multi-view consistent driving sequences is particularly valuable \cite{zhang2025can, lin2025high}.
+
+Despite rapid progress, generating long-tail risky scenarios remains a significant bottleneck \cite{he2025generative}. A common practice is to generate a large pool of driving scenes and then mine rare events, but truly high-risk situations occur with extremely low probability \cite{zhang2024chatscene}. Another practice is to handcraft scenarios by specifying parameters such as near-collisions or road intrusions \cite{xu2025diffscene}. While offering direct control, these "sampling-and-filtering" or manual design approaches inevitably reflect human priors and lack the efficiency to synthesize the vast, non-intuitive space of hazardous interactions. What is missing is a general pipeline to transform "risk" from an after-the-fact label into a proactive, time-resolved control signal that can autonomously guide the synthesis of diverse long-tail hazards.
+
+At the same time, the multi-view, outdoor, dynamic nature of driving scenes introduces a second bottleneck: geometry and robustness \cite{cai2026text2scenario}. While diffusion models have advanced visual realism, driving applications demand more. They require cross-view metric-level consistency, motion continuity, and stability under occlusion and lighting changes. For consistency, many attempts rely on large-scale question-answer datasets to teach VLMs spatial concepts, but this supervision rarely provides a solid geometric prior that enforces physically grounded alignment across cameras \cite{wang2026vggdrive, qu2023envisioning}. This motivates mechanisms that inject 3D priors into diffusion training and align the model’s capacity with localized, motion-dominant regions that matter most for driving risk.
+
+In short, these challenges are twofold: \textit{making risk controllable} for long-tail scenario generation, and \textit{making multi-view geometry reliable} under outdoor dynamic conditions. Therefore, we propose risk-controllable multi-view diffusion for driving scenario generation, a framework that makes risk a first-class control knob while improving geometric fidelity and localized dynamic realism. Our key idea is to turn risk into a time-resolved conditioning signal, generate trajectories and 3D boxes at a target risk level, and use them as structured controls for multi-view diffusion. The contributions can be summarized as follows:
+
+{\setlength{\leftmargini}{12pt}
+\begin{itemize}
+\item We propose a general pipeline for risk-controllable synthesis that reformulates driving risk as a proactive control signal, enabling the autonomous generation of dynamic trajectories and 3D boxes at target risk levels.
+\item We introduce a geometry-appearance alignment module that injects compact 3D priors into multi-view diffusion to ensure metric-level cross-view consistency and geometric plausibility.
+\item We develop multi-view consistent RA-DPO with motion-aware masking to align scene synthesis with localized preferences in dynamic regions, significantly enhancing temporal and motion realism.
+\end{itemize}
+}
+
+\section{Related Work}
+\label{sec:related_work}
+
+This section reviews driving scenario generation, risk-aware modeling and simulation, geometric priors for multi-view diffusion, and preference alignment for generative models.
+
+%-------------------------------------------------------------------------
+\subsection{Driving scene and multi-view video generation}
+
+Driving scenario generation has evolved from neural simulators to large-scale driving world models~\cite{lin2025big}. DriveGAN~\cite{kim2021drivegan} learns an end-to-end simulator conditioned on ego actions. GAIA-1~\cite{hu2023gaia} models driving as token sequences with video/text/action conditioning. Diffusion-based world models further improve realism and controllability, such as DriveDreamer~\cite{wang2024drivedreamer} and DriveDreamer-2~\cite{zhao2025drivedreamer}.
+
+Multi-view driving video synthesis introduces explicit structure controls to improve cross-view consistency. MagicDrive~\cite{gao2023magicdrive} conditions on camera poses, maps, and 3D boxes with cross-view attention. DrivingDiffusion~\cite{li2024drivingdiffusion} generates multi-view videos from 3D layouts and enforces cross-view and cross-frame consistency. MagicDrive-V2~\cite{gao2025magicdrive} scales to longer and higher-resolution synthesis, and recent work explores stronger spatiotemporal-view attention~\cite{lu2024seeing}. Despite these advances, long-tail risk is still hard to target explicitly and multi-view geometry remains fragile in dynamic outdoor scenes, motivating our risk-controllable and geometry-aware design.
+
+%-------------------------------------------------------------------------
+\subsection{Risk modeling and risk-aware simulation}
+
+Risk modeling often relies on trajectory-based criticality metrics (e.g., TTC variants)~\cite{xu2023deep,westhofen2023criticality} and formal safety envelopes such as RSS~\cite{shalev2017formal}. Recent work moves toward risk forecasting under interaction and uncertainty. RiskNet~\cite{liu2026risknet} combines field-theoretic interactions with multi-modal trajectory prediction for time-evolving risk estimation, and SafeDrive~\cite{zhou2026safedrive} quantifies perceived risk via risk fields to guide an LLM driving agent.
+
+Risk-aware testing uses risk signals to search for rare failures efficiently. Scenic~\cite{fremont2019scenic} specifies scenarios as distributions with constraints, VerifAI~\cite{dreossi2019verifai} supports simulation-based falsification and parameter synthesis, and Adaptive Stress Testing~\cite{koren2018adaptive} uses RL to discover failure trajectories. Most toolchains still operationalize risk via thresholds or specification violations rather than enabling generation at a desired, time-resolved risk level, which motivates our risk-as-control formulation.
+
+%-------------------------------------------------------------------------
+\subsection{3D priors for multi-view generation}
+
+Multi-view diffusion increasingly incorporates explicit 3D signals to stabilize generation and reduce cross-view drift~\cite{tang2025priorfusion}. In driving, MagicDrive~\cite{gao2023magicdrive} and DrivingDiffusion~\cite{li2024drivingdiffusion} condition on 3D controls and add cross-view modeling, while DriveScape~\cite{wu2025drivescape} scales to high-resolution synthesis via multi-view feature fusion with 3D guidance. Even so, models can ``understand the language'' but still cannot ``see through the geometry'': existing conditioning often provides surface-level reinforcement and remains brittle under occlusion and fast motion. This motivates our geometry-appearance alignment that injects compact 3D priors into diffusion training.
+
+%-------------------------------------------------------------------------
+\subsection{DPO for generative models}
+
+DPO is a practical tool for aligning generative models with preference data. Diffusion-DPO~\cite{wallace2024diffusion} adapts DPO to diffusion models, and DSPO~\cite{zhu2025dspo} improves objective matching under score-based training. For video, DenseDPO~\cite{wu2025densedpo} motivates finer temporal preference signals, and LocalDPO~\cite{huang2026mind} introduces region-level mask-guided preference optimization. Existing preference alignment is rarely designed for multi-view driving, where preferences should be consistent across cameras and concentrated on motion-dominant regions, motivating our multi-view motion-aware masking and region-aware DPO with progressive corruption fusion.
+
+\section{Problem Formulation}
+
+We consider the task of generating multi-view driving scenarios at a user-specified risk level. Let $\mathcal{V}=\{1,\dots,V\}$ denote the camera set and $\mathbf{I}_{1:T}=\{I_{1:T}^{v}\}_{v\in\mathcal{V}}$ denote the observed multi-view history. Given structured context $\mathbf{C}$ (including HD maps $\mathbf{M}$ and text $\mathbf{y}$), the user provides a target risk control $\mathbf{r}^{*}$, which can be a scalar $r^{*}$ or a time-resolved profile $\mathbf{r}^{*}_{1:H}$ over a future horizon $H$.
+
+Unlike passive prediction models, our framework reformulates driving risk as a proactive control signal used for structured conditioning. Let $\mathcal{A}$ denote the set of traffic participants. For each agent $a \in \mathcal{A}$, we define the motion control signal $\mathbf{U}$ as the set of future trajectories and 3D bounding boxes:
+\begin{equation}
+\mathbf{U}=\Big\{\big(\mathbf{x}^{a}_{1:H},\mathbf{b}^{a}_{1:H}\big)\Big\}_{a\in\mathcal{A}} .
+\label{eq:motion-control-signal}
+\end{equation}
+To achieve risk-controllable synthesis, we decouple the process into two stages. First, a risk control module $g(\cdot)$ generates physically-grounded motion $\mathbf{U}$ conditioned on the target risk:
+\begin{equation}
+\mathbf{U}=g\!\left(\mathbf{I}_{1:T},\mathbf{M},\mathbf{y},\mathbf{r}^{*}\right).
+\label{eq:risk-conditioned-motion}
+\end{equation}
+Second, a multi-view diffusion generator $f(\cdot)$ renders the future frames $\hat{\mathbf{I}}_{T+1:T+H}$ conditioned on the structured motion control:
+\begin{equation}
+\hat{\mathbf{I}}_{T+1:T+H}=f\!\left(\mathbf{I}_{1:T},\mathbf{M},\mathbf{y},\mathbf{U}\right).
+\label{eq:multi-view-generation}
+\end{equation}
+Our objective is to generate diverse long-tail scenarios where the induced risk matches $\mathbf{r}^{*}$ while preserving cross-view consistency and temporal plausibility.
+
+\section{Risk-Controlled Motion Generation}
+\label{sec:risk_motion}
+
+This section presents how we model driving risk, reveals the risk distribution in typical scenarios, and shows how to control the risk level to generate corresponding trajectories and 3D boxes.
+
+\subsection{Per-frame Risk Computation}
+\label{subsec:risk_comp}
+
+At each time step $t$, we assume the ego vehicle state $(\mathbf{p}_e^t,\mathbf{v}_e^t)$ and a set of surrounding agents
+$\mathcal{A}_t=\{1,\dots,N_t\}$ with states $(\mathbf{p}_i^t,\mathbf{v}_i^t)$ are available from logs or annotations.
+We compute a per-agent risk contribution $R_i^t$ and optionally aggregate them into a per-frame scalar risk $r_t$.
+Our formulation follows the field-inspired, direction-aware risk modeling principle in RiskNet \cite{liu2026risknet},
+and adapts it to an efficient per-frame computation.
+
+Let the relative displacement and its unit direction be
+\begin{equation}
+\label{eq:rel_vec}
+\mathbf{r}_i^t = \mathbf{p}_i^t - \mathbf{p}_e^t,\;
+\hat{\mathbf{r}}_i^t = \frac{\mathbf{r}_i^t}{\lVert \mathbf{r}_i^t \rVert_2 + \epsilon}.
+\end{equation}
+We use two dot products to indicate whether ego and agent $i$ are moving towards each other:
+\begin{equation}
+\label{eq:dot_cues}
+d_{e\rightarrow i}^t = (\mathbf{v}_e^t)^\top \mathbf{r}_i^t,
+\qquad
+d_{i\rightarrow e}^t = (\mathbf{v}_i^t)^\top (-\mathbf{r}_i^t).
+\end{equation}
+A larger positive $d_{e\rightarrow i}^t$ implies ego is moving towards agent $i$, and a larger positive
+$d_{i\rightarrow e}^t$ implies agent $i$ is moving towards ego.
+
+Moreover, we map the approaching cues to a discrete interaction weight $\omega_i^t$ that reflects asymmetric driving risk:
+\begin{equation}
+\label{eq:interaction}
+\omega_i^t =
+\begin{cases}
+\omega_{\mathrm{bi}}, & d_{e\rightarrow i}^t>0~\wedge~ d_{i\rightarrow e}^t>0,\\
+\omega_{\mathrm{agent}}, & d_{e\rightarrow i}^t\le 0~\wedge~ d_{i\rightarrow e}^t>0,\\
+\omega_{\mathrm{ego}}, & d_{e\rightarrow i}^t>0~\wedge~ d_{i\rightarrow e}^t\le 0,\\
+\omega_{\mathrm{away}}, & \text{otherwise}.
+\end{cases}
+\end{equation}
+Typically $\omega_{\mathrm{bi}}$ is the largest since both parties are closing, while
+$\omega_{\mathrm{agent}} > \omega_{\mathrm{ego}}$ reflects that an approaching agent can be riskier when ego may not react in time.
+
+Also, we introduce an agent-type coefficient $\mu_i$ to reflect severity differences across categories
+(e.g., heavy trucks vs.\ pedestrians):
+\begin{equation}
+\label{eq:mass_coeff}
+\mu_i = \mathrm{TypeCoeff}(\mathrm{cls}_i),
+\end{equation}
+where $\mathrm{cls}_i$ is the category label.
+
+To calibrate longitudinal and lateral factors, we define a closing speed along the line of sight
+\begin{equation}
+\label{eq:closing_speed}
+s_i^t = \max\!\Big(0,\; (\mathbf{v}_e^t-\mathbf{v}_i^t)^\top \hat{\mathbf{r}}_i^t \Big),
+\end{equation}
+and convert it to a longitudinal amplification factor
+\begin{equation}
+\label{eq:long_factor}
+\alpha_i^t = \exp(\kappa\, s_i^t),
+\end{equation}
+where $\kappa$ controls sensitivity.
+To penalize lateral (non-colliding) motion, we compute the sine term using the relative velocity
+$\mathbf{v}_{\mathrm{rel}}^t=\mathbf{v}_e^t-\mathbf{v}_i^t$:
+\begin{equation}
+\label{eq:lateral_sine}
+\sin^2\theta_i^t =
+\frac{\lVert \mathbf{v}_{\mathrm{rel}}^t \times \hat{\mathbf{r}}_i^t \rVert_2^2}
+{\lVert \mathbf{v}_{\mathrm{rel}}^t \rVert_2^2 + \epsilon},
+\qquad
+\beta_i^t = \exp(-\lambda\, \sin^2\theta_i^t),
+\end{equation}
+where $\lambda$ controls the lateral attenuation.
+
+Therefore, the final per-agent risk contribution is
+\begin{equation}
+\label{eq:agent_risk}
+R_i^t = K\,C \cdot \frac{\omega_i^t\,\mu_i\,\alpha_i^t\,\beta_i^t}{\lVert \mathbf{r}_i^t \rVert_2 + \epsilon},
+\end{equation}
+where $K$ and $C$ are calibration constants.
+We optionally aggregate per-agent risks into a per-frame scalar risk
+\begin{equation}
+\label{eq:frame_risk}
+r_t = \sum_{i\in\mathcal{A}_t} R_i^t
+\quad \text{or} \quad
+r_t = \max_{i\in\mathcal{A}_t} R_i^t,
+\end{equation}
+depending on whether we emphasize cumulative risk or the most critical interaction.
+
+
+
+\subsection{Risk Mining in Typical Scenarios}
+\label{subsec:risk_mining}
+
+Driving risk is often not visually obvious. Many safety-critical situations arise from subtle conflicts among the ego vehicle, surrounding traffic participants, and road geometry, where small timing differences, limited sight distance, or tight lateral clearance can quickly increase crash probability. To reveal such ``hidden'' hazards, we quantify risk per frame and use the resulting signals to analyze when and why risk accumulates in typical driving scenarios.
+
+Large-scale crash statistics further motivate this analysis. NHTSA introduced a pre-crash scenario typology that categorizes hazardous situations into 37 distinct scenarios using the General Estimates System (GES) crash database \cite{najm2007precrash}. A later national analysis reorganized these into nine major groups (rear-end, crossing paths, lane change, road departure, control loss, opposite direction, animal, pedestrian, and pedalcyclist) using 2011--2015 FARS and GES data \cite{swanson2019precrashstats}. Among police-reported crashes where the light vehicle performs the critical action, rear-end and crossing-path conflicts dominate crash exposure (about 34\% and 23\%), followed by lane-change conflicts (about 13\%) and road-departure events (about 11\%). Opposite-direction crashes occur less frequently (about 2\%) but show a much higher fatal-to-all crash ratio (about 3.23\%), indicating that rare scenarios can be disproportionately severe. These findings suggest that risk-aware generation should target not only frequent crash types but also rare, high-severity scenarios often overlooked in manual scenario design.
+
+We mine latent risks in diverse traffic scenarios by computing a per-frame risk signal and analyzing when risk accumulates over time. Figure~\ref{fig:risk_examples} presents three representative left-turn cases. In Fig.~\ref{fig:risk_examples}(a), the ego vehicle performs an unprotected left turn at an unsignalized intersection while an oncoming vehicle proceeds straight, creating a lateral collision threat. The risk rises sharply around the mid-turn phase when the ego vehicle becomes laterally exposed to the oncoming stream. In Fig.~\ref{fig:risk_examples}(b), two vehicles execute parallel left turns with small lateral separation, where slight asynchrony in turning trajectories can induce a sideswipe risk that is hard to anticipate from high-level intent alone. In Fig.~\ref{fig:risk_examples}(c), a parking-lot exit appears immediately after a left turn, forming a localized blind spot, and the risk spikes as the ego vehicle approaches the exit region where cross-traffic may emerge. These examples show that non-intuitive risks are concentrated in specific moments and regions, motivating the use of time-resolved risk as a controllable signal for long-tail motion synthesis and scenario generation.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.68\columnwidth]{figures/picture1.png}
+    \vspace{-1mm}
+    \caption{Examples of mined potential risks in typical left-turn scenarios using the proposed per-frame risk quantification.
+    The numbers indicate the risk coefficient of the ego vehicle at that location.
+    (a) Unprotected left turn at an unsignalized intersection with an oncoming straight-moving vehicle.
+    (b) Parallel left turns with tight lateral clearance.
+    (c) Left turn followed by a nearby parking-lot exit that creates a local blind spot.}
+    \label{fig:risk_examples}
+    \vspace{-2mm}
+\end{figure}
+
+
+
+\subsection{Controllable Motion Generation}
+\label{subsec:risk_cond_motion}
+
+We treat risk as a conditioning variable for motion synthesis. Given a target risk $\mathbf{r}^*$ (either a scalar $r^*$ or a profile $\mathbf{r}^*_{1:H}$), our goal is to generate future motion $\mathbf{U}=\{(\mathbf{x}_{1:H}^a,\mathbf{b}_{1:H}^a)\}_{a\in\mathcal{A}}$ such that the induced risk matches the target. We build on a GENAD-style conditional motion generator \cite{zheng2024genad} and introduce an explicit risk-conditioning path.
+
+We then encode the target risk with an MLP $h(\cdot)$ and apply feature-wise linear modulation (FiLM) on the BEV (or latent) feature map
+$\mathbf{F}$:
+\begin{equation}
+\label{eq:film_risk}
+\mathbf{e}_r = h(\mathbf{r}^*),\qquad
+(\boldsymbol{\gamma}_r,\boldsymbol{\beta}_r) = \psi(\mathbf{e}_r),\qquad
+\tilde{\mathbf{F}} = \boldsymbol{\gamma}_r \odot \mathbf{F} + \boldsymbol{\beta}_r,
+\end{equation}
+where $\psi(\cdot)$ is a linear head and $\odot$ denotes element-wise multiplication.
+The modulated feature $\tilde{\mathbf{F}}$ is then used to generate multi-modal future trajectories and 3D boxes.
+
+Let the generator produce $M$ motion hypotheses $\{\hat{\mathbf{U}}^{(m)}\}_{m=1}^M$.
+We compute a scalar risk for each mode using the per-frame risk functional in
+Eqs.~\eqref{eq:agent_risk}--\eqref{eq:frame_risk}, denoted by $\mathcal{R}(\hat{\mathbf{U}}^{(m)})$.
+We enforce a lower-bound matching and an upper-bound capability constraint:
+\begin{equation}
+\label{eq:risk_minmax}
+\begin{aligned}
+R_{\min} &= \min_{m} \mathcal{R}\!\left(\hat{\mathbf{U}}^{(m)}\right), \qquad
+R_{\max} = \max_{m} \mathcal{R}\!\left(\hat{\mathbf{U}}^{(m)}\right), \\
+\mathcal{L}_{\min} &= \big| R_{\min} - r^* \big|, \qquad
+\mathcal{L}_{\max} = \big| R_{\max} - \tau r^* \big|.
+\end{aligned}
+\end{equation}
+where $\tau$ is a scaling factor (e.g., $\tau=2$) that encourages the model to retain the capacity to generate higher-risk modes.
+The final training loss combines the base GENAD objective $\mathcal{L}_{\mathrm{GENAD}}$ with risk guidance:
+\begin{equation}
+\label{eq:risk_total}
+\mathcal{L}_{\mathrm{risk}}
+= \mathcal{L}_{\mathrm{GENAD}}
++ \lambda_{\min}\mathcal{L}_{\min}
++ \lambda_{\max}\mathcal{L}_{\max}.
+\end{equation}
+
+Since $r_t$ is computed per frame, we can localize when risk emerges within a scenario by inspecting peaks or sustained segments of $\{r_t\}_{t=1}^H$. This provides interpretable evidence of non-intuitive risk patterns and supports targeted conditioning of motion generation at a desired risk level.
+
+Therefore, our GENAD-based module produces risk-conditioned trajectories and 3D boxes for ego and other agents, which are used as the primary motion controls for the subsequent multi-view diffusion model to generate driving videos consistent with the specified risk level.
+
+\section{Multi-View Diffusion for Driving Scenarios}
+
+Figure~\ref{fig:picture2} illustrates the architecture of the proposed framework, termed \emph{RiskMV-DPO}, which integrates diffusion-based generation with multi-view localized preference alignment for risk-aware driving scenario synthesis. Given risk-conditioned motion controls, including trajectories and 3D bounding boxes, the model generates temporally coherent multi-view driving videos. A multimodal encoder fuses view tokens, motion signals, and scenario context, while geometry-aware conditioning and localized DPO guide the generation toward spatially consistent and dynamically plausible driving scenarios.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\textwidth]{figures/Picture2.png}
+\caption{
+Overview of the proposed \emph{RiskMV-DPO} framework. Given multi-view observations and scenario context, trajectories and 3D bounding boxes generated by the risk control module at a specified risk level are used as structured motion conditions.
+A multimodal encoder embeds view tokens and motion cues, which are then injected into a diffusion backbone composed of spatial and temporal STDiT3 blocks.
+Region-aware DPO further aligns the generation toward localized dynamic regions, producing temporally coherent multi-view driving videos consistent with the specified risk-conditioned motion.
+}
+\label{fig:picture2}
+\end{figure*}
+
+\subsection{Geometry-Appearance Alignment}
+\label{subsec:geo_app_align}
+
+Multi-view diffusion models can produce visually plausible frames, but they often lack a strong geometric prior and may break metric-level cross-view consistency. We inject compact 3D priors by extracting geometry-aware features from DGGT and its VGGT backbone \cite{chen2025dggt,wang2025vggt}, and aligning them with the diffusion model's appearance features during training.
+
+\paragraph{Geometric feature extraction.}
+Given the first-frame multi-view images
+$ I \in \mathbb{R}^{B \times N_c \times C \times H \times W}$,
+where $B$ is the batch size, $N_c$ is the number of cameras, and $C$ is the number of channels,
+we extract patch-wise VGGT features
+\begin{equation}
+F^{\mathrm{VGGT}} = \Phi_{\mathrm{VGGT}}(I),
+\qquad
+F^{\mathrm{VGGT}} \in \mathbb{R}^{(B N_c) \times P \times D_{\mathrm{VGGT}}},
+\label{eq:vggt_feat}
+\end{equation}
+where $P$ is the number of patches and $D_{\mathrm{VGGT}}$ is the VGGT feature dimension (e.g., $3072$).
+A learnable projection maps VGGT features to the diffusion latent dimension $D$ (e.g., $1152$):
+\begin{equation}
+F = \mathrm{MLP}_{\mathrm{proj}}(F^{\mathrm{VGGT}}),
+\qquad
+F \in \mathbb{R}^{(B N_c) \times P \times D}.
+\label{eq:vggt_proj}
+\end{equation}
+
+\paragraph{Learnable geometric token compression.}
+To obtain a fixed number of compact geometric tokens, we introduce learnable queries
+$Q \in \mathbb{R}^{N_{\mathrm{tok}} \times D}$ (e.g., $N_{\mathrm{tok}}{=}16$) and compress $F$ by cross-attention:
+\begin{equation}
+G = \mathrm{Attn}(Q, F, F),
+\qquad
+G \in \mathbb{R}^{(B N_c) \times N_{\mathrm{tok}} \times D}.
+\label{eq:geo_token}
+\end{equation}
+For classifier-free guidance, we apply conditional dropout by replacing $G$ with a learned null token set
+$G_{\varnothing}$ using a Bernoulli mask $m_{\mathrm{drop}} \sim \mathrm{Bernoulli}(1-p_{\mathrm{drop}})$:
+\begin{equation}
+\tilde{G} = m_{\mathrm{drop}} \, G + (1-m_{\mathrm{drop}})\, G_{\varnothing}.
+\label{eq:geo_token_dropout}
+\end{equation}
+
+\paragraph{Appearance feature extraction.}
+During diffusion training, we extract intermediate token features from the last $K$ backbone layers
+(e.g., $K{=}8$). Let $R^{(\ell)} \in \mathbb{R}^{(B N_c)\times N_s \times D}$ be the token features from layer $\ell$,
+where $N_s$ is the number of spatial tokens.
+We spatially pool tokens within each selected layer and average across layers:
+\begin{equation}
+r^{(\ell)} = \frac{1}{N_s}\sum_{i=1}^{N_s} R^{(\ell)}_{:,i,:},
+\qquad
+r = \frac{1}{K}\sum_{\ell} r^{(\ell)},
+\label{eq:app_feat}
+\end{equation}
+where $r \in \mathbb{R}^{(B N_c)\times D}$ is the final appearance feature.
+
+\paragraph{Alignment loss.}
+We pool geometric tokens into a single vector $g \in \mathbb{R}^{(B N_c)\times D}$,
+normalize both $g$ and $r$, and align them with cosine similarity:
+\begin{equation}
+g = \frac{1}{N_{\mathrm{tok}}}\sum_{k=1}^{N_{\mathrm{tok}}} \tilde{G}_{:,k,:},
+\qquad
+\hat{g}=\frac{g}{\lVert g\rVert_2},\;\;
+\hat{r}=\frac{r}{\lVert r\rVert_2},
+\label{eq:geo_pool_norm}
+\end{equation}
+\begin{equation}
+\mathcal{L}_{\mathrm{align}}
+= 1 - \frac{1}{B N_c}\sum_{i=1}^{B N_c} \hat{g}_i^{\top}\hat{r}_i.
+\label{eq:align_loss}
+\end{equation}
+This alignment injects compact DGGT/VGGT-derived geometric priors into diffusion training and improves cross-view consistency.
+
+%-------------------------------------------------------------------------
+
+\subsection{Multi-view Consistent Motion-Aware Masking}
+\label{subsec:motion_mask}
+
+In driving videos, most pixels belong to static background, while safety-critical cues are concentrated in dynamic regions such as moving agents and their interactions. Uniform corruption wastes model capacity and weakens learning on motion-dominant areas. We therefore construct a motion-aware mask and enforce multi-view consistency so that corruption focuses on dynamic regions while remaining geometrically aligned across cameras.
+
+\paragraph{Motion-aware mask.}
+Let $x \in \mathbb{R}^{B\times N_c \times C \times T \times H \times W}$ denote the video latent (or feature) tensor, where $B$ is batch size, $N_c$ is the number of cameras, $C$ is the channel dimension, and $T$ is the number of frames. We estimate per-frame motion magnitude by temporal differencing and channel averaging:
+\begin{equation}
+\label{eq:motion_map}
+\begin{aligned}
+D_{b,c,t} &= \big| x_{b,c,:,t+1} - x_{b,c,:,t} \big|, \\
+M^{\mathrm{mot}}_{b,c,t} &= \frac{1}{C}\sum_{j=1}^{C} D_{b,c,t,j}.
+\end{aligned}
+\end{equation}
+We normalize $M^{\mathrm{mot}}$ to $[0,1]$ and optionally apply a soft threshold to suppress weak motion.
+
+\paragraph{Geometric consistency across views.}
+Motion cues alone do not guarantee cross-view consistency. We additionally render a geometry-consistent mask by sampling 3D points along agent trajectories (or B\'ezier curves) and projecting them into each camera view using known intrinsics and extrinsics. Let $\mathbf{p}=(x,y)$ be a pixel location and $\mathbf{u}_{bck}=(u^x_{bck},u^y_{bck})$ be the projected center of the $k$-th point for batch $b$ and camera $c$, with visibility indicator $V_{bck}\in\{0,1\}$. We rasterize a Gaussian blob:
+\begin{equation}
+\label{eq:geo_mask_compact}
+M^{\mathrm{geo}}_{bck}(\mathbf{p})
+= V_{bck}\,
+\exp\!\left(
+-\frac{(x-u^{x}_{bck})^{2}}{2\sigma_w^{2}}
+-\frac{(y-u^{y}_{bck})^{2}}{2\sigma_h^{2}}
+\right).
+\end{equation}
+We aggregate over sampled points to obtain a per-frame, per-view geometric mask $M^{\mathrm{geo}}_{b,c,t}(\mathbf{p})$.
+
+\paragraph{Mask fusion.}
+We fuse motion and geometric cues to form the final corruption mask:
+\begin{equation}
+\label{eq:mask_fusion}
+M = \mathrm{clip}\!\big(M^{\mathrm{geo}} \odot M^{\mathrm{mot}},\,0,\,1\big),
+\end{equation}
+so that corruption focuses on motion-dominant regions while remaining consistent across cameras.
+
+%-------------------------------------------------------------------------
+
+\subsection{Region-Aware Direct Preference Optimization}
+\label{subsec:ra_dpo}
+
+Global preference signals can be ambiguous for driving videos and may underweight dynamic regions that dominate risk. We align the model using localized preference pairs constructed on the masked regions, while keeping the unmasked background unchanged.
+
+\paragraph{Progressive corruption fusion.}
+Given a noise level $t$ and clean latent $z_0$, we corrupt only the masked region and keep the unmasked region clean:
+\begin{equation}
+\label{eq:masked_latent}
+z_t^{\mathrm{mask}} = M \odot z_t + (1-M)\odot z_0,
+\end{equation}
+where $z_t$ is the noised latent at level $t$. To construct localized preference pairs, we use two corruption strengths $t_w < t_l$ on the masked region:
+\begin{equation}
+\label{eq:progressive_pair}
+\begin{aligned}
+z_{t_w}^{\mathrm{mask}} &= M \odot z_{t_w} + (1-M)\odot z_0, \\
+z_{t_l}^{\mathrm{mask}} &= M \odot z_{t_l} + (1-M)\odot z_0.
+\end{aligned}
+\end{equation}
+$t_w$ yields an easier (preferred) target on the masked region, while $t_l$ yields a harder (dispreferred) one, providing localized supervision without altering global context.
+
+\paragraph{Masked flow-matching proxy.}
+We maintain an EMA reference model $v_{\mathrm{ref}}$. Using the negative masked flow-matching residual as a proxy for log-probability, we define
+\begin{equation}
+\label{eq:masked_fm_proxy}
+\begin{aligned}
+\log p_\theta(y \mid x) &\approx -\, \mathrm{FM}_\theta(y), \\
+\delta_\theta &=
+v_\theta(z_t^{\mathrm{mask}}, t, \mathbf{c}) - (\epsilon - z_0), \\
+\mathrm{FM}_\theta(y)
+&= \frac{1}{\lVert M\rVert_{1}}\,
+\big\lVert M \odot \delta_\theta \big\rVert_2^{2},
+\end{aligned}
+\end{equation}
+where $\mathbf{c}$ denotes the conditioning (history, map, optional text, and motion tokens), and $\lVert M\rVert_1$ normalizes by masked area.
+
+\paragraph{Region-aware DPO objective.}
+We apply DPO on the localized pair $(y_w,y_l)$:
+\begin{equation}
+\label{eq:ra_dpo}
+\begin{aligned}
+\mathcal{L}_{\mathrm{RA\mbox{-}DPO}}
+&= -\, w(t)\,
+\log \sigma\!\Big(
+\beta \big[
+\Delta_\theta(y_w) - \Delta_\theta(y_l)
+\big]
+\Big), \\
+\Delta_\theta(y)
+&= \log p_\theta(y\mid x) - \log p_{\mathrm{ref}}(y\mid x),
+\end{aligned}
+\end{equation}
+where $\sigma(\cdot)$ is the sigmoid, $\beta$ is the DPO temperature, and $w(t)$ is a noise-adaptive weight. This objective aligns generation with localized preferences in dynamic regions.
+
+
+\paragraph{Supervised fine-tuning loss.}
+We apply supervised training on the masked region using the flow-matching residual.
+\begin{equation}
+\label{eq:sft_loss}
+\begin{aligned}
+\mathcal{L}_{\mathrm{SFT}}
+&= \frac{1}{\lVert M\rVert_{1}}\,
+\big\lVert M \odot \delta_\theta \big\rVert_2^{2}, \\
+\delta_\theta
+&= v_\theta(z_t^{\mathrm{mask}}, t, \mathbf{c}) - (\epsilon - z_0).
+\end{aligned}
+\end{equation}
+
+\paragraph{Total objective.}
+The complete training objective is
+\begin{equation}
+\label{eq:total_loss}
+\mathcal{L}_{\mathrm{total}}
+= \lambda_{\mathrm{SFT}}\,\mathcal{L}_{\mathrm{SFT}}
++ \lambda_{\mathrm{RA}}\,\mathcal{L}_{\mathrm{RA\mbox{-}DPO}}
++ \lambda_{\mathrm{align}}\,\mathcal{L}_{\mathrm{align}}.
+\end{equation}
+
+\section{Experiments}
+\label{sec:experiments}
+
+\subsection{Experimental Setup}
+\label{subsec:exp_setup}
+
+We conduct experiments on the nuScenes dataset~\cite{caesar2020nuscenes} using the MagicDrive-STDiT3 backbone.
+We use 700 scenes for training and 150 scenes for evaluation.
+All videos are processed at $448\times 840$ resolution per camera, and each clip contains $T{=}16$ frames.
+We compare RiskMV-DPO with MagicDriveV2~\cite{gao2025magicdrivev2}, DriveDreamer-2~\cite{zhao2024drivedreamer2}, and Panacea~\cite{wen2024panacea}, and also report ablations of our components.
+
+
+We report eight metrics that cover visual fidelity, temporal quality, and multi-view geometry consistency.
+FID measures overall visual quality, and FVD measures temporal coherence.
+We evaluate 3D realism using mAP from a pretrained 3D detector applied to generated videos.
+To assess multi-view consistency, we report MV-SSIM computed on overlapping regions between adjacent cameras.
+For geometry accuracy, we report Depth AbsRel using VGGT-predicted depth against reference depth.
+We further report Foreground FID (Fg-FID) on cropped foreground objects and DINO-FID in DINO feature space for semantic fidelity.
+
+We initialize from the MagicDriveV2 checkpoint~\cite{gao2025magicdrivev2} and train for 20{,}000 steps with AdamW.
+We use a learning rate of $2\times 10^{-5}$ and batch size 2 per GPU on 8 GPUs.
+We adopt BF16 training and an EMA model with decay $\gamma{=}0.9999$.
+The trainable parameters include the VGGT geometry adapter ($\sim$45M), the GAM module ($\sim$12M), and the motion-mask generator ($<1$M), totaling $\sim$58M trainable parameters on top of a $\sim$2.5B diffusion backbone.
+All experiments are run on NVIDIA H800-90GB GPUs. 
+
+\begin{table}[t]
+\centering
+\small
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{lccc}
+\toprule
+Method & FID$\downarrow$ & FVD$\downarrow$ & mAP$\uparrow$ \\
+\midrule
+DriveDreamer-2 & 25.00 & 105.10 & -- \\
+Panacea & 16.96 & 139.00 & -- \\
+MagicDriveV2 & 20.91 & 94.84 & 18.17 \\
+\textbf{RiskMV-DPO (ours)} & \textbf{15.70} & \textbf{87.65} & \textbf{30.50} \\
+\bottomrule
+\end{tabular}
+\caption{Comparison with representative driving video generators on nuScenes.}
+\label{tab:main_results}
+\end{table}
+
+\begin{table*}[t]
+\centering
+\small
+\setlength{\tabcolsep}{6pt}
+\begin{tabular}{lcccccc}
+\toprule
+Configuration & FID$\downarrow$ & FVD$\downarrow$ & MV-SSIM$\uparrow$ & Depth AbsRel$\downarrow$ & Fg-FID$\downarrow$ & DINO-FID$\downarrow$ \\
+\midrule
+(A) Baseline & 20.91 & 94.84 & 0.812 & 0.250 & 35.0 & 28.4 \\
+(B) + Random Mask DPO & 20.91 & 93.01 & 0.818 & 0.243 & 33.6 & 27.9 \\
+(C) + Motion-Aware Mask & 19.42 & 91.67 & 0.825 & 0.236 & 32.1 & 27.4 \\
+(D) + 3D MV Mask & 19.33 & 89.51 & 0.841 & 0.228 & 31.0 & 26.8 \\
+(E) + VGGT-GAM (no Align) & 16.79 & 88.70 & 0.848 & 0.205 & 30.2 & 26.3 \\
+\textbf{(F) RiskMV-DPO (ours)} & \textbf{15.70} & \textbf{87.65} & \textbf{0.856} & \textbf{0.204} & \textbf{29.5} & \textbf{25.8} \\
+\bottomrule
+\end{tabular}
+\caption{Ablation study on nuScenes.}
+\label{tab:ablation}
+\end{table*}
+
+
+\subsection{Main Results}
+\label{subsec:main_results}
+
+After extensive experiments, we find that the trajectories and 3D bounding boxes generated under a specified risk control lead to synthesized scenarios whose measured risk closely matches the target value. Due to space limitations, we omit the detailed analysis here.
+
+Table~\ref{tab:main_results} reports quantitative results on nuScenes.
+RiskMV-DPO achieves consistent improvements over MagicDriveV2.
+It reduces FID from 20.91 to 15.70 and improves FVD from 94.84 to 87.65, indicating better visual fidelity and temporal coherence.
+It also substantially improves 3D detection mAP from 18.17 to 30.50, suggesting that the generated videos contain more realistic and geometrically consistent 3D cues.
+Compared with other recent methods, RiskMV-DPO improves over DriveDreamer-2 (FID 25.00 $\rightarrow$ 15.70) and Panacea (FID 16.96 $\rightarrow$ 15.70).
+
+
+\subsection{Ablation Study}
+\label{subsec:ablation}
+
+Table~\ref{tab:ablation} evaluates the contribution of the key components in our framework.
+Starting from the baseline (A), introducing Random Mask DPO (B) slightly improves temporal quality and geometric consistency, but leaves FID unchanged.
+Replacing random masks with motion-aware masks (C) yields a clearer gain, improving FID (20.91 $\rightarrow$ 19.42) and MV-SSIM (0.812 $\rightarrow$ 0.825), indicating that focusing training on dynamic regions provides more informative localized preference signals.
+Using a 3D multi-view mask (D) further strengthens cross-view consistency, improving MV-SSIM to 0.841 and reducing Depth AbsRel to 0.228.
+
+Next, adding VGGT-GAM without alignment (E) substantially improves geometric accuracy, reducing Depth AbsRel from 0.228 to 0.205, which validates the benefit of injecting geometry priors.
+Finally, enabling the geometry-appearance alignment loss (F) achieves the best overall performance, with FID 15.70, MV-SSIM 0.856, and Depth AbsRel 0.204.
+
+\begin{figure*}[t]
+    \centering
+    \begin{minipage}[t]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/Picturehigh.png}
+        \vspace{-1mm}
+        \subcaption{0.95 quantile (higher risk)}
+        \label{fig:qual_risk_high}
+    \end{minipage}\hfill
+    \begin{minipage}[t]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/Picturemid.png}
+        \vspace{-1mm}
+        \subcaption{0.8 quantile (medium risk)}
+        \label{fig:qual_risk_mid}
+    \end{minipage}\hfill
+    \begin{minipage}[t]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/Picturelow.png}
+        \vspace{-1mm}
+        \subcaption{0.2 quantile (lower risk)}
+        \label{fig:qual_risk_low}
+    \end{minipage}
+    \caption{Qualitative examples generated by RiskMV-DPO at different target risk quantiles.
+    The quantiles indicate the relative position of the induced risk coefficient among all generated scenarios.
+    (a) Higher risk: an unsignalized intersection with a fast left-turning heavy truck at very close distance under partial occlusion.
+    (b) Medium risk: the same interaction with slower turning and larger clearance, reducing near-collision risk.
+    (c) Lower risk: a common straight-driving scenario with no immediate conflict.}
+    \label{fig:qual_risk_levels}
+\end{figure*}
+
+\subsection{Qualitative Visualization Across Risk Levels}
+\label{subsec:qual_risk_levels}
+Figure~\ref{fig:qual_risk_levels} shows qualitative examples generated by RiskMV-DPO at different target risk levels. 
+Due to space limitations, we show three representative views (front-left, front, and front-right) and visualize a 7-frame clip by sampling one frame every 5 frames. 
+As shown in Fig.~\ref{fig:qual_risk_levels}(a), the higher-quantile scenario depicts the ego vehicle going straight through an unsignalized intersection while encountering a fast left-turning heavy truck at very close distance under partial occlusion, resulting in an imminent collision risk.
+In the same scene, the medium-quantile example in Fig.~\ref{fig:qual_risk_levels}(b) shows the truck turning more slowly and keeping a larger clearance to the ego vehicle, which reduces the near-collision risk.
+The lower-quantile case in Fig.~\ref{fig:qual_risk_levels}(c) corresponds to a common straight-driving pattern with no immediate conflict, leading to a low estimated risk.
+
+We note that \emph{high}, \emph{medium}, and \emph{low} risk do not have a strict boundary in our setting.
+Instead, the reported quantiles indicate the relative position of the induced risk coefficient among all generated scenarios, where 0.95, 0.8, and 0.2 correspond to higher, medium, and lower portions of the risk distribution, respectively, which is apparent on the provided examples. Code and additional qualitative results (including videos) are available at \url{https://github.com/venshow-w/RiskMV-DPO}.
+
+\section{Conclusion and Limitations}
+
+In this paper, we present RiskMV-DPO, a general and systematic pipeline for physically-informed, risk-controllable multi-view driving scenario generation. It transforms driving risk from an after-the-fact label into an actionable control signal that guides scene generation. By coupling risk-conditioned motion synthesis with diffusion-based multi-view video generation, the framework produces temporally coherent driving scenes consistent with specified risk levels. Experimental results on the nuScenes dataset demonstrate that RiskMV-DPO achieves state-of-the-art performance, notably improving 3D detection mAP to 30.50 and reducing FID to 15.70. More broadly, our work highlights the potential of integrating risk-aware modeling with generative world simulation for safety-oriented development of autonomous driving systems.
+
+Despite these results, several limitations remain. While the proposed risk modeling framework captures a range of typical traffic interactions, many potential risk patterns in complex real-world environments remain underexplored. Besides, the overall performance depends on the quality of trajectories and 3D bounding boxes produced by the risk control module. Improving the robustness and generality of risk-conditioned motion generation is an important direction for future research.
+
+
+\bibliographystyle{unsrtnat}
+\bibliography{references}
+\end{document}

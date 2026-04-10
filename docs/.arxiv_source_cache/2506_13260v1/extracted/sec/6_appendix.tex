@@ -1,0 +1,224 @@
+\appendix
+
+% \section{World Models with End-to-End Driving}
+% There are a large number of papers that integrate end-to-end driving into the design of the world model, mainly as a generator, with few practice for evaluators.
+
+
+\section{Technical Appendices and Supplementary Material}
+% Technical appendices with additional results, figures, graphs and proofs may be submitted with the paper submission before the full submission deadline (see above), or as a separate PDF in the ZIP file below before the supplementary material deadline. There is no page limit for the technical appendices.
+
+
+
+% \subsection{Broader Impacts}\label{sec:impact}
+% Our work proposes a generative occupancy world model with scene-centric forecasting as control, achieving state-of-the-art occupancy generation performance under multiple settings. 
+% This advancement leads to safer understanding, forecasting, generation and simulation of the driving scenes, which are crucial for real-world applications of autonomous driving (AD). 
+% Consequently, the most significant positive impact of our work is the enhancement of safety in AD systems.
+
+% However, the biggest negative societal impact of this work, as with any component of AD systems, is the safety concern. 
+% Autonomous driving systems are directly related to human lives, and erroneous or hallucinating predictions or generation can lead to hazardous understanding of the driving environment.
+% Therefore, increasing the accuracy of occupancy generation to address false generation and illusions will require substantial follow-up efforts.
+
+
+
+
+% \subsection{Licenses for involved assets}\label{sec:license}
+
+% The project code is built on top of the codebase\footnote[1]{\url{https://github.com/gusongen/DOME}} provided by DOME~\cite{dome}, which is subject to the Apache License Version 2.0.
+% Our experiments are conducted on the Occ3D-nuScenes~\cite{occ3d} which provides occupancy labels for the nuScenes dataset~\cite{nuscenes}.
+% Occ3D-nuScenes is licensed under the MIT license, and nuScenes is licensed under the CC BY-NC-SA 4.0 license.
+
+\subsection{Discussion on the Design Philosophy of External Occupancy ControlNet}
+
+In this paper, we use a direct concatenation method for pose and BEV layout control, while we employ an external ControlNet for controlling scene-centric forecasting. We propose some explanations of the design philosophy.
+
+Most importantly, We hope to remain the original generation capabilities of the occupancy world model unchanged. ControlNet only provides additional guidance to enhance the original world model, while direct concatenation makes the scene-centric forecasting an indispensable component for generation. This will downgrade the capability of the world model to a completion or inpainting model that inpaints future invisible voxels with the context of visible voxels. On the other hand, the model easily learns shortcut that outputs forecasting results directly on visible voxels. This shortcut learning may greatly hurt the multi-modal nature of both the generative model and the forecasting task. In contrast, ControlNet may be added to certain regions of the space or certain frames on the sequences, with user-defined masks and enjoy greater flexibility.
+
+Moreover, poses (in the form of waypoints $[x,y,yaw]$) and bev layouts (in the form of semantic maps) are low-dimension conditions that empirically fit direct concatenation while occupancy sequences latents are high-dimension conditions that empirically fit external ControlNet. Training ControlNet usually needs smaller data scale than training the original world model. We plan to validate the effect of data scale with Occ3D-Waymo\cite{occ3d,waymo} dataset with more occupancy data for future research.
+
+\begin{figure*}
+    \centering
+    \includegraphics[width=1.0\textwidth]{fig/come_vis_pose_control.pdf}
+    \caption{Visualization examples demonstrate the pose control alignment ability of \mtd{} generation. For different driving commands such as Go Straight, Turn Left and Turn Right, \mtd{} well follows the pose control and generate similar scenarios compared to ground-truth.}
+    \vspace{-3mm}
+    \label{fig:come_vis_pose_control}
+\end{figure*}
+
+\begin{figure*}
+    \centering
+    \includegraphics[width=1.0\textwidth]{fig/come_vis_with_bev_layout.pdf}
+    \caption{Visualization examples of occupancy generation with BEV layouts. \mtd{} generates occupancy sequences that well follows the BEV layout control.}
+    \vspace{-3mm}
+    \label{fig:come_vis_bev_layout}
+\end{figure*}
+
+\begin{figure*}
+    \centering
+    \includegraphics[width=1.0\textwidth]{fig/come_vis_example2.pdf}
+    \caption{Visualization examples demonstrate the spatiotemporal consistency of differnet stages in \mtd{} for generating static environments. During the 8-second long generation process, \mtd{} world model mistakenly links drivable areas as intersections with the main street, but under the guidance of scene-centric forecasting, \mtd{} maintains the background consistency of road structures during generation.
+    }
+    \vspace{-3mm}
+    \label{fig:come_vis_world_model_controlnet}
+\end{figure*}
+
+\begin{figure*}
+    \centering
+    \includegraphics[width=1.0\textwidth]{fig/come_vis_sensor_input.pdf}
+    \caption{Visualization examples that takes 3D-Occ, vision-based BEVDet and fusion-based EFFOcc as occupancy sequences input.}
+    \vspace{-3mm}
+    \label{fig:come_vis_sensor_input}
+\end{figure*}
+
+\begin{figure*}
+    \centering
+    \includegraphics[width=1.0\textwidth]{fig/come_vis_masking_strategy.pdf}
+    \caption{Visualization examples that uses different masking strategies during training and inference. Models with invisibility masks generally achieve much better qualitative results results.}
+    \vspace{-3mm}
+    \label{fig:come_vis_mask_strategy}
+\end{figure*}
+
+\begin{figure*}
+    \centering
+    \includegraphics[width=1.0\textwidth]{fig/come_vis_small_models.pdf}
+    \caption{Visualization examples that uses small models. In this right turning example, the small model shows accurate pose control and good scene completion results.}
+    \vspace{-3mm}
+    \label{fig:come_vis_small_models}
+\end{figure*}
+
+\begin{figure*}
+    \centering
+    \includegraphics[width=1.0\textwidth]{fig/come_vis_rollout.pdf}
+    \caption{Visualization examples that uses repeated roll-out to generate super-long scenarios (20 second) with free trajectories.}
+    \vspace{-3mm}
+    \label{fig:come_vis_rollout}
+\end{figure*}
+
+
+
+\subsection{Discussion on Evaluation Metrics under End-to-end Planning Setting}\label{sec:discuss_eval}
+Early autoregressive world models\cite{occworld, occllama} generates both future waypoints and future occupancy sequences at the predicted waypoints' coordinate at the same time. The evaluation between generated occupancies and ground-truth occupancies couples the similarity between the planning trajectory and the expert trajectory, and the similarity of generation. Our ablation experiment illustrates that both the translation error of the trajectory and the yaw angle error of the trajectory can greatly reduce the final IoU metric.
+
+In order to factor out the influence of trajectory quality from the generation evaluation, we propose to reset the origin of the ground-truth occupancy according to the rotation matrix of the planning trajectory, and then evaluate the difference between the generated occupation and the ground-truth occupation. In this setting, we demonstrate that the generation performs similarly well when conditioned by the planning trajectory. 
+
+
+\subsection{More Implementation Details}\label{app:imp_detail}
+\subsubsection{Environment Setup}
+The proposed algorithm runs in the python3.9 and torch2.5.1 environment and is expected to be compatible with the torch2.x environment. The environment needs to have mmcv 2.x and mmdet3d 1.1.x installed, and it is basically the same as the environment configuration scheme of OccWorld\cite{occworld} and DOME\cite{dome}. We use AdamW optimizer for all experiments.
+
+\subsubsection{Networks Setup}
+\textbf{Continuous VAE}
+We use the same VAE with DOME\cite{dome} which consists of a 2D encoder and a 3D decoder. The class embedder has the expansion of $8$. The VAE has the compression ratio of $64$. The encoder downsampling and decoder upsampling ratios are set as $[1,2,4,8]$. The base channel is set as $64$. The number of residual blocks is $2$. The attention resolution is $50$. The shapes of intermediate feature maps are $[[200, 200], [100, 100], [50, 50], [25, 25]]$.
+
+
+
+\textbf{Scene-centric forecasting}
+The class embedder has the expansion of $32$.
+We use UNet with five-stage encoder and decoder. The encoder downsampling and decoder upsampling ratios are set as $[1,2,4,8,16]$ and the channel dimensions are $256,512,1024,1024,1024$ for each downsampling stride. The base channel is set as $256$. The number of temporal convolutional layers is set as $2$. We use InterpConv for upsampling operations.
+
+\textbf{\mtd{} world model and ControlNet} We have two model sizes. By default, we use the model size similar to DiT-XL. The number of attention head is set as $12$, the hidden size is set as $768$. The number of layers (also named depth of world model) is set as $28$. We also set a smaller model. The number of attention head is set as $6$, the hidden size is set as $384$. The number of layers is set as $12$. The mlp\_ratio is set as 4. The patch size is set as 1. The topk is set as 10. For different size of world models, corresponding controlnet has half of the depth of the world model and uses the same parameters in each block. 
+
+\textbf{Network statistics.} The following statistics is tested with the standard task of generation future three second occupancy sequences with four-frame occupancy history. The scene-centric forecasting module has 27.31 M parameters and 737.76 GFLOPs. The base world model has 362.31M parameters and 1375.38 GLOPS. The base ControlNet has 158.49M parameters and 691.23 GLOPS. The base world model has 45.83M parameters and 147.85 GLOPS. The base ControlNet has 17.27M parameters and 74.86 GLOPS. 
+
+
+\subsubsection{Running Parameters Setup}
+\textbf{Diffusion parameters.} We use DDPM\cite{ddpm} as the default diffuser. By default, we use 1000 denoising steps for training and 20 denoising steps for inference. We also find in the ablation that 10 denoising steps for inference only very slightly drops the final performance. The guidance scale is set as $7.5$. If the historical frame number is 4, the conditional frames in training may be $[],[0],[0,1],[0,1,2],[0,1,2,3]$ and the conditional frames in inference is $[0,1,2,3]$. The possibility of using pose as condition in training is set as $0.9$.
+
+
+\subsubsection{Optional Inputs}
+\textbf{Sensor Inputs.} For vision track, we use the officially released checkpoint of BEVDet\cite{bevdet}, BEVStereo, with Swin Transformer\cite{swin} base and image size $512\times1408$ as input and 1 historical frames, achieves 3D occupancy prediction mIou of $42.45$. For LiDAR-camera fusion track, we use the officially released checkpoint of EFFOcc\cite{effocc}. EFFOcc, with Swin Transformer\cite{swin} base and image size $512\times1408$ as input, achieves 3D occupancy prediction mIou of $54.08$. As 3D occupancy models are trained with camera mask on nuScenes dataset, we also use camera mask during occupancy generation evalaution.
+
+\textbf{Planning trajectory Input}
+\mtd{} does not strongly bind the world model to planning, instead, \mtd{} is controlled by the ego future trajectory as input. To compare with other world models with planning, we train a unsupervised simple imitation learning planning framework built upon BEV-Planner\cite{bev-planner}. The planning module takes multi-view images as sensor input and outputs six waypoints including 2d translation and relative yaw angle compared to the current frame. The only supervision is the expert trajectory with ground-truth yaw angles. The planning module has an 3-s average L2 error of $0.48m$ under BEV-Planner open-loop metric. 
+
+The vast majority of planning algorithms are centered around the current coordinate of the ego vehicle, without including past or future perspectives, so more complicated planning modules can be placed as downstream or a parallel heads which integrates with the scene-centric forecasting module. In this way, planning trajectories can be integrated as control conditions into the generative model and theControlNet. We leave better planning modules considering scene-centric forecasting as future research.
+
+\textbf{BEV Layout Input} The pre-processing for BEV layouts are the same as UniScene\cite{uniscene}. 3D bounding boxes of annotated objects are splatted to the BEV plane. The static layouts are computed with polygons of the high-definition maps. 
+
+% In order to compare with other methods that generate trajectories and occupy trajectories at the same time, in addition to inputting the truth trajectories, we can also realize the self-driving decision under the fixed perspective of the current frame coordinate system.
+
+% We find that in the past, only 3D-Occ was used as the end-to-end decision network for the context of the contextual information, which led to the suboptimal open-loop decision-making effect, because the image itself has rich semantic and textural information, so the original image needs to be used for decision-making.
+
+\subsection{More Quantitative Results}\label{sec:more_results}
+
+\begin{table}[t]
+    \newcommand{\graycell}{\cellcolor{gray!30}}
+    \setlength{\tabcolsep}{0.007\linewidth}
+    \caption{\textbf{Long-term 4D occupancy generation performance.} 
+    Ground-truth 3D occupancy and trajectories are used as inputs. 
+    The best results are highlighted in bold. 
+    ``Avg." denotes the average performance over the 1 second to 8 second horizon.
+    }       
+    \label{tab:compare_long}
+    \centering
+    \small
+    \begin{tabular}{l|cccccccc|c}
+        \toprule
+        \multirow{2}{*}{Method} &             
+        \multicolumn{9}{c}{mIoU (\%) $\uparrow$} \\
+        &  1s & 2s & 3s & 4s & 5s & 6s & 7s & 8s & \graycell  Avg. \\
+        \midrule
+        DOME~\cite{dome}    & 30.10 & 21.35  & 17.36 & 14.86 & 12.61    & 11.03 & 10.00 & 9.34  &\graycell 15.83  \\
+        \mtd{ (Ours)}      &   \textbf{33.78}  &  \textbf{24.57}    &  \textbf{21.35} & \textbf{18.25} & \textbf{15.84}   & \textbf{13.85} & \textbf{12.99} & \textbf{11.96} &\graycell {\textbf{19.07}} \\ \midrule            
+        \multirow{2}{*}{Method} & 
+        \multicolumn{9}{c}{IoU (\%) $\uparrow$}  \\
+        & 1s & 2s & 3s & 4s & 5s & 6s & 7s & 8s & \graycell Avg. \\ \midrule
+        DOME~\cite{dome}       & 39.04 & 31.20 & 27.14 &  24.73 & 22.32  & 20.28 & 19.05 & 17.97 & \graycell  25.21 \\
+        \mtd{ (Ours)}     &   \textbf{44.20}  &  \textbf{36.25}    &  \textbf{32.86} & \textbf{30.03} & \textbf{26.93}   & \textbf{24.70} & \textbf{23.30} & \textbf{21.44} &\graycell {\textbf{29.96}}  \\ 
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+
+
+\subsubsection{Long-term Occupancy Generation}
+The ability to generate long-term predictions is crucial for world models, particularly in the context of autonomous driving. 
+To evaluate this capability, we extend the prediction horizon from 3 seconds to 8 seconds and present the results in \cref{tab:compare_long}. 
+Our method, \mtd{}, consistently outperforms baselines across all timestamps and on average, for both mIoU and IoU metrics. 
+Specifically, \mtd{} achieves average mIoU and IoU scores of 19.07 and 29.96, surpassing DOME by 20.5\% and 18.8\% respectively.
+
+\subsubsection{Generation with Different Masking Strategies}
+\cref{tab:ablate_masking_strategy} demonstrates how masking strategies affect the final quantitative results. We find that model without any masking performs the best mIoU and IoU metrics, but it has a strong tendency to generate invisible areas as free. On the other hand, the model with masked control has much better visualization performance, but the quantitative results are lower than model without masking. In the main paper, we use model with masked control by default.
+
+We find the possible reason for the formation of a trend that opposes quantitative results and qualitative results, is that the deductions for incorrect generation of invisible areas (generated content that does not match the true value) are higher for non-generation of invisible areas (where all areas that need to be generated are left blank) under the existing metrics.
+
+We also try with different masking strategies. We test perform masks on conditions before \mtd{} ControlNet, but the qualitative results are also as poor as models without masking, so we do not use this strategy. We test with random dropout of masking in training stage, this operation helps better visualization quality but decreases the quantitative results. Finally, we find the best practice to balance quantitative results and qualitative results, that is to use a fixed invisibility mask on control features after \mtd{} ControlNet both in training and inference stages. As a result, we report this model and its variants in the main paper.
+
+\begin{table}[t]{}
+        \centering
+        \newcommand{\graycell}{\cellcolor{gray!30}}
+        \caption{Results on \mtd{} with different control masking strategies.}
+        \begin{tabular}{l|cccc|cccc}
+        \toprule            
+        \multirow{2}{*}{Masking Strategy}  &
+        \multicolumn{4}{c|}{mIoU (\%) $\uparrow$} & 
+        \multicolumn{4}{c}{IoU (\%) $\uparrow$} \\
+         &  1s & 2s & 3s & \graycell  Avg. & 1s & 2s & 3s & \graycell Avg. \\\midrule
+            No Mask & 38.33  & 35.05 & 29.90 & \graycell {36.19}  & 51.67 & 45.32 & 40.90 &\graycell {45.97} \\
+            Mask Condition & 43.25 & 34.05 & 28.82 & \graycell35.37 & 50.86& 43.78 & 39.05 & \graycell44.56 \\
+            Random Dropout & 40.32 & 30.55 & 36.69 & \graycell 31.97 & 48.78 & 41.78 & 25.04 & \graycell42.42 \\
+            Mask Control & 42.75 & 32.97 & 26.98 & \graycell 34.23 & 50.57 & 43.47 & 38.36 & \graycell 44.13 \\
+            \bottomrule
+        \end{tabular}
+        \label{tab:ablate_masking_strategy}
+    \end{table}
+
+\subsection{More Visualizations}\label{sec:more_vis}
+
+We show more visualization results including the generation results with different driving commands and future trajectories\cref{fig:come_vis_pose_control}, with BEV layouts as input (\cref{fig:come_vis_bev_layout}), comparison between results across stages (\cref{fig:come_vis_world_model_controlnet}), comparison between different sensor inputs (\cref{fig:come_vis_sensor_input}), comparison between different masking strategies (\cref{fig:come_vis_mask_strategy}), visualization with small models (\cref{fig:come_vis_small_models}), super-long occupancy video generation (\cref{fig:come_vis_rollout}).
+
+\cref{fig:come_vis_pose_control} demonstrates that \mtd{} can well align occupancy generation results with different driving commands (turn left, turn right, go straight) and pose control. The accurate pose control credits to the explicit transformation modelling guidance from scene-centric forecasting.
+
+\cref{fig:come_vis_bev_layout} demonstrates that \mtd{} can well align occupancy generation results with BEV layouts as condition.
+
+\cref{fig:come_vis_world_model_controlnet} demonstrates an example of how scene-centric forecasting helps ego-centric generation. With \mtd{} world model ego-centric generation alone, after a long generation time, a new path appears at the roadside where there is originally a separating strip, forming an intersection, which is inconsistent with previous observations. The scene-centric forecasting easily learns the static nature of the scenario. With scene-centric forecasting as control, \mtd{} ControlNet generates correct road structures and avoid the inconsistency caused by \mtd{} world model.
+
+\cref{fig:come_vis_sensor_input} demonstrates that the generation from sensor inputs are similarly well for the same scene. When the 3D occupancy quality is better, the generation results are also better.
+
+\cref{fig:come_vis_mask_strategy} compares the generation results with different masking strategies. If we add full-space control regions, the model has an increasing tendency of generation invisible areas as free. If we mask control features on invisible areas (\mtd{}-Mask Invisible), the generation results are more satisfactory on most cases. We find that the performance of the visualization is not always consistent with the quality of the metric, which may be due to the fact that the metric was too restrictive. Specifically, when we mask the control of unseen areas, it is very reasonable to have free generation of unseen areas, but the reported metrics decrease because it is very likely that free generation is not the same as the truth value. If we exert control over the whole world, there is a higher tendency to set the unseen area to free, which in turn improves the quantitative results.
+
+
+\cref{fig:come_vis_small_models} shows an example that the smaller model achieves equally good generation results with ControlNet. The ego vehicle is turning at a large angle. The small world model has limited generation quality. However, with ControlNet, the small \mtd{} demonstrates better pose control and satisfactory generation results. 
+
+\cref{fig:come_vis_rollout} shows some examples that the model roll-outs several times to generate super-long videos. This roll-out mechanism is similar to DOME\cite{dome} except that we use \mtd{} ControlNet for the first roll and use \mtd{} world model without ControlNet for the next rolls. This shows the fleixibility of our framework with and without ControlNet guidance at the same time. 
+
+
+

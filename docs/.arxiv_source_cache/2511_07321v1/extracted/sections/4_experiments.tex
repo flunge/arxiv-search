@@ -1,0 +1,118 @@
+
+\vspace{-1mm}
+\section{Experiments}
+\vspace{-3mm}
+
+\subsection{Experimental Setup}
+\vspace{-3mm}
+
+\input{tables/nvs_dl3dv}
+
+\boldparagraph{Datasets}
+We train on RealEstate10K (RE10K)~\citep{re10k} and DL3DV~\citep{acid} using the official splits. RE10K consists of indoor real-estate videos (67,477 train / 7,289 test). DL3DV~\citep{dl3dv} contains 10,000 outdoor videos, 140 for testing.
+For evaluation on RE10K, we keep test sequences with $\geq200$ frames (1,580 sequences) and use 6 context views due to the smaller scene scale. On DL3DV, we test with $(6,12,24)$ input views and maximum frame gaps $(50,100,150)$.
+For generalization, we evaluate the DL3DV-trained model on ScanNet++~\citep{scannetpp} by sampling $(32,64,128)$ views per sequence with a fixed target view. Inputs are selected by farthest point sampling over camera centers; 8 views are randomly held out as validation.
+
+\boldparagraph{Implementation Details}
+\ourmethod~is implemented using PyTorch. The encoder employs the DINOv2 Large model~\citep{dinov2} with 24 attention layers, and the decoder consists of 18 alternating-attention layers.
+The parameters of the backbone, Gaussian center head, and camera pose head are initialized from $\pi^3$~\citep{pi3}, while the remaining layers are initialized randomly. 
+During training, we randomly select the number of input views between 2 and 32 views and sample 4 target views.
+We train models at two different resolutions, $224\times224$ and $280\times518$. The $224\times224$ model is trained on 16 GH200 GPUs for 150k steps with a batch size of 2 for each, while the $280\times518$ model is initialized from the pretrained $224\times224$ weights and further trained on 32 GH200 GPUs for another 150k steps with a batch size of 1.
+
+
+\boldparagraph{Evaluation Metrics}
+For the novel view synthesis task, we evaluate with the commonly used metrics: PSNR, SSIM, and LPIPS. 
+For pose estimation, we report the area under the cumulative angular pose error curve (AUC) thresholded at 5$^\circ$, 10$^\circ$, and 20$^\circ$~\citep{superglue, roma}. 
+
+\boldparagraph{Baselines}
+We compare against SOTA representative sparse-view generalizable methods on novel view synthesis:
+1) \emph{Optimization-based}: InstantSplat~\citep{instantsplat};
+2) \emph{Pose-dependent}: MVSplat~\citep{mvsplat}, DepthSplat~\citep{depthsplat};
+3) \emph{Pose-free}: NoPoSplat~\citep{noposplat} and AnySplat~\citep{anysplat}.
+For relative pose estimation, we compare against SOTA methods: MASt3R~\citep{mast3r}, VGGT~\citep{vggt}, and $\pi^3$~\citep{pi3}.
+
+
+\vspace{-5mm}
+\begin{table*}[!t]
+    \begin{minipage}[b]{0.48\textwidth} %
+        \centering
+        \resizebox{\linewidth}{!}{%
+            \begin{tabular}{lcc|ccc}
+                \toprule
+                Method & $\boldsymbol{p}$ & $\boldsymbol{k}$ & PSNR $\uparrow$ & SSIM $\uparrow$ & LPIPS $\downarrow$ \\
+                \midrule
+                DepthSplat    & \checkmark & \checkmark & 24.156 & 0.846 & 0.145 \\
+                NoPoSplat     &            & \checkmark & 22.175 & 0.750 & 0.207 \\
+                \rowcolor{gray!10}
+                \textbf{Ours} & \checkmark & \checkmark & 25.037 & 0.848 & 0.134 \\
+                \rowcolor{gray!10}
+                \textbf{Ours} &            & \checkmark & \textbf{25.395} & \textbf{0.857} & \textbf{0.131} \\
+                \rowcolor{gray!10}
+                \textbf{Ours} &            &            & 24.571 & 0.823 & 0.144 \\
+                \bottomrule
+            \end{tabular}
+        }
+        \captionof{table}{\textbf{NVS comparison on the RE10k dataset (6 input views) under different prior settings.} Our model consistently achieves the best performance.}
+        \label{tab:nvs_re10k}
+    \end{minipage}
+    \hfill
+    \begin{minipage}[b]{0.48\textwidth} %
+        \centering
+        \includegraphics[width=0.95\linewidth]{images/nvs_re10k_noInput.pdf}
+        \vspace{-3mm}
+        \captionof{figure}{\textbf{Qualitative comparison on RealEstate10K~\cite{re10k}}. Our \textit{pose-free, calibration-free} method enables a more coherent fusion of multi-view contents.}
+        \label{fig:nvs_re10k}
+    \end{minipage}
+\vspace{-1mm}
+\end{table*}
+
+
+\begin{figure}[tp]
+    \centering
+    \vspace{-2mm}
+    \includegraphics[width=0.9\linewidth, trim={0mm 0cm 0 0cm},clip]{images/scannetpp.pdf}
+    \vspace{-3mm}
+    \caption{\textbf{Qualitative comparison on ScanNet++}. YoNoSplat generalizes well to ScanNet++ and demonstrates more coherent fusion of Gaussians across different views compared to AnySplat. Moreover, adding more inputs leads to better rendering quality, as more information is provided.}
+    \vspace{-6mm}
+    \label{fig:nvs_scannetpp}
+\end{figure}
+\input{tables/nvs_scannetpp}
+
+\input{tables/pose_more}
+\input{tables/ablation_pose_source}
+
+
+
+\vspace{0mm}
+\subsection{Experimental Results and Analysis}
+\vspace{-2mm}
+
+\boldparagraph{Novel View Synthesis}
+To evaluate our method on complex real-world scenes, we test it on DL3DV with varying numbers of input views, scene scales, and input priors. As shown in Table~\ref{tab:nvs_dl3dv}, our model consistently outperforms previous SOTA approaches. Notably, \ourmethod{} surpasses leading pose-free methods like NoPoSplat and AnySplat by a substantial margin. More strikingly, even in the most challenging \textit{pose-free, intrinsic-free} setting, our model outperforms the SOTA \textit{pose-dependent} method, DepthSplat, across all view counts. This highlights our model's ability to learn powerful priors that compensate for the lack of ground-truth camera information. Qualitatively, Fig.~\ref{fig:nvs_dl3dv} shows that our reconstructions have better cross-view consistency, avoiding the artifacts and inaccurate geometry seen in baselines.
+The results in Table~\ref{tab:nvs_dl3dv} also reveal that as the number of input views and scene scale increase (e.g., 12 and 24 views), providing ground-truth extrinsics can further improve performance, acknowledging the inherent difficulty of pose estimation in large-scale environments. Furthermore, a fast, optional post-optimization of the predicted Gaussians and poses yields additional performance gains. On the indoor RealEstate10K dataset (Table~\ref{tab:nvs_re10k}), our 6-view model continues this trend, outperforming both pose-free and pose-dependent SOTA methods, as shown qualitatively in Fig.~\ref{fig:nvs_re10k}.
+
+We recommend that readers watch our \textit{\underline{supplementary videos}} for more results.
+
+\boldparagraph{Cross-Dataset Generalization}
+To assess generalizability, we train YoNoSplat on the DL3DV dataset and evaluate it on ScanNet++ without fine-tuning. We compare against AnySplat, which is trained on ScanNet++. As shown in Tab,~\ref{tab:nvs_scannetpp}, our model significantly outperforms this baseline across all metrics and view counts, despite AnySplat's training-domain advantage. 
+It is worth noting that our performance consistently improves as more input views are provided, demonstrating our model's ability to effectively integrate additional information.
+The qualitative results in Fig.~\ref{fig:nvs_scannetpp} corroborate this, showing YoNoSplat produces significantly sharper and more coherent reconstructions, demonstrating a better fusion of information across different views. In contrast, the renderings from AnySplat appear blurrier and contain more noticeable artifacts. 
+These findings highlight our model's robust ability to generalize to novel datasets not seen during training.
+
+
+\boldparagraph{Camera Pose Estimation}
+As shown in Tab.~\ref{tab:pose_more}, our model with small resolution input ($224\times 224$) already achieves the best performance compared to state-of-the-art methods, while our model with large input resolution ($518\times 280$) obtains the best performance compared to other state-of-the-art approaches. Moreover, we evaluate our model trained on DL3DV but tested on RealEstate10K (indicated as DL3DV$\rightarrow$RE10K in Tab.~\ref{tab:pose_more}), ensuring that none of the methods are trained on the RealEstate10K dataset. The results demonstrate that our method generalizes well and outperforms all baselines, highlighting that training with a rendering loss also benefits pose estimation.
+
+\vspace{-1mm}
+\subsection{Ablation Studies}
+\vspace{-2mm}
+For this ablation, we train the model with only 6 input views for faster training, without compromising generalizability. As a result, the performance is slightly better compared with Tab.~\ref{fig:nvs_re10k}.
+
+\boldparagraph{Effectiveness of the Mix-Forcing Strategy}
+We compare \emph{mix-forcing} with pure \emph{teacher-forcing} (ground-truth poses) and \emph{self-forcing} (predicted poses). As shown in Table~\ref{tab:ablation_pose_source}, self-forcing performs worst in both settings, confirming that entangled pose–geometry learning causes instability. Teacher-forcing excels with ground-truth poses but drops under pose-free evaluation due to exposure bias. Mix-forcing balances these trade-offs, achieving the best pose-free results while remaining competitive in the pose-dependent case, yielding a more robust and versatile model.
+
+
+
+
+\boldparagraph{Importance of Scene Normalization}
+As discussed in Sec.~\ref{sec:scale}, scene normalization is essential for training on datasets with poses that are only defined up-to-scale. Tab.~\ref{tab:ablation_norm} demonstrates this empirically. Without any normalization, the model's performance is severely degraded. We compare our chosen strategy, normalizing by the maximum pairwise distance between camera centers, against two alternatives: normalizing by the mean pairwise distance and by the maximum camera translation from the origin. The results clearly indicate that max pairwise distance normalization yields the best performance. This is because it provides a consistent and robust scale reference for camera translations that aligns directly with the relative pose supervision loss used during training.

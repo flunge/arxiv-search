@@ -1,0 +1,217 @@
+\section{Method}
+
+
+\subsection{Preliminaries}
+
+Feedforward 3D Gaussian Splatting (3DGS) methods aim to regress a set of 3D Gaussians directly from sparse multi-view images.
+Unlike optimization-based approaches that iteratively refine Gaussians, feedforward methods predict all Gaussian parameters in a single forward pass.
+% Unlike optimization-based approaches which refine Gaussians over time using photometric losses, feedforward methods learn a deterministic mapping from input images to Gaussian parameters in a single pass.
+Given a collection of $V$ input images $\{I^v\}_{v=1}^{V}$ with corresponding camera intrinsics $\{\mathbf{k}^v\}_{v=1}^{V}$ and poses $\{\mathbf{T}^v\}_{v=1}^{V}$,
+% their associated camera intrinsics $\{\mathbf{k}^v\}_{v=1}^{V}$, and the camera poses $\{\mathbf{T}^v\}_{v=1}^{V}$, 
+the network $f_\theta$ predicts Gaussian parameters for each pixel as:
+
+\begin{equation}
+f_\theta : \{(I^v, \mathbf{k}^v, \mathbf{T}^v)\}_{v=1}^{V} \mapsto \left\{ \bigcup_{j=1}^{H \times W} \left(\boldsymbol{\mu}_j^v, \boldsymbol{\alpha}_j^v, \mathbf{r}_j^v, \mathbf{s}_j^v, \mathbf{c}_j^v\right) \right\}_{v=1}^{V},
+\end{equation}
+
+where $\boldsymbol{\mu}_j^v$ denotes the 3D position, $\boldsymbol{\alpha}_j^v$ the opacity, $\mathbf{r}_j^v$ the rotation, $\mathbf{s}_j^v$ the scale, and $\mathbf{c}_j^v$ the spherical harmonics of the $j$-th Gaussian generated from the $v$-th view. 
+% The feasibility of such models lies in the observation that even under sparse-view conditions, image features extracted by modern backbones (e.g., ViTs~\cite{ranftl2021vision,zhang2022dino,wang2024dust3r}) encode sufficient local geometric cues for direct 3D reasoning. 
+The feasibility of such models arises from the observation that, even with sparse-view conditions, image features extracted by modern backbones (e.g., ViTs~\cite{ranftl2021vision,zhang2022dino,wang2024dust3r}) retain sufficient local geometric cues for direct 3D reasoning. When combined with the camera intrinsics, these features can be projected into 3D space and assigned accurate Gaussian attributes, enabling end-to-end training via differentiable rasterization and photometric reconstruction loss. 
+% TODO: 是否放到related work里，还是留在这里当insight
+% However, existing feedforward 3DGS methods suffer from intrinsic limitations. Predicted Gaussians often collapse into isotropic shapes, leading to inconsistent geometry and poor surface detail. Moreover, per-pixel regression ignores cross-pixel consistency and spatial priors such as surface continuity, resulting in incoherent surfaces under challenging conditions. To address these issues, we propose SurfSplat that incorporates a surface continuity prior and forced alpha blending to enhance reconstruction quality.
+
+% Despite their simplicity and efficiency, existing feedforward 3DGS methods face several intrinsic limitations. Most notably, the predicted Gaussians tend to degenerate into nearly isotropic shapes, resulting in inconsistent geometry and insufficient surface detail. Furthermore, because each pixel is processed independently during inference, the network lacks awareness of local structure and fails to capture crucial spatial priors such as surface continuity and planar alignment. Parameters like rotation and scale are typically regressed per pixel without enforcing cross-pixel consistency, making it difficult to recover coherent surfaces or preserve geometric fidelity under challenging conditions.
+
+
+% Careful examination of rendered Gaussian fields reveals that these limitations are not fundamental to the feedforward paradigm but rather stem from a lack of internal structure modeling. In practice, many scene regions correspond to large, smooth surfaces with consistent orientations and gradual changes in scale. These patterns imply strong local regularities that can act as valuable inductive biases during learning. We argue that explicitly incorporating such structural priors into the network design is key to improving geometric expressiveness while maintaining photometric quality, and serves as the starting point for the method we introduce next.
+
+
+
+\subsection{Model Architecture}
+\vspace{-10pt}
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=1\linewidth]{images/model_new.pdf}
+  \caption{\textbf{Illustration for model architecture.} Given sparse input images, our dual-path encoder processes them through both single-view and multi-view branches. The fused features are passed through a U-Net to predict intermediate attributes, including depth, scale multipliers, and appearance components. Finally, these intermediates are converted into standard Gaussian attributes using our surface continuity prior and forced alpha blending strategy.}
+  \label{fig:model}
+\end{figure}
+\vspace{-5pt}
+% TODO: 为什么要single和multi 加一句话 待定
+% To aggregate both single-view and multi-view information, we adopt a dual-path strategy for feature generation.  
+In the context of feedforward 3D Gaussian Splatting (3DGS), multi-view cues are essential for  enforcing geometric consistency across views, while single-view priors offer guidance in regions with missing textures or insufficient correspondences. To integrate these complementary sources effectively, we adopt a dual-path for feature extraction within our model architecture.
+% Multi-view cues are essential for enforcing geometric alignment across views, while single-view priors provide critical guidance in regions with missing textures or insufficient correspondences. To effectively combine these complementary sources of information, we adopt a dual-path strategy for feature generation.
+In the \textbf{single-view branch}, we leverage a pretrained monocular depth backbone. Specifically, we use the Depth Anything V2 model~\cite{yang2024depth}, and bilinearly upsample its output features to the target spatial resolution. In the \textbf{multi-view branch}, input images are first converted into low-resolution feature maps, which are then processed by multiple layers of self- and cross-attention~\cite{vaswani2017attention,liu2021swin} to extract inter-view correspondences. The fused features are subsequently used to construct cost volumes~\cite{chen2024mvsplat} across views via the plane-sweep stereo approach~\cite{collins1996space,xu2023unifying}, which serve as the output of the multi-view branch. The final feature representation is obtained by concatenating the single-view and multi-view features. 
+
+The combined feature is fed into a 2D U-Net~\cite{ronneberger2015u,rombach2022high} to regress the Gaussian Splatting (GS) attributes, including depth, scale multipliers, higher-order spherical harmonics components, and opacity. These outputs are upsampled to full resolution using a DPT head~\cite{ranftl2021vision} and further processed with our surface continuity prior and forced alpha-blending techniques to produce the final standard Gaussian attributes. Technical details are provided in Appendix~\ref{encoder}.
+
+% The combined feature is then fed into a 2D U-Net~\cite{ronneberger2015u,rombach2022high} to regress the Gaussian Splatting (GS) attributes. The U-Net outputs are then upsampled to full resolution using a DPT head~\cite{ranftl2021vision}. 
+% We provide technical details in our Appendix~\ref{encoder} .
+% Specifically, the direct output of the U-Net includes depth, scale multipliers, higher-order components of spherical harmonics, and opacity. These predicted parameters are then processed with our surface continuity prior and forced alpha-blending techniques to produce the final standard Gaussian attributes.
+
+\subsection{Surface Continuity Prior}
+
+% \begin{figure}[ht]
+%   \centering
+%   \includegraphics[width=1\linewidth]{images/transformation.pdf}
+%   \caption{\textbf{Illustration for Gaussian processor.} We visualize how image-space neighboring pixels are transformed into Gaussians aligned on a continuous surface via the surface continuity prior.  
+%   To prevent opacity collapse and preserve 3D alignment, we apply a forced alpha-blending strategy that reduces opacities, ensuring that spatially occluded Gaussians still contribute during rendering.}
+%   \label{fig:transformation}
+% \end{figure}
+
+Existing feedforward 3DGS methods often produce incoherent and discontinuous surfaces. This stems from the fact that learnable Gaussian primitives struggle to decouple geometry and texture attributes when trained solely through gradient-based supervision. A closer inspection of rendered results reveals biased color assignments, surface discontinuities, and voids. While these primitives may collectively produce visually plausible images under common rendering settings, the underlying 3D assets remain structurally flawed and fall short of the fidelity required for high-quality 3D generation.
+
+% TODO: 加一句话说之前的方法为什么会incoherent，discontinuous，后面加了一句话看看行不行
+% To address the issues of incoherent and discontinuous surfaces in existing feedforward 3DGS methods,
+To address these issues, we start by an observation: \textbf{most visible geometry in real-world scenes consists of smooth, continuous surfaces}.
+% A fundamental observation in real-world scenes is that most visible geometry consists of smooth, continuous surfaces. 
+This motivates the introduction of a \textbf{\textit{surface continuity prior}}, which assumes that spatially adjacent surfels on a coherent 3D surface generally correspond to neighboring pixels in the image. 
+Guided by this prior, Gaussians are expected to exhibit correlated geometric attributes. Specifically, the rotation and scale of each Gaussian should be strongly aligned with the positions of its neighboring Gaussians.
+% Under this prior, Gaussians are expected to exhibit correlated geometric attributes—specifically, the rotation and scale of a Gaussian should be strongly correlated with the positions of its neighbors.
+We consider the image-space neighborhood around a pixel at \( (h, w) \), whose associated Gaussian has a 3D position \( \mathbf{p}_0 \in \mathbb{R}^3 \), with neighboring positions \( \{ \mathbf{p}_i \}_{i=1}^k \). Following the standard COLMAP coordinate convention, where the camera frame has \( x \) pointing right, \( y \) downward, and \( z \) inward, we assume that the default (unrotated) surface normal aligns with the canonical vector \( \mathbf{n}_0 = (0, 0, 1)^\top \).
+The initial rotation \( \mathbf{R}_0 \in SO(3) \) is set to the identity matrix, which corresponds to the quaternion \( (1, 0, 0, 0) \).
+% and the initial rotation \( \mathbf{R}_0 \in SO(3) \) is the identity matrix, corresponding to the quaternion \( (1, 0, 0, 0) \).
+
+To estimate the local surface orientation, we apply rightward and downward Sobel filters over the $3 \times 3$ neighborhood around \( \mathbf{p}_0 \), obtaining two virtual neighbors, \( \mathbf{p}_1 \) and \( \mathbf{p}_2 \). These neighbors define two tangent vectors:
+
+\begin{equation}
+\mathbf{t}_1, \mathbf{t}_2 = \mathbf{p}_1-\mathbf{p}_0, \quad \mathbf{p}_2-\mathbf{p}_0.
+\end{equation}
+
+Although \( \mathbf{t}_1 \) and \( \mathbf{t}_2 \) are not guaranteed to be orthogonal in world space, 
+% their projections are orthogonal in the image plane.
+their projections onto the image plane are orthogonal.
+The local surface normal \( \mathbf{n} \in \mathbb{R}^3 \) is then computed as their cross product:
+
+\begin{equation}
+\mathbf{n} = \frac{\mathbf{t}_1 \times \mathbf{t}_2}{\| \mathbf{t}_1 \times \mathbf{t}_2 \|}.
+\end{equation}
+
+Given this target normal \( \mathbf{n} \), the corresponding rotation matrix \( \mathbf{R} \in SO(3) \) that aligns \( \mathbf{n}_0 \) with \( \mathbf{n} \) can be computed using Rodrigues’ rotation formula:
+% TODO: 加引用？
+% 1816年提出，无直接文章可以引用，要不就放着？还是找个教科书？
+% fix 不引用了
+
+\begin{equation}
+\mathbf{R} = \mathbf{I} + [\mathbf{v}]_\times + \frac{1 - c}{\| \mathbf{v} \|^2} [\mathbf{v}]_\times^2,
+\end{equation}
+
+where \( \mathbf{v} = \mathbf{n}_0 \times \mathbf{n} \), \( c = \mathbf{n}_0^\top \mathbf{n} \), and \( [\mathbf{v}]_\times \) denotes the skew-symmetric matrix of \( \mathbf{v} \). This rotation aligns the canonical frame with the estimated local surface, giving the updated surfel rotation:
+
+\begin{equation}
+\mathbf{R}_{\text{surf}} = \mathbf{R} \mathbf{R}_0 = \mathbf{R}.
+\end{equation}
+
+\begin{wrapfigure}{l}{0.6\linewidth}
+    \vspace{-10pt}
+    \includegraphics[width=\linewidth]{images/transformation_new.pdf}
+    \captionsetup{belowskip=-15pt}
+    \caption{\textbf{Illustration for Gaussian processor.} We visualize how image-space neighboring pixels are transformed into Gaussians aligned on a continuous surface via the surface continuity prior. To prevent opacity collapse and preserve 3D alignment, we apply a forced alpha-blending strategy that reduces opacities, ensuring that spatially occluded Gaussians still contribute during rendering.}
+    \vspace{-5pt}
+    \label{fig:transformation}
+\end{wrapfigure}
+
+
+To define anisotropic scale \( \mathbf{S} = \text{diag}(\sigma_u, \sigma_v, \sigma_w) \), we compute the variance of projected neighboring points along the rotated tangent axes \( \mathbf{t}_u, \mathbf{t}_v \). Since we employ 2D Gaussian splats, the scale along the depth axis \( \sigma_w \) is fixed to zero. 
+To account for screen-space deformation,
+let \( \mathbf{W} \in \mathbb{R}^{4 \times 4} \) denote the transformation matrix from world space to screen space, and let \( \mathbf{J} \) represent the Jacobian of the affine approximation of the projective transformation:
+\begin{align}
+\boldsymbol{\Sigma} &= \mathbf{R} \mathbf{S} \mathbf{S}^\top \mathbf{R}^\top, \\
+\boldsymbol{\Sigma}^{\prime} &= \mathbf{J} \mathbf{W} \boldsymbol{\Sigma} \mathbf{W}^\top \mathbf{J}^\top,
+\end{align}
+where \( \boldsymbol{\Sigma}^{\prime} \) corresponds to a unit circle in the image plane, as in feedforward methods each GS corresponds one-to-one with an image pixel and its projection always covers a single pixel.
+
+
+% \begin{equation}
+% \boldsymbol{\Sigma}^{\prime} = \mathbf{J} \mathbf{W} \boldsymbol{\Sigma} \mathbf{W}^\top \mathbf{J}^\top,
+% \end{equation}
+
+% \begin{equation}
+% \boldsymbol{\Sigma} = \mathbf{R} \mathbf{S} \mathbf{S}^\top \mathbf{R}^\top.
+% \end{equation}
+
+% In feedforward methods, each GS corresponds one-to-one with an image pixel, so its projection always covers a single pixel—i.e., \( \boldsymbol{\Sigma}^{\prime} \) corresponds to a unit circle in the image plane.
+
+% TODO: highlight一下?  
+However, \textbf{inverting the projection matrix to estimate scale often yields unstable values that hinder convergence.} To address this, we adopt a coarse scale estimate based on image-space distances between neighboring pixels:
+
+\begin{equation}
+\bar{\sigma}_u^2, \bar{\sigma}_v^2 = \mathbf{t}_{1x}^2 + \mathbf{t}_{1z}^2, \quad \mathbf{t}_{2y}^2 + \mathbf{t}_{2z}^2.
+\end{equation}
+
+We then use the neural network to predict scale multipliers \( \hat{\sigma}_u, \hat{\sigma}_v \), which are constrained to lie within \( \left[\frac{1}{3}, 3\right] \). The final scales are then computed as:
+
+\begin{equation}
+\sigma_u = \bar{\sigma}_u \hat{\sigma}_u, \quad \sigma_v = \bar{\sigma}_v \hat{\sigma}_v.
+\end{equation}
+% This formulation provides a geometry-aware initialization of 2D Gaussian splats in 3D space, ensuring that their orientation and shape remain consistent with surface continuity. 
+% Rather than regressing Gaussian attributes directly,
+With this design, instead of directly regressing Gaussian attributes,
+our method derives them from predicted 3D positions, guided by a physically grounded constraint to ensure spatial consistency. This formulation provides a geometry-aware initialization of 2D Gaussian splats in 3D space, ensuring that their orientation and shape remain consistent with surface continuity. 
+
+
+
+
+\subsection{Forced Alpha Blending}
+
+While the surface continuity prior imposes effective local geometric constraints for continuous 3D reconstruction, we observe that it can lead to suboptimal local minima during training. Specifically, the model tends to learn highly opaque Gaussians, where individual splats saturate the pixel opacity. This behavior rapidly boosts image quality for near-input viewpoints, but under the alpha-blending rendering rule, occluded Gaussians contribute minimally to the output:
+
+\begin{align}
+    C = \sum_{i \in \mathcal{N}} c_i \alpha_i \prod_{j=1}^{i-1} (1 - \alpha_j), \quad 
+    \alpha = \sum_{i \in \mathcal{N}} \alpha_i \prod_{j=1}^{i-1} (1 - \alpha_j).
+\end{align}
+% \begin{equation}
+% C = \sum_{i \in \mathcal{N}} c_i \alpha_i \prod_{j=1}^{i-1} (1 - \alpha_j),
+% \end{equation}
+% \begin{equation}
+% \alpha = \sum_{i \in \mathcal{N}} \alpha_i \prod_{j=1}^{i-1} (1 - \alpha_j),
+% \end{equation}
+
+As a result, deeper Gaussians in the rendering order are effectively ignored, which impairs the model’s ability to learn 3D structure and maintain alignment.
+
+To address this, we propose a \textbf{\textit{forced alpha blending}} strategy that explicitly constrains each Gaussian’s opacity. We clip the predicted opacity using an upper bound $\tau_{\text{opa}} < 1$, ensuring that all Gaussians contribute to the rendering regardless of their depth order. This preserves both the model's multi-layer expressiveness and its 3D alignment capabilities.
+To further improve the reliability of spherical harmonics (SH)-based color estimation under enforced blending, we apply two adjustments. First, we initialize the RGB color directly into the DC component of the SH basis. Second, 
+We normalize the rendered output $C$ to compensate for transparency, since the final alpha holds $\alpha < 1$ by design:
+% because the final alpha $\alpha < 1$ by construction, we normalize the rendered output $C$ to compensate for transparency:
+
+\begin{equation}
+C = 
+\begin{cases}
+C, & \alpha < \tau_\alpha, \\
+\dfrac{C}{\alpha}, & \alpha \geq \tau_\alpha,
+\end{cases}
+\end{equation}
+
+\noindent
+where $\tau_\alpha$ is a stability threshold to avoid amplifying noise in regions with very low transparency. This correction allows the model to produce unbiased and stable renderings, while maintaining accurate 3D alignment in sparse-view scenarios.
+
+
+\subsection{Training Loss}
+
+Our training loss is an image-level loss computed directly between the rendered image and the ground-truth image. We use a combination of mean squared error (MSE) and perceptual similarity (LPIPS):
+
+\begin{equation}
+L_{\mathrm{gs}} = \sum_{m=1}^{M} \left( 
+\operatorname{MSE}\left(I_{\mathrm{render}}^m, I_{\mathrm{gt}}^m\right) 
++ \lambda \cdot \operatorname{LPIPS}\left(I_{\mathrm{render}}^m, I_{\mathrm{gt}}^m\right) 
+\right),
+\end{equation}
+
+\noindent
+where $M$ denotes the batch size. The weight $\lambda$ is set to 0.05, following prior works~\cite{charatan2024pixelsplat,chen2024mvsplat,xu2024depthsplat}.
+
+
+\subsection{High-Resolution Rendering Consistency (HRRC)}
+
+% To more accurately assess the geometric fidelity of reconstructed 3D scenes, 
+To better evaluate the geometric fidelity of reconstructed 3D scenes,
+we propose a novel evaluation metric: \textbf{High-Resolution Rendering Consistency (HRRC)}.
+
+Conventional metrics—such as PSNR, SSIM, and LPIPS—are typically computed at the same resolution as the input images (e.g., $256 \times 256$). However, these metrics often fail to reveal geometric inaccuracies or sparsity-induced artifacts, which may be hidden at lower resolutions but become apparent under high-frequency sampling.
+
+To address this limitation, we render each reconstructed scene at a higher resolution (e.g., $2\times$ or $4\times$ the original), resulting in an output $\hat{I}^{HR}$. We compare this against a bicubic-upsampled version of the ground truth image, denoted $\hat{I}^{GT\uparrow}$, and compute standard quality metrics:
+
+\begin{equation}
+\mathrm{HRRC}_{\text{metric}} = \operatorname{metric}(\hat{I}^{HR}, \hat{I}^{GT\uparrow}) \quad \text{where metric} \in \{\mathrm{PSNR}, \mathrm{SSIM}, \mathrm{LPIPS}\}.
+\end{equation}
+
+HRRC can effectively expose geometric flaws such as sparsity-induced holes, degenerate Gaussian shapes (e.g., overly isotropic splats), and discontinuities in unobserved regions. A higher HRRC score indicates stronger spatial generalization and more accurate 3D reconstruction. This makes HRRC particularly useful for distinguishing models that merely memorize sparse views from those that truly recover 3D geometry.

@@ -1,0 +1,398 @@
+\section{Method}
+\label{sec:method}
+In this section, we introduce \textbf{ICO-GS}, a sparse-view reconstruction approach 
+that enforces intrinsic consistency by coupling geometric regularization with 
+appearance optimization. 
+The overall framework is illustrated in \cref{fig:framework}. 
+We first analyze the geometry-appearance discrepancy phenomenon under sparse-view 
+settings (\cref{subsec:motivation}), then elaborate our robust geometric 
+regularization (\cref{subsec:geometry}) and geometry-guided appearance 
+optimization (\cref{subsec:appearance}). 
+The complete optimization pipeline is described in \cref{subsec:optimization}.
+
+
+
+\subsection{Motivation}
+\label{subsec:motivation}
+
+\begin{figure}[t]
+  \vspace{-0.3cm}
+  \begin{center}
+     \includegraphics[trim={0cm 0cm 0cm 0cm},clip,width=1.0\linewidth]{figures/sparse2dense.pdf}
+  \end{center}
+  \vspace{-0.8cm}
+  % \caption{ \textbf{Motivation.} }
+  \caption{\textbf{Geometry-appearance discrepancy under sparse-view settings.}
+  From top to bottom: RGB on training views, depth on training views, and RGB on test 
+  views, rendered by 3D Gaussian Splatting~\cite{kerbl20233d} with varying training 
+  view densities. With decreasing views, training-view appearance (top) remains 
+  well-fitted, but depth quality (middle) collapses with noise and floaters
+  due to insufficient multi-view constraints. This geometry-appearance discrepancy 
+  leads to severe artifacts in novel-view rendering (bottom).
+}
+  % \label{fig:motivation}
+  \label{fig:motivation}
+  \vspace{-0.6cm}
+  \end{figure}
+
+  Despite success in dense-view reconstruction, 3DGS~\cite{kerbl20233d} severely 
+  overfits under sparse observations. 
+  We reveal a critical \textbf{geometry-appearance discrepancy}: as view count 
+  decreases, appearance quality remains superficially high on training views while 
+  geometric accuracy collapses, causing severe artifacts on novel views 
+  (\cref{fig:motivation}).
+  
+  We identify two underlying deficiencies:
+  
+  \noindent\textbf{Insufficient Geometric Constraints.} 
+  In dense-view settings, each 3D point is observed by multiple cameras (typically 10+), 
+  providing strong multi-view constraints on Gaussian positions. 
+  However, with sparse views, each point is visible in only 2--3 views, leading to 
+  severe geometric ambiguity. 
+  Mathematically, the photometric loss in \cite{kerbl20233d} only constrains the 
+  \emph{projected} appearance of Gaussians, not their depth. 
+  Consequently, Gaussians can be placed at \emph{any} position along the camera ray 
+  while maintaining zero photometric error. 
+  This depth ambiguity explains the noisy geometry in \cref{fig:motivation}: without 
+  sufficient multi-view overlap, optimization lacks constraints to determine correct 
+  3D positions.
+    
+  \noindent\textbf{Unreliable Appearance-Geometry Coupling.} 
+  Moreover, the 3DGS representation does not inherently ensure geometry-appearance 
+  consistency. 
+  In principle, when a Gaussian is misplaced, the photometric loss should drive the 
+  optimizer to correct its position. 
+  However, we observe a problematic shortcut: instead of moving the Gaussian, the 
+  optimizer adjusts its color and opacity to compensate for geometric errors, which 
+  we term \emph{appearance compensation}.
+  As shown in \cref{fig:motivation}, training views achieve high PSNR despite 
+  severely incorrect geometry (noisy depth), demonstrating that appearance parameters 
+  mask geometric mistakes. 
+  This becomes particularly severe under sparse views, where weak geometric constraints 
+  enable the model to overfit through appearance manipulation rather than learning 
+  correct 3D structure.
+  
+  To address these deficiencies, we propose \textbf{ICO-GS}, which restores intrinsic 
+  consistency by coupling robust geometric regularization (\cref{subsec:geometry}) 
+  with geometry-guided appearance optimization (\cref{subsec:appearance}). 
+  These components work synergistically to promote both geometry and appearance.
+  
+
+
+\subsection{Robust Geometric Regularization}
+\label{subsec:geometry}
+% ===== 开头：呼应前面的分析 =====
+As identified in \cref{subsec:motivation}, sparse-view 3DGS suffers from insufficient geometric constraints. 
+BinocularGS~\cite{han2024binocular} attempts to address this by enforcing stereo consistency via depth-warped virtual views. 
+However, this approach suffers from a fundamental circular dependency: unreliable depth produces misaligned virtual views, which in turn provide corrupted supervision that further degrades geometry.
+
+We break this loop via \emph{robust geometry regularization}, which warps pixels between training views according to rendered depth and penalizes inconsistencies. 
+To handle illumination variations and occlusions that undermine naïve photometric matching, we introduce robust multi-view photometric consistency (\cref{subsubsec:mpc}) enhanced with edge-aware depth smoothness (\cref{subsubsec:smooth}).
+
+
+
+
+
+
+\subsubsection{Multi-view Photometric Consistency}
+\label{subsubsec:mpc}
+
+% \noindent\textbf{Multi-view Photometric Consistency.}
+Given $n$ sparse training views $\{I_i\}_{i=0}^{n-1}$, our goal is to regularize the rendered Gaussian depths $\{D_i\}_{i=0}^{n-1}$ via multi-view photometric consistency.
+Take one reference view $I_{\text{0}}$ and its corresponding source views $\{I_j\}_{j=1}^{n-1}$ for example, we first render the depth map $D_{\text{0}}$ via alpha-blending rendering. 
+Then for each pixel $p$ in the reference image $I_{\text{0}}$, its corresponding pixel $p'_{j}$ in the source images $\{I_j\}_{j=1}^{n-1}$ can be computed via:
+\begin{equation}
+  \vspace{-0.2cm}
+  \label{eq:inverse_warp} 
+    p'_{j} = KT_{0 \rightarrow j}(D_{0}(p) \cdot K^{-1} p),    
+  % \vspace{-0.3cm}
+\end{equation}
+where $K, T$ denote the associated intrinsic and the relative transformation.
+We enforce inverse warp from the source views to reference views to acquire the reconstructed reference images
+$\{I_{j \rightarrow 0} \}_{j=1}^{n-1}$ with a binary validity mask $\{M_j\}_{j=1}^{n-1}$ indicating valid  projected pixels during warping. 
+For ideal unoccluded Lambertian surfaces, pixels  in $\{ I_0, \{I_{j \rightarrow 0} \}_{j=1}^{n-1}  \}$ should be photometrically consistent. 
+The multi-view photometric loss enforces this:
+\begin{equation}
+  \vspace{-0.2cm}
+\label{eq:mpc_rgb}
+% \mathcal{L}_{\text{mpc}}^{\text{RGB}} 
+L = \frac{1}{n-1} \sum_{j=1}^{n-1}  \frac  {\left\| (I_{j \rightarrow 0} - I_{\text{0}}) \odot M_j  \right\|_1} {\left\|  M_j \right\|_1}.
+\end{equation}
+
+
+
+
+  % However, this formulation assumes constant lighting across views, which 
+% is often violated in practice.
+% ===== Illumination-robust Feature Matching =====
+\noindent\textbf{Illumination-robust Feature Matching.}
+Equation~\ref{eq:mpc_rgb} relies on RGB consistency, which is fragile to 
+lighting variations, shadows, and specular reflections common in real scenes. 
+To achieve robust geometric supervision, we replace it with feature-based matching using a frozen pre-trained feature network in~\cite{gu2020cascade}:
+\begin{equation}
+\label{eq:mpc_feat}
+\vspace{-0.2cm}
+% \mathcal{L}_{\text{mpc}}^{\text{Fea}} 
+L = \frac{1}{n-1} \sum_{j=1}^{n-1}  \frac  {\left\| \frac{1}{2}\left(1 - \cos(\mathcal{F}_{\text{0}}, \mathcal{F}_{j \rightarrow 0 } ) \right) \odot M_j  \right\|_1} {\left\|  M_j \right\|_1},
+\end{equation}
+where $\mathcal{F}_{\text{0}}$ and ${ \mathcal{F}_{j \rightarrow 0 } }$ are features extracted from the reference view and features warped from source views $j$ to the reference view $0$. 
+Since features are computed once during preprocessing and remain frozen during training, this incurs negligible computational overhead while significantly improving robustness to illumination changes.
+
+
+% ===== Occlusion-aware Regularization =====
+\noindent\textbf{Occlusion-aware Photometric Consistency.}
+Occlusions cause photometric consistency to \textbf{fail} even with accurate depth. 
+We address this via \emph{pixel-wise top-k selection}, which adaptively chooses the most reliable correspondences from visible source views.
+For each reference pixel $p$, we identify the top-$k$ most consistent correspondences across all warped source features $\{  \mathcal{F}_{j \rightarrow 0 }  \}_{j=1}^{n-1}$:
+% \begin{equation}
+% \mathcal{T}_k(p) = \underset{S \subset \{1,\ldots,n-1\}, |S|=k}{\arg\min} 
+%     \sum_{j \in S} \left\|    \frac{1}{2}\left(1 - \cos(\mathcal{F}_{\text{0}}, \mathcal{F}_{j \rightarrow 0 } )   \right\|_1.
+% \end{equation}
+\begin{equation}
+  \begin{aligned}
+  \mathcal{T}_k(p) = \underset{\substack{S \subset \{1,\ldots,n-1\} \\ |S|=k}}{\arg\min} 
+      \sum_{j \in S} \left\| \frac{1}{2}\left(1 - \cos(\mathcal{F}_{\text{0}}(p), \mathcal{F}_{j \rightarrow 0}(p))  \right) \right\|_1.
+  \end{aligned}
+  \end{equation}
+This reformulates \cref{eq:mpc_feat} as an adaptive aggregation over $\mathcal{T}_k(p)$:
+\begin{equation}
+\label{eq:mpc_final}
+\mathcal{L}_{\text{mpc}}^{\text{Fea}}(p) = \frac{1}{k} \sum_{j \in \mathcal{T}_k(p)} \left\| \frac{1}{2} \left(1 - \cos(\mathcal{F}_{\text{0}}(p), \mathcal{F}_{j \rightarrow 0}(p)) \right) \right\|_1.
+\end{equation}
+This pixel-wise selection naturally handles spatially-varying occlusions: for pixels occluded in half the views, the remaining visible views still provide valid supervision. 
+Setting $k = \lceil (n-1)/2 \rceil$ balances coverage and outlier rejection.
+
+
+\subsubsection{Edge-aware Depth Smoothness.}
+\label{subsubsec:smooth}
+
+% ===== Edge-aware Smoothness =====
+% \noindent\textbf{Edge-aware Depth Smoothness.}
+In regions visible from only one views, multi-view photometric consistency fails to provide sufficient geometric constraints. 
+We therefore regularize these under-constrained areas with edge-aware depth smoothness:
+\begin{equation}
+  \vspace{-0.2cm}
+\label{eq:smooth}
+\mathcal{L}_{\text{smooth}} = \sum_{p} \left\| \nabla D_{\text{0}}(p) \right\|_1 \cdot \exp\left( -\alpha \left\| \nabla I_{\text{0}}(p) \right\|_1 \right),
+\end{equation}
+where $\nabla D$ and $\nabla I$ denote the depth and image gradients, respectively, and $\alpha=1$ controls edge sensitivity. This encourages smooth depth in textureless regions while preserving discontinuities at object boundaries.
+
+By enforcing geometric consistency through this robust regularization, our 
+method significantly improves novel view synthesis quality in weakly-textured regions—
+areas where 3D Gaussian Splatting typically struggles due to insufficient photometric 
+constraints.
+The geometric regularization provides reliable supervision even when 
+appearance cues are ambiguous.
+
+
+
+
+
+
+
+
+
+
+\subsection{Geometry-guided Appearance Optimization }
+\label{subsec:appearance}
+We propose to leverage regularized geometry for appearance optimization through 
+virtual-view sampling. 
+Existing methods~\cite{zhu2024fsgs,li2024dngaussian,xu2024mvpgs,han2024binocular} 
+render virtual novel views to mitigate texture under-constraint in sparse settings, 
+enforcing regularization via monocular or binocular depth consistency.
+Yet they 
+are limited by: scale ambiguity in monocular depth~\cite{zhu2024fsgs,li2024dngaussian}, 
+noise in MVS priors~\cite{xu2024mvpgs}, and restricted diversity with inaccurate 
+rendered depth~\cite{han2024binocular}.
+
+We instead utilize our regularized Gaussian geometry to enable flexible, reliable 
+virtual-view supervision. Our approach comprises: cycle-consistency 
+filtering to identify valid depth regions (\cref{sec:depth_filter}), and 
+appearance supervision via virtual-view photometric consistency over these 
+validated regions (\cref{sec:reliable_synthesis}).
+
+% However, they suffer from key limitations: monocular depth contains scale ambiguity~\cite{zhu2024fsgs,li2024dngaussian}, imprefect pre-trained MVS introduces inevitable noise~\cite{xu2024mvpgs}, and stereo pairs provide limited diversity and suffers inaccurate depth~\cite{han2024binocular}.
+% In contrast, we leverage the regularized depth maps rendered from the Gaussian geometry to construct valid supervision with more flexible virtual view sampling.
+% This consists of two stages: (\romannumeral1) cycle consistency depth filtering that identifies trustworthy regions (\cref{sec:depth_filter}), 
+% and (\romannumeral2) virtual-view appearance supervision via virtual-view photometric consistency from valid regions (\cref{sec:reliable_synthesis}).
+
+
+% Naively warping training 
+% images using rendered depth—as in prior work~\cite{han2024binocular}—suffers 
+% from a circular dependency: unreliable depth produces misaligned virtual views, 
+% which provide corrupted supervision that further degrades geometry. 
+% We address 
+% this by restricting it to \emph{geometrically reliable} regions 
+% validated through cycle consistency filtering. 
+
+
+% This ensures that 
+% the synthesized virtual parts are coherent with true scene appearance, providing clean 
+% supervision without introducing artifacts.
+
+% Our pipeline consists of two stages: (\romannumeral1) cycle consistency depth filtering that identifies trustworthy regions (\cref{sec:depth_filter}), 
+% and (\romannumeral2) flexible view synthesis that generates virtual views 
+% from valid regions (\cref{sec:reliable_synthesis}).
+
+
+
+
+
+
+
+
+% ===== 3.3.1 Depth Reliability Filtering =====
+\subsubsection{Cycle Consistency Depth Filtering}
+\label{sec:depth_filter}
+To ensure geometry reliability, we validate rendered depth through cycle-consistency filtering before synthesizing virtual views.
+Given a reference view $I_{\text{0}}$, source views $\{I_j\}_{j=1}^{n-1}$, camera 
+intrinsic $K$, relative transformations $\{T_{0 \rightarrow j} \}_{j=1}^{n-1}$, and rendered depth 
+maps $\{D_i\}_{i=0}^{n-1}$ from Gaussian splatting, we perform forward-backward 
+warping.
+For each pixel $p$ in $I_{\text{0}}$, we first forward warp to source 
+view $I_j$ using depth $D_0(p)$ to obtain projected pixel $p'_{j}$ (see \cref{eq:inverse_warp}). 
+We then backward warp $p'_{j}$ to $I_{\text{0}}$ using source depth $D_j(p'_{j})$ 
+to obtain reprojected pixel $p''_{j}$ and depth $\tilde{D}_j(p)$:
+\begin{equation}
+  \vspace{-0.2cm}
+\label{eq:inverse_warp_back}
+p''_j = KT^{-1}_{0 \rightarrow j}D_j(p'_{j})K^{-1}p'_{j}.
+\end{equation}
+The depth error between original and reprojected depth measures geometric consistency:
+\begin{equation}
+\label{eq:depth_error}
+\vspace{-0.2cm}
+e_j(p) = \left| D_{\text{0}}(p) - \tilde{D}_j(p) \right|.
+\end{equation}
+A pixel is reliable if its depth error falls below threshold $\tau_d$ for at 
+least $m$ of the $n-1$ source views:
+\begin{equation}
+  \vspace{-0.2cm}
+\label{eq:depth_mask}
+\mathcal{M}_{\text{reliable}}(p) = \mathbb{I}\left[ \sum_{j=1}^{n-1} \mathbb{I}[e_j(p) < \tau_d] \geq m \right],
+\end{equation}
+where $m = \lceil (n-1)/2 \rceil$ ensures consistency with at least half the 
+sources, and $\tau_d = 0.01 \cdot \max(D_{\text{0}})$. This binary mask 
+$\mathcal{M}_{\text{reliable}}$ identifies regions where rendered depth $D_0$ is 
+validated by cycle consistency, ensuring subsequent warping produces views 
+aligned with true scene structure.
+
+
+% ===== 3.3.2 Reliable View Synthesis =====
+\subsubsection{Virtual-view Photometric Consistency}
+\label{sec:reliable_synthesis}
+With reliable depth identified, we propagate accurate geometry to unseen appearances via virtual-view photometric consistency. 
+Unlike prior stereo-pair approaches~\cite{han2024binocular}, we sample virtual poses $\{\mathcal{P}_v\}_{v=1}^{N_v}$ across a wider range: for each reference position $\mathbf{x}$, we randomly sample within a sphere of radius $r$, providing sufficient viewpoint diversity.
+
+For each virtual view, we forward warp (\cref{eq:inverse_warp}) pixels from all training images $\{I_i\}_{i=0}^{n-1}$ using masked depths $\{\mathcal{M}_{\text{reliable}}^{i} \odot D_i\}_{i=0}^{n-1}$ to synthesize virtual image $\mathcal{I}_{v}$ with validity mask $M_v$, excluding unreliable regions to prevent geometric errors from contaminating supervision.
+
+
+
+\begin{table}[t]
+  \centering
+  \caption{\textbf{Quantitative comparisons on LLFF~\cite{mildenhall2019local} dataset under sparse view settings. }}
+  \label{tab:llff_results}
+  \resizebox{1.0\linewidth}{!}{
+  \begin{tabular}{l|ccc|ccc|ccc}
+  \toprule
+  \multirow{2}{*}{Methods} & \multicolumn{3}{c}{PSNR↑} & \multicolumn{3}{c}{SSIM↑} & \multicolumn{3}{c}{LPIPS↓} \\
+
+  \cmidrule{2-10}
+  & 3-view & 6-view & 9-view & 3-view & 6-view & 9-view & 3-view & 6-view & 9-view \\
+  \midrule
+  DietNeRF~\cite{jain2021dietnerf} & 14.94 & 21.75 & 24.28 & 0.370 & 0.717 & 0.801 & 0.496 & 0.248 & 0.183 \\
+  RegNeRF~\cite{niemeyer2022regnerf} & 19.08 & 23.10 & 24.86 & 0.587 & 0.760 & 0.820 & 0.336 & 0.206 & 0.161\\
+  FreeNeRF~\cite{yang2023freenerf} & 19.63 & 23.73 & 25.13 & 0.612 & 0.779 & 0.827 & 0.308 & 0.195 & 0.160 \\
+  SparseNeRF~\cite{wang2023sparsenerf} & 19.86 & 23.26 & 24.27 & 0.714 & 0.741 & 0.781 & 0.243 & 0.235 & 0.228 \\
+  % ReconFusion~\cite{wu2024reconfusion} & 21.34 & 24.25 & 25.21 & 0.724 & 0.815 & 0.848 & 0.203 & 0.152 & 0.134 \\
+  % MuRF~\cite{xu2024murf} & 21.26 & 23.54 & 24.66 & 0.722 & 0.796 & 0.836 & 0.245 & 0.199 & 0.164 \\
+  \midrule
+  3DGS~\cite{kerbl20233d} & 15.52 & 19.45 & 21.13 & 0.405 & 0.627 & 0.715 & 0.408 & 0.268 & 0.214 \\
+  FSGS~\cite{zhu2024fsgs} & 20.31 & 24.20 & 25.32 & 0.652 & 0.811 & 0.856 & 0.288 & 0.173 & 0.136 \\
+  DNGaussian~\cite{li2024dngaussian} & 19.12 & 22.18 & 23.17 & 0.591 & 0.755 & 0.788 & 0.294 & 0.198 & 0.180\\
+  CoR-GS~\cite{zhang2024cor} & 20.45 & 24.49 & 26.06 & 0.712 & 0.837 & 0.874 & 0.196 & 0.115 & \colorbox{thirdplace}{0.089} \\
+  BinocularGS~\cite{han2024binocular} & \colorbox{secondplace}{21.44} & \colorbox{thirdplace}{24.87} & 26.17 & \colorbox{secondplace}{0.751} & \colorbox{thirdplace}{0.845} & \colorbox{thirdplace}{0.877} & \colorbox{secondplace}{0.168} & \colorbox{firstplace}{0.106} & 0.090 \\
+  DropGaussians~\cite{park2025dropgaussian} & 20.76 & 24.74 & \colorbox{thirdplace}{26.21} & 0.713 & 0.837 & 0.874 & 0.200 & 0.117 & \colorbox{secondplace}{0.088} \\
+  NexusGS~\cite{zheng2025nexusgs} & 21.07 & - & - & 0.738 & - & - & \colorbox{thirdplace}{0.177} & - & - \\
+  ComapGS~\cite{jang2025comapgs} & \colorbox{thirdplace}{21.11} & \colorbox{secondplace}{25.20} & \colorbox{firstplace}{26.73} & \colorbox{thirdplace}{0.747} & \colorbox{secondplace}{0.854} & \colorbox{firstplace}{0.886} & 0.182 & \colorbox{secondplace}{0.108} & \colorbox{firstplace}{0.082} \\
+  \midrule
+  \textbf{Ours} & \colorbox{firstplace}{\textbf{22.20}} & \colorbox{firstplace}{\textbf{25.37}} & \colorbox{secondplace}{\textbf{26.45}} & \colorbox{firstplace}{\textbf{0.778}} & \colorbox{firstplace}{\textbf{0.856}} & \colorbox{secondplace}{\textbf{0.881}} & \colorbox{firstplace}{\textbf{0.157}} & \colorbox{thirdplace}{\textbf{0.109}} & {\textbf{0.096}} \\
+  \bottomrule
+  \end{tabular}
+  }
+  % \vspace{-0.2cm}
+  \end{table}
+
+
+\begin{figure*}[t]
+\vspace{-0.2cm}
+\begin{center}
+   \includegraphics[trim={2cm 0cm 2cm 0cm},clip,width=0.72\linewidth]{figures/LLFF_com.pdf}
+\end{center}
+\vspace{-1cm}
+% \caption{ \textbf{Motivation.} }
+\caption{\textbf{Visual comparison on LLFF~\cite{mildenhall2019local} dataset.}}
+% \label{fig:motivation}
+\label{fig:llffcom}
+\vspace{-0.3cm}
+\end{figure*}
+
+
+
+
+
+
+
+
+% ===== Augmented Photometric Loss =====
+\noindent\textbf{Vitural-view Photometric Consistency Loss.}
+The synthesized virtual images are incorporated into training for appearance optimization. 
+For each virtual view, we render the Gaussian to acquire the rendered virtual image $\mathcal{I}_{v}^{R}$ from the 
+virtual pose $\mathcal{P}_v$ and enforce photometric consistency on valid pixels:
+\begin{equation}
+  \vspace{-0.2cm}
+\label{eq:aug_loss}
+L_{app} = \sum_{p \in \mathcal{M}_{\text{v}}}   \left\| \mathcal{I}_{v}(p) - \mathcal{I}_{v}^{R}(p) \right\|_1.
+\end{equation}
+This serves two purposes: it provides additional observations to optimize appearance in unseen views and prevent overfitting, and conversely, it constrains geometry through supervision from novel viewpoints. 
+Critically, because virtual-view images are synthesized from reliability-filtered depth, they provide clean supervision without the geometric distortions introduced by prior methods relying on unreliable depth predictions.
+
+
+
+
+
+
+
+
+
+\subsection{Overall Pipeline}
+\label{subsec:optimization}
+We integrate geometric regularization and geometry-guided appearance 
+optimization via curriculum learning~\cite{bengio2009curriculum}.
+
+\noindent\textbf{Training Objective.} The complete loss combines four terms:
+  \begin{equation}
+    % \vspace{-0.2cm}
+    \begin{split}
+    \mathcal{L}_{\text{total}} = 
+    \mathcal{L}_{\text{3DGS}} 
+    &+ \mathcal{L}_{\text{consis}} 
+    + \lambda_{\text{mpc}} \mathcal{L}_{\text{mpc}}^{\text{Fea}} \\
+    &+ \lambda_{\text{smooth}} \mathcal{L}_{\text{smooth}} 
+    + \lambda_{\text{app}} \mathcal{L}_{\text{app}},
+    \end{split}
+    \end{equation} 
+    where $\mathcal{L}_{\text{3DGS}}$ is the base photometric loss, 
+    $\mathcal{L}_{\text{consis}}$ enforces binocular consistency inherited from the baseline~\cite{han2024binocular}, 
+    $\mathcal{L}_{\text{mpc}}^{\text{Fea}} + \lambda_{\text{smooth}}\mathcal{L}_{\text{smooth}}$ enforces geometry regularization (\cref{subsec:geometry}), 
+    and $\mathcal{L}_{\text{app}}$ optimizes appearance in unseen views (\cref{subsec:appearance}).
+
+\noindent\textbf{Optimization.}
+We employ a three-stage curriculum: Stage 1 optimizes $\mathcal{L}_{\text{3DGS}}$ to establish coarse geometry; Stage 2  activates geometric regularization $\lambda_{\text{mpc}}  \mathcal{L}_{\text{mpc}}^{\text{Fea}} + \lambda_{\text{smooth}}\mathcal{L}_{\text{smooth}}$; 
+Stage 3 adds appearance supervision $\lambda_{\text{app}} \mathcal{L}_{\text{app}}$ from virtual views. 
+This staged approach ensures stable convergence.
+
+
+
+
+

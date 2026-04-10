@@ -1,0 +1,250 @@
+\section{Experimental Result}
+\label{sec:experiment}
+This section of the paper shall focusing on the experiment that been used for evaluating the peformance of the HanoiWorld in comparison with difference baseline approachs
+
+\subsection{Experiment Description}
+
+For evaluating the HanoiWorld performance in comparison toward across difference alternatives, experiments shall be conducted within the enviroment from the HighwayEnv package provided by \cite{faramafoundation_2025_gymnasium}, these include \textit{Highway, Roundabout, Merge}, which shall be discussed in detail in subsection ~\ref{sssec:casestudy}
+
+Comparative World Model design that we choosen in designing are including the DreamerV3 proposed by \cite{Hafner2023}, the VQ-VAE + ConvLSTM based suggested by \cite{robine_2020_smaller}, and the HanoiWorld prosposed agents. The baseline model described as below:
+\begin{itemize}
+    \item The VQ-VAE encoder based with ConvLSTM planner suggested by \cite{robine_2020_smaller} is a small and discrete latent world model which aimming for efficient inference and planning on the latent space, as the inheritence on the idea of \cite{ha_2018_world}. The VQ-VAE based solution is design on 100 thoudsand episode on the game of Atari by using the Proximal Policy Optimization (PPO) algorithm prosposed by \cite{schulman_2017_proximal} for latent space planning on discrete imagined rollouts.
+    \item The DreamerV3 by \cite{Hafner2023} currently is reached State-Off-The-Art level performance with the capability of long-term hozirontal planning by the RSSMs networks, which does inspired the design of HanoiWorld by attemtps on learning the roburst, and generalizing model for enviroment agnostic, which use to predict the plausible next latent state, reward, and continuation, the model is leveraged for yielding the training signal to multi-layer-perceptron layers on reward, and values prediction based on imagined rollout, with Actor follow the REINFORCE gradient update, or hybridizing update learning signal from RSSM for robust and stable learning
+\end{itemize}
+
+For the evaluation metric, the selected metric 2 metric - the average reward (e.g score), and the collision rate as the following:
+\begin{itemize}
+
+\item \textit{The average reward/score} is the metric that \cite{ha_2018_world} used for evaluating the effeciency of the agents on planing efficency - which is the average of the reward signal across steps over episodes - which showcased with the Eq.~\eqref{eq:avg_reward}
+\item \textit{The Collision Rate} is the metric suggested by \cite{gao_2024_cardreamer} which can be estimated by the proportion of episode that ego vehicles occur the collision, which expressed with Eq.~\eqref{eq:collision_rate}
+\end{itemize}
+\begin{equation}
+\label{eq:avg_reward}
+\bar{R}
+=
+\frac{1}{N}
+\sum_{i=1}^{N}
+\sum_{t=1}^{T_i}
+r_{i,t},
+\end{equation}
+
+\noindent\textbf{Given that:}
+\begin{itemize}
+    \item $\bar{R}$ denotes the average driving reward over all evaluation episodes.
+    \item $N$ is the total number of evaluation episodes.
+    \item $i \in \{1, \dots, N\}$ indexes the episode.
+    \item $t$ indexes the time steps within an episode.
+    \item $r_{i,t}$ is the instantaneous reward received at time step $t$ in episode $i$.
+\end{itemize}
+
+\noindent\textbf{Interpretation:}
+Higher values of $\bar{R}$ indicate better driving behavior, meaning smoother control (less wobbling)
+and safer trajectories (fewer crashes).
+\begin{equation}
+\label{eq:collision_rate}
+\text{Collision Rate}
+=
+\frac{\#\,\text{collision episodes}}
+{\text{total episodes that being evaluated}}
+\end{equation}
+
+
+\subsection{Case Studies}
+% * <TRẦN TIẾN ĐẠT> 03:25:26 03 Jan 2026 UTC+0700:
+% The specific example on the enviroment that currently the team working & experimentating on
+\label{sssec:casestudy}
+
+The experiment had been conducted on the interactive enviroment for examinining the model's adaptability and generalizabilities across difference driving situations as the difference road-topology, lane merging scenarios, and navigation in the roundabout.
+
+The information and tabular desription of each scenarios are provided within the table~\ref{table:env_config}.
+
+\begin{sidewaystable}[!p]
+\centering
+\small
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{lccc}
+\hline
+\textbf{Aspect}
+& \textbf{Highway}
+& \textbf{Merge}
+& \textbf{Roundabout} \\
+\hline
+
+Task
+& \texttt{highway\_highway}
+& \texttt{highway\_merge}
+& \texttt{highway\_roundabout} \\
+
+Observation
+& RGB image ($64 \times 64$)
+& RGB image ($64 \times 64$)
+& RGB image ($64 \times 64$) \\
+
+Action space
+& Continuous
+& Discrete
+& Discrete \\
+
+Episode time limit
+& 200
+& 800
+& 800 \\
+
+Traffic setting
+& Dense straight highway
+& On-ramp merging traffic
+& Circular multi-agent traffic \\
+
+Vehicle count
+& 50
+& Environment-controlled
+& Environment-controlled \\
+
+Vehicle density
+& 1.5
+& Implicit (spawn-based)
+& Implicit (spawn-based) \\
+
+Speed target (m/s)
+& 23--27
+& 20--28
+& 8--15 \\
+
+Collision penalty
+& $-5.0$
+& $-1.0$
+& $-1.0$ \\
+
+Safe-distance shaping
+& Strong penalty (tailgating)
+& Reward + penalty
+& Reward + penalty (stronger) \\
+
+Lane-change shaping
+& Smart lane change rewarded
+& Lane changes penalized
+& Slight penalty \\
+
+Progress shaping
+& Moderate
+& Strong
+& Moderate \\
+
+Heading alignment reward
+& Yes
+& Yes
+& Yes (strong) \\
+
+Survival reward
+& -- 
+& Low
+& Moderate \\
+
+Success reward
+& 1.0
+& 0.8
+& 1.0 \\
+
+Reward shaping weight
+& 0.85
+& 0.8
+& 0.8 \\
+
+Imagination gradient
+& REINFORCE
+& REINFORCE
+& REINFORCE \\
+
+Primary behavioral objective
+& Stable high-speed driving
+& Safe and anticipatory merging
+& Social negotiation and yielding \\
+
+\hline
+\end{tabular}
+\caption{Comparison of Highway-based autonomous driving environments and their core configuration and reward-shaping characteristics.}
+\label{table:env_config}
+\end{sidewaystable}
+
+\subsubsection*{Task description on each enviroment}
+The highway-env (e.g highway-v0) - Figure~\ref{fig:highway} is designed to showcase the model's capability of controlling the vehicle's movement on multi-lane scenarioes where ego vehicle shall interact and make lane changing decision in corresponse to difference agent's (surrounding vehicles can accelerate or suddently de-accelerate, and change-lanes). The enviroment attempts to test the model's capability on maintain stablizing, and safe-driving speed, and the flexibility by making lane switch as the correspondence toward surrounding agents \cite{faramafoundation_2025_gymnasium}.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.85\linewidth]{Env-Figure/highway.png}
+    \caption{The highway-v0 Enviroment - a snapshot taken from \cite{faramafoundation_2025_gymnasium} }
+    \label{fig:highway}
+\end{figure}
+
+The merge-env (e.g merge-v0) - Figure~\ref{fig:merge}, within the simulation, the agent shall have to make the attempts on switching from 1 road-branch toward difference for addressing the lane-merging challenge, which is challenging dues to the speed controlling, and detail planning of the agent in preventing the collision during the merging process \cite{faramafoundation_2025_gymnasium}. The goal of the scenario is the model attempts understand and predicted the quick physical transition on difference agents for making appropriate merging-decision.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.85\linewidth]{Env-Figure/merge.png}
+    \caption{The roundabout-v0 Enviroment - a snapshot taken from \cite{faramafoundation_2025_gymnasium} }
+    \label{fig:merge}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.85\linewidth]{Env-Figure/roundabout.png}
+    \caption{The roundabout-v0 Enviroment - a snapshot taken from \cite{faramafoundation_2025_gymnasium} }
+    \label{fig:roundabout}
+\end{figure}
+
+The roundabout (roundabout-v0) as Figure~\ref{fig:roundabout} is the complex and realistic version of the merge-v0 where the agents have more than 1 suggestion in navigation, and the density of the navigation across each dirrection is stochastic as the prior usecases. The purpose of this situation is considered as the roburstness checking on the performance with more closer toward realistic driving  enviroment, where the ego's shall make the planning on when to navigate, stop to entering the roundabout without trggering an accident \cite{faramafoundation_2025_gymnasium}.
+
+\subsection{Experimental Procedure}
+For the baseline - both the DreamerV3, and VQ-VAE based model shall be trained within 100 thousand steps including the rolling-out for training based on the sample; while HanoiWorld dues to the larger model-structure but the RSSM-planning module are still effective in the inference - it shall be trained under 5000 steps with the prior-pretrained V-JEPA 2 with the bottleneck and spatial embedding predictor. All model world-model (except for the HanoiWorld encoder) shall be trained primitively within the Highway-env simmulation.
+
+On the evaluation phase of the experiment, difference model shall be evaluating and infered within 100 vary length episode on 3 difference enviroments, and returning the average reward/score and the overall collision rate within 100 episodes, and the result shall be record both the mean-values, and the standard deviation of the measurement across episodes.
+
+\subsection{Evaluation}
+% * <TRẦN TIẾN ĐẠT> 03:28:19 03 Jan 2026 UTC+0700:
+% Doing the comparison on the experiment results analytically (with the possible behavior of the model)
+The experiment result shall be showcased with the table~\ref{tab:collision_rate} for collision rate, and table~\ref{tab:avg_reward} for average reward scoring
+
+\begin{table}[!h]
+\centering
+\caption{Collision rate over 100 evaluation episodes (mean $\pm$ std).}
+\label{tab:collision_rate}
+\begin{tabular}{lccc}
+\hline
+\textbf{ENV} & \textbf{highway-v0} & \textbf{merge-v0} & \textbf{roundabout-v0} \\
+\hline
+DreamerV3   & $0.550 \pm 0.497$ & $0.030 \pm 0.171$ & $0.500 \pm 0.500$ \\
+VQ-VAE      & $1.000 \pm 0.000$ & $0.290 \pm 0.454$ & $0.570 \pm 0.495$ \\
+HanoiWorld & $0.200 \pm 0.400$ & $0.970 \pm 0.170$ & $0.340 \pm 0.473$ \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{table}[!h]
+\centering
+\caption{Average episode reward over 100 evaluation episodes (mean $\pm$ std).}
+\label{tab:avg_reward}
+\begin{tabular}{lccc}
+\hline
+\textbf{ENV} & \textbf{highway-v0} & \textbf{merge-v0} & \textbf{roundabout-v0} \\
+\hline
+DreamerV3   & $51.065 \pm 52.700$ & $41.973 \pm 2.896$ & $9.423 \pm 6.171$ \\
+VQ-VAE      & $3.121 \pm 12.047$  & $30.114 \pm 11.664$ & $3.826 \pm 4.643$ \\
+HanoiWorld & $13.163 \pm 23.277$ & $13.480 \pm 5.703$ & $9.818 \pm 6.252$ \\
+\hline
+\end{tabular}
+\end{table}
+
+From the perspective of the collision rate, HanoiWorld demonstrates superior performance compared to the corresponding baselines on the Highway and Roundabout environments, with average collision rates of $0.200$ and $0.340$, respectively. This outperforms DreamerV3, which exhibits mid-tier collision performance, while VQ-VAE performs worst among the evaluated methods. However, HanoiWorld reveals a notable weakness in the lane-merging scenario, where it exhibits the highest expected collision rate - while DreamerV3 show it's stronger capability of navigation in this situation with the rate of $0.030$. From the model's stability - which is expressed through the collision rate stability, our HanoiWorld does show statistical stability over domain-wise with lowest standard deviation, however these does show the signal that HanoiWorld can under poor navigation performance in merge-v0 scenario where the collision rate near to 1.
+
+Extend toward the average episode reward, the HanoiWorld only showcased it's performance competively with SOTA baselines of DreamerV3 under the roundabout-v0 enviroments with certain raise on the average reward $9.818$ with $9.423$ respectively, whereas,  the DreamerV3 still show the effectively planning efficency with the highest planning performance, with the highway-v0 show significant stable planning then merge-v0 scenarios, while the HanoiWorld performance under these 2 task is in the middle on the highway case; and poor planning in the merge-v0 simulation even with smaller parameter model as VQ-VAE baselines. 
+
+
+\subsection{Results Discussion}
+% * <TRẦN TIẾN ĐẠT> 03:30:42 03 Jan 2026 UTC+0700:
+% What you learned & observed from the results, any hypothesis on the results (why it's got poor performance, why it's acting like that) & potential future work can improving on the current results & recommendation & the current limitation of the research - link to the architecture & task structur & sciencetific claims  -> THIS IS FOR RESULT INTERPRETATION
+
+As the result been showcased, the HanoiWorld can effectively planning on the both simple (highway-v0) and complex enviroment (roundabout-v0) with the competive performance, while it's showcased such poor generalization with mordering challenging as merging - where the frequencies of collision is substantially high, while the performance on reward yielding as ones could observe is consistence across enviroment, which proof the HanoiWorld can generalizing the planning tatic across difference enviroment. However, on the merge-v0 we assume the model have the signal of reward hacking by favoring the action of collision in yeilding consistence reward across episode.
+
+In additionally, as we observe, in the case where model need to showcased the flexibility in road navigation as roundabout-v0 in lane selection, the model currently favor the safe-lane selection, which does show that our entropy based regularization for making decision is underperformed and need to be carefully studies with abalation.
+
+Even though HanoiWorld showcases competitive and worth-considering performance in the comparison with state-of-the-art baselines as DreamerV3, there are certain aspect that this studies can be addressed within the nearby future, as the more global-contextual introduction on the enviroment for gating on the affordance relationship between the enviroment and the agent's perspective by using text-conditioned language encoder as \cite{hu_2023_gaia1}, or occupancies encoder on the whole enviroment graph as the \cite{Zhao2024, vasudevan_2024_planning} for generalzing behavior; additionally the studies does not inspect the imaginary rolling out as the work for \cite{ha_2018_world} -- which can consider for later studies on checking the performance of the ego's with difference imaginary temperature for hardness controlling as the migration for reward-regularization within the latent domain.

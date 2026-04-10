@@ -1,0 +1,50 @@
+\section{Related Work}
+\label{sec:related_work}
+
+%---------------------------------------------------------------------
+\begin{figure*}[ht]
+  \centering
+  \includegraphics[width=\linewidth]{./figs/overview.pdf}\\
+  \caption{\label{overview} 
+    \textbf{Overview of the LaGen framework.} It first obtains estimates of the current frame's foreground and background point clouds via the Scene Decoupling Estimation (SDE) module. Subsequently, all three-dimensional information is projected to the two-dimensional range image space via spherical mapping. These range-view representations are then processed by a pretrained VAE and a noise modulation (NM) module, before being passed to the U-net network to generate the LiDAR scene for the current frame. Afterward, the current generated scene is iteratively used as the input to the model, thereby completing the autoregressive process.}
+  \vspace{-5mm}  
+  \end{figure*}
+%---------------------------------------------------------------------
+
+\paragraph{Generative Models.}
+Generative models aim to learn the underlying data distribution and generate novel samples. 
+Generative Adversarial Networks (GANs) \cite{goodfellow2014generative} are a prominent example. 
+GANs alternately train a pair of competing networks, the generator and the discriminator, to minimize the adversarial objective.
+%Although GANs achieve high data synthesis quality, their training process is often unstable.
+However, GANs often suffer from unstable training dynamics.
+Diffusion models (DMs) \cite{sohl2015deep} have shown outstanding performance in the field of image synthesis. 
+Mainstream diffusion models include score-based models \cite{song2019generative, song2020improved, song2020score} and Denoising Diffusion Probabilistic Models (DDPM) \cite{ho2020denoising, nichol2021improved, kingma2021variational, saharia2022photorealistic}.
+They enable stable training using simple objective functions, addressing challenges associated with GANs.
+Recently, Latent Diffusion Models (LDMs) \cite{rombach2022high} have been proposed. 
+%LDMs construct a perceptually equivalent latent space using a pretrained autoencoder and perform the diffusion process within this latent space, greatly improving generation efficiency.
+They perform the diffusion process in the latent space, greatly improving generation efficiency.
+They have also enabled significant advances in multimodal conditional generation \cite{nichol2021glide, ramesh2022hierarchical, zhang2023adding}.
+
+\vspace{-4mm}
+
+\paragraph{LiDAR Data Generation.}
+Generating LiDAR point clouds is a three-dimensional data generation task. 
+Caccia et al. \cite{caccia2019deep} were the first to represent LiDAR data as range images and employed Variational Autoencoders (VAEs) \cite{kingma2013auto} and Generative Adversarial Networks (GANs) \cite{ goodfellow2014generative} for generation.
+Subsequently, LiDARGen \cite{LiDARGen2022} introduced a score-based LiDAR data generation model. 
+UltraLiDAR \cite{xiong2023ultralidar} voxelizes LiDAR point clouds and employs VQ-VAE \cite{yu2021vector} for generation.
+LiDM \cite{ran2024towards} separately generates scenes, objects, and trajectories, and simulates ray casting to produce point clouds.
+R2DM \cite{nakashima2024lidar}, based on Denoising Diffusion Probabilistic Models (DDPMs) \cite{song2020denoising}, further improves the fidelity of generated point clouds.
+%OLiDM \cite{yan2025olidm} proposes two modules: the Object-Scene Progressive Generation module and the Object Semantic Alignment module, to enhance model performance on downstream perception tasks. 
+RangeLDM \cite{hu2024rangeldm} introduces a range-guided discriminator, enabling fast generation through a latent diffusion model.
+However, most of these frameworks are only capable of generating isolated single-frame LiDAR data, or lack real-time interactivity.
+
+\vspace{-3mm}
+
+\paragraph{LiDAR Data Forecasting.}
+Point cloud prediction \cite{mersch2022self, weng2021inverting, weng2022s2net, wilson2023argoverse} is a fundamental self-supervised task in autonomous driving, where multiple frames of historical point clouds are used as input to predict future point clouds. 
+Early works focused on estimating scene flow between consecutive point clouds to forecast future point cloud sequences \cite{liu2019flownet3d, zhai2021optical}. 
+However, such approaches typically incur high computational costs, limiting their practical applicability.
+Recent studies have started to directly predict from raw point cloud data \cite{luo2023pcpnet, pal2024atppnet, weng2021inverting, weng2022s2net}. 
+4D-Occ \cite{khurana2023point} predicts point clouds from the perspective of geometric occupancy prediction, which further improves prediction accuracy.
+ViDAR \cite{yang2024visual} focuses on visual point cloud prediction, using historical images to predict future point clouds, and thereby improves performance in downstream applications to some extent.
+These prediction-based frameworks typically require multiple frames of historical input, yet still cannot accurately predict long-horizon LiDAR scenes and lack interactivity.

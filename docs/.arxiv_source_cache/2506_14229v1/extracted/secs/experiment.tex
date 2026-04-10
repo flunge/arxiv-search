@@ -1,0 +1,503 @@
+
+\definecolor{BurntOrange}{RGB}{204, 85, 0}
+
+\begin{figure*}[t]
+  \centering
+  \centering \includegraphics[width=1.0\textwidth,height=0.2\textheight]{mesh.pdf}
+  % \fbox{\rule{0pt}{2in} \rule{0.9\linewidth}{0pt}}
+   % \includegraphics[width=0.8\linewidth, color=gray]{egfigure.eps}
+   \caption{\textbf{Qualitative Comparison on TNT dataset.} Reconstructions from left to right—SuGar, NeuS, 2DGS, and VCR-Gaus—demonstrate that our method delivers more complete surface geometry, enhanced smoothness in planar regions, and superior preservation of fine structural details, thereby outperforming existing approaches in geometric fidelity. }
+   \label{fig:3}
+   \vspace{-0.2cm}
+\end{figure*}
+
+
+\section{Experiment}
+\label{experiments}
+\subsection{Experimental setups}
+\noindent\textbf{Dataset and Metrics.}
+To evaluate the effectiveness of our reconstruction method, we conduct experiments on two core tasks: novel view synthesis (NVS) and surface reconstruction, using multiple benchmark datasets. We first assess high-resolution NVS performance on Mip-NeRF360~\cite{mip}, followed by high-fidelity surface reconstruction on the Tanks and Temples (TNT)\cite{TNT} dataset. Additionally, we perform comparative experiments on the Replica\cite{replica} dataset to further validate our method. For a comprehensive evaluation, we employ standard metrics including SSIM, PSNR, LPIPS, and F1-score. Rendering efficiency is also assessed in terms of frames per second (FPS).
+%
+% To validate the effectiveness of our reconstruction method, we conduct evaluations on two key sub-tasks: Novel View Synthesis and Surface Reconstruction on multiple datasets. We first assessed the high-resulution NVS on the Mip-NeRF360~\cite{mip}. Subsequently, we further validated the high-fidelity surface reconstruction quality of our method on the Tanks and Temples (TNT)~\cite{TNT} dataset. To comprehensively verify the effectiveness of our method, we also conducted comparative experiments on the Replica~\cite{replica} with other methods. To provide a thorough evaluation of the reconstruction quality across different methods, we adopted standard metrics, including SSIM, PSNR, LPIPS and F1-score. Additionally, to assess the rendering speed, we compared the frames per second (FPS) performance of each method.
+%
+
+\noindent\textbf{Implementation Details.}
+We begin by following the 3DGS~\cite{3dgs} pipeline, performing 30{,}000 iterations at a low resolution (0.3K) to obtain a coarse global Gaussian prior. During this stage, we introduce our Importance-Driven Gaussian Pruning (IDGP) strategy, which scores the rendering contribution of each Gaussian primitive and prunes those with the lowest impact. This step prevents irrelevant viewpoints from being assigned to training blocks in subsequent stages, reducing unnecessary computational overhead. The resulting coarse prior serves as initialization for the refinement phase.
+
+In the contraction stage, we define the central one-third of the scene as the internal region and the remainder as the external region. The contracted Gaussians are then divided into four spatial sub-blocks. For data assignment, we use an SSIM threshold of $\epsilon = 0.1$. Each sub-block is further trained for 30{,}000 iterations. Specifically, we apply IDGP at the 10{,}000th, 15{,}000th, and 25{,}000th iterations to prune low-impact Gaussians based on their interaction contributions with training rays. This dynamic pruning accelerates convergence and reduces computational redundancy.
+
+
+
+To facilitate surface reconstruction, we adopt the depth-normal regularization method described in Sec.~\ref{3.3}. Specifically, we use the pretrained DSINE~\cite{BaeD24} model for outdoor scenes and the pretrained GeoWizard~\cite{GeoWizard} for indoor scenes to predict normal maps. The hyperparameters $\lambda_1, \lambda_2,$ and $\lambda_3$ are set to 1, 0.01, and 0.015, respectively. After rendering the depth maps, we perform truncated signed distance function (TSDF) fusion and process the results using Open3D~\cite{Open3D}. 
+Additional details are provided in the supplementary.
+
+
+
+\begin{table}[t]
+    \centering
+    % \vspace{-0.5cm}
+    \caption{\textbf{Mip-NeRF 360 Full-Resolution Results.} The rendering quality comparison highlights the best and second-best results.}
+    \label{tab:mipnerf_transposed}
+    % 减小列间距，默认是6pt，这里减到3pt    
+    \setlength{\tabcolsep}{5pt}
+    \begin{tabular}{@{}lccccccc@{}}
+    \toprule
+    & Mip-NeRF & Instant-NGP & zip-NeRF & 3DGS & 3DGS+EWA & Mip-Splatting & \textbf{Ours} \\
+    \midrule
+    PSNR $\uparrow$     & 24.10 & 24.27 & 20.27 & 19.59 & 22.81 & \textcolor{cyan}{26.22} & \textcolor{BurntOrange}{27.91} \\
+    SSIM $\uparrow$     & 0.706 & 0.698 & 0.559 & 0.619 & 0.643 & \textcolor{cyan}{0.765} & \textcolor{BurntOrange}{0.863} \\
+    LPIPS $\downarrow$  & 0.428 & 0.475 & 0.494 & 0.476 & 0.449 & \textcolor{cyan}{0.392} & \textcolor{BurntOrange}{0.342} \\
+    \bottomrule
+    \vspace{-0.4cm}
+    \end{tabular}
+    \label{tab1}
+\end{table}
+
+
+
+
+\begin{table*}[t]
+    \centering
+    \small
+    \caption{\textbf{Quantitative Results on the Tanks and Temples Dataset \cite{TNT}.} The best results are highlighted in \textbf{\textcolor{BurntOrange}{orange}}, while the second-best results are marked in \textbf{\textcolor{cyan}{blue}}. }
+    %Reconstructions are evaluated with the official evaluation scripts and we report F1-score, average optimization time and FPS. Ours outperforms all 3DGS-based surface reconstruction methods by a large margin and performs better than neural implicit methods by a minor margin while optimizing significantly faster.}
+    \setlength{\tabcolsep}{4pt}  % 紧凑列间距
+    \resizebox{0.88\textwidth}{!}{  % 调整缩放比例
+    \begin{tabular}{@{}lccccccc@{}}  % 列数从 9 列减少为 8 列
+    \hline
+    & \multicolumn{2}{c}{\textbf{NeuS-based}} & \multicolumn{5}{c}{\textbf{Gaussian-based}} \\  % NeuS-based 从3列改为2列
+    \cline{2-3} \cline{4-8}  % 调整横线范围
+    \textbf{Scene} & NeuS & MonoSDF & SuGaR & 3DGS & 2DGS & VCR-GauS & Ours \\  % 删除 Geo-Neus
+    \hline
+    Barn & 0.29 & 0.49 & 0.14 & 0.13 & 0.36 & \textcolor{cyan}{0.62} & \textcolor{BurntOrange}{0.65} \\ 
+    Caterpillar & \textcolor{cyan}{0.29} & \textcolor{BurntOrange}{0.31} & 0.16 & 0.08 & 0.23 & 0.26 & \textcolor{cyan}{0.29} \\ 
+    Courthouse & 0.17 & 0.12 & 0.08 & 0.09 & 0.13 & \textcolor{cyan}{0.19} & \textcolor{BurntOrange}{0.23} \\ 
+    Ignatius & \textcolor{BurntOrange}{0.83} & \textcolor{cyan}{0.78} & 0.33 & 0.04 & 0.44 & 0.61 & 0.64 \\ 
+    Meetingroom & \textcolor{BurntOrange}{0.24} & \textcolor{cyan}{0.23} & 0.15 & 0.16 & 0.16 & 0.19 & \textcolor{BurntOrange}{0.24} \\ 
+    Truck & 0.45 & 0.42 & 0.26 & 0.18 & 0.16 & \textcolor{cyan}{0.52} & \textcolor{BurntOrange}{0.61} \\ 
+    \hline
+    Mean & 0.38 & 0.39 & 0.19 & 0.09 & 0.30 & \textcolor{cyan}{0.40} & \textcolor{BurntOrange}{0.45} \\  
+    Time & $>$24h & $>$24h & $>$1h & \textcolor{BurntOrange}{14.3m} & \textcolor{cyan}{34.2m} & 53m & 2h \\ 
+    \hline
+    FPS & \multicolumn{2}{c}{$<$10} & -- & \textcolor{BurntOrange}{159} & 68 & 145 & \textcolor{cyan}{146} \\  % 合并列数同步调整
+    \hline
+    \end{tabular}
+    }
+    \label{tab2}
+    % \vspace{-0.1cm}
+\end{table*}
+
+% To validate the effectiveness of our reconstruction method, we conduct evaluations on two key sub-tasks: Novel View Synthesis and Surface Reconstruction.  
+% \begin{wraptable}{r}{0.5\textwidth}
+% \vspace{-1em} % 控制表格与上一行文字的垂直距离，可调
+% \centering
+% \scriptsize
+% \caption{\textbf{Results on Mip-NeRF 360.} Best and second-best results are highlighted.}
+% \label{tab:mipnerf}
+% \begin{tabular}{@{}lccc@{}}
+% \toprule
+% \textbf{Method} & PSNR $\uparrow$ & SSIM $\uparrow$ & LPIPS $\downarrow$ \\
+% \midrule
+% Mip-NeRF & 24.10 & 0.706 & 0.428 \\
+% Instant-NGP & 24.27 & 0.698 & 0.475 \\
+% zip-NeRF & 20.27 & 0.559 & 0.494 \\
+% 3DGS & 19.59 & 0.619 & 0.476 \\
+% 3DGS+EWA & 22.81 & 0.643 & 0.449 \\
+% Mip-Splatting & \textcolor{cyan}{26.22} & \textcolor{cyan}{0.765} & \textcolor{cyan}{0.392} \\
+% \textbf{Ours} & \textcolor{BurntOrange}{27.91} & \textcolor{BurntOrange}{0.863} & \textcolor{BurntOrange}{0.342} \\
+% \bottomrule
+% \end{tabular}
+% \vspace{-1em} % 控制表格与下一段文字的垂直距离
+% \end{wraptable}
+
+\noindent\textbf{Novel View Synthesis.}
+As shown in Tab.~\ref{tab1}, we compare our method with several existing approaches, including mip-NeRF~\cite{Mip-NeRF360}, Instant-NGP~\cite{InstantNGP}, zip-NeRF~\cite{zip-nrf}, 3DGS~\cite{3dgs}, 3DGS+EWA~\cite{EWV}, and Mip-Splatting~\cite{mip360-splatting}. At high resolutions, our method significantly outperforms all state-of-the-art techniques.
+As shown in Fig.~\ref{fig:4}, our method produces high-fidelity imagery devoid of fine-scale texture distortions.
+While 3DGS~\cite{3dgs} introduces noticeable erosion artifacts due to dilation operations, Mip-Splatting~\cite{mip360-splatting} shows improved performance, yet still exhibits evident texture distortions. In contrast, our method avoids such issues, producing images that are both aesthetically pleasing and closely aligned with the ground truth, demonstrating the effectiveness of our hierarchicall refined strategy.
+
+
+
+
+
+
+
+
+
+
+% \caption{\textbf{Quantitative results on the Tanks and Temples Dataset \cite{TNT}.} The best results are highlighted in \textbf{\textcolor{BurntOrange}{orange}}, while the second-best results are marked in \textbf{\textcolor{cyan}{blue}}. Reconstructions are evaluated with the official evaluation scripts and we report F1-score, average optimization time and FPS. Ours outperforms all 3DGS-based surface reconstruction methods by a large margin and performs better than neural implicit methods by a minor margin while optimizing significantly faster.}
+% \vspace{-0.3cm}
+% \label{tab2}
+% \end{table*}
+
+% \vspace{-0.3cm}
+% \subsection{Comparison}
+%为了验证我们重建方法的有效性，我们主要在两个子任务上进行了验证：Novel view Synthesis 和 Surface Reconstruction。
+
+
+
+% \begin{wraptable}{r}{0.7\textwidth}
+%     \small
+%     \vspace{-0.4cm}
+%     \centering
+%     \caption{\textbf{Quantitative Results on the ScanQA.}}
+%     \label{tab:scanqa}
+%     \renewcommand{\arraystretch}{0.5}
+%     \setlength{\tabcolsep}{6pt}
+%     \begin{tabular}{lccccc}
+%     \toprule
+%     \textbf{Method} & \textbf{CIDEr} & \textbf{METEOR} & \textbf{ROUGE} & \textbf{EM@1} & \textbf{EM@1-R} \\
+%     \midrule
+%     LLaVA-OV  & 47.4 & 12.1 & 28.7 & 14.6 & 31.5 \\
+%     ChatSplat & \textbf{56.3} & \textbf{13.8} & \textbf{31.3} & \textbf{15.9} & \textbf{31.7} \\
+%     \bottomrule
+%     \end{tabular}
+%     \vspace{-0.42cm}
+% \end{wraptable}
+% To validate the effectiveness of our reconstruction method, we conduct evaluations on two key sub-tasks: Novel View Synthesis and Surface Reconstruction.
+
+
+
+
+
+
+
+
+
+
+% \noindent\textbf{Novel View Synthesis.}
+% As shown in Tab.~\ref{tab1}, we compare our method with several existing approaches, including mip-NeRF~\cite{Mip-NeRF360}, Instant-NGP~\cite{InstantNGP}, zip-NeRF~\cite{zip-nrf}, 3DGS~\cite{3dgs}, 3DGS+EWA~\cite{EWV}, and Mip-Splatting~\cite{mip360-splatting}. 
+% Our approach demonstrates comparable performance to these prior methods at one-eighth of the original resolution. 
+% Furthermore, at higher resolutions, our method significantly outperforms all state-of-the-art techniques.
+% As shown in Fig.~\ref{fig:4}, our method produces high-fidelity imagery devoid of fine-scale texture distortions.
+% While 3DGS~\cite{3dgs} introduces noticeable erosion artifacts due to dilation operations, Mip-Splatting~\cite{mip360-splatting} shows improved performance, yet still exhibits evident texture distortions. In contrast, our method avoids such issues, producing images that are both aesthetically pleasing and closely aligned with the ground truth, demonstrating the effectiveness of our hierarchicall refined strategy.
+
+
+
+
+
+
+
+
+
+% \begin{table}[h]
+% \centering
+% \caption{\textbf{Quantitative assessment on Replica \cite{replica}.} \textbf{Bold} indicates the best.} % 上移至此
+% \label{tab:3} % 标签紧随标题后
+% \begin{tabular}{@{}llcc@{}}
+% \toprule
+% \textbf{Type} & \textbf{Method} & \textbf{F1-score} & \textbf{Time} \\ 
+% \midrule
+% \multirow{2}{*}{Implicit} 
+% & NeuS & 65.12 & \multirow{2}{*}{\(>\)10h} \\ 
+% & MonoSDF & \textbf{81.64} & \\ 
+% \cline{1-4}
+% \multirow{4}{*}{Explicit} 
+% & 3DGS & 50.79 & \multirow{4}{*}{\(\leq\)2h} \\ 
+% & SuGar & 63.20 & \\ 
+% & 2DGS & 64.36 & \\ 
+% & Ours & \textbf{74.87} & \\ 
+% \bottomrule
+% \end{tabular}
+% \end{table}
+
+
+% \begin{wraptable}{r}{0.55\textwidth}
+% \small
+% \vspace{-0.4cm}
+% \centering
+% \caption{\textbf{Ablation of the Data Division on the ``Ignatius'' scene from the TNT dataset.} 
+% SO/BO Ass. refer to SSIM-/Boundary-based Observation Assignment.}
+% %SO Ass. is the abbreviation for SSIM-based Observation Assignment, and BO Ass. stands for Boundary-based Observation Assignment.}
+% \label{tab4}
+% \renewcommand{\arraystretch}{0.9}
+% \setlength{\tabcolsep}{6pt}
+% \begin{tabular}{lcc}
+% \toprule[1pt]
+% \textbf{} & \textbf{PSNR} $\uparrow$ & \textbf{F1} $\uparrow$ \\
+% \midrule[0.8pt]
+% baseline        & 21.87 & 0.55 \\
+% w/o contraction & 22.73 & 0.54 \\
+% w/o SO Ass.     & 24.29 & 0.58 \\
+% w/o BO Ass.     & 22.96 & 0.60 \\
+% Full            & \textbf{25.24} & \textbf{0.64} \\
+% \bottomrule[1pt]
+% \end{tabular}
+% \vspace{-0.5cm}
+% \end{wraptable}
+
+% \begin{wraptable}{r}{0.6\textwidth}
+%     \small
+%     \vspace{-0.4cm}
+%     \centering
+%     \caption[Short caption]{\textbf{Quantitative Results on Replica~\cite{replica}.} 
+%     \textbf{Bold} indicates the best.} % 自动换行
+%     \label{tab:3}
+%     \renewcommand{\arraystretch}{0.9}
+%     \setlength{\tabcolsep}{4pt} % 缩小列间距
+%     \begin{tabular}{@{}llcc@{}} % 移除默认列边距
+%     \toprule
+%     \textbf{Type} & \textbf{Method} & \textbf{F1-score} & \textbf{Time} \\
+%     \midrule
+%     \multirow{2}{*}{Implicit}
+%       & NeuS      & 65.12 & \multirow{2}{*}{$>$10h} \\
+%       & MonoSDF   & \textbf{81.64} & \\
+%     \cmidrule{1-4}
+%     \multirow{4}{*}{Explicit}
+%       & 3DGS      & 50.79 & \multirow{4}{*}{$\leq$2h} \\
+%       & SuGar     & 63.20 & \\
+%       & 2DGS      & 64.36 & \\
+%       & Ours      & \textbf{74.87} & \\
+%     \bottomrule
+%     \end{tabular}
+%     \vspace{-0.0cm}
+% \end{wraptable}
+
+\begin{wraptable}{r}{0.42\textwidth}
+    \small
+    \vspace{-0.4cm}
+    \centering
+    \caption{\textbf{Comparsions on Replica~\cite{replica}.}} %  \textbf{Bold} indicates the best.
+    \label{tab:3}
+    \renewcommand{\arraystretch}{0.9}
+    \setlength{\tabcolsep}{6pt}
+    \begin{tabular}{llcc}
+    \toprule
+    \textbf{Type} & \textbf{Method} & \textbf{F1-score} & \textbf{Time} \\
+    \midrule
+    \multirow{2}{*}{Implicit}
+      & NeuS      & 65.12 & \multirow{2}{*}{$>$10h} \\
+      & MonoSDF   & \textbf{81.64} & \\
+    \cmidrule{1-4}
+    \multirow{4}{*}{Explicit}
+      & 3DGS      & 50.79 & \multirow{4}{*}{$\leq$2h} \\
+      & SuGar     & 63.20 & \\
+      & 2DGS      & 64.36 & \\
+      & Ours      & \textbf{74.87} & \\
+    \bottomrule
+    \end{tabular}
+    \vspace{-0.4cm}
+\end{wraptable}
+
+\noindent\textbf{Surface Reconstruction.}
+Our method not only provides high-quality novel views synthesis but also enables precise 3D surface reconstruction. 
+As shown in Tab.~\ref{tab2}, our method outperforms both NeuS-based methods (e.g., NeuS~\cite{NeuS}, MonoSDF~\cite{MonoSDF}, and Geo-NeuS~\cite{Geo-Neus}) and Gaussian-based methods (e.g., 3DGS~\cite{3dgs}, SuGaR~\cite{SuGaR}, 2DGS~\cite{2Dgs}, and VCR-GauS~\cite{vcr-gaus}) on the TNT dataset. Compared to NeuS-based methods, our approach demonstrates significantly faster reconstruction speeds. While our method is slightly slower than some concurrent works, it achieves considerably better reconstruction quality, with a noticeable improvement over 2DGS (0.3 \vs 0.45). Furthermore, our method outperforms the recent state-of-the-art method in surface reconstruction, VCR-GauS, with a higher reconstruction quality (0.45 \vs 0.4). As shown in Fig.~\ref{fig:3}, our method is particularly effective at recovering finer geometric details. Additionally, our method has a substantial advantage in rendering speed, surpassing the rendering speed of 2DGS by more than double.
+On the Replica dataset, as shown in Tab.~\ref{tab:3},
+our method achieves comparable performance to MonoSDF~\cite{MonoSDF} while running significantly faster. 
+Moreover, in comparison to explicit reconstruction approaches, 3DGS~\cite{3dgs}, SuGaR~\cite{SuGaR}, and 2DGS~\cite{2Dgs}, our method delivers substantially higher F1-scores.
+
+
+
+
+
+\subsection{Ablation Studies}
+%我们在TNT数据集Ignatius上验证了不同的设计选择对重建质量的有效性，包括划分的块数以及数据划分策略。
+% We validated the impact of different design choices on reconstruction quality using the Ignatius scene from the TNT dataset, specifically evaluating the data partitioning strategy and the number of blocks.
+
+
+
+
+To validate the effectiveness of individual components in our method, we conducted a series of ablation experiments on the ``Stump'' scene from the Mip-NeRF 360 dataset and the ``Ignatius'' scene from the TNT dataset. Specifically, we evaluated the impacts of the following components: hierarchical block optimization strategy, Importance-Driven Gaussian Pruning (IDGP), and data partitioning strategy.
+
+% 调整后的表格代码
+% \begin{table}[htbp]
+% \centering
+% \captionsetup{font=small}
+
+% % 左表格 (宽度48%，增加3%)
+% \begin{minipage}[t]{0.48\textwidth} % 原0.45改为0.48
+%   \centering
+%   \caption{\textbf{Ablation of the Data Division on the ``Ignatius'' scene from the TNT dataset.} SO Ass. is the abbreviation for SSIM-based Observation Assignment, and BO Ass. stands for Boundary-base Observation Assignment.}
+%   \begin{tabular}{@{\extracolsep{4pt}}lcc@{}} % 列间距从2pt增加到4pt
+%     \toprule[1pt]
+%     \textbf{} & \textbf{PSNR} $\uparrow$ & \textbf{F1} $\uparrow$ \\ 
+%     \midrule[0.8pt]
+%     baseline & 21.87 & 0.55 \\ 
+%     w/o contraction & 22.73 & 0.54 \\ 
+%     w/o SO Ass. & 24.29 & 0.58 \\ 
+%     w/o BO Ass. & 22.96 & 0.60 \\ 
+%     Full & \textbf{25.24} & \textbf{0.64} \\ 
+%     \bottomrule[1pt]
+%   \end{tabular}
+%   \label{tab4}
+% \end{minipage}
+% \hfill
+% % 右表格 (宽度48%，增加3%)
+% \begin{minipage}[t]{0.48\textwidth} % 原0.45改为0.48
+%   \centering
+%   \caption{\textbf{Ablation of the number of blocks on the ``Ignatius'' scene from the TNT dataset.}}
+%   \begin{tabular}{@{\extracolsep{4pt}}lcc@{}} % 列间距从2pt增加到4pt
+%     \toprule[1pt]
+%     \textbf{Blocks} & \textbf{PSNR} $\uparrow$ & \textbf{F1} $\uparrow$ \\ 
+%     \midrule[0.8pt]
+%     2 & 24.86 & 0.62 \\ 
+%     4 & \textbf{25.24} & \textbf{0.64} \\ 
+%     8 & 23.93 & 0.61 \\ 
+%     16 & 22.56 & 0.57 \\ 
+%     \bottomrule[1pt]
+%   \end{tabular}
+%   \label{tab5}
+% \end{minipage}
+
+%如表5所示，我们分析了数据划分策略的影响，并将原始的高斯全局先验作为基准。表~\ref{tab5}中第一行和最后一行的结果表明，我们提出的方法在提高性能方面是有效的（0.55 \vs 0.64）。表~\ref{tab5}中的第二行结果进一步表明，在收缩后的空间中分配有用的相关数据对于提升重建质量是必需的。表~\ref{tab5}中的第三行则强调了等式(3)对数据划分的重要性，并且我们发现等式(4)对于避免块边缘出现伪影起到了积极作用。、
+
+
+% \begin{wraptable}{r}{0.45\textwidth}
+%     \small
+%     \vspace{-0.4cm}
+%     \centering
+%     % \caption{\textbf{Ablation of the number of blocks on the ``Ignatius'' scene from the TNT dataset.}}
+%     \caption{\chl{\textbf{Ablation on number of blocks.}}}
+%     \label{tab5}
+%     \renewcommand{\arraystretch}{0.9}
+%     \setlength{\tabcolsep}{6pt}
+%     \begin{tabular}{lcc}
+%     \toprule[1pt]
+%     \textbf{Blocks} & \textbf{PSNR} $\uparrow$ & \textbf{F1} $\uparrow$ \\
+%     \midrule[0.8pt]
+%     2  & 24.86 & 0.62 \\
+%     4  & \textbf{25.24} & \textbf{0.64} \\
+%     8  & 23.93 & 0.61 \\
+%     16 & 22.56 & 0.57 \\
+%     \bottomrule[1pt]
+%     \end{tabular}
+%     \vspace{-0.0cm}
+% \end{wraptable}
+
+
+% \begin{wraptable}{r}{0.55\textwidth}
+% \small
+% \vspace{-0.4cm}
+% \centering
+% \caption{\textbf{Ablation of the Data Division on the 'Ignatius' scene from the TNT dataset.} SO Ass. is the abbreviation for SSIM-based Observation Assignment, and BO Ass. stands for Boundary-based Observation Assignment.}
+% \label{tab4}
+% \renewcommand{\arraystretch}{0.9}
+% \setlength{\tabcolsep}{6pt}
+% \begin{tabular}{lcc}
+% \toprule[1pt]
+% \textbf{} & \textbf{PSNR} $\uparrow$ & \textbf{F1} $\uparrow$ \\
+% \midrule[0.8pt]
+% baseline        & 21.87 & 0.55 \\
+% w/o contraction & 22.73 & 0.54 \\
+% w/o SO Ass.     & 24.29 & 0.58 \\
+% w/o BO Ass.     & 22.96 & 0.60 \\
+% Full            & \textbf{25.24} & \textbf{0.64} \\
+% \bottomrule[1pt]
+% \end{tabular}
+% \vspace{-0.1cm}
+% \end{wraptable}
+
+% \begin{wraptable}{r}{0.55\textwidth}
+\begin{table*}[h]
+    \small
+    % \vspace{-0.4cm}
+    \centering
+    % \caption{\textbf{Ablation of the Data Division on the 'Ignatius' scene from the TNT dataset.} “SO Ass.” denotes SSIM-based Observation Assignment, while “BO Ass.” refers to Boundary-based Observation Assignment.}
+    \caption{\textbf{Ablation on Data Division.} “SO Ass.” refers to SSIM-based assignment, while “BO Ass.” denotes boundary-based assignment. \textbf{Bold} indicates the best.}
+    \label{tab4}
+    \renewcommand{\arraystretch}{0.9}
+    \setlength{\tabcolsep}{6pt}
+    \begin{tabular}{lccccc}
+    \toprule[1pt]
+    \multirow{2}{*}{\textbf{Method}} & \multicolumn{5}{c}{\textbf{Settings}} \\
+    \cmidrule{2-6}
+     & baseline & w/o contraction & w/o SO Ass. & w/o BO Ass. & Full \\
+    \midrule[0.8pt]
+    PSNR $\uparrow$ & 21.87 & 22.73 & 24.29 & 22.96 & \textbf{25.24} \\
+    F1 $\uparrow$    & 0.55  & 0.54  & 0.58  & 0.60  & \textbf{0.64} \\
+    \bottomrule[1pt]
+    \end{tabular}
+    \label{tab4}
+    % \vspace{-0.2cm}
+\end{table*}
+% \end{wraptable}
+
+
+
+
+
+
+
+% \end{table}
+
+\noindent\textbf{Ablation of the Data Division.}
+As shown in Tab~\ref{tab4}, we analyzed the impact of the data partitioning strategy, using the original Gaussian global prior as the baseline. The results in the first and last rows of Table~\ref{tab5} demonstrate the effectiveness of our proposed method in improving performance (0.55 \vs 0.64). The second row in Table~\ref{tab5} further indicates that assigning relevant data in the contracted space is essential for enhancing reconstruction quality. The third row in Table~\ref{tab5} highlights the importance of starategy 1 (Eq.~\ref{13}) in data partitioning, and we also found that starategy 2 (Eq.~\ref{14}) plays a significant role in preventing artifacts at the edges of blocks.
+
+
+\begin{wraptable}{r}{0.43\textwidth}
+    \small
+    \vspace{-0.4cm}
+    \centering
+    \caption{\textbf{Ablation on number of blocks.}} 
+    \label{tab5_transposed}
+    \renewcommand{\arraystretch}{0.9}
+    \setlength{\tabcolsep}{6pt}
+    \begin{tabular}{lcccc}
+    \toprule[1pt]
+    & \textbf{2} & \textbf{4} & \textbf{8} & \textbf{16} \\
+    \midrule[0.8pt]
+    \textbf{PSNR} $\uparrow$ & 24.86 & \textbf{25.24} & 23.93 & 22.56 \\
+    \textbf{F1} $\uparrow$   & 0.62  & \textbf{0.64}  & 0.61  & 0.57  \\
+    \bottomrule[1pt]
+    \end{tabular}
+    \label{tab5}
+    \vspace{-0.3cm}
+\end{wraptable}
+
+
+\noindent\textbf{Ablation of the Number of Blocks.}
+As shown in Tab.~\ref{tab5}, we investigate how the number of blocks affects reconstruction performance by splitting the coarse global Gaussian into 2, 4, 8, or 16 blocks. Our results indicate that too few blocks can cause conflicts between local and global optima, resulting in insufficient refinement of fine details, whereas too many blocks may lead to imbalanced data distribution and local overfitting. Consequently, we select four blocks for our experiments on the TNT dataset.
+
+
+% \vspace{-0.3cm}
+\begin{table}[h]
+    \centering
+    \small
+    \caption{\textbf{Ablation Studies on the ``Stump'' Scene of the Mip-NeRF 360 Dataset\cite{Mip-NeRF360}.} }
+    \label{tab:6}
+    \begin{tabular}{@{}lccccc@{}}
+    \toprule
+    \textbf{Method} & \textbf{Model Size(MB)} & \textbf{GPU Memory(G)} & \textbf{PSNR} & \textbf{SSIM} & \textbf{LPIPS} \\
+    \midrule
+    Baseline           & 348.62        &   23  & 26.39 & 0.804 & 0.291 \\
+    Baseline w/o IDPG &  601.04    & 28     & 26.41 & 0.791 & 0.288 \\
+    \bottomrule
+      \label{tab6}
+    \end{tabular}
+    \vspace{-0.2cm}
+\end{table}
+
+
+
+\noindent\textbf{Ablation of Importance-Driven Gaussian Pruning.}
+As shown in Tab.~\ref{tab6}, to validate the effectiveness of the proposed Importance-Driven Gaussian Pruning (IDGP) strategy, we conducted an ablation study on the ``stump'' scene of the Mip-NeRF 360 dataset. 
+Specifically, we compare the full method with the IDGP mechanism (Baseline) against a control variant in which IDGP is disabled (Baseline w/o IDGP).
+%
+% Specifically, we compared the full method incorporating IDGP (Baseline) against a control variant without the IDGP mechanism (Baseline/IDGP). 
+%
+As shown in Table.~\ref{tab6}, IDGP is able to selectively prune redundant Gaussians during training without degrading rendering quality, thereby achieving significant improvements in both model structure and computational efficiency.
+% }
+% \begin{wraptable}{r}{0.45\textwidth}
+% \small
+% \vspace{-0.4cm}
+% \centering
+% \caption{\textbf{Ablation of the number of blocks on the ``Ignatius'' scene from the TNT dataset.}}
+% \label{tab5}
+% \renewcommand{\arraystretch}{0.9}
+% \setlength{\tabcolsep}{6pt}
+% \begin{tabular}{lcc}
+% \toprule[1pt]
+% \textbf{Blocks} & \textbf{PSNR} $\uparrow$ & \textbf{F1} $\uparrow$ \\
+% \midrule[0.8pt]
+% 2  & 24.86 & 0.62 \\
+% 4  & \textbf{25.24} & \textbf{0.64} \\
+% 8  & 23.93 & 0.61 \\
+% 16 & 22.56 & 0.57 \\
+% \bottomrule[1pt]
+% \end{tabular}
+% \vspace{-0.4cm}
+% \end{wraptable}
+% \noindent\textbf{Ablation of Importance-Driven Gaussian Pruning.}
+% %
+% % \textcolor{red}{
+
+% }

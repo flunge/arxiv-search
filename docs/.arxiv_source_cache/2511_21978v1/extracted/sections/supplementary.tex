@@ -1,0 +1,215 @@
+\section{Pseudo-code of Building Scene Tree}
+
+
+
+\begin{algorithm}[h]
+\caption{Build Scene Tree}\label{alg:build_scene_tree}
+\begin{algorithmic}[1]
+
+\REQUIRE~~\\
+Scene objects $\mathcal{O}$\\
+Root node \( \mathscr{G} \) (ground)\\
+\ENSURE~~\\
+Hierarchical scene tree $\mathcal{T}$;\\
+
+\STATE Initialize tree $\mathcal{T}$ with root node \( \mathscr{G} \); \\
+\STATE Mark all objects in $\mathcal{O}$ as unvisited; \\
+
+\STATE \textbf{Procedure} BuildSceneTree($n$): \\
+    \FOR{$o \in \mathcal{O}$ where $o$ is unvisited}
+        \IF{$o$ is in contact with $n$ \textbf{and} $o$ has an physical dependency relation with $n$}
+            \STATE Add $o$ as a child of $n$ in $\mathcal{T}$; \\
+            \STATE Mark $o$ as visited; \\
+            \STATE \textbf{Call} BuildSceneTree($o$); \\
+        \ENDIF
+    \ENDFOR
+
+\STATE \textbf{Call} BuildSceneTree(\( \mathscr{G} \)); \\
+
+\end{algorithmic}
+\end{algorithm}
+
+\section{Differentiable Simulation Details}\label{sec:diff_sim_detail}
+
+\subsection{Forward Simulation}
+We model each object in the scene as a stiff affine body~\cite{abd}, where any point on the object with an initial position $\bar{\mathbf{x}}_\text{init}$ undergoes an affine transformation to its current position
+$\mathbf{x} = \mathbf{A}\bar{\mathbf{x}}_\text{init} + \mathbf{p}$,
+where $\mathbf{A} \in \mathbb{R}^{3 \times 3}$ is a transformation matrix and $\mathbf{p}$ is a translation vector. Together, they define the degrees of freedom (DOFs) of the object as $\mathbf{q} \equiv [\mathbf{p}, \mathbf{A}] \in \mathbb{R}^{3 \times 4}$.
+
+To simulate the motion and contact of the objects, we employ a custom GPU-optimized affine body dynamics (ABD) simulator based on~\cite{huang2025stiffgipcadvancinggpuipc}. The simulator solves for the configuration $q_{n+1} \in \mathbb{R}^{12N}$ at time step $n+1$, formed by flattening and stacking the DOFs of all $N$ objects, from the configuration $q_n$ at the previous time step via:
+\begin{equation}\label{eq:energy-min-abd}
+    M(q_{n+1} - \tilde{q}_n) + \Delta t^2 \left( \nabla \Psi(q_{n+1}) + \nabla B(q_{n+1}) + \nabla D(q_{n+1}, q_n) \right) = 0.
+\end{equation}
+Here, $M$ is the mass matrix, and $\tilde{q}_n = q_n + \Delta t^2 g$ is the predictive state used in artificial time stepping, which omits velocity. $\Delta t$ denotes the simulation time step, and $g$ is the gravitational acceleration. The potential $\Psi$ models stiff elasticity to preserve object shape, $B$ is a barrier potential enforcing non-penetration constraints, and $D$ is a semi-implicit friction potential following~\cite{li2020incremental}. See more details in \cite{li2025physics}.
+
+\subsection{Backpropagation} \label{subsec:phys_optim}
+To optimize the initial layout $q_0$, we compute the gradient of the loss function $L$ w.r.t $q_0$ using the chain rule:
+\begin{equation}\label{eq:chain}
+    \frac{d L}{d q_0} = \left( \frac{\partial q_1}{\partial q_0} \right)^\top 
+    \left( \frac{\partial q_2}{\partial q_1} \right)^\top 
+    \cdots 
+    \left( \frac{\partial q_n}{\partial q_{n-1}} \right)^\top 
+    \left( \frac{\partial q_{n+1}}{\partial q_n} \right)^\top 
+    \frac{d L}{d q_{n+1}}.
+\end{equation}
+Here, $\frac{dL}{d q_{n+1}}$ can be directly computed at the target step $n+1$ or automatically obtained via PyTorch~\cite{paszke2019pytorch}. The key step lies in computing $\frac{\partial q_{n+1}}{\partial q_n}$, which we derive using implicit differentiation.
+Rewriting \autoref{eq:energy-min-abd} yields:
+\begin{equation}\label{eq:step}
+    q_{n+1} = q_n + \Delta t^2 M^{-1} \left[ f(q_{n+1}) + Mg \right],
+\end{equation}
+where $f(q_{n+1}) = -\nabla \Psi(q_{n+1}) - \nabla B(q_{n+1}) - \nabla_{q_{n+1}} D(q_{n+1}, q_n)$.
+Differentiating both sides of \autoref{eq:step} with respect to $q_n$ and isolating the derivative yields:
+\begin{equation}\label{eq:prop1}
+    \frac{\partial q_{n+1}}{\partial q_n} = \left[ I - \Delta t^2 M^{-1} \frac{\partial f(q_{n+1})}{\partial q_{n+1}}\right]^{-1}\left[ I - \Delta t^2 M^{-1} \frac{\partial^2 D(q_{n+1}, q_n)}{\partial q_{n+1}\partial q_{n}}\right]^{-1}.
+\end{equation}
+Substituting \autoref{eq:prop1} into the chain rule expression in \autoref{eq:chain} allows us to compute the full gradient $\frac{d L}{d q_0}$, which we use to update the initial layout. Both forward simulation and backpropagation are fully GPU-accelerated for computational efficiency.
+
+\subsection{Physical and Algorithmic Parameters}
+All simulations are performed using our differentiable rigid body simulator with the following physical and algorithmic parameters. They are generally applicable to rigid body scenes and only a few of them needs tuning. We define the $\mathrm{mms}$, i.e. the mean mesh size, to be the average of the longest side of the bounding box of all meshes.
+
+Fixed parameters:
+\begin{itemize}
+
+    \item \textbf{Friction coefficient}:  
+    A Coulomb friction coefficient of $0.2$ is used for all contact interactions.
+
+    \item \textbf{Normal contact stiffness}:  
+    The penalty-based normal-force model uses an effective stiffness of 
+    \SI{1.0}{\giga\pascal}, corresponding to rigid-body behavior.
+
+
+    \item \textbf{Gravity}:  
+    Standard Earth gravity $\mathbf{g} = (0, -9.8, 0)\ \si{\meter\per\second\squared}$ is used.
+
+    \item \textbf{Time step ($\Delta t$)}:  
+    The simulation is integrated using a time step of \SI{0.03}{\second}.
+
+
+    \item \textbf{Newton solver tolerance}:  
+    In each time step, Newton's method is applied to solve the time integration problem, and the termination criteria is the velocity residual falls below 
+    $0.1\ \si{\meter\per\second}$.
+
+    \item \textbf{Maximum number of frames}:  
+    This specifies the duration of the simulation. We use 300 frames for all the scenes.
+
+    \item \textbf{Optimization learning rate}:  
+    We use a learning rate of $0.001$ for simulation-in-the-loop optimization.
+
+    \item \textbf{Maximum optimization epochs}:  
+    Differentiable simulation is allowed up to $50$ optimization iterations.
+\end{itemize}
+
+Tunable paramters:
+\begin{itemize}
+    \item \textbf{Contact distance threshold}:  
+    A threshold of 0.01$\mathrm{mms}$ is used for collision handling in most cases.  
+    Two objects are considered in contact when their distance falls below this value. We use a value of $5 \times 10^{-4}$ for the stackedblocks scene to capture the intricate balancing behavior.
+
+    \item \textbf{Friction velocity threshold}:  
+    Relative velocities below 0.01$\mathrm{mms}$ are modeled to generate static friction forces for most cases. We use a value of $10^{-5}$ for the stacked blocks scene.
+
+    \item \textbf{Optimization frame interval}:  
+    We compute semantic losses every $10$ frames by defult and accumulate it during the simulation. This parameter are set according to the frequency of contact events in each simulation. Most of our examples achieve perfect semantic alignment at the first optimization iteration, and thus no tuning needed.
+\end{itemize}
+
+\subsection{Timing and Memory Consumption}
+
+All experiments are conducted on a single NVIDIA A5000 GPU. The average end-to-end time to generate a scene is 1632 seconds. The main computational cost arises from object generation, which requires an average of 762 seconds per scene. During the simulation-in-the-loop stage, each optimization iteration takes approximately 30 seconds, and we use 50 iterations in total, selecting the solution with the lowest objective value.
+
+For all generated scenes, the simulation fits within 8 GB of GPU memory. In practice, memory usage scales with the size of the contact graph, which depends on the geometric complexity of the objects and the number of active contacts in the scene. Our formulation relies on sparse matrix representations for both system dynamics and contact operators, which helps maintain a moderate memory footprint. 
+
+Given ongoing improvements in GPU hardware and simulation techniques \cite{li2023subspace,lan2023second,lan2025jgs2}, we do not anticipate efficiency and memory to be the limiting factors for typical applications.
+
+
+\section{Implementation Details}
+
+We implement our proposed algorithm in Python on Ubuntu 20.04. In the layout optimization, we leverage Libupic \cite{huang2025stiffgipcadvancinggpuipc} as a simulation platform. The optimization is performed using ADAM \cite{kingma2014adam}. Scenes that are already semantically consistent after the first simulation are not optimized.
+Our algorithm is deployed and run on a single NVIDIA RTX 4090 GPU. All our baselines were tested on the NVIDIA A6000 GPU.
+
+\section{Text Prompt Used In Ablation Study} \label{supp:text_prompt}
+
+The complete text prompt used in our ablation study are as follows. 
+\begin{itemize}
+\item \autoref{fig:ablation_scene_tree}: \textit{``On the left side, there is a metallic cylindrical pen holder containing two black pens, a wooden ruler, and a pair of gray-handled scissors. On the right side, there is a neatly stacked pile of three books with red covers and visible pages. The items are placed on a light wooden surface, and the background is plain white, creating a bright and simple composition.''}
+    \item \autoref{fig:ablation_diff_sim}: \textit{``a stack of colorful wooden blocks arranged vertically, featuring red, blue, yellow, green, orange, and purple pieces, balanced on a flat surface.''}.
+    \item \autoref{fig:failure_case2} \textit{``A brown leather sofa decorated with plush toys, including two large teddy bears, a gray elephant, a white rabbit, a yellow giraffe, and two throw pillows, sits in a cozy room with two round burgundy floor cushions in front.''}
+\end{itemize}
+
+\section{More Examples}\label{supp:more_examples}
+
+\begin{figure*}[ht]
+    \centering
+    \begin{overpic}
+    [width=0.95\linewidth]{figures/comparison_gd_prompts.pdf}
+    \put(5, -1){Text prompts}
+    \put(22,-1){(a) GraphDreamer}
+    \put(44,-1){(b) Blender-MCP}
+    \put(67,-1){(c) MIDI}
+    \put(86,-1){(d) Ours}
+    \end{overpic}
+    \vspace{0.2cm}
+    \caption{\textbf{Comparison of generated scenes from text prompts used in GraphDreamer~\cite{gao2024graphdreamer}.}}
+    \label{fig:comparison_gd_prompts}
+\end{figure*}
+
+
+% First row: full-width figure
+\begin{figure*}[ht]
+    \centering
+    \begin{overpic}[width=\linewidth]{figures/comparison_midi_prompts.pdf}
+        \put(5, -1){Text prompts}
+        \put(22,-1){(a) GraphDreamer}
+        \put(44,-1){(b) Blender-MCP}
+        \put(67,-1){(c) MIDI}
+        \put(86,-1){(d) Ours}
+    \end{overpic}
+    \vspace{0.2cm}
+    \caption{\textbf{Comparison of generated scenes from text prompts used in MIDI~\cite{huang2024midi}.}}\label{fig:comparison_midi_prompts}
+\end{figure*}
+
+\begin{figure*}[ht]
+    \centering  
+    \begin{overpic}[width=1.2\linewidth]{figures/12_examples_v2.pdf}
+    \end{overpic}
+    \caption{More results of our method.}
+    \label{fig:more_examples}
+\end{figure*}
+
+In addition to the 18 text prompts used for comparison with the baseline, we further tested our algorithm on 12 additional examples, as shown in \autoref{fig:more_examples}. All of these prompts yielded semantically accurate and physically stable results.
+
+
+
+\section{Metircs}\label{supp:metrics}
+
+\paragraph{Clip score and VQAScore} These two metrics measure the semantic similarity between the rendered scene images and the corresponding input text prompt. Specifically, we render the scene from 18 viewpoints by sampling three depression angles (0°, 20°, and 45°) and six evenly distributed horizontal angles. These rendered images are then used to compute the Clip score and VQAScore.
+
+\paragraph{Simulated Scene Displacement (D)} This metric computes the normalized average displacement of object vertices in the scene before and after applying a simulation. To ensure consistency across different baselines, we first normalize all scenes such that their bounding box diagonal length equals 2. We then compute the displacement of every vertex over all simulated frames and aggregate these values into a single scalar quantity. 
+Finally, this scalar is normalized by the total number of vertices and by the scene's diagonal length. Formally, let $v_j^{(t)}$ denote the position of vertex $j$ at simulation frame $t$, and let $V$ and $T$ denote the number of vertices and frames, respectively. 
+The metric is defined as the average per-vertex displacement normalized by the scene diagonal length $l$:
+
+\begin{equation}
+D = \frac{1}{V l} 
+\sum_{j=1}^{V} \sum_{t=1}^{T} 
+\left\| v_j^{(t)} - v_j^{(t-1)} \right\|,
+\label{eq:vertex_displacement_consecutive}
+\end{equation}
+
+\paragraph{Ratio of Penetrating Triangle Pairs (R)} This metric quantifies the extent of penetration between objects in the scene, serving as an indicator of the scene's geometric correctness. We first normalize all scenes such that their bounding box diagonal length equals 2. We then remesh each object using fTetWild \cite{ftetwild}, setting the target triangle edge length to 0.05 times the scene diagonal. After normalization, we compute $R$ as the ratio between an approximated total length of intersection contours and the length of the scene diagonal $l$:
+$
+R = \frac{(T_p - \sum_{i=1}^{N} T_{p,i})l_e}{l},
+$
+where \(T_p\) is the total number of penetrating triangle pairs in the scene, \(T_{p,i}\) is the number of self-penetrating triangle pairs in object \(i\), which is excluded, and $l_e$ is the average edge length of all object meshes.  
+
+
+\paragraph{Physical Plausibility Score} 
+
+This VLM-based metric evaluates the physical plausibility of a generated scene by asking a GPT model to score the realism of object contacts and physical relationships in the rendered image. Specifically, we use the following prompt:
+
+\begin{quote}
+\small
+``The semantic meaning of this scene is: `...`. Please evaluate whether the physical relationships in this image are reasonable and whether the contacts between objects are physically realistic. Give this scene a physical plausibility score from 0 to 100.''
+\end{quote}
+
+\section{More Comparison}\label{supp:more_comparison}
+
+We qualitatively compare our method with the baselines on the text prompts previously presented in MIDI and GraphDreamer, as shown in \autoref{fig:comparison_midi_prompts} and \autoref{fig:comparison_gd_prompts}, respectively. For the comparison with MIDI, since it requires an image as input, we first generate images from the provided text prompts in their paper and use these as MIDI’s inputs. For the other baselines, we directly use the text prompts. For our method, we use the same text prompts while ensuring that the reference image is consistent with the input image used for MIDI.

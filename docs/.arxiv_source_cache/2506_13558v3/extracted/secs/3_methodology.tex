@@ -1,0 +1,101 @@
+\section{Methodology}
+
+{\method} aims to generate large-scale 3D driving scenes within a unified framework addressing controllability, fidelity, and scalability.
+As shown in Fig.~\ref{fig:pipeline}, it consists of three main components:
+\textbf{1) Multi-Granular Controllability} (Sec.~\ref{sec_control}), which integrates high-level user intent with low-level geometric constraints for flexible scene specification;
+\textbf{2) Joint Occupancy, Image, and Video Generation} (Sec.~\ref{sec_generation}), which employs conditioned diffusion models to synthesize 3D voxel occupancy, multi-view images, and temporally coherent videos with 3D-aware guidance; and
+\textbf{3) Large-Scale Scene Extrapolation and Reconstruction} (Sec.~\ref{sec_extrapolate}), which extends scenes via consistency-aware outpainting and lifts them into 3DGS representations for downstream simulation and exploration.
+
+
+\subsection{Multi-Granular Controllability}
+\label{sec_control}
+{\method} supports dual-mode scene control through: 1) high-level textual prompts, which are enriched by LLMs and converted into structured layouts via a text-to-layout generation model (illustrated in Fig.~\ref{fig:text2layout}); and 2) direct low-level geometric control for precise spatial specification.
+This hybrid approach enables both intuitive creative expression and exacting scene customization.
+
+\input{figures/text2layout}
+
+\paragraph{Text Description Enrichment.}
+Given a coarse user-provided textual prompt $\mathcal{T}_\mathcal{P}$, we first enrich it into a comprehensive scene description $\mathcal{D} = \{\mathcal{S}, \mathcal{O}, \mathcal{B}, \mathcal{L}\}$, comprising: scene style $\mathcal{S}$ (weather, lighting, environment), foreground objects $\mathcal{O}$ (semantics, spatial attributes, and appearance), background elements $\mathcal{B}$ (semantics and visual characteristics), and textual scene-graph layout $\mathcal{L}$, representing spatial relationships among scene entities.
+The structured description $\mathcal{D}$ is generated as:
+\begin{equation}
+    \mathcal{D} = \mathcal{G}_\text{description}\big(\mathcal{T}_\mathcal{P}, \mathrm{RAG}(\mathcal{T}_\mathcal{P}, \mathcal{M})\big)
+\end{equation}
+where $\mathcal{M} = \{m_i\}_{i=1}^{N}$ denotes the scene description memory. Each entity $m_i$ is automatically constructed using one of the collected scene datasets by: 
+1) extracting $\{\mathcal{S}, \mathcal{O}, \mathcal{B}\}$ using VLMs on scene images; and 
+2) converting spatial annotations (object boxes and road lanes) into textual scene-graph layout $\mathcal{L}$. 
+As shown in Fig.~\ref{fig:text2layout}, the Retrieval-Augmented Generation (RAG) module retrieves relevant descriptions similar to $\mathcal{T}_\mathcal{P}$ from the memory bank $\mathcal{M}$, which are then composed into a detailed, user-intended scene description by an LLM-based generator $\mathcal{G}_{\text{description}}$.
+
+This pipeline leverages RAG for few-shot retrieval and composition when processing brief user prompts, enabling flexible and context-aware scene synthesis. The memory bank $\mathcal{M}$ is designed to be extensible, allowing seamless integration of new datasets to support a broader variety of scene styles. Additional examples of generated scene descriptions are provided in the appendix.
+
+\paragraph{Textual Scene-Graph to Layout Generation.}
+Given the textual layout $\mathcal{L}$, we follow prior works~\cite{commonscenes, echoscene} and translate it into a spatial layout map via a scene-graph–to–layout pipeline (Fig.~\ref{fig:text2layout}).
+First, we construct a scene graph $\mathcal{G}=(\mathcal{V}, \mathcal{E})$, where nodes $\mathcal{V} = \{v_i\}_{i=1}^M$ represent $M$ scene entities (e.g., \textit{cars}, \textit{pedestrians}, \textit{road lanes}) and edges $\mathcal{E} = \{e_{i \rightarrow j}|i,j \in\{1,...,M\}\}$ represent spatial relations (e.g., \textit{front of}, \textit{on top of}). 
+Each node and edge is then embedded by concatenating semantic features $s_i$, $s_{i \rightarrow j}$ (extracted via a text encoder $\mathcal{E}_{\text{text}}$) with learnable geometric features $g_i$, $g_{i \rightarrow j}$, resulting in node embeddings $\mathbf{v}_i = \text{Concat}(s_i, g_i)$ and edge embeddings $\mathbf{e}_{i \rightarrow j} = \text{Concat}(s_{i \rightarrow j}, g_{i \rightarrow j})$.
+
+The graph embeddings are refined using a graph convolutional network, which propagates contextual information $\mathbf{e}_{i \rightarrow j}$ across the graph and updates each node embedding $\mathbf{v}_i$ via neighborhood aggregation.
+Finally, layout generation is formulated as a conditional diffusion process: each object layout is initialized as a noisy 7-D vector $b_i \in \mathbb{R}^7$ (representing box center, dimensions, and orientation), while each road lane begins as a set of $N$ noisy 2D points $p_i \in \mathbb{R}^{N \times 2}$, with denoising process is conditioned on the corresponding node embeddings $\mathbf{v}_i$ to produce geometrically coherent placements.
+
+\paragraph{Low-Level Conditional Encoding.}
+We encode fine-grained conditions (such as user-provided or model-generated layout maps and 3D bounding boxes) into embeddings to enable precise geometric control. As illustrated in Fig.~\ref{fig:pipeline}, the 2D layout maps are processed by a ConvNet ($\mathcal{E}_\textit{layout}$) to extract layout embeddings $\mathbf{e}_\textit{layout}$, while 3D box embeddings $\mathbf{e}_\textit{box}$ are obtained via MLPs ($\mathcal{E}_{\textit{box}}$), which fuse object class and spatial coordinate features.
+To further enhance geometric alignment, we project both the scene layout and 3D boxes into the camera view to generate perspective maps, which are encoded by another ConvNet ($\mathcal{E}_\textit{persp.}$) to capture spatial constraints from the image plane.
+Additionally, high-level scene descriptions $\mathcal{D}$ are embedded via a T5 encoder ($\mathcal{E}_{\textit{text}}$), providing rich semantic cues for controllable generation through the resulting text embeddings $\mathbf{e}_\textit{text}$.
+
+
+\subsection{Joint Occupancy, Image, and Video Generation}
+\label{sec_generation}
+We adopt a joint 3D-to-2D generation hierarchy that first models scene geometry via occupancy diffusion, followed by image synthesis guided by occupancy-rendered maps to ensure geometric consistency. The pipeline is further extended with a temporal diffusion module for video generation, producing smooth motion and cross-view temporal coherence.
+
+\paragraph{Occupancy Generation via Triplane Diffusion.}
+We adopt a triplane representation~\cite{Triplane} to encode 3D occupancy fields with high geometric fidelity. Given an occupancy volume $\mathbf{o} \in \mathbb{R}^{X \times Y \times Z}$, a triplane encoder compresses it into three orthogonal latent planes $\mathbf{h} = \{\mathbf{h}^{xy}, \mathbf{h}^{xz}, \mathbf{h}^{yz}\}$ with spatial downsampling. To mitigate information loss due to reduced resolution, we propose a novel triplane deformable attention mechanism that aggregates richer features for a query point $\mathbf{q} = (x, y, z)$ as:
+\vspace{-1mm}
+\begin{equation}
+\mathbf{F}_\mathbf{q}(x, y, z) = \sum_{\mathcal{P} \in \{xy, xz, yz\}} 
+\sum_{k=1}^K 
+\sigma\big(\mathbf{W}_\omega^\mathcal{P} \cdot \text{PE}(x, y, z)\big)_k 
+\cdot \mathbf{h}^\mathcal{P}\Big(
+\text{proj}_\mathcal{P}(x, y, z) + 
+\Delta p_k^\mathcal{P}
+\Big)
+\end{equation}
+where $K$ is the number of sampling points, $\text{PE}(\cdot): \mathbb{R}^3 \rightarrow \mathbb{R}^D$ denotes positional encoding, and $\mathbf{W}_\omega^\mathcal{P} \in \mathbb{R}^{K \times D}$ generates attention weights with the softmax function $\sigma(\cdot)$. The projection function $\text{proj}_\mathcal{P}$ maps 3D coordinates to 2D planes (e.g., $\text{proj}_{xy}(x, y, z) = (x, y)$), and the learnable offset $\Delta p_k^\mathcal{P} = \mathbf{W}_o^\mathcal{P}[k] \cdot \text{PE}(x, y, z) \in \mathbb{R}^2$ uses weights $\mathbf{W}_o^\mathcal{P} \in \mathbb{R}^{2 \times D}$ to shift sampling positions for better feature alignment. Then the triplane-VAE decoder reconstructs the 3D occupancy field from the aggregated features $\textbf{F}_\textbf{q}$.
+
+Building on the latent triplane representation $\mathbf{h}$, we introduce a conditional diffusion model $\epsilon_{\theta}^\textit{occ}$ that synthesizes novel triplanes through iterative denoising. At each timestep $t$, the model refines a noisy triplane $\mathbf{h}_t$ toward the clean target $\mathbf{h}_0$ using two complementary conditioning strategies: 1) additive spatial conditioning with the layout embedding $\mathbf{e}_\text{layout}$; and 2) cross-attention-based conditioning with $\mathcal{C} = \text{Concat}(\mathbf{e}_\text{box}, \mathbf{e}_\text{text})$, integrating geometric and semantic constraints. The model is trained to predict the added noise $\epsilon$ using the denoising objective: 
+$ \mathcal{L}_\textit{diff}^\textit{occ} = \mathbb{E}_{t,\mathbf{h}_0,\epsilon} \left[ \| \epsilon - \epsilon_{\theta}^\textit{occ}(\mathbf{h}_t, t, \mathbf{e}_\text{layout}, \mathcal{C}) \|_2^2 \right] $.
+
+
+\paragraph{Image Generation with 3D Geometry Guidance.}
+After obtaining the 3D occupancy, we convert voxels into 3D Gaussian primitives parameterized by voxel coordinates, semantics, and opacity, which are rendered into semantic and depth maps via tile-based rasterization~\cite{3DGS}. 
+To incorporate object-level geometry, we first generate normalized 3D coordinates for the entire scene and extract object-specific regions based on bounding boxes. The corresponding coordinates are encoded into object positional embeddings $\mathbf{e}_\text{pos}$, providing fine-grained geometric guidance.
+The semantic, depth, and layout (or perspective) maps are processed by ConvNets and fused with $\mathbf{e}_\text{pos}$ to form the final geometric embedding $\mathbf{e}_\text{geo}$. This embedding is combined with noisy image latents to achieve pixel-aligned geometric conditioning.
+The image diffusion model $\epsilon_{\theta}^{\text{img}}$ further leverages cross-attention with conditions $\mathcal{C}$ (text, camera, and box embeddings) for appearance control. The model is trained via:
+$\mathcal{L}_{\text{diff}}^{\text{img}} = \mathbb{E}_{t,\mathbf{x}_0,\epsilon} \left[ \| \epsilon - \epsilon_{\theta}^{\text{img}}(\mathbf{x}_t, t, \mathbf{e}_\text{geo}, \mathcal{C}) \|_2^2 \right]$.
+
+
+\paragraph{Video Generation with Motion-Aware Diffusion.}
+After obtaining multi-view images, we extend the diffusion framework to synthesize temporally coherent videos conditioned on motion cues. The generated images from preceding clips serve as \textit{reference frames} to guide the denoising of subsequent noisy latents $\mathbf{x}_t$. The diffusion model $\epsilon_{\theta}^{\text{vid}}$ takes both $\mathbf{x}_t$ and encoded reference features $\mathbf{F}_{\text{ref}}$, concatenated along the temporal dimension, and applies a temporal self-attention layer to capture motion correspondences, with the relative ego poses $\mathbf{P}_{\text{rel}}$ also encoded for motion-aware conditioning. 
+
+Only the temporal attention layers are fine-tuned from the pre-trained image diffusion model, enabling efficient transfer from spatial to temporal domains. The training objective follows the denoising formulation:
+$\mathcal{L}_{\text{diff}}^{\text{vid}} = \mathbb{E}_{t,\mathbf{x}_0,\epsilon} [ \| \epsilon - \epsilon_{\theta}^{\text{vid}}(\mathbf{x}_t, t, \mathbf{F}_{\text{ref}}, \mathbf{P}_{\text{rel}}, \mathcal{C}) \|_2^2 ]$.
+During inference, an \textit{autoregressive} strategy is employed for streaming video generation, where previously generated frames are reused as motion references to ensure smooth transitions and temporal coherence across clips.
+
+
+\subsection{Large-Scale Scene Extrapolation and Reconstruction}
+\label{sec_extrapolate}
+Building on single-chunk generation, we propose a progressive extrapolation approach that coherently expands occupancy and images across multiple chunks, maintaining geometric and visual consistency with the generated multi-view videos for downstream applications.
+
+\paragraph{Geometry-Consistent Scene Outpainting.}
+We extend the occupancy field via triplane extrapolation~\cite{BlockFusion}, which decomposes the task into extrapolating three orthogonal 2D planes, as illustrated in Fig.~\ref{fig:outpaint}. The core idea is to generate a new latent plane $\mathbf{h}_0^{\text{new}}$ by synchronizing its denoising process with the forward diffusion of a known reference plane $\mathbf{h}_0^{\text{ref}}$, guided by an overlap mask $\mathbf{M}$.
+Specifically, at each denoising step $t$, the new latent is updated as:
+\begin{equation}
+\mathbf{h}^{\text{new}}_{t-1} \gets \left( \sqrt{\bar{\alpha}_t}\mathbf{h}^{\text{ref}}_0 + \sqrt{1 - \bar{\alpha}_t} \boldsymbol{\epsilon} \right) \odot \mathbf{M} + \epsilon_{\theta}^{\textit{occ}}(\mathbf{h}^{\text{new}}_t, t) \odot (1 - \mathbf{M})
+\end{equation}
+\input{figures/outpaint}
+where $\boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$ and $\bar{\alpha}_t$ is determined by the noise scheduler at timestep $t$.
+This method preserves structural consistency in overlapping regions while plausibly extending reference content into unseen areas, yielding coherent and geometry-consistent scene extensions.
+
+\paragraph{Visual-Coherent Image Extrapolation.}
+Beyond occupancy outpainting, we further extrapolate the visual field for synchronized image generation.
+To maintain visual coherence between the reference image $\mathbf{x}_0^{\text{ref}}$ and the new view $\mathbf{x}_0^{\text{new}}$, a naive approach warps $\mathbf{x}_0^{\text{ref}}$ using the camera pose $(R, T)$ and applies image inpainting (Fig.~\ref{fig:outpaint}).
+However, using only warped images as conditions is inadequate.
+To address this, we fine-tune the diffusion model $\epsilon_{\theta}^{\text{img}}$ with explicit conditioning on $\mathbf{x}_0^{\text{ref}}$ and camera embeddings $\mathbf{e}(R, T)$.
+Concretely, $\mathbf{x}_0^{\text{ref}}$ is concatenated with the novel latent $\mathbf{x}_t^{\text{new}}$, and $\mathbf{e}(R, T)$ is incorporated via cross-attention, enabling view-consistent extrapolation with photorealistic visual results.

@@ -1,0 +1,28 @@
+\section{Introduction}
+
+Recent advancements in generative AI have profoundly impacted autonomous driving, with diffusion models (DMs) emerging as pivotal tools for data synthesis and driving simulation. Some approaches utilize DMs as data machines, producing high-fidelity driving videos~\cite{MagicDrive, Vista, DriveDreamer, DrivingDiffusion, Panacea, SubjectDrive, MagicDriveDiT, SyntheOcc, CogDriving, DriveScape, DiVE, UniMLVG, CoGen, Glad} or multi-modal synthetic data~\cite{X-Drive, HoloDrive, WoVoGen, UniScene} to augment perception tasks, as well as generating corner cases (e.g., vehicle cut-ins) to enrich planning data with uncommon yet critical scenarios. Beyond this, other methods employ DMs as world models to predict future driving states, enabling end-to-end planning~\cite{Drive-WM, Delphi, UMGen} and closed-loop simulation~\cite{DriveArena, DreamForge, DrivingSphere, ReconDreamer, SceneCrafter, Stag-1, ge2025}. All these efforts emphasize \textbf{\emph{long-term video generation through temporal recursion}}, encouraging DMs to produce coherent video sequences for downstream tasks.
+
+However, \textbf{\emph{large-scale scene generation with spatial expansion}}, which aims to build expansive and immersive 3D environments for arbitrary driving simulation, remains an emerging yet underexplored direction. A handful of pioneering works have explored 3D driving scene generation at scale. For example, SemCity~\cite{SemCity} generates city-scale 3D occupancy grids using DMs, but the lack of appearance details limits its practicality for realistic simulation. UniScene~\cite{UniScene} and InfiniCube~\cite{InfiniCube} extend this by generating both 3D occupancy and images, but require a manually defined large-scale layout as a conditioning input, complicating the generation process and hindering flexibility.
+
+\input{figures/teaser}
+
+In this work, we tackle the problem of large-scale scene generation with spatial expansion, which presents three key challenges:
+1) \emph{Flexible Controllability}: enabling versatile control through both low-level conditions (e.g., layouts) for precise scene composition and high-level prompts (e.g., user-intent text descriptions) for intuitive customization;
+2) \emph{High-Fidelity Geometry and Appearance}: generating intricate geometry with photorealistic appearance to ensure structural integrity and visual realism in 3D scenes;
+3) \emph{Large-Scale Consistency}: maintaining spatial coherence across extended regions to ensure global consistency throughout the generated environment.
+
+To address these challenges, we propose \textbf{\method}, a novel framework for large-scale driving scene generation featuring:
+\textbf{1) \emph{Multi-Granular Controllability}}: It enables users to guide generation at multiple abstraction levels, supporting fine-grained BEV semantic layouts for precise control and high-level text prompts for efficient customization. Text prompts are enriched by LLMs into detailed scene narratives, structured as scene graphs and converted into vector-map layouts via a scene-graph to layout diffusion module. These layouts provide spatial and semantic cues that guide subsequent scene synthesis, combining layout-level precision with prompt-based flexibility.
+\textbf{2) \emph{Geometric and Visual Fidelity}}: {\method} employs a unified pipeline that sequentially generates 3D semantic occupancy and corresponding multi-view images and videos, ensuring structural accuracy, photorealistic appearance, and temporal consistency with cross-modal alignment.
+\textbf{3) \emph{Consistent Large-Scale Extrapolation}}: To synthesize expansive environments, it progressively extrapolates new scene content conditioned on adjacent, previously generated regions. The consistency-aware outpainting mechanism preserves spatial continuity and enables seamless extension beyond local areas.
+
+Furthermore, to support downstream applications such as realistic driving simulation, we reconstruct the generated occupancy and multi-view images/videos into 3D Gaussian (3DGS)~\cite{3DGS} representations, which faithfully preserve geometric detail and visual quality. By unifying controllability, fidelity, and scalability, {\method} advances the state-of-the-art in large-scale, controllable driving scene synthesis, empowering realistic data generation and simulation for autonomous driving.
+
+The main contributions of our work are summarized as follows:
+\vspace{-2mm}
+\begin{itemize}[align=right,itemindent=0em,labelsep=2pt,labelwidth=1em,leftmargin=*,itemsep=0em] 
+\item We propose {\method}, a novel framework for large-scale 3D driving scene generation with multi-granular controllability, geometric and visual fidelity, and consistent large-scale extrapolation, supporting a wide range of downstream applications.
+\item  We design a flexible multi-granular control mechanism that synergistically combines high-level semantic guidance (LLM-enriched text prompts) with low-level geometric specifications (user-provided or text-driven layout), enabling scene creation tailored to diverse user needs.
+\item We present a unified occupancy–image–video generation pipeline that achieves geometric fidelity, photorealistic appearance, and temporal coherence, enabling seamless large-scale scene expansion.
+\item Extensive experiments show {\method} achieves superior performance in generation quality and controllability, enabling diverse applications from data augmentation to driving simulation.
+\end{itemize}

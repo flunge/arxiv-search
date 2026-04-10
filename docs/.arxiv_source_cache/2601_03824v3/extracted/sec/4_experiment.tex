@@ -1,0 +1,328 @@
+
+
+
+
+
+\section{Experiments}
+\label{sec:Experiments}
+
+\subsection{Experiment Setting}
+
+
+\noindent \textbf{Datasets.}~Our experiments are conducted on three large-scale datasets: 
+%
+RealEstate10K~\citep{DBLP:journals/tog/ZhouTFFS18}, ACID~\citep{liu2021infinite} and DTU~\citep{jensen2014large}. RealEstate10K contains real estate videos downloaded from YouTube, which are split into 67,477 training scenes and 7,289 testing scenes. ACID consists of nature scenes captured via aerial drones, with 11,075 scenes for training and 1,972 scenes for testing. Both datasets are calibrated using the Structure-from-Motion (SfM) ~\cite{schonberger2016structure} algorithm to estimate the camera's intrinsic and extrinsic parameters for each frame. Following the settings of previous works~\cite{charatan2024pixelsplat, chen2024mvsplat, liu2025monosplat, xu2025depthsplat}, for the RealEstate10K and ACID datasets, two context images are used as input, and three novel target views are rendered for each test scene. All input and target images have a resolution of $256\times256$. In addition, for the multi-view DTU~\cite{jensen2014large} dataset, which contains object-centric scenes with known camera poses, we report results on 16 validation scenes.
+
+
+
+\noindent\textbf{Implementation details.}
+For a fair comparison, we followed the commonly used training setup~\cite{chen2024mvsplat, liu2025monosplat, xu2025depthsplat}. Specifically, our training experiments were conducted on 8 RTX 4090 GPUs with a total batch size of 16, using the AdamW~\citep{loshchilov2017decoupled} optimizer for 300,000 iterations. We employed a cosine learning rate schedule to optimize our model. For the pre-trained Depth Anything V2~\cite{yang2024depth} backbone, we used a learning rate of $2 \times 10^{-6}$, while the remaining layers were trained with a learning rate of $2 \times 10^{-4}$. Following DepthSplat~\cite{xu2025depthsplat}, we train our model with MSE and LPIPS losses.
+
+%%%% 添加更多细节
+
+\subsection{Main Results}
+%
+We comprehensively compare our proposed method with several leading approaches in scene-level novel view synthesis, covering three representative categories: light field network methods such as GPNR~\citep{suhail2022generalizable} and AttnRend~\citep{du2023learning}; NeRF-based methods including pixelNeRF~\citep{yu2021pixelnerf} and MuRF~\cite{xu2024murf}; and 3D Gaussian Splatting-based methods such as pixelSplat~\citep{charatan2024pixelsplat}, latentSplat~\cite{wewer2024latentsplat}, MVSplat~\citep{chen2024mvsplat}, eFreeSplat~\cite{min2024epipolar}, MonoSplat~\cite{liu2025monosplat}, and DepthSplat~\cite{xu2025depthsplat}.
+
+
+
+\begin{table*}[t]
+% \captionsetup{font={small}}
+% \scriptsize
+\normalsize
+\centering
+% \footnotesize
+
+\caption{
+\textbf{Quantitative comparisons.} We surpass all baseline methods in terms of PSNR, LPIPS, and SSIM for novel view synthesis on the real-world RealEstate10k~\cite{DBLP:journals/tog/ZhouTFFS18} and ACID~\cite{liu2021infinite} datasets. We highlight first-place results in \textbf{bold} and second-place results with \underline{underlines} in each column. "-" Indicates that the original paper did not contain relevant data.}
+% \begin{tabular}{p{3.8cm}|c|ccc|ccc}
+\begin{tabular}{l|c|ccc|ccc}
+\toprule
+
+\multirow{2}{*}{\textbf{Method}} & \multirow{2}{*}{\textbf{Params (M) $\downarrow$}} & \multicolumn{3}{c|}{\textbf{RealEstate10k~\cite{DBLP:journals/tog/ZhouTFFS18}}} & \multicolumn{3}{c}{\textbf{ACID~\cite{liu2021infinite}}}    \\
+
+&   &  PSNR $\uparrow$ & SSIM $\uparrow$ & LPIPS $\downarrow$ & PSNR $\uparrow$ & SSIM $\uparrow$ & LPIPS $\downarrow$\\
+
+\midrule
+Du et al.\cite{du2023learning}            & 125.1           & 24.78 & 0.820 & 0.213 & 26.88 & 0.799 & 0.218  \\
+GPNR\cite{suhail2022generalizable}        & \underline{9.6} & 24.11 & 0.793 & 0.255 & 25.28 & 0.764 & 0.332  \\
+pixelNeRF~\cite{yu2021pixelnerf}          & 28.2            & 20.43 & 0.589 & 0.550 & 20.97 & 0.547 & 0.533  \\
+MuRF~\cite{xu2024murf}                    & \textbf{5.3}    & 26.10 & 0.858 & 0.143 & 28.09 & 0.841 & 0.155  \\
+\midrule
+pixelSplat~\cite{charatan2024pixelsplat}~(CVPR 2024)  & 125.4           & 26.09 & 0.863 & 0.136 & 28.27 & 0.843 & 0.146   \\
+latentSplat~\cite{wewer2024latentsplat}~(ECCV 2024)   & 187.0           & 23.07 & 0.825 & 0.182 & 24.95 & 0.782 & 0.207   \\
+MVSplat~\cite{chen2024mvsplat}~(ECCV 2024)            & 12.0            & 26.39 & {0.869} & 0.128 & 28.25 & 0.843 & 0.144  \\
+eFreeSplat~\cite{min2024epipolar}~(NIPS 2024)         & -             & 26.45 & 0.865 & {0.126} & {28.30} & {0.851} & {0.140}  \\
+MonoSplat~\cite{liu2025monosplat}~(CVPR 2025)         & 30.3            & {26.68} & {0.875} & {0.123} & \underline{28.63} & \underline{0.864} & \underline{0.138}  \\
+DepthSplat~\cite{xu2025depthsplat}~(CVPR 2025)        & 354             & \underline{27.47} & \underline{0.889} & \underline{0.114} & {-} & {-} & {-}  \\
+\rowcolor{row_color}
+\textbf{IDESplat (Ours)}                  & 37.6            & \textbf{27.80} & \textbf{0.893} & \textbf{0.108} & \textbf{28.94} & \textbf{0.866} & \textbf{0.130}  \\
+\bottomrule
+\end{tabular}
+
+\label{tab:comparison_sota}
+\end{table*}
+
+
+
+%
+\noindent\textbf{Quantitative results.}
+%
+As shown in Tab.~\ref{tab:comparison_sota}, our IDESplat achieves state-of-the-art performance on all visual quality metrics in both the RealEstate10K and ACID benchmarks.
+%
+Specifically, on the RE10K dataset, compared to DepthSplat, our method improves PSNR by \textbf{0.33 dB}, while using only \textbf{10.7\%} of its parameters. 
+%
+Additionally, compared to MonoSplat, which has a similar number of parameters, our method achieves a significant \textbf{1.12 dB} improvement.
+%
+For SSIM and LPIPS metrics, our method also achieves the best results of 0.893 and 0.108, respectively.
+%
+On the ACID dataset, our method achieves a \textbf{0.31 dB} improvement in PSNR over MonoSplat, reaching a maximum of \textbf{28.94 dB}.
+%
+The superior performance of IDESplat can be attributed to its iterative boosting design for depth probability prediction, which gradually refines the depth map.
+%
+This design allows our method to achieve reliable and stable depth estimation results with fewer parameters, enabling accurate Gaussian mean parameter prediction and high-quality scene reconstruction.
+%
+
+\noindent\textbf{Cross-Dataset Generalization.}
+%
+To evaluate the generalization ability of our proposed IDESplat, we conducted cross-dataset generalization tests on unseen datasets.
+%
+We first trained the model on the indoor scene dataset RealEstate10K, and then evaluated it directly on the outdoor scene ACID dataset and the object-centered DTU dataset.
+%
+As shown in Tab.~\ref{tab:cross_dataset}, IDESplat demonstrates outstanding cross-dataset generalization ability, outperforming existing methods on all metrics.
+%
+For the DTU dataset, our method improves PSNR by \textbf{2.95 dB} over DepthSplat, and achieves the best LPIPS score of \textbf{0.239}. On the ACID dataset, our method also achieves the highest performance with \textbf{28.79 dB}.
+%
+These results show that our iterative depth probability estimation method effectively enhances the modeling of cross-view feature similarity, learning strong out-of-distribution scene reconstruction capabilities.
+%
+This also demonstrates that our iterative depth probability estimation method is both efficient and highly generalizable, surpassing dataset-specific features and avoiding overfitting to the training data.
+
+
+
+
+\begin{figure*}
+    \centering
+    \includegraphics[width=\linewidth]{figs/nvs_visual.pdf}
+    \caption{The comparison of visualization results for novel view synthesis on the RealEstate10K dataset. Our IDESplat significantly outperforms previous state-of-the-art methods in rendering challenging regions.}
+    \label{fig:visual_nvs}
+    \vspace{-3mm}
+\end{figure*}
+
+
+
+
+
+%
+\noindent\textbf{Visual comparison results.}
+%
+We performed a qualitative comparison of scene reconstruction results between our method and mainstream models, including MVSplat~\cite{chen2024mvsplat}, MonoSplat~\cite{liu2025monosplat}, and DepthSplat~\cite{xu2025depthsplat}. The visual comparison results are shown in Fig.~\ref{fig:visual_nvs}, which include both indoor and outdoor scenes.
+Our proposed IDESplat achieves significantly better novel view synthesis results compared to existing mainstream open-source models.
+Specifically, in challenging areas with rich textures and large position and angle differences between the input images, existing methods often produce noticeable artifacts and blurring in the synthesized views.
+In contrast, IDESplat is able to generate high-quality reconstructions in these difficult regions, demonstrating excellent texture consistency and clearly showing its superiority in reconstructing complex scenes.
+
+
+
+\begin{table}
+    \footnotesize
+    \centering
+    \caption{\textbf{Quantative comparisons of cross-dataset generalization.} We perform zero-shot tests on ACID~\cite{liu2021infinite} and DTU~\cite{jensen2014large} datasets, using models trained solely on RealEstate10K~\cite{DBLP:journals/tog/ZhouTFFS18}. Best and second best results are \textbf{bolded} and \underline{underlined}.}
+    \vspace{-2mm}
+    % Reduce column separation
+    \setlength{\tabcolsep}{2.5pt} % Adjust this value as needed
+    \begin{tabular}{l|ccc|ccc}
+        \toprule
+        \multirow{2}{*}{\textbf{Method}} & \multicolumn{3}{c|}{\textbf{RE10k$\rightarrow$DTU}} & \multicolumn{3}{c}{\textbf{RE10k$\rightarrow$ACID}}\\
+        & PSNR$\uparrow$ & SSIM$\uparrow$ & LPIPS$\downarrow$  & PSNR$\uparrow$ & SSIM$\uparrow$ & LPIPS$\downarrow$ \\
+        \midrule
+        pixelSplat~\cite{charatan2024pixelsplat} & 12.89             & 0.382             & 0.560 & 27.64 & 0.830 & 0.160 \\
+        MVSplat~\cite{chen2024mvsplat}           & 13.94             & 0.473             & 0.385 & 28.15 & 0.841 & 0.147 \\
+        MonoSplat~\cite{liu2025monosplat}        & 15.25             & \underline{0.605} & \underline{0.291} & 28.24 & \underline{0.848} & 0.145 \\
+        Depthsplat~\cite{xu2025depthsplat}       & \underline{15.38} & 0.415             & 0.442 & \underline{28.37} & 0.847 & \underline{0.141} \\
+        \rowcolor{row_color}
+        \textbf{IDESplat (Ours)}                 & \textbf{18.33}    & \textbf{0.719}    & \textbf{0.239} & \textbf{28.79} & \textbf{0.853} & \textbf{0.135} \\
+        \bottomrule
+    \end{tabular}
+    \label{tab:cross_dataset}
+\vspace{-6mm}
+\end{table}
+
+%
+\noindent\textbf{Visual comparison of depth maps.}
+We conducted a direct qualitative comparison of depth maps predicted by IDESplat and existing state-of-the-art models, including MVSplat~\cite{chen2024mvsplat}, MonoSplat~\cite{liu2025monosplat}, and DepthSplat~\cite{xu2025depthsplat}. It is important to note that the generalizable 3DGS task typically does not have depth ground truth, so we analyzed the results using the corresponding reference RGB images as input. 
+%
+As shown in Fig.~\ref{fig:visual_depth}, IDESplat consistently outperforms existing methods in both indoor and outdoor scenes.
+%
+Even in regions with similar foreground and background appearances or rich texture details, it can better distinguish objects at different depths and produce more realistic depth estimates with finer details.
+%
+This advantage comes from aggregating feature similarity across multiple warps via the depth probability boosting strategy, as well as performing warp computation at the original scale to better preserve fine textures. 
+%
+More visual results are provided in the supplementary materials.
+
+
+\noindent\textbf{Comparison of model efficiency.}
+In Tab.~\ref{tab:model_efficiency}, we compare the model efficiency of IDESplat with several classic methods, including PixelSplat, MVSplat, and the latest methods such as MonoSplat and DepthSplat. We measure inference time and memory usage with two-view inputs at a resolution of $256 \times 256$, and the PSNR values are reported on the commonly used benchmark dataset RE10K. Although our method shows slightly lower inference efficiency compared to DepthSplat, it outperforms DepthSplat on all other metrics. Despite using significantly fewer parameters and computational resources than DepthSplat, IDESplat achieves better results. The superior performance of IDESplat with fewer parameters and better memory efficiency is due to our iterative depth probability estimation architecture, which performs multiple warp operations to improve the accuracy of Gaussian mean parameter predictions.
+
+
+
+\begin{table}
+    \footnotesize
+    \centering
+    \caption{\textbf{Comparison of model efficiency.}  Our method demonstrates relatively low inference costs and reduced memory usage. }
+    \vspace{-2mm}
+    % Reduce column separation
+    \setlength{\tabcolsep}{5pt} % Adjust this value as needed
+    \begin{tabular}{c|ccc|c}
+        \toprule
+        Method                                   & Params (M)   & Mem. (M)  & Time (s)  &  PSNR$\uparrow$ \\
+        \midrule
+        pixelSplat~\cite{charatan2024pixelsplat} & 125.4        & 4108      & 0.120     & 26.09 \\
+        MVSplat~\cite{chen2024mvsplat}           & \textbf{12.0}& 1940      & \textbf{0.054}     & 26.39 \\
+        MonoSplat~\cite{liu2025monosplat}        & 30.3         & \textbf{1606}& 0.062     & 26.68 \\
+        Depthsplat~\cite{xu2025depthsplat}       & 354          & 3342      & 0.082     & 27.47 \\
+        \rowcolor{row_color}
+        \textbf{IDESplat (Ours)}                 & 37.6         & 2336      & 0.110     & \textbf{27.80} \\
+
+        \bottomrule
+    \end{tabular}
+        \label{tab:model_efficiency}
+        \vspace{-2mm}
+\end{table}
+
+
+
+
+\begin{figure}[htp]
+    \centering
+    % \vspace{-2mm}
+    \includegraphics[width=\linewidth]{figs/Scannet_error_map.pdf}
+    \vspace{-6mm}
+    \caption{Qualitative comparison of depth error maps on the ScanNet dataset.}
+    \vspace{-6mm}
+    \label{fig:scannet_depth_error_map}
+\end{figure}
+
+
+\noindent\textbf{Depth estimation experiment on ScanNet.}
+%
+We report depth estimation results on the ScanNet dataset in Table~\ref{tab:scannet_depth}. IDESplat consistently outperforms UniMatch and DepthSplat across standard quantitative depth estimation metrics.
+%
+For qualitative comparison, we further visualize the depth error maps on the ScanNet dataset in Fig.~\ref{fig:scannet_depth_error_map}. Compared with the baseline methods, IDESplat exhibits fewer large-error regions and produces more accurate depth estimates, especially around geometrically complex areas.
+
+
+\begin{table}[htbp]
+\footnotesize
+\centering
+\vspace{-2mm}
+% --- 在这里调整行距 ---
+\renewcommand{\arraystretch}{1.0} % 默认是1.0，1.2表示拉大20%
+% --------------------
+\setlength{\tabcolsep}{15pt} % increase column spacing
+\caption{\textbf{Depth estimation results on the ScanNet dataset.}}
+\vspace{-2mm}
+\resizebox{0.98\linewidth}{!}{
+\begin{tabular}{l|ccc}
+    \toprule
+    Method & Abs Rel $\downarrow$ & RMSE $\downarrow$ & RMSE$_{\mathrm{log}}$ $\downarrow$ \\
+    \midrule
+    UniMatch   & 0.059 & 0.179 & 0.082 \\
+    DepthSplat & 0.045 & 0.125 & 0.061 \\
+    \rowcolor{row_color}
+    IDESplat   & \textbf{0.039} & \textbf{0.116} & \textbf{0.053} \\
+    \bottomrule
+\end{tabular}}
+\label{tab:scannet_depth}
+\vspace{-4mm}
+\end{table}
+
+
+
+\begin{figure*}
+    \centering
+    \includegraphics[width=\linewidth]{figs/visual_depth_map.pdf}
+    \vspace{-8mm}
+    \caption{Comparison of depth prediction maps for different models on the RE10K dataset.}
+    \label{fig:visual_depth}
+    \vspace{-6mm}
+\end{figure*}
+
+
+\subsection{Ablation Study}
+
+We conducted detailed ablation experiments on various components of the proposed IDESplat. 
+%
+All models were trained for 20,000 iterations on the RealEstate10K dataset with a batch size of 8.
+%
+We analyzed the effectiveness of the Gaussian Focused Module (GFM), Iterative Depth Estimation process (IDE), and Depth Probability Boosting Strategy (DPBS) , while keeping all other training settings consistent.
+%
+It should be noted that IDE(3) indicates the model iterates the depth probability boosting unit three times.
+%
+The detailed experimental results, shown in Tab.~\ref{tab:ablation_module}, demonstrate that all three designs contribute to improved reconstruction performance. 
+%
+Specifically, adding GFM and IDE(3) results in improvements of 0.32 dB and 0.57 dB, respectively, showing that both the iterative depth estimation process and the Gaussian focused module effectively enhance scene reconstruction.
+%
+The performance improves significantly by 0.46 dB when we incorporate the DPBS strategy into the iterative process, and the best result of 27.56 dB is achieved when all three strategies are used together, further validating the effectiveness of our proposed method.
+
+\begin{table}
+\small
+\centering
+    \caption{\textbf{Ablation study results for each component of IDESplat.} All results are reported on the RealEstate10K dataset. GFM denotes the Gaussian Focused Module, IDE(3) denotes the Iterative Depth Estimation process with three iterations, and DPBS denotes the Depth Probability Boosting Strategy.}
+    \vspace{-2mm}
+    % Reduce column separation
+    \setlength{\tabcolsep}{10pt} % Adjust this value as needed
+    \begin{tabular}{l|ccc}
+        \toprule
+        Method & PSNR$\uparrow$ & SSIM$\uparrow$ & LPIPS$\downarrow$ \\
+        \midrule
+        Baseline            & 26.31   & 0.866   & 0.129  \\
+        \midrule
+         + GFM              & 26.63   & 0.875  & 0.124 \\
+         + IDE(3)           & 26.88   & 0.878  & 0.120 \\
+         + IDE(3) + GFM     & 27.07   & 0.882  & 0.118 \\
+         + IDE(3) + DPBS     & 27.34   & 0.887  & 0.112 \\
+         Full Model         & \textbf{27.56}   & \textbf{0.889}  & \textbf{0.110} \\
+        \bottomrule
+    \end{tabular}
+    \label{tab:ablation_module}
+    \vspace{-6mm}
+\end{table}
+
+We conduct ablation experiments to evaluate the efficiency and reconstruction performance of IDESplat under different iteration counts.
+%
+In these experiments, the Gaussian Focused Module and Depth Probability Boosting Strategy were used by default.
+%
+Additionally, during the iterative process, we gradually increased the resolution, and the depth search range was progressively halved. For 3 iterations, the feature resolutions during warping were $\frac{1}{4}$, $\frac{1}{2}$, and $1$ of the original resolution.
+%
+For 4 iterations, the model iterates twice at the largest feature size. When the number of iterations is 0, it represents performing a single warp for depth probability estimation.
+%
+The results of the experiment, as shown in Tab.~\ref{tab:ablation_iterations}, indicate that even with a single iteration, our method provides a 0.45 dB improvement.
+%
+With 3 iterations, the performance improves by 0.93 dB. Increasing the iteration count adds little parameter overhead and keeps memory usage comparable to existing methods. Despite the longer inference time, 3 iterations already provide a substantial gain while maintaining real-time inference.
+
+
+
+
+
+
+
+\begin{table}
+    \footnotesize
+    \centering
+    \caption{\textbf{Ablation results for IDESplat with different numbers of iterative depth probability boosting units.}  All results are reported on the RealEstate10K dataset. Here, an iteration count of 0 denotes using a single warp operation without any DPBUs, while the other entries correspond to using different numbers of DPBUs.}
+    \vspace{-2mm}
+    % Reduce column separation
+    \setlength{\tabcolsep}{2.2pt} % Adjust this value as needed
+    \begin{tabular}{c|ccc|ccc}
+        \toprule
+        Iterations & Params (M) & Mem. (M) & Time (s) & PSNR$\uparrow$ & SSIM$\uparrow$ & LPIPS$\downarrow$ \\
+        \midrule
+        0           & 35.4 & 1674 & 0.056 & 26.63 & 0.875 & 0.124 \\
+        1           & 36.8 & 1734 & 0.071 & 27.08 & 0.882 & 0.113\\
+        2           & 37.3 & 1902 & 0.091 & 27.31 & 0.884 & 0.112\\
+        3           & 37.6 & 2336 & 0.110 & 27.56 & 0.889 & 0.110\\
+        4           & 38.0 & 2745 & 0.132 & 27.64 & 0.890 & 0.109\\
+        \bottomrule
+    \end{tabular}
+        \label{tab:ablation_iterations}
+        \vspace{-8mm}
+\end{table}
+

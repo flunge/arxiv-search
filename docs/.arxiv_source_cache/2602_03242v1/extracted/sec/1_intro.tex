@@ -1,0 +1,74 @@
+\section{Introduction}
+\label{section:intro}
+
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.75\linewidth]{figures/pretrain-compare.pdf} 
+\caption{
+\textbf{Limitations of Prior Works.}
+\textbf{(a)} Temporal Consistency: In MagicDrive-V2 \cite{gao2024magicdrivedithighresolutionlongvideo}, the car’s color changes inconsistently over time.
+\textbf{(b)} Spatial Localization: In MagicDrive-V2, the car deviates from the bounding box control signal. %visually manifesting as a lane-crossing behavior into the opposite lane.
+\textbf{(c)} Occlusion Hierarchy: In Panacea \cite{wen2024panacea}, the distant bus incorrectly occludes the nearby pedestrian, violating natural occlusion rules.
+Our method excels in temporal consistency, spatial localization, and occlusion hierarchy, addressing these issues effectively.
+ }
+\label{fig:intro}
+\end{figure*}
+
+
+Autonomous driving has attracted extensive attention from both industry and academia for decades \cite{shi2016uniad, zheng2024genad, chen2024end, jiang2023vad}. 
+To enhance the performance and reliability of autonomous systems, high-quality, large-scale multi-view driving videos with precise annotations are essential for training models on downstream tasks such as perception, object tracking, and planning. 
+However, acquiring and labeling real-world driving data is both costly and labor-intensive. 
+To address this, benefiting from the rapid advancements in video generation models \cite{lei2023pyramidflow, xi2025sparse, zheng2024open, hacohen2024ltx, wang2024qihoo, gao2024ca2, zhou2024allegro, ho2022video, blattmann2023align, hu2024animate, wang2023modelscope, wang2024lavie, bar2024lumiere, gupta2024photorealistic}, driving world models \cite{drivedreamer2, wen2024panacea, jia2023adriver, wang2023drive, gao2024magicdrivedithighresolutionlongvideo} have emerged as a promising solution, capable of generating diverse and realistic driving scenarios while significantly reducing data collection and annotation costs.
+
+
+% importance of instance-level temporal consistency and spatial geometric fidelity
+Instance-level temporal consistency and spatial geometric fidelity are critical for generating realistic driving videos, as they affect video quality \cite{Thomas2018fvd} and directly impact their applicability in autonomous driving tasks. Multi-object Tracking \cite{streampetr} and planning \cite{hu2023planningorientedautonomousdriving} require generated driving videos with temporally stable instance appearances to enhance temporal context understanding. This necessitates that the world model accurately maintains instance identities across frames, ensuring continuity in the motion and behavior of surrounding objects.
+On the other hand, perception tasks \cite{streampetr} require generated driving videos where instance positioning strictly adheres to spatial constraints imposed by bounding box control signals, ensuring accurate spatial context comprehension. This requires the world model to accurately capture instance spatial locations and occlusion hierarchy, ensuring geometric consistency within the scene.
+These two factors are essential for enabling world models to effectively learn the underlying dynamics of real-world environments. From a technical standpoint, ensuring strong temporal consistency and precise spatial alignment enhances the reliability of autonomous driving models trained on synthetic data, ultimately improving their real-world performance.
+
+
+% challenges
+However, generating driving videos that maintain instance-level temporal consistency and spatial geometric fidelity remains two significant challenges, primarily due to the large sampling space in diffusion-based models and the limited control signals. 
+First, maintaining fine-grained temporal consistency is particularly difficult. While prior works \cite{gao2023magicdrive, gao2024magicdrivedithighresolutionlongvideo, wen2024panacea, drivedreamer2, wang2023drive, li2023drivingdiffusionlayoutguidedmultiviewdriving} have incorporated various techniques to improve \textit{global} coherence, they still struggle with \textit{instance-level} temporal inconsistencies. For instance, DriveDreamer \cite{wang2023drive}, MagicDrive-V2 \cite{gao2024magicdrivedithighresolutionlongvideo}, and Panacea \cite{wen2024panacea} integrate temporal attention layers to enhance inter-frame consistency.
+%DrivingDiffusion \cite{li2023drivingdiffusionlayoutguidedmultiviewdriving} introduces a local prompt module that encodes instance category embeddings to improve instance generation quality. 
+However, without explicit control mechanisms to enforce instance-level consistency, these methods struggle to maintain stable instance attributes across frames, often resulting in color shifts or texture inconsistencies in Fig.\ref{fig:intro} (a). This highlights the need for explicit instance-level control signals to improve temporal consistency.
+Second, achieving spatial geometric fidelity presents another challenge. 
+Existing methods often suffer from spatial misalignment of instances, as seen in MagicDrive-V2 \cite{gao2024magicdrivedithighresolutionlongvideo}, where instance locations exhibit noticeable deviations in Fig.\ref{fig:intro} (b). This issue arises because these methods lack explicit view transformation from BEV to the camera’s First-Person View (FPV). 
+Furthermore, existing methods struggle to capture the occlusion hierarchy among instances in Fig.~\ref{fig:intro} (c), where the lack of explicit depth order prevents correct occlusion reasoning. This highlights the need for an improved spatial control mechanism that ensures accurate instance positioning and explicitly models the occlusion hierarchy.
+
+In this paper, to address the above challenges, we propose \titleDef, a driving world model that effectively adheres to instance-level temporal consistency and spatial geometric fidelity. \titleDef~ achieves state-of-the-art performance in both video quality and validation in downstream autonomous driving tasks.
+% We adapt the Spatial-Temporal Diffusion Transformer (ST-DiT) architecture \cite{peebles2023scalablediffusionmodelstransformers, zheng2024opensorademocratizingefficientvideo} for controllable multi-view driving video generation.
+% trackID
+% why IFG works
+To ensure instance-level temporal consistency, we introduce \textbf{I}nstance \textbf{F}low \textbf{G}uider (\textbf{IFG}), a lightweight module to extract and propagate instance features across frames. We propose a simple but effective instance flow for mapping the object motion to the RGB domain, then inject the flow to DiT backbone. IFG provides an instance-aware motion cue, which serves as a reference for tracking the position of the corresponding instances in the previous frame. Once the position is determined, we retrieve the semantic features of the instance, such as object category and color. These features are then propagated forward to ensure instance-level visual consistency across frames. This mechanism significantly improves instance-level temporal consistency.
+% With the assistance of ControlNet \cite{zhang2023adding}, we condition the ST-DiT model 
+% $D_{\theta}$ on instance location and feature tokens, which specify where and how each object should appear in the generated video. This mechanism significantly improves instance-level temporal consistency synthesis videos.
+% spatial geometric fidelity
+
+To ensure instance-level spatial geometric fidelity, we introduce \textbf{S}patial \textbf{G}eometric \textbf{A}ligner (\textbf{SGA}), which enables the model to accurately capture the spatial locations of the instance and the occlusion hierarchy. 
+To enable accurate spatial localization, we transform 3D bounding boxes into the camera's perspective view, extracting projected instance bounding boxes as control elements. This transformation leverages the camera's intrinsic and extrinsic parameters, ensuring spatial consistency between the world coordinate system and the image plane.
+To establish a consistent occlusion hierarchy, we explicitly resolve the relative depth order of instances using the distance from each corner point to the camera's optical center, measured along the optical axis. We encode each corner point's location and depth via Fourier embedding, followed by an MLP, to derive an explicit depth order representation.
+Through this mechanism, the model effectively learns to capture spatial locations and occlusion relationships between instances.
+
+
+\titleDef~ establishes a fine-grained and robust world model which ensures instance-level temporal consistency and geometric fidelity in generated driving videos. % that align with instance flow, road maps, 3D bounding boxes, and multi-camera perspectives. 
+Our approach achieves state-of-the-art performance in both video generation quality and downstream autonomous driving task validation, outperforming previous works \cite{gao2024magicdrivedithighresolutionlongvideo, drivedreamer2, li2023drivingdiffusionlayoutguidedmultiviewdriving, wen2024panacea}. 
+%Extensive experiments and comparisons demonstrate the effectiveness of our framework and control mechanisms. 
+Our contributions are as follows. 
+\begin{itemize}    
+    \item To maintain stable instance attributes over time, we propose the Instance Flow Guider, which extracts and propagates instance features across frames, enabling instance-level temporal consistency.
+
+    \item To enable accurate spatial location and establish a consistent occlusion hierarchy, we introduce the Spatial Geometric Aligner, which integrates the 3D bounding boxes and their occlusion relationships, and aligns these details with the pixel space.
+    
+    % projects 3D bounding boxes into the camera's perspective view, and explicitly resolve instances' depth order, ensuring geometric fidelity in generated driving videos.
+    
+    \item Our model achieves SOTA video generation quality with high FID and FVD on the nuScenes benchmark, surpassing previous methods. For autonomous driving applications, the generated videos are validated on downstream perception, tracking, and planning tasks, with performance competitive to real-world sensor data.
+
+    \item We designed a pipeline that generates virtual layouts based on CARLA and employs our model as a renderer for video synthesis, demonstrating the immense potential of \titleDef~ in generating long-tail driving scenarios.
+
+\end{itemize}
+
+
+
+%

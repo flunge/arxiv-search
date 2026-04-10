@@ -1,0 +1,34 @@
+
+\section{Introduction}
+\label{sec:intro}
+
+Joint estimation of camera pose, 3D geometry, and 3D motion -- a task known as 4D scene reconstruction 
+-- from casually captured images is a fundamental challenge in computer vision with applications in robotics~\citep{xu2024flow}, autonomous driving~\citep{geiger2012we}, and 3D/4D generative AI~\citep{yu20244real, liang2024diffusion4d, xie2024sv4d}. 
+Recovering dense 4D information from limited 2D inputs, however, is an inherently ill-posed problem.
+While data-driven approach can be a solution, a challenge continues with a scarcity of dense, large-scale 4D training data. 
+Synthetic datasets~\citep{Zheng:2023:POA} provide dense, pixel-perfect supervision, yet they often suffer from a significant domain gap and a lack of diversity.
+Real-world data~\citep{Jin:2025:S4D} is generally constrained to sparse and noisy annotations, limiting its effectiveness for training robust models. 
+
+Consequently, dynamic scene reconstruction has traditionally centered on slow, test-time optimization pipelines
+This approach relies on intermediate 2D signals such as depth and optical flow, which imposes a high computational cost and caps performance at the quality of these inputs.
+A recent shift towards feedforward models, including DUST3R~\citep{Wang:2024:DUS}, MonST3R~\citep{Zhang:2025:MST}, and DynaDUSt3R~\citep{Jin:2025:S4D}, has yielded impressive results on individual perception tasks; however, a single, unified feedforward architecture capable of holistically addressing the full spectrum of 2D and 3D perception tasks does not yet exist.
+This lack of a unified representation prevents models from exploiting the tightly coupled nature of geometry and motion.
+
+To address these limitations, we introduce \ourmethod{}, a unified feedforward model for dense 4D reconstruction from just two unposed images.
+\ourmethod{} predicts an explicit and dense spatio-temporal representation, Dynamic 3D Gaussian Splatting (D-3DGS), in a single forward pass.
+This unified representation enables the consistent, integrated estimation of multiple 2D and 3D reconstruction tasks, including depth, scene flow, and optical flow, all from the same underlying model.
+
+Furthermore, our unified representation unlocks two key advantages during training.
+First, differentiable rendering provides a dense, self-supervised photometric loss that is independent of sparse or noisy ground-truth labels.
+Second, because 3D geometry and motion originate from the same set of Gaussian primitives, their respective losses are tightly coupled in 3D.
+This coupling creates a regularizing effect where each supervisory signal helps compensate for imperfections in the other.
+As a result, \ourmethod{} achieves state-of-the-art performance on geometry and motion benchmarks, achieving more than $3\times$ lower EPE on Stereo4D and KITTI than competing methods. 
+Furthermore, our explicit 4D representation enables novel applications, including high-fidelity spatio-temporal interpolation of appearance, geometry, and motion from a single prediction.
+
+Our primary contributions are:
+\begin{itemize}
+  \item A unified model for unposed feedforward 4D reconstruction from two images using a dynamic 3D Gaussian Splatting representation.
+  \item A robust semi-supervision framework that leverages differentiably rendered outputs to mitigate the scarcity of annotated data.
+  \item 4D spatio-temporal interpolation of image, depth, and motion as a new application of the feedforward output.
+  \item State-of-the-art performance on 3D geometry and 3D motion benchmark datasets. 
+\end{itemize}

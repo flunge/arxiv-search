@@ -45,7 +45,15 @@
     pre { white-space: pre-wrap; background:#f7f7f7; border-radius:8px; padding:12px; overflow-x:auto; }
     figure { margin: 24px 0; }
     figcaption { color: #666; font-size: 13px; }
-    img.paper-fig { width: 100%; border: 1px solid #ddd; border-radius: 8px; }
+    .article figure { width: min(100%, 760px); margin: 24px auto; }
+    img.paper-fig { display:block; width:auto; max-width:100%; max-height:460px; margin:0 auto; border: 1px solid #ddd; border-radius: 8px; background:#fafafa; cursor: zoom-in; box-sizing:border-box; }
+    .page-lightbox { position: fixed; inset: 0; z-index: 9999; display:flex; align-items:center; justify-content:center; padding:24px; background: rgba(15, 23, 42, 0.82); box-sizing:border-box; }
+    .page-lightbox[hidden] { display:none; }
+    .page-lightbox-inner { position: relative; max-width: min(96vw, 1400px); max-height: 92vh; display:flex; flex-direction:column; align-items:center; gap:12px; }
+    .page-lightbox-image { display:block; max-width: min(96vw, 1400px); max-height: calc(92vh - 64px); width:auto; height:auto; border-radius:12px; box-shadow: 0 18px 48px rgba(0,0,0,0.35); background:#fff; }
+    .page-lightbox-caption { max-width: min(92vw, 960px); color:#f3f4f6; font-size:13px; line-height:1.7; text-align:center; }
+    .page-lightbox-close { position:absolute; top:-12px; right:-12px; width:40px; height:40px; border:none; border-radius:999px; background:rgba(255,255,255,0.96); color:#111827; font-size:24px; line-height:1; cursor:pointer; box-shadow: 0 8px 24px rgba(0,0,0,0.22); }
+    .page-lightbox-close:hover { background:#ffffff; }
     .post-item { border:1px solid #e5e5e5; border-radius:8px; padding:10px 12px; margin:10px 0; }
     .layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 28px; align-items: start; justify-content: center; position: relative; }
     .sidebar { position: sticky; top: 18px; align-self: start; border-right: 1px solid #eee; padding-right: 16px; transition: width .2s ease, min-width .2s ease, padding .2s ease, border-color .2s ease; }
@@ -128,6 +136,56 @@
         resizeObserver.observe(shell);
       }
     });
+
+    function setupImageLightbox() {
+      var lightbox = document.getElementById('page-lightbox');
+      var lightboxImage = document.getElementById('page-lightbox-image');
+      var lightboxCaption = document.getElementById('page-lightbox-caption');
+      if (!lightbox || !lightboxImage || !lightboxCaption) return;
+
+      function closeLightbox() {
+        lightbox.setAttribute('hidden', 'hidden');
+        lightbox.setAttribute('aria-hidden', 'true');
+        lightboxImage.removeAttribute('src');
+        lightboxImage.alt = '';
+        lightboxCaption.textContent = '';
+        document.body.style.overflow = '';
+      }
+
+      function openLightbox(img) {
+        var src = img.getAttribute('data-full-src') || img.currentSrc || img.src;
+        if (!src) return;
+        var figure = img.closest('figure');
+        var caption = figure ? figure.querySelector('figcaption') : null;
+        lightboxImage.src = src;
+        lightboxImage.alt = img.alt || '';
+        lightboxCaption.textContent = caption ? caption.textContent.trim() : (img.alt || '');
+        lightbox.removeAttribute('hidden');
+        lightbox.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+      }
+
+      document.addEventListener('click', function(event) {
+        var target = event.target;
+        if (!target || !target.closest) return;
+        var clickedImage = target.closest('img.paper-fig');
+        if (clickedImage && !clickedImage.closest('#page-lightbox')) {
+          openLightbox(clickedImage);
+          return;
+        }
+        if (target === lightbox || target.closest('.page-lightbox-close')) {
+          closeLightbox();
+        }
+      });
+
+      document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape' && !lightbox.hasAttribute('hidden')) {
+          closeLightbox();
+        }
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', setupImageLightbox);
   </script>
 
   <script>
@@ -257,7 +315,13 @@
     
   </article>
 </div>
-
+  </div>
+</div>
+<div id='page-lightbox' class='page-lightbox' hidden aria-hidden='true'>
+  <div class='page-lightbox-inner'>
+    <button type='button' class='page-lightbox-close' aria-label='关闭大图' title='关闭'>&times;</button>
+    <img id='page-lightbox-image' class='page-lightbox-image' alt='' />
+    <div id='page-lightbox-caption' class='page-lightbox-caption'></div>
   </div>
 </div>
 </body>

@@ -1,0 +1,189 @@
+\section{Method}
+\label{section:method}
+\begin{figure*}[ht]
+\centering
+\includegraphics[width=0.85\linewidth]{figures/main.pdf} 
+\caption{\textbf{Overview.}
+(a) Instance Flow Guider, which utilizes the instance flow to improve instance-level temporal consistency.
+(b) Spatial Geometric Aligner, which uses perspective projection and depth order to capture instance spatial locations and occlusion hierarchy. 
+(c) Controlled Denoising Process, enabled by ST-DiT with ControlNet for unified condition control.}
+\label{fig: main}
+\vspace{-0.5cm}
+\end{figure*}
+
+We introduce \titleDef~ in Sec. \ref{section:InstaDrive}, a novel framework for generating realistic driving videos that adhere to instance-level temporal consistency and spatial geometric fidelity. 
+Furthermore, we leverage CARLA's autopilot to procedurally and stochastically simulate rare yet safety-critical driving scenarios across diverse maps and regions in Sec. \ref{section:carla}.
+% Additionally, we utilize CARLA's autopilot to **procedurally and stochastically** simulate rare yet safety-critical driving scenarios across diverse maps and regions, enabling rigorous safety evaluation for autonomous systems.
+
+
+%-------------------------------------------------------------------------
+\subsection{Overview} 
+\label{section:InstaDrive}
+% condition
+% control - DiVE MagicDriveDiT
+% multi-view consistency
+The overall architecture of our model is illustrated in Fig. \ref{fig: main}.
+Building on OpenSora V1.1 ~\cite{opensora}, we employ a Variational Auto-Encoder (VAE) for video encoding, T5 ~\cite{raffel2020exploring} for text encoding, and Spatial-Temporal Diffusion Transformer (ST-DiT) as foundational model for the denoising process.
+
+To achieve fine-grained control over both foreground and background elements, we introduce a comprehensive set of control conditions, including bounding box projection, road maps, camera poses, and scene descriptions, integrating them into the conditioned video generation process.
+Moreover, we introduce instance tracking IDs to facilitate the tracking and propagation of instance features across frames, a key mechanism within our proposed Instance Flow Guider module, detailed in Sec. \ref{section: dynamic}.
+Additionally, we leverage box coordinate and bounding box projection to enforce instance-level spatial geometric fidelity, as elaborated in Sec. \ref{section: static}.
+
+Given the need for handling multiple control elements, we employ ControlNet~\cite{zhang2023adding} to inject control signals into the video generation process.
+Practically, a set of encoders, including $E_{depth}$, $E_{vae}$, and $E_{text}$, extract latent features from diverse control conditions.
+To incorporate these control-aware representations, we integrate 13 duplicated blocks into the first 13 base blocks of the ST-DiT architecture.
+Each control block modulates the feature flow by fusing condition features with the corresponding base block outputs, thereby ensuring effective control signal conditioning throughout the generation pipeline.
+ 
+To guarantee the multi-view consistency during generation, we use a parameter-free view-inflated attention mechanism to replace the commonly used cross-view attention modules~\cite{gao2023magicdrive}.
+Specifically, we reshape the input from $\mathbb{R}^{v \times t \times h \times w \times c}$ to $\mathbb{R}^{t \times h \times (wv) \times c}$ and treat $wv$ as the frame width.
+Our proposed approach improves the multi-view coherence without compensating with additional parameters.
+    
+
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.85\linewidth]{figures/traj.pdf} 
+\caption{Illustration of the extraction process for motion map in Instance Flow Guider. 
+% The process begins by capturing the spatial coordinates of surrounding instances in the absolute world coordinate system over time as \(F_{\text{coordinate}}\). 
+% Next, the relative motion vectors of these instances between consecutive frames is represented as \(F_{\text{offset}}\). 
+% Subsequently, the 3D bounding box of each instance is projected onto the camera view to generate its 2D projection area. 
+% Each pixel in this area at frame \(i\) is populated with the normalized position offset \(F_{\text{offset}}\) of the corresponding instance. 
+% The offset map is converted into an RGB visualization, encoded into latent space by $E_{vae}$, and integrated into the ST-DiT pipeline, enabling robust and lightweight motion control.
+We calculate the motion vector $F_{\text{offset}}$ for each instance, and render the projected box using $F_{\text{offset}}$. 
+}
+\label{fig: traj}
+\vspace{-0.5cm}
+\end{figure}
+
+%-------------------------------------------------------------------------
+\subsection{Instance Flow Guider}
+\label{section: dynamic}
+
+% windowed temporal attention
+
+To ensure instance-level temporal consistency, we introduce a lightweight \textbf{I}nstance \textbf{F}low \textbf{G}uider (\textbf{IFG}) module, which enables the model to track, retrieve, and propagate instance features over time, preserving instance attributes such as color and texture. Fig.~\ref{fig: traj} provides an overview of Instance Flow Guider module.
+
+% Prior works~\cite{drivedreamer2, gao2024magicdrivedithighresolutionlongvideo, wen2024panacea} integrate full-frame 
+% temporal attention to enhance inter-frame temporal consistency. 
+% However, in driving scenes, foreground instances typically occupy only a small portion of the overall frame.
+% The key to achieving instance-level temporal consistency lies in performing fine-grained instance-aware temporal attention.
+% Therefore, in the Instance Flow Guider module, our primary focus is on tracking, retrieving, and propagating instance features over time.
+
+\noindent\textbf{Tracking Instance Position.}
+We leverage track IDs to  capture motion trajectories of surrounding instances, termed as \textit{instance flow}, which supports both continuous and non-continuous trajectories:
+\begin{equation}
+F_{i} = \left \{ (x_{i}^{t}, y_{i}^{t}, z_{i}^{t}, v_{i}^{t}) \right \}_{t=0}^{T-1},
+\end{equation}
+\noindent where \((x_{j}^{i}, y_{j}^{i}, z_{j}^{i})\) denotes the position of instance \(i\) at frame \(t\), and \( v_i^t \in \{0, 1\} \) indicates whether instance \( i \) is visible at frame \( t \).
+We define the most recent visible frame as:
+\begin{equation}
+\tau(i,t) = \max\{t' \mid t' < t,\ v_i^{t'} = 1\}.
+\end{equation}
+If $i$ was never visible before $t$, $\tau(i,t)$ is undefined.
+\noindent To encode the positional displacement of an instance from previous frame to current frame, we define \textit{instance flow offset}:  
+$$
+F_{i_{\text{offset}}}^t =
+\begin{cases}
+(x_i^t - x_i^{\tau(i,t)},\ y_i^t - y_i^{\tau(i,t)},\ z_i^t - z_i^{\tau(i,t)}), \\
+\hspace*{5em} \text{if } v_i^t = 1 \text{ and } \tau(i,t) \text{ exists} \\
+(0,\ 0,\ 0),\quad \text{otherwise}
+\end{cases}
+$$
+\noindent which propagates features from $\tau(i,t)$ to $t$, effectively reassociating reappearing instances with their pre-occlusion states. % reconnect post-occlusion states
+The full offset map for all \( N \) instances at frame \( t \) is:
+\begin{equation}
+F_{\text{offset}}^{t} = \left\{ F_{i_{\text{offset}}}^t \right\}_{i=0}^{N-1},
+\end{equation}
+which serves as a motion condition for tracking the corresponding instance’s position in the previous frame.
+
+
+\noindent \textbf{Visualizing Motion Conditions.} 
+To ensure alignment between the motion condition and the corresponding instance's geometric position,  
+we transform \( F_{\text{offset}}^{t} \) into a motion map \( h^t \in \mathbb{R}^{H \times W \times 3} \), which belongs to the same latent space of video patches.  
+The 3D bounding box of instance \( i \) is projected onto the camera’s First-Person View to obtain its 2D projection region.  
+Each pixel within this region at frame \( t \) is assigned the positional displacement of the corresponding instance:  
+\begin{equation}
+h^t(h, w) = 
+\begin{cases}
+F_{i_{\text{offset}}}^t, & \text{if instance } i \text{ projects onto } \\
+                             &  (h, w) \text{ at frame } t, \\
+0, & \text{otherwise.}
+\end{cases}
+\end{equation}
+\noindent The positional displacements of all instances \( F_{\text{offset}}^{t} \) are collectively encoded into the motion map \( h^t \).  
+Notably, the first frame employs a fully-zero map: \( h^{t=0} = 0 \).
+
+\noindent Afterward, to visualize the motion map \( h \in \mathbb{R}^{T \times H \times W \times 3} \), we transform \( h \) into the RGB color space, generating \( h^{vis} \in \mathbb{R}^{T \times H \times W \times 3} \) through a flow visualization technique: \(x\)-offset is mapped to the red (\(R\)) channel, \(y\)-offset is mapped to the green (\(G\)) channel, and \(z\)-offset is mapped to the blue (\(B\)) channel.  
+To efficiently encode motion information, we leverage the same VAE encoder \( E_{\text{vae}} \) to compress the motion maps \( h^{vis} \), achieving an 8× spatial downsampling, yielding a compact motion latent representation: $h_{m} \in \mathbb{R}^{T \times h \times w \times 4}$.
+
+
+\noindent \textbf{Retrieving and Propagating Instance Features.}
+Once the motion vector is encoded, we fuse instance motion condition features with the corresponding base block outputs using ControlNet~\cite{zhang2023adding}.  
+These fused representations are then passed through temporal attention layers in ST-DiT blocks.
+The encoded motion map, which comprises instance flow and instance mask, enables the temporal attention layers to selectively incorporate instance information from adjacent frames.
+As a result, the semantic attributes of each instance (e.g., instance category, color, and texture) are retrieved from the past frame and efficiently propagated forward.
+By conditioning the ST-DiT model \( D_{\theta} \) on both the spatial location and feature tokens of each instance, we explicitly control where and how each instance should appear in the generated video.
+This approach significantly enhances instance-level temporal consistency in driving video synthesis, effectively addressing issues such as color shifts and texture inconsistencies. 
+
+% Why IFG is Lightweight
+Unlike methods such as GEM \cite{hassan2024gemgeneralizableegovisionmultimodal}, which rely on external feature-extraction models (e.g., DINOv2 \cite{oquab2024dinov2learningrobustvisual}) to obtain instance features, IFG directly derives instance motion and semantic attributes from the generated video itself. This eliminates the need for additional deep feature extractors, making IFG computationally efficient while still ensuring strong instance-level temporal consistency.
+
+
+
+
+%-------------------------------------------------------------------------
+\subsection{Spatial Geometric Aligner}
+\label{section: static}
+To ensure spatial geometric fidelity, we introduce a lightweight \textbf{S}patial \textbf{G}eometric \textbf{A}ligner (\textbf{SGA}) module, which enables the model accurately capture instance spatial locations and occlusion hierarchy. Fig.~\ref{fig: main}(c) provides an overview of the SGA module.
+ 
+% Existing methods\cite{gao2024magicdrivedithighresolutionlongvideo} often suffer from spatial misalignment of instances due to the absence of an explicit view transformation from Bird’s-Eye View (BEV) to the First-Person View (FPV) of the camera.
+% The inherent perspective differences between BEV and FPV create discrepancies. 3D cues (e.g., instance box coordinates and camera pose) are not sufficient to accomplish accurate view transformation and capture correct instance location.
+% Additionally, existing methods do not model the occlusion hierarchy between instances, overlapping instances may exhibit unnatural depth inconsistencies, degrading realism.
+
+
+% box projection
+To enable accurate spatial localization, we transform 3D bounding boxes into the camera's perspective view, extracting instance bounding box projections as control elements. This transformation uses the camera's intrinsic and extrinsic parameters, ensuring spatial consistency between the world coordinate system and the image plane.
+
+A 3D bounding box $ (c, b) $ consists of a class label $ c $ and box position $ b $. The 3D coordinates $ b_w $ in the world coordinate system, representing one of the eight corner points of $ b $, are first converted into the ego vehicle coordinate system using the inverse ego rotation $ R_e $ and translation $ T_e $:
+\begin{equation}
+    b_e = R_e^{-1} (b_w - T_e).
+\end{equation}
+Next, the coordinates are transformed into the camera coordinate system using the calibrated sensor extrinsic matrix:
+\begin{equation}
+b_c = R_s^{-1} (b_e - T_s),
+\end{equation}
+where $ R_s $ and $ T_s $ represent the camera's rotation and translation relative to the vehicle. The 3D points $ b_c = [x_c, y_c, z_c] $ are then projected onto the 2D image plane using the camera's intrinsic matrix $ K $.
+% $$
+% K =
+% \begin{bmatrix}
+% f_x & 0 & c_x \\
+% 0 & f_y & c_y \\
+% 0 & 0 & 1
+% \end{bmatrix},
+% $$
+% where $ (f_x, f_y) $ are the focal lengths, and $ (c_x, c_y) $ are the principal point offsets. 
+The 2D pixel coordinates are computed as:
+\begin{equation}
+\begin{bmatrix} u & v & - \end{bmatrix}^\top = K \begin{bmatrix} x_c / z_c & y_c / z_c & 1 \end{bmatrix}^\top.
+\end{equation}
+The resulting 2D pixel coordinates render instance-aware spatial constraints in the RGB domain, with distinct colors representing different classes $ c $. These constraints are encoded by the $ E_{\text{layout}} $ encoder into the projected bounding box condition embedding $ h_{\text{box}} $. This explicit transformation pipeline ensures precise instance localization.
+
+
+% occlusion hierarchy
+To establish a consistent occlusion hierarchy, we explicitly resolve the relative depth order of instances. During the transformation from the camera coordinate system to the image plane, the depth component $ z_c $ represents the distance from an instance's corner point to the camera optical center along the optical axis. We use this depth information as a control condition, helping the model understand occlusion relationships and ensuring closer instances correctly occlude farther ones. 
+
+For each instance, the 3D bounding box is defined by eight corner points in the camera coordinate system, denoted as $ b^i_t \in \mathbb{R}^{8 \times 3} $, where each row $ b_c = [u, v, z_c] $ encodes the position and depth of a corner point in the 2D image plane. We apply Fourier embedding to each corner point and pass it through an MLP to obtain the depth order representation:  
+\begin{align}
+    h^{b_i}_t &= \operatorname{MLP}_p(\operatorname{Fourier}(b^i_t)) = E_{depth}(b^i_t).
+    \label{equ:box_pos}
+\end{align}
+The hidden states for all bounding boxes in frame $ t $ are represented as $ h_{depth} = [h^{b_1}_t, \dots, h^{b_{N_{t}}}_t] $, where $ N_{t} $ is the number of instances. To integrate depth-based spatial information, we fuse $ h_{depth} $ with the projected bounding box condition embedding $ h_{\text{box}} $ using cross-attention:  
+\begin{align}
+    h_{\text{vehicle}} =  \text{CrossAttn}(h_{\text{box}}, h_{depth}).
+\end{align}
+This enables the model to effectively capture spatial locations and occlusion relationships, ensuring geometric fidelity in generated driving videos.
+
+
+\subsection{CARLA based Procedural Scenario Simulation} 
+\label{section:carla}
+We used CARLA's autopilot and map system to define obstacle interaction behaviors (e.g., cut-in, braking) and extracted intermediate 3D bounding boxes, lane markings, and drivable areas. Leveraging nuScenes' ego vehicle coordinate system and camera parameters, we projected this data into multiple viewpoints, converting it into model control conditions. This enabled scene generation. The system efficiently utilizes CARLA's waypoint mechanism to randomly generate diverse events across maps, providing a rich set of control conditions.

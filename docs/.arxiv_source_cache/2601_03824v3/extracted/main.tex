@@ -1,0 +1,165 @@
+% CVPR 2026 Paper Template; see https://github.com/cvpr-org/author-kit
+
+\documentclass[10pt,twocolumn,letterpaper]{article}
+
+%%%%%%%%% PAPER TYPE  - PLEASE UPDATE FOR FINAL VERSION
+% \usepackage{cvpr}              % To produce the CAMERA-READY version
+% \usepackage[review]{cvpr}      % To produce the REVIEW version
+\usepackage[pagenumbers]{cvpr} % To force page numbers, e.g. for an arXiv version
+
+% Import additional packages in the preamble file, before hyperref
+\input{preamble}
+\usepackage{enumitem}
+\usepackage{bm}
+\usepackage{url}
+\usepackage{comment}
+\usepackage{graphicx}
+\usepackage{colortbl}
+\usepackage{xcolor}
+\usepackage{amsmath}
+\usepackage{multirow}
+\usepackage{adjustbox}
+\usepackage{threeparttable}
+\usepackage{epsfig}
+\usepackage{wrapfig}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{setspace}
+\usepackage{bm}
+\usepackage{float}
+\usepackage{makecell}
+
+% \newcommand{\SG}[1]{{\color{blue}}
+
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+\usepackage{tablefootnote}
+\def\pz{{\phantom{0}}}
+% It is strongly recommended to use hyperref, especially for the review version.
+% hyperref with option pagebackref eases the reviewers' job.
+% Please disable hyperref *only* if you encounter grave issues, 
+% e.g. with the file validation for the camera-ready version.
+%
+% If you comment hyperref and then uncomment it, you should delete *.aux before re-running LaTeX.
+% (Or just hit 'q' on the first LaTeX run, let it finish, and you should be clear).
+\definecolor{cvprblue}{rgb}{0.21,0.49,0.74}
+\usepackage[pagebackref,breaklinks,colorlinks,allcolors=cvprblue]{hyperref}
+\usepackage[table,xcdraw]{xcolor}
+\definecolor{row_color}{HTML}{E0FFFF} % 浅青色
+
+%%%%%%%%% PAPER ID  - PLEASE UPDATE
+\def\paperID{} % *** Enter the Paper ID here
+\def\confName{CVPR}
+\def\confYear{2026}
+
+%%%%%%%%% TITLE - PLEASE UPDATE
+% \title{IDEASplat: Iterative Depth-probability Estimation Attention for \\ Generalizable 3D Gaussian Splatting}
+\title{IDESplat: Iterative Depth Probability Estimation for \\ Generalizable 3D Gaussian Splatting}
+% \title{IDEASplat: Iterative Depth-probability Enhancement Attention for \\ Generalizable 3D Gaussian Splatting}
+
+
+
+
+
+%%%%%%%% AUTHORS - PLEASE UPDATE
+\author{
+Wei Long\textsuperscript{1}, Haifeng Wu\textsuperscript{1}, Shiyin Jiang\textsuperscript{1}, Jinhua Zhang\textsuperscript{1}, Xinchun Ji\textsuperscript{2}, Shuhang Gu\textsuperscript{1*} \\
+\textsuperscript{1}University of Electronic Science and Technology of China \\
+\textsuperscript{2}Aerospace Information Research Institute, Chinese Academy of Sciences \\
+% Institution1 address\\
+{\tt\small lwsch5940@163.com, shuhanggu@gmail.com} \\
+% {\tt\small \url{https://github.com/LabShuHangGU/PFT-SR}}
+}
+
+
+% %%%%%%%%% AUTHORS - PLEASE UPDATE
+% \author{\hspace{-0.5cm}
+% Xingyu Zhou$^1$\quad Qifan Li$^1$\quad
+% Xiaobin Hu$^2$\quad Hai Chen$^{3,4}$\quad Shuhang Gu$^1$\thanks{Corresponding author.  \hfill \textbf{Code:} {\href{https://github.com/CVL-UESTC/IDESplat}{IDESplat}}}\\%\Letter
+% \hspace{-0.5cm}
+% $^1$University of Electronic Science and Technology of China \hspace{0pt}
+% $^2$National University of Singapore \hspace{0pt}\\
+% $^3$Sun Yat-sen University \hspace{0pt}
+% $^4$North China Institute of Computer Systems Engineering\\
+% \hspace{-0.5cm}
+% {\tt\small \{xy.chous526, shuhanggu\}@gmail.com}}
+
+
+% \author{First Author\\
+% Institution1\\
+% Institution1 address\\
+% {\tt\small firstauthor@i1.org}
+% % For a paper whose authors are all at the same institution,
+% % omit the following lines up until the closing ``}''.
+% % Additional authors and addresses can be added with ``\and'',
+% % just like the second author.
+% % To save space, use either the email address or home page, not both
+% \and
+% Second Author\\
+% Institution2\\
+% First line of institution2 address\\
+% {\tt\small secondauthor@i2.org}
+% }
+
+
+
+
+\begin{document}
+% 
+
+\twocolumn[{
+\maketitle
+
+\vspace{-7mm}\hspace{-2.5mm}
+\centerline{
+\includegraphics[width=0.98\linewidth,trim={4pt 4pt 4pt 4pt}]{figs/motivation_new.pdf}}
+\vspace{-1mm}
+\captionof{figure}
+{
+\textbf{Left:} Methods~\cite{chen2024mvsplat, xu2025depthsplat, liu2025monosplat} that estimate depth probability via a single warp operation. \textbf{Middle:} Our IDESplat can iteratively leverage multi-warp operations to boost the depth probability estimate and refine the depth candidates for accurate Gaussian mean predictions.
+\textbf{Right: }The experimental results of our IDESplat compared with mainstream methods such as PixelSplat~\cite{charatan2024pixelsplat}, MVSplat~\cite{chen2024mvsplat}, MonoSplat~\cite{liu2025monosplat}, and DepthSplat~\cite{xu2025depthsplat}. The PSNR values are reported for the entire RE10K test set.
+% \small
+% \textbf{Vanilla next-scale prediction \textit{vs}. MVAR.}
+% \textbf{\small Left}: The vanilla next-scale method predicts each scale based on all previous scales and requires each token to consider all preceding tokens. 
+% \textbf{\small Middle}: A next-scale variant predicts the next scale using only the adjacent scale, leveraging scale Markovian conditioning across scales.
+% \textbf{\small Right}: MVAR further disentangles the spatial constraint and predicts each token using the neighboring positions of adjacent scales, based on spatial Markovian conditioning.
+}
+\label{fig:intro}
+% \vspace{2em}
+\vspace{3mm}
+% \maketitle
+}]
+% \maketitle
+
+% 添加通讯作者信息
+\renewcommand{\thefootnote}{\fnsymbol{footnote}}
+\footnotetext[1]{corresponding author}
+
+\input{sec/0_abstract}    
+
+
+% \begin{figure*}
+%     \centering
+%     \includegraphics[width=\linewidth]{figs/IDESplat_arch.pdf}
+%     \caption{The overall architecture of IDESplat.}
+%     \label{fig:IDESplat}
+%     \vspace{-3mm}
+% \end{figure*}
+
+\input{sec/1_intro}
+\input{sec/2_related}
+\input{sec/3_method}
+\input{sec/4_experiment}
+\input{sec/5_conclusion}
+{
+    \small
+    \bibliographystyle{ieeenat_fullname}
+    \bibliography{main}
+}
+
+% WARNING: do not forget to delete the supplementary pages from your submission 
+\input{sec/X_suppl}
+
+\end{document}

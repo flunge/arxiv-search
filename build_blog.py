@@ -46,7 +46,7 @@ TAKEAWAY_IMPROVEMENT_TOKENS = ["改进", "未来", "方向", "下一步", "扩�
 
 TRANSLATION_CACHE_NAME = ".translation_cache.json"
 REWRITE_CACHE_NAME = ".rewrite_cache.json"
-REWRITE_STYLE_VERSION = "v27"
+REWRITE_STYLE_VERSION = "v28"
 SOURCE_CACHE_DIRNAME = ".arxiv_source_cache"
 
 _DOTENV_VALUES: Optional[Dict[str, str]] = None
@@ -161,7 +161,15 @@ def _render_page(title: str, body_html: str, include_mathjax: bool = False) -> s
     pre {{ white-space: pre-wrap; background:#f7f7f7; border-radius:8px; padding:12px; overflow-x:auto; }}
     figure {{ margin: 24px 0; }}
     figcaption {{ color: #666; font-size: 13px; }}
-    img.paper-fig {{ width: 100%; border: 1px solid #ddd; border-radius: 8px; }}
+    .article figure {{ width: min(100%, 760px); margin: 24px auto; }}
+    img.paper-fig {{ display:block; width:auto; max-width:100%; max-height:460px; margin:0 auto; border: 1px solid #ddd; border-radius: 8px; background:#fafafa; cursor: zoom-in; box-sizing:border-box; }}
+    .page-lightbox {{ position: fixed; inset: 0; z-index: 9999; display:flex; align-items:center; justify-content:center; padding:24px; background: rgba(15, 23, 42, 0.82); box-sizing:border-box; }}
+    .page-lightbox[hidden] {{ display:none; }}
+    .page-lightbox-inner {{ position: relative; max-width: min(96vw, 1400px); max-height: 92vh; display:flex; flex-direction:column; align-items:center; gap:12px; }}
+    .page-lightbox-image {{ display:block; max-width: min(96vw, 1400px); max-height: calc(92vh - 64px); width:auto; height:auto; border-radius:12px; box-shadow: 0 18px 48px rgba(0,0,0,0.35); background:#fff; }}
+    .page-lightbox-caption {{ max-width: min(92vw, 960px); color:#f3f4f6; font-size:13px; line-height:1.7; text-align:center; }}
+    .page-lightbox-close {{ position:absolute; top:-12px; right:-12px; width:40px; height:40px; border:none; border-radius:999px; background:rgba(255,255,255,0.96); color:#111827; font-size:24px; line-height:1; cursor:pointer; box-shadow: 0 8px 24px rgba(0,0,0,0.22); }}
+    .page-lightbox-close:hover {{ background:#ffffff; }}
     .post-item {{ border:1px solid #e5e5e5; border-radius:8px; padding:10px 12px; margin:10px 0; }}
     .layout {{ display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 28px; align-items: start; justify-content: center; position: relative; }}
     .sidebar {{ position: sticky; top: 18px; align-self: start; border-right: 1px solid #eee; padding-right: 16px; transition: width .2s ease, min-width .2s ease, padding .2s ease, border-color .2s ease; }}
@@ -244,6 +252,56 @@ def _render_page(title: str, body_html: str, include_mathjax: bool = False) -> s
         resizeObserver.observe(shell);
       }}
     }});
+
+    function setupImageLightbox() {{
+      var lightbox = document.getElementById('page-lightbox');
+      var lightboxImage = document.getElementById('page-lightbox-image');
+      var lightboxCaption = document.getElementById('page-lightbox-caption');
+      if (!lightbox || !lightboxImage || !lightboxCaption) return;
+
+      function closeLightbox() {{
+        lightbox.setAttribute('hidden', 'hidden');
+        lightbox.setAttribute('aria-hidden', 'true');
+        lightboxImage.removeAttribute('src');
+        lightboxImage.alt = '';
+        lightboxCaption.textContent = '';
+        document.body.style.overflow = '';
+      }}
+
+      function openLightbox(img) {{
+        var src = img.getAttribute('data-full-src') || img.currentSrc || img.src;
+        if (!src) return;
+        var figure = img.closest('figure');
+        var caption = figure ? figure.querySelector('figcaption') : null;
+        lightboxImage.src = src;
+        lightboxImage.alt = img.alt || '';
+        lightboxCaption.textContent = caption ? caption.textContent.trim() : (img.alt || '');
+        lightbox.removeAttribute('hidden');
+        lightbox.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+      }}
+
+      document.addEventListener('click', function(event) {{
+        var target = event.target;
+        if (!target || !target.closest) return;
+        var clickedImage = target.closest('img.paper-fig');
+        if (clickedImage && !clickedImage.closest('#page-lightbox')) {{
+          openLightbox(clickedImage);
+          return;
+        }}
+        if (target === lightbox || target.closest('.page-lightbox-close')) {{
+          closeLightbox();
+        }}
+      }});
+
+      document.addEventListener('keydown', function(event) {{
+        if (event.key === 'Escape' && !lightbox.hasAttribute('hidden')) {{
+          closeLightbox();
+        }}
+      }});
+    }}
+
+    document.addEventListener('DOMContentLoaded', setupImageLightbox);
   </script>
 {mathjax_block}
 </head>
@@ -251,6 +309,13 @@ def _render_page(title: str, body_html: str, include_mathjax: bool = False) -> s
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
 {body_html}
+  </div>
+</div>
+<div id='page-lightbox' class='page-lightbox' hidden aria-hidden='true'>
+  <div class='page-lightbox-inner'>
+    <button type='button' class='page-lightbox-close' aria-label='关闭大图' title='关闭'>&times;</button>
+    <img id='page-lightbox-image' class='page-lightbox-image' alt='' />
+    <div id='page-lightbox-caption' class='page-lightbox-caption'></div>
   </div>
 </div>
 </body>
@@ -722,15 +787,18 @@ def _source_grounded_one_liner(title: str, abstract_text: str, intro_text: str, 
 
 
 def _build_innovation_section(source_text: str, docs_dir: Path) -> str:
-    points = _source_grounded_points(source_text, purpose="innovation", max_items=4, docs_dir=docs_dir)
+    points = _source_grounded_points(source_text, purpose="innovation", max_items=5, docs_dir=docs_dir)
     if len(points) >= 2:
-        ordinals = ["第一", "第二", "第三", "第四"]
-        text = "\n".join(f"{ordinals[idx]}，{point.rstrip('。；')}。" for idx, point in enumerate(points[: min(3, len(points))]))
-        return _postprocess_rewrite_output(text, purpose="innovation")
+        ordinals = ["第一", "第二", "第三", "第四", "第五"]
+        paragraphs = [
+            f"{ordinals[idx]}个关键新意是：{point.rstrip('。；')}。这部分不是单独的小修小补，而是在原论文方法链路里承担了明确作用。"
+            for idx, point in enumerate(points[: min(4, len(points))])
+        ]
+        return _postprocess_rewrite_output("\n\n".join(paragraphs), purpose="innovation")
     rewritten = _rewrite_to_zh(source_text, docs_dir, purpose="innovation")
     if _clean_text_block(rewritten):
         return _postprocess_rewrite_output(rewritten, purpose="innovation")
-    return _postprocess_rewrite_output(_source_grounded_excerpt(source_text, purpose="innovation", max_items=3, docs_dir=docs_dir), purpose="innovation")
+    return _postprocess_rewrite_output(_source_grounded_excerpt(source_text, purpose="innovation", max_items=4, docs_dir=docs_dir), purpose="innovation")
 
 
 def _source_grounded_caption_fallback(caption_en: str, number: str, docs_dir: Optional[Path] = None) -> str:
@@ -989,7 +1057,7 @@ def _prepare_rewrite_source(text: str, purpose: str = "section") -> str:
     text = _remove_author_affiliation_noise(text)
     text = _strip_layout_noise(text)
     text = _clean_text_block(text)
-    if purpose in {"summary", "innovation", "technical", "experiment"}:
+    if purpose == "summary":
         brief = _build_section_brief(text, purpose=purpose)
         if brief:
             return brief
@@ -1557,9 +1625,15 @@ def _extract_latex_heading_blocks(text: str, command: str) -> List[Dict[str, obj
     blocks: List[Dict[str, object]] = []
     for idx, match in enumerate(matches):
         heading = _latex_to_plain_text(match.group(1))
-        start = match.end()
+        content_start = match.end()
         end = matches[idx + 1].start() if idx + 1 < len(matches) else len(text)
-        blocks.append({"heading": heading, "raw_body": text[start:end], "start": match.start(), "end": end})
+        blocks.append({
+            "heading": heading,
+            "raw_body": text[content_start:end],
+            "start": match.start(),
+            "content_start": content_start,
+            "end": end,
+        })
     return blocks
 
 
@@ -1595,6 +1669,118 @@ def _build_section_detail(section_raw: str, section_number: int) -> Dict[str, ob
         subsection_entries.append(subsection_entry)
     section_detail["subsections"] = subsection_entries
     return section_detail
+
+
+_OWNER_KEY_PATTERN = re.compile(r"^\d+(?:\.\d+){0,2}$")
+
+
+def _build_owner_ranges(text: str) -> List[Dict[str, object]]:
+    ranges: List[Dict[str, object]] = []
+    section_blocks = _extract_latex_heading_blocks(text, "section")
+    for section_idx, section_block in enumerate(section_blocks, 1):
+        section_number = str(section_idx)
+        section_heading = _clean_text_block(str(section_block.get("heading", "")))
+        section_content_start = int(section_block.get("content_start", 0))
+        section_end = int(section_block.get("end", section_content_start))
+        ranges.append(
+            {
+                "level": "section",
+                "owner_key": section_number,
+                "section_number": section_number,
+                "section_heading": section_heading,
+                "start": section_content_start,
+                "end": section_end,
+            }
+        )
+
+        subsection_blocks = _extract_latex_heading_blocks(str(section_block.get("raw_body", "")), "subsection")
+        for sub_idx, subsection_block in enumerate(subsection_blocks, 1):
+            subsection_number = f"{section_idx}.{sub_idx}"
+            subsection_content_start = section_content_start + int(subsection_block.get("content_start", 0))
+            subsection_end = section_content_start + int(subsection_block.get("end", subsection_content_start))
+            ranges.append(
+                {
+                    "level": "subsection",
+                    "owner_key": subsection_number,
+                    "section_number": section_number,
+                    "subsection_number": subsection_number,
+                    "section_heading": section_heading,
+                    "start": subsection_content_start,
+                    "end": subsection_end,
+                }
+            )
+
+            subsubsection_blocks = _extract_latex_heading_blocks(str(subsection_block.get("raw_body", "")), "subsubsection")
+            for subsub_idx, subsubsection_block in enumerate(subsubsection_blocks, 1):
+                subsubsection_number = f"{section_idx}.{sub_idx}.{subsub_idx}"
+                subsubsection_content_start = subsection_content_start + int(subsubsection_block.get("content_start", 0))
+                subsubsection_end = subsection_content_start + int(subsubsection_block.get("end", subsubsection_content_start))
+                ranges.append(
+                    {
+                        "level": "subsubsection",
+                        "owner_key": subsubsection_number,
+                        "section_number": section_number,
+                        "subsection_number": subsection_number,
+                        "subsubsection_number": subsubsection_number,
+                        "section_heading": section_heading,
+                        "start": subsubsection_content_start,
+                        "end": subsubsection_end,
+                    }
+                )
+    return ranges
+
+
+def _owner_meta_for_offset(offset: int, owner_ranges: List[Dict[str, object]]) -> Dict[str, object]:
+    priority = {"section": 1, "subsection": 2, "subsubsection": 3}
+    best: Dict[str, object] = {}
+    best_priority = -1
+    for owner_range in owner_ranges:
+        start = int(owner_range.get("start", -1))
+        end = int(owner_range.get("end", -1))
+        if start <= offset < end:
+            current_priority = priority.get(str(owner_range.get("level", "")), 0)
+            if current_priority > best_priority:
+                best = owner_range
+                best_priority = current_priority
+    return dict(best)
+
+
+def _asset_owner_key(item: Dict[str, object]) -> str:
+    for key in ("owner_key", "subsubsection_number", "subsection_number", "section_number"):
+        value = _clean_text_block(str(item.get(key, "")))
+        if value:
+            return value
+    return _clean_text_block(str(item.get("section_heading", ""))) or "UNKNOWN"
+
+
+def _equation_owner_key(item: Dict[str, object]) -> str:
+    return _asset_owner_key(item)
+
+
+def _has_structured_owner(item: Dict[str, object]) -> bool:
+    return bool(_OWNER_KEY_PATTERN.match(_asset_owner_key(item)))
+
+
+def _owner_in_scope_key(owner_key: str, scope_number: str) -> bool:
+    if not owner_key or not scope_number:
+        return False
+    return owner_key == scope_number or owner_key.startswith(scope_number + ".")
+
+
+def _owner_in_scope(item: Dict[str, object], scope_number: str) -> bool:
+    return _owner_in_scope_key(_asset_owner_key(item), scope_number)
+
+
+def _group_items_by_owner(items: List[Dict[str, object]]) -> Dict[str, List[Dict[str, object]]]:
+    grouped: Dict[str, List[Dict[str, object]]] = {}
+    for item in items:
+        owner_key = _asset_owner_key(item)
+        grouped.setdefault(owner_key, []).append(item)
+    return grouped
+
+
+def _group_equations_by_owner(equations: List[Dict[str, object]]) -> Dict[str, List[Dict[str, object]]]:
+    return _group_items_by_owner(equations)
 
 
 _REVIEW_SCOPE_STOP_TOKENS = [
@@ -1792,6 +1978,8 @@ def _extract_source_material(arxiv_id: str, title_hint: str, docs_dir: Path) -> 
             section_details[heading] = _build_section_detail(raw_body, idx + 1)
             section_ranges.append((heading, match.start(), end))
 
+    owner_ranges = _build_owner_ranges(expanded)
+
     figures: List[Dict[str, object]] = []
     for number, match in enumerate(re.finditer(r"\\begin\{figure\*?\}(.*?)\\end\{figure\*?\}", expanded, flags=re.DOTALL), 1):
         env = match.group(1)
@@ -1803,12 +1991,18 @@ def _extract_source_material(arxiv_id: str, title_hint: str, docs_dir: Path) -> 
         if not caption_plain:
             continue
         graphic_paths = _extract_graphic_paths_from_latex(env)
+        owner_meta = _owner_meta_for_offset(match.start(), owner_ranges)
         figures.append(
             {
                 "label": f"Figure {number}:",
                 "number": str(number),
                 "caption_en": caption_plain,
                 "graphics": graphic_paths,
+                "section_number": str(owner_meta.get("section_number", "")),
+                "subsection_number": str(owner_meta.get("subsection_number", "")),
+                "subsubsection_number": str(owner_meta.get("subsubsection_number", "")),
+                "owner_key": str(owner_meta.get("owner_key", "")),
+                "section_heading": str(owner_meta.get("section_heading", "")),
             }
         )
         if len(figures) >= 8:
@@ -1824,12 +2018,18 @@ def _extract_source_material(arxiv_id: str, title_hint: str, docs_dir: Path) -> 
         caption_plain = _latex_to_plain_text(caption)
         if not caption_plain:
             continue
+        owner_meta = _owner_meta_for_offset(match.start(), owner_ranges)
         tables.append(
             {
                 "number": str(number),
                 "caption_en": caption_plain,
                 "preview_rows": _parse_latex_tabular_rows(env),
                 "preview_rows_structured": _parse_latex_tabular_rows_structured(env),
+                "section_number": str(owner_meta.get("section_number", "")),
+                "subsection_number": str(owner_meta.get("subsection_number", "")),
+                "subsubsection_number": str(owner_meta.get("subsubsection_number", "")),
+                "owner_key": str(owner_meta.get("owner_key", "")),
+                "section_heading": str(owner_meta.get("section_heading", "")),
             }
         )
         if len(tables) >= 6:
@@ -1855,7 +2055,18 @@ def _extract_source_material(arxiv_id: str, title_hint: str, docs_dir: Path) -> 
                 if start_pos <= match.start() < end_pos:
                     section_heading = heading
                     break
-            equations.append({"latex": equation, "context_en": context, "section_heading": section_heading})
+            owner_meta = _owner_meta_for_offset(match.start(), owner_ranges)
+            equations.append(
+                {
+                    "latex": equation,
+                    "context_en": context,
+                    "section_heading": section_heading or str(owner_meta.get("section_heading", "")),
+                    "section_number": str(owner_meta.get("section_number", "")),
+                    "subsection_number": str(owner_meta.get("subsection_number", "")),
+                    "subsubsection_number": str(owner_meta.get("subsubsection_number", "")),
+                    "owner_key": str(owner_meta.get("owner_key", "")),
+                }
+            )
             if len(equations) >= 10:
                 break
         if len(equations) >= 10:
@@ -2599,6 +2810,11 @@ def _build_caption_aware_figures(
                 "path": saved,
                 "caption_en": caption_en,
                 "caption_cn": _translate_figure_caption(caption_en, docs_dir, number),
+                "section_number": item.get("section_number", ""),
+                "subsection_number": item.get("subsection_number", ""),
+                "subsubsection_number": item.get("subsubsection_number", ""),
+                "owner_key": item.get("owner_key", ""),
+                "section_heading": item.get("section_heading", ""),
             }
         )
     return results
@@ -2624,11 +2840,20 @@ def _build_tinysplat_source_figures(
     ]
 
     caption_by_number: Dict[str, str] = {}
+    metadata_by_number: Dict[str, Dict[str, str]] = {}
     for item in source_figures:
         num = str(item.get("number", "")).strip()
         cap = _clean_caption_text(str(item.get("caption_en", "")))
         if num and cap:
             caption_by_number[num] = cap
+        if num:
+            metadata_by_number[num] = {
+                "section_number": item.get("section_number", ""),
+                "subsection_number": item.get("subsection_number", ""),
+                "subsubsection_number": item.get("subsubsection_number", ""),
+                "owner_key": item.get("owner_key", ""),
+                "section_heading": item.get("section_heading", ""),
+            }
 
     entries: List[Dict[str, str]] = []
     for number, label, rel in mapping:
@@ -2637,12 +2862,18 @@ def _build_tinysplat_source_figures(
         if not saved:
             continue
         caption_en = caption_by_number.get(number, f"Figure {number} from TinySplat source file.")
+        metadata = metadata_by_number.get(number, {})
         entries.append(
             {
                 "label": label,
                 "path": saved,
                 "caption_en": caption_en,
                 "caption_cn": _translate_figure_caption(caption_en, docs_dir, number),
+                "section_number": metadata.get("section_number", ""),
+                "subsection_number": metadata.get("subsection_number", ""),
+                "subsubsection_number": metadata.get("subsubsection_number", ""),
+                "owner_key": metadata.get("owner_key", ""),
+                "section_heading": metadata.get("section_heading", ""),
             }
         )
     return entries
@@ -2957,6 +3188,39 @@ def validate_post_html(content: str) -> List[str]:
         if source_eq >= 6 and rendered_eq / max(1, source_eq) < 0.6:
             issues.append(f"review 技术细节公式覆盖不足：source {source_eq} 条，rendered {rendered_eq} 条")
 
+    equation_placement_match = re.search(r"<!--\s*equation-placement:\s*(.*?)-->", content, flags=re.IGNORECASE | re.DOTALL)
+    if equation_placement_match:
+        meta: Dict[str, str] = {}
+        for field in equation_placement_match.group(1).split(";"):
+            if "=" not in field:
+                continue
+            key, value = field.split("=", 1)
+            meta[key.strip()] = value.strip()
+        if meta.get("tail_pile", "0") == "1":
+            issues.append("技术细节公式集中堆在章节尾部，未放回对应小节")
+
+    figure_placement_match = re.search(r"<!--\s*figure-placement:\s*(.*?)-->", content, flags=re.IGNORECASE | re.DOTALL)
+    if figure_placement_match:
+        meta: Dict[str, str] = {}
+        for field in figure_placement_match.group(1).split(";"):
+            if "=" not in field:
+                continue
+            key, value = field.split("=", 1)
+            meta[key.strip()] = value.strip()
+        if meta.get("tail_pile", "0") == "1":
+            issues.append("图示集中堆在章节尾部，未放回对应小节")
+
+    table_placement_match = re.search(r"<!--\s*table-placement:\s*(.*?)-->", content, flags=re.IGNORECASE | re.DOTALL)
+    if table_placement_match:
+        meta: Dict[str, str] = {}
+        for field in table_placement_match.group(1).split(";"):
+            if "=" not in field:
+                continue
+            key, value = field.split("=", 1)
+            meta[key.strip()] = value.strip()
+        if meta.get("tail_pile", "0") == "1":
+            issues.append("表格集中堆在章节尾部，未放回对应小节")
+
     tip_match = re.search(r"<div class='tip'>.*?<strong>一句话总结：</strong>(.*?)</div>", content, flags=re.IGNORECASE | re.DOTALL)
     if tip_match and _looks_mixed_language_prose(_strip_html_tags(tip_match.group(1))):
         issues.append("一句话总结存在中英文混杂，说明生成链路未完成中文重写")
@@ -2964,6 +3228,8 @@ def validate_post_html(content: str) -> List[str]:
         tip_text = _clean_text_block(_strip_html_tags(tip_match.group(1)))
         if "重点讨论：" in tip_text or len(tip_text) < 26:
             issues.append("一句话总结过于笼统，缺少论文问题、方法或结果细节")
+        if re.search(r"(?<![A-Za-z])where(?![A-Za-z])", tip_text, flags=re.IGNORECASE):
+            issues.append("一句话总结存在英文连接词残留（如 where），疑似公式清洗不完整")
 
     for section_id, section_title in DEEP_DIVE_SECTION_ITEMS:
         if f"id='{section_id}'" not in content and f'id="{section_id}"' not in content:
@@ -3090,6 +3356,8 @@ def validate_post_html(content: str) -> List[str]:
             issues.append(f"{section_title}存在疑似截断句")
         if any(_looks_mixed_language_prose(p) for p in prose_paragraphs):
             issues.append(f"{section_title}存在中英文混杂，影响可读性")
+        if any(re.search(r"(?<![A-Za-z])where(?![A-Za-z])", p, flags=re.IGNORECASE) for p in prose_paragraphs):
+            issues.append(f"{section_title}存在英文连接词残留（如 where），疑似公式清洗不完整")
 
     equation_explains = [
         p.strip()
@@ -3561,7 +3829,7 @@ def _translate_excerpt(text: str, docs_dir: Path, char_limit: int = 2200, purpos
     clean = _remove_author_affiliation_noise(text)
     clean = _clip_text(clean, char_limit)
     seed = clean
-    if purpose in {"summary", "innovation", "technical", "experiment", "takeaway"}:
+    if purpose == "summary":
         brief = _build_section_brief(clean, purpose=purpose, max_sentences=5)
         if brief:
             seed = brief
@@ -3846,6 +4114,51 @@ def _fallback_equation_explanation(latex: str, context_en: str = "") -> str:
     return "这条式子给出了论文中的一条核心计算关系。理解时重点看左侧最终输出是什么，以及右侧各部分分别承担什么作用。"
 
 
+def _equation_explanation_signature(text: str) -> str:
+    compact = _clean_text_block(text)
+    if not compact:
+        return ""
+    compact = re.sub(r"这条(?:公式|式子|分段式)|该(?:公式|式子)", " ", compact)
+    compact = re.sub(r"对应的方法环节是|从作用上看|它的作用是|它对应的核心目标是|作者这样做是为了", " ", compact)
+    compact = re.sub(r"[，。；：:、“”‘’（）()\s]", "", compact)
+    return compact[:72]
+
+
+def _equation_target_hint(latex: str) -> str:
+    compact = _normalize_equation_latex(latex)
+    if not compact or "=" not in compact:
+        return ""
+    lhs = compact.split("=", 1)[0]
+    lhs = re.sub(r"\\(?:left|right|mathbf|boldsymbol|mathcal|mathrm|operatorname|text)\b", " ", lhs)
+    lhs = re.sub(r"[{}\\^_~]", " ", lhs)
+    lhs = re.sub(r"\s+", " ", lhs).strip(" ,;:()[]")
+    if not lhs or len(lhs) > 48:
+        return ""
+    return f"它重点在定义或约束 {lhs} 这一项"
+
+
+def _specialize_equation_explanation(explain: str, item: Dict[str, object], docs_dir: Path) -> str:
+    base = _clean_text_block(explain).rstrip("。")
+    if not base:
+        return ""
+    heading = _clean_text_block(str(item.get("section_heading", "")))
+    heading_cn = _translate_heading_to_zh(heading, docs_dir) if heading else ""
+    context_en = _clean_text_block(_strip_layout_noise(_strip_inline_latex_from_prose(str(item.get("context_en", "")))))
+    context_cn = _translate_line_to_cn(_clip_text_to_boundary(context_en, 180), docs_dir).rstrip("。") if context_en else ""
+    prefix_parts: List[str] = []
+    if heading_cn:
+        prefix_parts.append(f"放在“{heading_cn}”这一部分看")
+    target_hint = _equation_target_hint(str(item.get("latex", "")))
+    if target_hint and target_hint not in base:
+        prefix_parts.append(target_hint)
+    if context_cn and context_cn not in base:
+        prefix_parts.append(context_cn)
+    if not prefix_parts:
+        return base + "。"
+    prefix = "，".join(part for part in prefix_parts if part)
+    return f"{prefix}。{base}。"
+
+
 def _render_equations_with_explanations(equations: List[Dict[str, str]], docs_dir: Path, max_items: int = 6) -> str:
     parts: List[str] = []
     recent_explains: List[str] = []
@@ -3861,20 +4174,188 @@ def _render_equations_with_explanations(equations: List[Dict[str, str]], docs_di
             if structural and not _equation_explanation_is_bad(structural):
                 explain = structural
         compact = re.sub(r"\s+", " ", _clean_text_block(explain))
-        if compact and compact in recent_explains:
+        signature = _equation_explanation_signature(compact)
+        if signature and signature in recent_explains:
+            specialized = _specialize_equation_explanation(explain, item, docs_dir)
+            specialized_signature = _equation_explanation_signature(specialized)
+            if specialized and specialized_signature and specialized_signature not in recent_explains and not _equation_explanation_is_bad(specialized):
+                explain = specialized
+                compact = re.sub(r"\s+", " ", _clean_text_block(explain))
+                signature = specialized_signature
+            structural = _equation_structure_explanation(latex)
+            if signature in recent_explains and structural and not _equation_explanation_is_bad(structural):
+                explain = structural
+                compact = re.sub(r"\s+", " ", _clean_text_block(explain))
+                signature = _equation_explanation_signature(compact)
+            fallback = _fallback_equation_explanation(latex, item.get("context_en", ""))
+            if signature in recent_explains and not _equation_explanation_is_bad(fallback):
+                explain = fallback
+                compact = re.sub(r"\s+", " ", _clean_text_block(explain))
+                signature = _equation_explanation_signature(compact)
+        if signature:
+            recent_explains.append(signature)
+            recent_explains = recent_explains[-6:]
+        parts.append(f"    <p>$$ {latex} $$</p>")
+        parts.append(f"    <p>{html.escape(explain)}</p>")
+    return "\n".join(parts)
+
+
+def _render_equation_items(
+    equations: List[Dict[str, object]],
+    docs_dir: Path,
+    recent_equation_explains: Optional[List[str]] = None,
+    max_items: Optional[int] = None,
+) -> str:
+    recent_equation_explains = recent_equation_explains if recent_equation_explains is not None else []
+    parts: List[str] = []
+    visible_items = equations if max_items is None else equations[:max_items]
+    for item in visible_items:
+        latex = _normalize_equation_latex(item.get("latex", ""))
+        if not latex:
+            continue
+        explain = _source_grounded_equation_explanation(latex, item.get("context_en", ""))
+        if _equation_explanation_is_bad(explain):
+            explain = _fallback_equation_explanation(latex, item.get("context_en", ""))
+        if _equation_explanation_is_generic(explain):
             structural = _equation_structure_explanation(latex)
             if structural and not _equation_explanation_is_bad(structural):
                 explain = structural
+        compact = re.sub(r"\s+", " ", _clean_text_block(explain))
+        signature = _equation_explanation_signature(compact)
+        if signature and signature in recent_equation_explains:
+            specialized = _specialize_equation_explanation(explain, item, docs_dir)
+            specialized_signature = _equation_explanation_signature(specialized)
+            if specialized and specialized_signature and specialized_signature not in recent_equation_explains and not _equation_explanation_is_bad(specialized):
+                explain = specialized
                 compact = re.sub(r"\s+", " ", _clean_text_block(explain))
+                signature = specialized_signature
+            structural = _equation_structure_explanation(latex)
+            if signature in recent_equation_explains and structural and not _equation_explanation_is_bad(structural):
+                explain = structural
+                compact = re.sub(r"\s+", " ", _clean_text_block(explain))
+                signature = _equation_explanation_signature(compact)
             fallback = _fallback_equation_explanation(latex, item.get("context_en", ""))
-            if compact in recent_explains and not _equation_explanation_is_bad(fallback):
+            if signature in recent_equation_explains and not _equation_explanation_is_bad(fallback):
                 explain = fallback
                 compact = re.sub(r"\s+", " ", _clean_text_block(explain))
-        if compact:
-            recent_explains.append(compact)
-            recent_explains = recent_explains[-3:]
+                signature = _equation_explanation_signature(compact)
+        if signature:
+            recent_equation_explains.append(signature)
+            del recent_equation_explains[:-6]
         parts.append(f"    <p>$$ {latex} $$</p>")
         parts.append(f"    <p>{html.escape(explain)}</p>")
+    return "\n".join(parts)
+
+
+def _render_figure_items(figures: List[Dict[str, object]], slug: str, fig_counter: List[int]) -> str:
+    parts: List[str] = []
+    for item in figures:
+        if not item.get("path"):
+            continue
+        fig_counter[0] += 1
+        caption_cn = _replace_caption_number(str(item.get("caption_cn", "")), fig_counter[0])
+        caption_cn = _clean_caption_text(caption_cn)
+        caption_cn = _replace_caption_number(caption_cn, fig_counter[0])
+        if fig_counter[0] <= 2 and len(_clean_text_block(caption_cn)) < 36:
+            caption_cn = caption_cn.rstrip("。") + "，用于说明这一类高效路线的关键结构与输入输出关系。"
+        parts.append(
+            f"<figure><img class='paper-fig' src='../assets/{slug}/{html.escape(str(item['path']))}' alt='{html.escape(str(item.get('label', 'Figure')))}' loading='lazy' decoding='async' />"
+            f"<figcaption style='font-size:12px;'>{html.escape(caption_cn)}</figcaption></figure>"
+        )
+    return "\n".join(parts)
+
+
+def _render_table_items(tables: List[Dict[str, object]], docs_dir: Path, preview_rows: int = 10) -> str:
+    parts: List[str] = []
+    for item in tables:
+        caption = _translate_table_caption(str(item.get("caption_en", "")), docs_dir)
+        number = str(item.get("number", "")).strip() or str(len(parts) + 1)
+        if not caption:
+            continue
+        structured_rows = item.get("preview_rows_structured") if isinstance(item.get("preview_rows_structured"), list) else []
+        rows = item.get("preview_rows") if isinstance(item.get("preview_rows"), list) else []
+        cleaned_rows = [row for row in rows if isinstance(row, list) and row]
+        cleaned_structured_rows = [
+            row for row in structured_rows
+            if isinstance(row, list) and any(_clean_text_block(str(cell.get("text", ""))) for cell in row if isinstance(cell, dict))
+        ]
+        if cleaned_structured_rows:
+            visible_structured_rows = cleaned_structured_rows[:preview_rows]
+            col_count = max(
+                sum(max(1, int(cell.get("colspan", 1))) for cell in row if isinstance(cell, dict))
+                for row in visible_structured_rows
+            )
+            header_rows = 2 if visible_structured_rows and any(int(cell.get("colspan", 1)) > 1 for cell in visible_structured_rows[0] if isinstance(cell, dict)) else 1
+            rendered_rows: List[str] = []
+            for row_idx, row in enumerate(visible_structured_rows):
+                is_header = row_idx < header_rows
+                tag = "th" if is_header else "td"
+                rendered_cells: List[str] = []
+                consumed = 0
+                for cell in row:
+                    if not isinstance(cell, dict):
+                        continue
+                    colspan = max(1, int(cell.get("colspan", 1)))
+                    text = str(cell.get("text", ""))
+                    attrs = ""
+                    if colspan > 1:
+                        attrs += f" colspan='{colspan}'"
+                    rendered_cells.append(
+                        f"<{tag}{attrs} style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>"
+                        f"{html.escape(text)}</{tag}>"
+                    )
+                    consumed += colspan
+                if consumed < col_count:
+                    filler = col_count - consumed
+                    rendered_cells.append(
+                        f"<{tag} colspan='{filler}' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'></{tag}>"
+                    )
+                rendered_rows.append(f"<tr>{''.join(rendered_cells)}</tr>")
+            note = "表格为 source 预览；复杂排版、部分行列或强调格式可能已做简化。"
+            if len(cleaned_structured_rows) > len(visible_structured_rows):
+                note = "表格为 source 预览；当前仅展示前几行，复杂排版、部分行列或强调格式可能已做简化。"
+            parts.append(
+                "    <div class='card'>"
+                f"<strong>源论文表 {html.escape(number)}（预览）</strong>"
+                f"<div style='margin-top:6px;'>{html.escape(caption)}</div>"
+                "<div style='overflow-x:auto;margin-top:10px;'>"
+                "<table style='width:100%;border-collapse:collapse;font-size:12px;'>"
+                f"{''.join(rendered_rows)}"
+                "</table></div>"
+                f"<div style='font-size:12px;color:#666;margin-top:8px;'>{html.escape(note)}</div>"
+                "</div>"
+            )
+        elif cleaned_rows:
+            visible_rows = cleaned_rows[:preview_rows]
+            col_count = max(len(row) for row in visible_rows)
+            rendered_rows: List[str] = []
+            for row_idx, row in enumerate(visible_rows):
+                tag = "th" if row_idx == 0 else "td"
+                padded = list(row) + [""] * (col_count - len(row))
+                rendered_cells = "".join(
+                    f"<{tag} style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>"
+                    f"{html.escape(str(cell))}</{tag}>"
+                    for cell in padded
+                )
+                rendered_rows.append(f"<tr>{rendered_cells}</tr>")
+            note = "表格为 source 预览；复杂排版、部分行列或强调格式可能已做简化。"
+            if len(cleaned_rows) > len(visible_rows):
+                note = "表格为 source 预览；当前仅展示前几行，复杂排版、部分行列或强调格式可能已做简化。"
+            parts.append(
+                "    <div class='card'>"
+                f"<strong>源论文表 {html.escape(number)}（预览）</strong>"
+                f"<div style='margin-top:6px;'>{html.escape(caption)}</div>"
+                "<div style='overflow-x:auto;margin-top:10px;'>"
+                "<table style='width:100%;border-collapse:collapse;font-size:12px;'>"
+                f"{''.join(rendered_rows)}"
+                "</table></div>"
+                f"<div style='font-size:12px;color:#666;margin-top:8px;'>{html.escape(note)}</div>"
+                "</div>"
+            )
+        else:
+            parts.append(
+                f"    <div class='card'><strong>源论文表 {html.escape(number)}（未内嵌原表）关键结论：</strong>{html.escape(caption)}</div>"
+            )
     return "\n".join(parts)
 
 
@@ -4006,6 +4487,15 @@ def _render_structured_section(
     purpose: str,
     max_subsections: Optional[int] = None,
     max_subsubsections: Optional[int] = 4,
+    equations_by_owner: Optional[Dict[str, List[Dict[str, object]]]] = None,
+    recent_equation_explains: Optional[List[str]] = None,
+    figures_by_owner: Optional[Dict[str, List[Dict[str, object]]]] = None,
+    tables_by_owner: Optional[Dict[str, List[Dict[str, object]]]] = None,
+    slug: str = "",
+    fig_counter: Optional[List[int]] = None,
+    rendered_equation_sequence: Optional[List[str]] = None,
+    rendered_figure_sequence: Optional[List[str]] = None,
+    rendered_table_sequence: Optional[List[str]] = None,
 ) -> str:
     if not section_detail:
         return ""
@@ -4014,6 +4504,36 @@ def _render_structured_section(
         return ""
     blocks: List[str] = []
     subsection_limit = len(subsection_entries) if max_subsections is None else max_subsections
+
+    def _append_owner_assets(owner_key: str) -> None:
+        if not owner_key:
+            return
+        if figures_by_owner and slug and fig_counter is not None:
+            owner_figures = figures_by_owner.get(owner_key, [])
+            figure_html = _render_figure_items(owner_figures, slug, fig_counter)
+            if figure_html:
+                blocks.append(figure_html)
+                if rendered_figure_sequence is not None:
+                    rendered_figure_sequence.extend(_asset_owner_key(item) for item in owner_figures if item.get("path"))
+        if tables_by_owner:
+            owner_tables = tables_by_owner.get(owner_key, [])
+            table_html = _render_table_items(owner_tables, docs_dir)
+            if table_html:
+                blocks.append(table_html)
+                if rendered_table_sequence is not None:
+                    rendered_table_sequence.extend(_asset_owner_key(item) for item in owner_tables)
+        if equations_by_owner:
+            owner_equations = equations_by_owner.get(owner_key, [])
+            equation_html = _render_equation_items(owner_equations, docs_dir, recent_equation_explains)
+            if equation_html:
+                blocks.append(equation_html)
+                if rendered_equation_sequence is not None:
+                    rendered_equation_sequence.extend(
+                        _equation_owner_key(item)
+                        for item in owner_equations
+                        if _normalize_equation_latex(item.get("latex", ""))
+                    )
+
     for subsection in subsection_entries[:subsection_limit]:
         heading = _clean_text_block(str(subsection.get("heading", "")))
         heading_cn = _translate_heading_to_zh(heading, docs_dir) if heading else ""
@@ -4023,12 +4543,12 @@ def _render_structured_section(
             blocks.append(f"    <h3>{html.escape(title)}</h3>")
         text_en = str(subsection.get("text") or "")
         if text_en:
-            subsection_seed = _build_section_brief(text_en, purpose=purpose, max_sentences=4) or text_en
-            text_cn = _translate_excerpt(subsection_seed, docs_dir, char_limit=1800, purpose=purpose)
+            text_cn = _translate_excerpt(text_en, docs_dir, char_limit=2600, purpose=purpose)
         else:
             text_cn = ""
         if text_cn:
             blocks.append(_cn_paragraphs(text_cn))
+        _append_owner_assets(number)
         subsubsections = subsection.get("subsubsections") if isinstance(subsection.get("subsubsections"), list) else []
         subsub_limit = len(subsubsections) if max_subsubsections is None else max_subsubsections
         for subsub in subsubsections[:subsub_limit]:
@@ -4040,107 +4560,17 @@ def _render_structured_section(
                 blocks.append(f"    <h4>{html.escape(subsub_title)}</h4>")
             subsub_text_en = str(subsub.get("text") or "")
             if subsub_text_en:
-                subsub_seed = _build_section_brief(subsub_text_en, purpose=purpose, max_sentences=3) or subsub_text_en
-                subsub_text_cn = _translate_excerpt(subsub_seed, docs_dir, char_limit=1600, purpose=purpose)
+                subsub_text_cn = _translate_excerpt(subsub_text_en, docs_dir, char_limit=2200, purpose=purpose)
             else:
                 subsub_text_cn = ""
             if subsub_text_cn:
                 blocks.append(_cn_paragraphs(subsub_text_cn))
+            _append_owner_assets(subsub_number)
     return "\n".join(block for block in blocks if block)
 
 
 def _render_table_evidence(tables: List[Dict[str, object]], docs_dir: Path, max_items: int = 2, preview_rows: int = 10) -> str:
-    parts: List[str] = []
-    for item in _select_high_signal_tables(tables, max_items=max_items):
-        caption = _translate_table_caption(str(item.get("caption_en", "")), docs_dir)
-        number = str(item.get("number", "")).strip() or str(len(parts) + 1)
-        if not caption:
-            continue
-        structured_rows = item.get("preview_rows_structured") if isinstance(item.get("preview_rows_structured"), list) else []
-        rows = item.get("preview_rows") if isinstance(item.get("preview_rows"), list) else []
-        cleaned_rows = [row for row in rows if isinstance(row, list) and row]
-        cleaned_structured_rows = [
-            row for row in structured_rows
-            if isinstance(row, list) and any(_clean_text_block(str(cell.get("text", ""))) for cell in row if isinstance(cell, dict))
-        ]
-        if cleaned_structured_rows:
-            visible_structured_rows = cleaned_structured_rows[:preview_rows]
-            col_count = max(
-                sum(max(1, int(cell.get("colspan", 1))) for cell in row if isinstance(cell, dict))
-                for row in visible_structured_rows
-            )
-            header_rows = 2 if visible_structured_rows and any(int(cell.get("colspan", 1)) > 1 for cell in visible_structured_rows[0] if isinstance(cell, dict)) else 1
-            rendered_rows: List[str] = []
-            for row_idx, row in enumerate(visible_structured_rows):
-                is_header = row_idx < header_rows
-                tag = "th" if is_header else "td"
-                rendered_cells: List[str] = []
-                consumed = 0
-                for cell in row:
-                    if not isinstance(cell, dict):
-                        continue
-                    colspan = max(1, int(cell.get("colspan", 1)))
-                    text = str(cell.get("text", ""))
-                    attrs = ""
-                    if colspan > 1:
-                        attrs += f" colspan='{colspan}'"
-                    rendered_cells.append(
-                        f"<{tag}{attrs} style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>"
-                        f"{html.escape(text)}</{tag}>"
-                    )
-                    consumed += colspan
-                if consumed < col_count:
-                    filler = col_count - consumed
-                    rendered_cells.append(
-                        f"<{tag} colspan='{filler}' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'></{tag}>"
-                    )
-                rendered_rows.append(f"<tr>{''.join(rendered_cells)}</tr>")
-            note = "表格为 source 预览；复杂排版、部分行列或强调格式可能已做简化。"
-            if len(cleaned_structured_rows) > len(visible_structured_rows):
-                note = "表格为 source 预览；当前仅展示前几行，复杂排版、部分行列或强调格式可能已做简化。"
-            parts.append(
-                "    <div class='card'>"
-                f"<strong>源论文表 {html.escape(number)}（预览）</strong>"
-                f"<div style='margin-top:6px;'>{html.escape(caption)}</div>"
-                "<div style='overflow-x:auto;margin-top:10px;'>"
-                "<table style='width:100%;border-collapse:collapse;font-size:12px;'>"
-                f"{''.join(rendered_rows)}"
-                "</table></div>"
-                f"<div style='font-size:12px;color:#666;margin-top:8px;'>{html.escape(note)}</div>"
-                "</div>"
-            )
-        elif cleaned_rows:
-            visible_rows = cleaned_rows[:preview_rows]
-            col_count = max(len(row) for row in visible_rows)
-            rendered_rows: List[str] = []
-            for row_idx, row in enumerate(visible_rows):
-                tag = "th" if row_idx == 0 else "td"
-                padded = list(row) + [""] * (col_count - len(row))
-                rendered_cells = "".join(
-                    f"<{tag} style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>"
-                    f"{html.escape(str(cell))}</{tag}>"
-                    for cell in padded
-                )
-                rendered_rows.append(f"<tr>{rendered_cells}</tr>")
-            note = "表格为 source 预览；复杂排版、部分行列或强调格式可能已做简化。"
-            if len(cleaned_rows) > len(visible_rows):
-                note = "表格为 source 预览；当前仅展示前几行，复杂排版、部分行列或强调格式可能已做简化。"
-            parts.append(
-                "    <div class='card'>"
-                f"<strong>源论文表 {html.escape(number)}（预览）</strong>"
-                f"<div style='margin-top:6px;'>{html.escape(caption)}</div>"
-                "<div style='overflow-x:auto;margin-top:10px;'>"
-                "<table style='width:100%;border-collapse:collapse;font-size:12px;'>"
-                f"{''.join(rendered_rows)}"
-                "</table></div>"
-                f"<div style='font-size:12px;color:#666;margin-top:8px;'>{html.escape(note)}</div>"
-                "</div>"
-            )
-        else:
-            parts.append(
-                f"    <div class='card'><strong>源论文表 {html.escape(number)}（未内嵌原表）关键结论：</strong>{html.escape(caption)}</div>"
-            )
-    return "\n".join(parts)
+    return _render_table_items(_select_high_signal_tables(tables, max_items=max_items), docs_dir, preview_rows=preview_rows)
 
 
 def _pick_section_text(source_sections: Dict[str, str], fallback_text: str, keywords: List[str], fallback_limit: int) -> str:
@@ -4160,8 +4590,8 @@ def _generic_deep_dive_post_body(doc, figures: List[Dict], related: List[Dict], 
     conclusion_text = _pick_section_text(source_sections, _extract_section_block(text, ["Conclusion", "Limitations", "Discussion"], fallback_limit=2400), ["conclusion", "discussion", "limitation"], 2400)
     method_detail = _pick_section_detail(source_section_details, ["method", "approach", "framework"])
     experiment_detail = _pick_section_detail(source_section_details, ["experiment", "result", "evaluation", "ablation"])
-    method_intro_text = str(method_detail.get("text") or _build_section_brief(method_text, purpose="technical", max_sentences=3)) if method_detail else method_text
-    experiment_intro_text = str(experiment_detail.get("text") or _build_section_brief(experiment_text, purpose="experiment", max_sentences=3)) if experiment_detail else experiment_text
+    method_intro_text = str(method_detail.get("text") or method_text) if method_detail else method_text
+    experiment_intro_text = str(experiment_detail.get("text") or experiment_text) if experiment_detail else experiment_text
 
     technical_caption_text = _figure_caption_snippets(figures, ["overview", "pipeline", "framework", "architecture", "module"], max_items=2)
     experiment_caption_text = _figure_caption_snippets(figures, ["comparison", "baseline", "result", "ablation", "performance", "evaluation"], max_items=3)
@@ -4173,46 +4603,247 @@ def _generic_deep_dive_post_body(doc, figures: List[Dict], related: List[Dict], 
     technical_source = _combine_source_evidence(method_intro_text, method_detail_text, technical_caption_text)
     experiment_source = _combine_source_evidence(experiment_intro_text, experiment_detail_text, experiment_caption_text)
 
-    abstract_cn = _translate_excerpt(summary_source or abstract_text, docs_dir, char_limit=2600, purpose="summary")
+    abstract_cn = _translate_excerpt(summary_source or abstract_text, docs_dir, char_limit=3200, purpose="summary")
     intro_cn = _translate_excerpt(intro_text, docs_dir, char_limit=3000, purpose="summary")
     innovation_cn = _build_innovation_section(innovation_source or _combine_source_evidence(abstract_text, method_text), docs_dir)
-    method_cn = _translate_excerpt(technical_source or method_intro_text, docs_dir, char_limit=2400, purpose="technical")
-    experiment_cn = _translate_excerpt(experiment_source or experiment_intro_text, docs_dir, char_limit=2400, purpose="experiment")
+    method_cn = _translate_excerpt(technical_source or method_intro_text, docs_dir, char_limit=4200, purpose="technical")
+    experiment_cn = _translate_excerpt(experiment_source or experiment_intro_text, docs_dir, char_limit=3600, purpose="experiment")
     takeaway_source = _compose_takeaway_source(abstract_text, method_text, experiment_text, conclusion_text)
     takeaway_cn = _translate_excerpt(takeaway_source, docs_dir, char_limit=2600, purpose="takeaway")
 
     equation_items = source_material.get("equations") if isinstance(source_material.get("equations"), list) else []
     table_items = source_material.get("tables") if isinstance(source_material.get("tables"), list) else []
-    equation_html = _render_equations_with_explanations(equation_items, docs_dir, max_items=8)
-    technical_structured_html = _render_structured_section(method_detail, docs_dir, purpose="technical", max_subsections=None, max_subsubsections=4)
-    experiment_structured_html = _render_structured_section(experiment_detail, docs_dir, purpose="experiment", max_subsections=None, max_subsubsections=4)
-    table_evidence_html = _render_table_evidence(table_items, docs_dir, max_items=2)
+    method_heading = next(
+        (
+            heading for heading, detail in source_section_details.items()
+            if isinstance(detail, dict) and method_detail and detail == method_detail
+        ),
+        "",
+    )
+    method_equation_items = [
+        item for item in equation_items
+        if not method_heading or _clean_text_block(str(item.get("section_heading", ""))) == method_heading
+    ]
+    equations_by_owner = _group_equations_by_owner(method_equation_items)
+    recent_equation_explains: List[str] = []
+    method_section_number = str(method_detail.get("number", "")).strip() if method_detail else ""
+    experiment_section_number = str(experiment_detail.get("number", "")).strip() if experiment_detail else ""
+    source_owner_sequence = [
+        _equation_owner_key(item)
+        for item in method_equation_items
+        if _normalize_equation_latex(item.get("latex", ""))
+    ]
+    intro_equation_html = _render_equation_items(
+        equations_by_owner.get(method_section_number, []) if method_section_number else [],
+        docs_dir,
+        recent_equation_explains,
+    )
+    structured_owner_keys: set[str] = set()
+    if method_detail:
+        subsections = method_detail.get("subsections") if isinstance(method_detail.get("subsections"), list) else []
+        for subsection in subsections:
+            structured_owner_keys.add(str(subsection.get("number", "")).strip())
+            subsubsections = subsection.get("subsubsections") if isinstance(subsection.get("subsubsections"), list) else []
+            for subsub in subsubsections:
+                structured_owner_keys.add(str(subsub.get("number", "")).strip())
+    renderable_owned_figures = [item for item in figures if item.get("path") and _has_structured_owner(item)]
+    fallback_figures = [item for item in figures if item not in renderable_owned_figures]
+    summary_figs, tech_fallback_figs, exp_fallback_figs = _bucket_deep_dive_figures(fallback_figures)
+    figures_by_owner = _group_items_by_owner(renderable_owned_figures)
+    technical_figures = [item for item in renderable_owned_figures if _owner_in_scope(item, method_section_number)]
+    experiment_figures = [item for item in renderable_owned_figures if _owner_in_scope(item, experiment_section_number)]
+    technical_figures_by_owner = {key: value for key, value in figures_by_owner.items() if _owner_in_scope_key(key, method_section_number)}
+    experiment_figures_by_owner = {key: value for key, value in figures_by_owner.items() if _owner_in_scope_key(key, experiment_section_number)}
+
+    owned_tables = [item for item in table_items if _has_structured_owner(item)]
+    fallback_table_items = [item for item in table_items if item not in owned_tables]
+    tables_by_owner = _group_items_by_owner(owned_tables)
+    technical_tables = [item for item in owned_tables if _owner_in_scope(item, method_section_number)]
+    experiment_tables = [item for item in owned_tables if _owner_in_scope(item, experiment_section_number)]
+    technical_tables_by_owner = {key: value for key, value in tables_by_owner.items() if _owner_in_scope_key(key, method_section_number)}
+    experiment_tables_by_owner = {key: value for key, value in tables_by_owner.items() if _owner_in_scope_key(key, experiment_section_number)}
+
+    fig_counter = [0]
+    rendered_figure_sequence: List[str] = []
+    rendered_table_sequence: List[str] = []
+    technical_intro_figures = technical_figures_by_owner.get(method_section_number, []) if method_section_number else []
+    experiment_intro_figures = experiment_figures_by_owner.get(experiment_section_number, []) if experiment_section_number else []
+    technical_intro_figure_html = _render_figure_items(technical_intro_figures, slug, fig_counter)
+    if technical_intro_figure_html:
+        rendered_figure_sequence.extend(_asset_owner_key(item) for item in technical_intro_figures if item.get("path"))
+    experiment_intro_figure_html = _render_figure_items(experiment_intro_figures, slug, fig_counter)
+    if experiment_intro_figure_html:
+        rendered_figure_sequence.extend(_asset_owner_key(item) for item in experiment_intro_figures if item.get("path"))
+    technical_intro_tables = technical_tables_by_owner.get(method_section_number, []) if method_section_number else []
+    experiment_intro_tables = experiment_tables_by_owner.get(experiment_section_number, []) if experiment_section_number else []
+    technical_intro_table_html = _render_table_items(technical_intro_tables, docs_dir)
+    if technical_intro_table_html:
+        rendered_table_sequence.extend(_asset_owner_key(item) for item in technical_intro_tables)
+    experiment_intro_table_html = _render_table_items(experiment_intro_tables, docs_dir)
+    if experiment_intro_table_html:
+        rendered_table_sequence.extend(_asset_owner_key(item) for item in experiment_intro_tables)
+    technical_structured_html = _render_structured_section(
+        method_detail,
+        docs_dir,
+        purpose="technical",
+        max_subsections=None,
+        max_subsubsections=4,
+        equations_by_owner={key: value for key, value in equations_by_owner.items() if key in structured_owner_keys},
+        recent_equation_explains=recent_equation_explains,
+        figures_by_owner={key: value for key, value in technical_figures_by_owner.items() if key in structured_owner_keys},
+        tables_by_owner={key: value for key, value in technical_tables_by_owner.items() if key in structured_owner_keys},
+        slug=slug,
+        fig_counter=fig_counter,
+        rendered_figure_sequence=rendered_figure_sequence,
+        rendered_table_sequence=rendered_table_sequence,
+    )
+    rendered_equation_keys = set(structured_owner_keys)
+    if intro_equation_html and method_section_number:
+        rendered_equation_keys.add(method_section_number)
+    allow_equation_tail_fallback = not structured_owner_keys and not method_section_number
+    leftover_equations = [
+        item for item in method_equation_items
+        if _equation_owner_key(item) not in rendered_equation_keys and (allow_equation_tail_fallback or not _has_structured_owner(item))
+    ]
+    equation_html = _render_equation_items(leftover_equations, docs_dir, recent_equation_explains)
+    rendered_owner_sequence: List[str] = []
+    if method_section_number:
+        rendered_owner_sequence.extend(
+            _equation_owner_key(item)
+            for item in equations_by_owner.get(method_section_number, [])
+            if _normalize_equation_latex(item.get("latex", ""))
+        )
+    if method_detail:
+        subsections = method_detail.get("subsections") if isinstance(method_detail.get("subsections"), list) else []
+        for subsection in subsections:
+            subsection_number = str(subsection.get("number", "")).strip()
+            rendered_owner_sequence.extend(
+                _equation_owner_key(item)
+                for item in equations_by_owner.get(subsection_number, [])
+                if _normalize_equation_latex(item.get("latex", ""))
+            )
+            subsubsections = subsection.get("subsubsections") if isinstance(subsection.get("subsubsections"), list) else []
+            for subsub in subsubsections:
+                subsub_number = str(subsub.get("number", "")).strip()
+                rendered_owner_sequence.extend(
+                    _equation_owner_key(item)
+                    for item in equations_by_owner.get(subsub_number, [])
+                    if _normalize_equation_latex(item.get("latex", ""))
+                )
+    rendered_owner_sequence.extend(
+        _equation_owner_key(item)
+        for item in leftover_equations
+        if _normalize_equation_latex(item.get("latex", ""))
+    )
+    rendered_technical_asset_keys = set(structured_owner_keys)
+    if technical_intro_figure_html and method_section_number:
+        rendered_technical_asset_keys.add(method_section_number)
+    if technical_intro_table_html and method_section_number:
+        rendered_technical_asset_keys.add(method_section_number)
+    allow_technical_tail_fallback = not structured_owner_keys and not method_section_number
+    leftover_technical_figures = [
+        item for item in technical_figures
+        if _asset_owner_key(item) not in rendered_technical_asset_keys and (allow_technical_tail_fallback or not _has_structured_owner(item))
+    ]
+    leftover_technical_tables = [
+        item for item in technical_tables
+        if _asset_owner_key(item) not in rendered_technical_asset_keys and (allow_technical_tail_fallback or not _has_structured_owner(item))
+    ]
+    technical_leftover_figure_html = _render_figure_items(leftover_technical_figures, slug, fig_counter)
+    if technical_leftover_figure_html:
+        rendered_figure_sequence.extend(_asset_owner_key(item) for item in leftover_technical_figures if item.get("path"))
+    technical_leftover_table_html = _render_table_items(leftover_technical_tables, docs_dir)
+    if technical_leftover_table_html:
+        rendered_table_sequence.extend(_asset_owner_key(item) for item in leftover_technical_tables)
+    equation_placement_comment = ""
+    if source_owner_sequence:
+        tail_pile = int(
+            len(source_owner_sequence) >= 8
+            and len(set(source_owner_sequence)) >= 3
+            and len(set(rendered_owner_sequence)) == 1
+        )
+        equation_placement_comment = (
+            "<!-- equation-placement: "
+            f"source={'||'.join(source_owner_sequence)}; "
+            f"rendered={'||'.join(rendered_owner_sequence)}; "
+            f"tail_pile={tail_pile}"
+            " -->"
+        )
+    experiment_structured_owner_keys: set[str] = set()
+    if experiment_detail:
+        subsections = experiment_detail.get("subsections") if isinstance(experiment_detail.get("subsections"), list) else []
+        for subsection in subsections:
+            experiment_structured_owner_keys.add(str(subsection.get("number", "")).strip())
+            subsubsections = subsection.get("subsubsections") if isinstance(subsection.get("subsubsections"), list) else []
+            for subsub in subsubsections:
+                experiment_structured_owner_keys.add(str(subsub.get("number", "")).strip())
+    experiment_structured_html = _render_structured_section(
+        experiment_detail,
+        docs_dir,
+        purpose="experiment",
+        max_subsections=None,
+        max_subsubsections=4,
+        figures_by_owner={key: value for key, value in experiment_figures_by_owner.items() if key in experiment_structured_owner_keys},
+        tables_by_owner={key: value for key, value in experiment_tables_by_owner.items() if key in experiment_structured_owner_keys},
+        slug=slug,
+        fig_counter=fig_counter,
+        rendered_figure_sequence=rendered_figure_sequence,
+        rendered_table_sequence=rendered_table_sequence,
+    )
+    rendered_experiment_asset_keys = set(experiment_structured_owner_keys)
+    if experiment_intro_figure_html and experiment_section_number:
+        rendered_experiment_asset_keys.add(experiment_section_number)
+    if experiment_intro_table_html and experiment_section_number:
+        rendered_experiment_asset_keys.add(experiment_section_number)
+    allow_experiment_tail_fallback = not experiment_structured_owner_keys and not experiment_section_number
+    leftover_experiment_figures = [
+        item for item in experiment_figures
+        if _asset_owner_key(item) not in rendered_experiment_asset_keys and (allow_experiment_tail_fallback or not _has_structured_owner(item))
+    ]
+    leftover_experiment_tables = [
+        item for item in experiment_tables
+        if _asset_owner_key(item) not in rendered_experiment_asset_keys and (allow_experiment_tail_fallback or not _has_structured_owner(item))
+    ]
+    experiment_leftover_figure_html = _render_figure_items(leftover_experiment_figures, slug, fig_counter)
+    if experiment_leftover_figure_html:
+        rendered_figure_sequence.extend(_asset_owner_key(item) for item in leftover_experiment_figures if item.get("path"))
+    experiment_leftover_table_html = _render_table_items(leftover_experiment_tables, docs_dir)
+    if experiment_leftover_table_html:
+        rendered_table_sequence.extend(_asset_owner_key(item) for item in leftover_experiment_tables)
+    table_evidence_html = _render_table_evidence(fallback_table_items, docs_dir, max_items=2)
     related_html = _deep_dive_related_html(related[:4], docs_dir=docs_dir)
     related_block_html = _related_reading_block(related_html)
     sidebar = _post_sidebar_html(DEEP_DIVE_SECTION_ITEMS)
-
-    summary_figs, tech_figs, exp_figs = _bucket_deep_dive_figures(figures)
-
-    # fig_counter tracks the sequential blog position across all render_fig_group calls
-    # so captions are always labelled 1, 2, 3 … regardless of paper figure numbers.
-    fig_counter = [0]
-
-    def render_fig_group(fig_list: List[Dict]) -> str:
-        parts: List[str] = []
-        for item in fig_list:
-            if not item.get("path"):
-                continue
-            fig_counter[0] += 1
-            caption_cn = _replace_caption_number(item.get("caption_cn", ""), fig_counter[0])
-            caption_cn = _clean_caption_text(caption_cn)
-            caption_cn = _replace_caption_number(caption_cn, fig_counter[0])
-            if fig_counter[0] <= 2 and len(_clean_text_block(caption_cn)) < 36:
-                caption_cn = caption_cn.rstrip("。") + "，用于说明这一类高效路线的关键结构与输入输出关系。"
-            parts.append(
-                f"<figure><img class='paper-fig' src='../assets/{slug}/{html.escape(item['path'])}' alt='{html.escape(item.get('label', 'Figure'))}' loading='lazy' decoding='async' />"
-                f"<figcaption style='font-size:12px;'>{html.escape(caption_cn)}</figcaption></figure>"
-            )
-        return "\n".join(parts)
+    figure_placement_comment = ""
+    figure_source_sequence = [_asset_owner_key(item) for item in technical_figures + experiment_figures if item.get("path")]
+    if figure_source_sequence and rendered_figure_sequence:
+        figure_tail_pile = int(
+            len(figure_source_sequence) >= 4
+            and len(set(figure_source_sequence)) >= 2
+            and len(set(rendered_figure_sequence)) == 1
+        )
+        figure_placement_comment = (
+            "<!-- figure-placement: "
+            f"source={'||'.join(figure_source_sequence)}; "
+            f"rendered={'||'.join(rendered_figure_sequence)}; "
+            f"tail_pile={figure_tail_pile}"
+            " -->"
+        )
+    table_placement_comment = ""
+    table_source_sequence = [_asset_owner_key(item) for item in technical_tables + experiment_tables]
+    if table_source_sequence and rendered_table_sequence:
+        table_tail_pile = int(
+            len(table_source_sequence) >= 2
+            and len(set(table_source_sequence)) >= 2
+            and len(set(rendered_table_sequence)) == 1
+        )
+        table_placement_comment = (
+            "<!-- table-placement: "
+            f"source={'||'.join(table_source_sequence)}; "
+            f"rendered={'||'.join(rendered_table_sequence)}; "
+            f"tail_pile={table_tail_pile}"
+            " -->"
+        )
 
     alias = _paper_alias(doc.title)
     abstract_paras = _cn_paragraphs(abstract_cn)
@@ -4238,22 +4869,34 @@ def _generic_deep_dive_post_body(doc, figures: List[Dict], related: List[Dict], 
 
     <h2 id='summary'>简单摘要</h2>
 {abstract_paras}
-{render_fig_group(summary_figs)}
+{_render_figure_items(summary_figs, slug, fig_counter)}
 {intro_paras}
 
     <h2 id='innovation'>核心创新</h2>
 {innovation_paras}
 
+    {equation_placement_comment}
+    {figure_placement_comment}
     <h2 id='technical'>技术细节</h2>
 {method_paras}
-{render_fig_group(tech_figs)}
+{_render_figure_items(tech_fallback_figs, slug, fig_counter)}
+{technical_intro_figure_html}
+{intro_equation_html}
+{technical_intro_table_html}
 {technical_structured_html}
+{technical_leftover_figure_html}
+{technical_leftover_table_html}
 {equation_html}
 
+    {table_placement_comment}
     <h2 id='experiment'>实验结论</h2>
 {experiment_paras}
+{experiment_intro_table_html}
 {table_evidence_html}
-{render_fig_group(exp_figs)}
+{_render_figure_items(exp_fallback_figs, slug, fig_counter)}
+{experiment_intro_figure_html}
+{experiment_leftover_figure_html}
+{experiment_leftover_table_html}
 {experiment_structured_html}
 
     <h2 id='takeaway'>理解评价</h2>

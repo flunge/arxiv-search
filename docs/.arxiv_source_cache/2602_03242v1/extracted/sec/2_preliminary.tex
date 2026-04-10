@@ -1,0 +1,37 @@
+
+\section{Backbone}
+\label{section:preliminary}
+
+% \textbf{Latent Video Diffusion Model~(LVDM).}
+% The LVDM enhances the stable diffusion model ~\cite{ramesh2022hierarchical} by integrating a 3D U-Net, thereby empowering efficient video data processing. This 3D U-Net design augments each spatial convolution with an additional temporal convolution and follows each spatial attention block with a corresponding temporal attention block. It is optimized by employing a noise-prediction objective function:
+% \begin{equation}
+%     l_\epsilon = ||\epsilon - \epsilon_\theta(z_t, t, c)||^2_2,
+%     \label{eq:training_objective}
+% \end{equation}
+% Here, $\epsilon_\theta(\cdot)$ signifies the 3D U-Net's noise prediction function. The condition 
+% $c$ is guided into the U-Net using cross-attention for adjustment. Meanwhile, $z_t$ denotes the noisy hidden state, evolving like a Markov chain that progressively adds Gaussian noise to the initial latent state $z_0$:
+% \begin{equation}
+%     z_t=\sqrt{\bar{\alpha}_t}z_0 + \sqrt{1 - \bar{\alpha}_t}\epsilon, \quad\epsilon \sim \mathcal{N}(0, I),
+%     \label{eq:add_noise}
+% \end{equation}
+% where $\bar{\alpha}_t = \prod_{i=1}^t(1-\beta_t)$ and $\beta_t$ is a coefficient that controls the noise strength in step $t$.
+
+\noindent \textbf{Spatial-Temporal DiT (ST-DiT).}
+We use Spatial-Temporal DiT (ST-DiT) \cite{peebles2023scalable} as our backbone, which introduces a novel architecture that merges the strengths of diffusion models with transformer architectures \cite{vaswani2017attention}. This integration aims to address the limitations of traditional U-Net-based latent diffusion models (LDMs), improving their performance, versatility, and scalability. While keeping the overall framework consistent with existing LDMs, the key shift lies in replacing the U-Net with a transformer architecture for learning the denoising function $\epsilon_\theta(\cdot)$, thereby marking a pivotal advance in the realm of generative modelling.
+
+The ST-DiT architecture incorporates two distinct block types: the Spatial DiT Block (S-DiT-B) and the Temporal DiT Block (T-DiT-B), arranged in an alternating sequence. 
+The S-DiT-B comprises two attention layers, each performing Spatial Self-Attention (SSA) and Cross-Attention sequentially, succeeded by a point-wise feed-forward layer that serves to connect adjacent T-DiT-B block. 
+Notably, the T-DiT-B modifies this schema solely by substituting SSA with Temporal Self-Attention (TSA), preserving architectural coherence. 
+Within each block, the input, upon undergoing normalization, is concatenated back to the block's output via skip-connections. Leveraging the ability to process variable-length sequences, the denoising ST-DiT can handle videos of variable durations.
+
+During processing, a video autoencoder \cite{yu2023magvit} is first employed to diminish both spatial and temporal dimensions of videos. To elaborate, it encodes the input video $X \in \mathbb{R}^{T \times H \times W \times 3}$ into video latent $z_{0} \in \mathbb{R}^{t \times h \times w \times 4}$, where $L$ denotes the video length and $t = T, h = H / 8, w = W / 8$.  $z_{0}$ is next ``patchified", resulting in a sequence of input tokens $I \in \mathbb{R}^{t \times s \times d} $. Here, $s = hw/p^2$ and $p$ denote the patch size. 
+$I$ is then forwarded to the ST-DiT, which models these compressed representations. 
+In both SSA and TSA, standard Attention is performed using Query (Q), Key (K), and Value (V) matrices:
+\[
+Q = W_{Q} \cdot I_{norm}; K = W_{K} \cdot I_{norm}; V = W_{V} \cdot I_{norm},
+\]
+
+$I_{norm}$ is the normalized $I$, $W_{Q},W_{K}, W_{V}$ are learnable matrices.
+The textual prompt is embedded with a T5 encoder and integrated using a cross-attention mechanism.
+
+    

@@ -1,0 +1,32 @@
+\section{Related Work}
+\label{sec:related}
+
+\noindent\textbf{Video Diffusion Models.}
+Diffusion-based generative models have become a powerful paradigm for video synthesis, achieving remarkable realism and temporal coherence.
+Early attempts extended image diffusion frameworks~\cite{rombach2022high, guo2024animatediff} into the video domain by incorporating temporal modules to model motion dynamics.
+Subsequent UNet-based~\cite{ho2022video, blattmann2023stable} and Transformer-based~\cite{yang2025cogvideox, wan2025wan} architectures operate in 3D video latent spaces to perform spatiotemporal denoising.
+With the scaling up of training datasets and spatial resolution, large diffusion frameworks, such as HunyuanVideo~\cite{kong2024hunyuanvideo} and Seedance~\cite{gao2025seedance}, have pushed video generation quality to a level nearly indistinguishable from real-world footage.
+To achieve controllability, these models typically incorporate textual, visual, or image-space conditions~\cite{wang2023videocomposer, guo2024sparsectrl, gu2025diffusion, burgert2025go} (\eg, depth, edges, or optical flow), to guide motion and appearance synthesis.
+Nevertheless, most pretrained video diffusion frameworks remain agnostic to the underlying camera geometry that fundamentally determine how visual observations are formed.
+
+\noindent\textbf{Camera-Controlled Generation.}
+Recent efforts toward camera-controlled video generation aim to synthesize videos under explicit camera control, either through fine-tuning or training-free adaptation.
+One line of work employs 3D representations to guide novel-view generation using image-space conditions such as rendering~\cite{yu2024viewcrafter,ma2025you,cao2025uni3c,zhang2025i2v3d,mengnvs,li2025realcam,zhai2025stargen,yu2025trajectorycrafter,i2vcontrolcamera}, tracking~\cite{gu2025diffusion}, optical flow~\cite{jin2025flovd,burgert2025go}, or coordinates~\cite{zhang2025world}.
+These approaches facilitate viewpoint control and improve 3D consistency but depend on estimated depth maps, point clouds, meshes, or 3D Gaussians derived from input images or videos, thereby limiting motion diversity and often degrading under large camera movements or imperfect reconstructions.
+Another direction conditions diffusion models directly on camera poses for video-to-video~\cite{bai2025recammaster}, image-to-video~\cite{liang2025wonderland,gao2024cat3d,zheng2024cami2v,zhou2025stable,he2025cameractrl}, and text-to-video generation~\cite{bahmani2025ac3d,he2024cameractrl,bahmanivd3d,wang2024motionctrl,cheong2024boosting}, relying on implicit 3D priors learned during training.
+Although these methods demonstrate promising camera-aware generation, they typically define a reference frame on the first frame, without absolute orientation control (\eg, pitch and roll) in text-to-video synthesis.
+Moreover, most existing approaches manipulate only extrinsic parameters (\ie, 6-DoF poses) while overlooking intrinsics and lens distortion, which hinders generalization across diverse camera configurations and projection models.
+\textit{In contrast, our method introduces a unified, geometry-consistent representation that jointly encodes poses, intrinsics, and distortion, enabling physically grounded and accurate camera-aware control across a wide range of projection types.}
+
+\noindent\textbf{Camera Encoding.}
+Achieving fine-grained camera control in diffusion models fundamentally depends on how camera geometry is represented and encoded.
+A few works explore direct camera conditioning by injecting camera parameters into diffusion models~\cite{wang2024motionctrl,bai2025recammaster}, enabling controllable viewpoint transitions without explicit 3D reconstruction.
+Other methods encode camera poses through ray-map encodings for image-to-video~\cite{liang2025wonderland,gao2024cat3d,zheng2024cami2v,zhou2025stable,he2025cameractrl} and text-to-video generation~\cite{bahmani2025ac3d,he2024cameractrl,bahmanivd3d}.
+Ray-map representations describe each pixel by its corresponding ray origin and direction~\cite{mildenhall2021nerf,gao2024cat3d} or by its Pl\"ucker coordinates~\cite{plucker1865xvii,bahmani2025ac3d,wang2025akira}, allowing models to incorporate both intrinsic and extrinsic camera properties.
+However, these absolute encodings rely on a predefined world frame~\cite{mildenhall2019local,gao2024cat3d,guizilini2025zero}, making the representation dependent on arbitrary coordinate choices and limiting cross-scene generalization.
+
+Motivated by the success of relative positional encodings such as RoPE~\cite{heo2024rotary}, several studies propose \textit{relative camera encodings} that model pairwise geometric transformations between views~\cite{safin2023repast,miyato2023gta,kong2024eschernet,li2025cameras}.
+By encoding relative SE(3) transformations directly at the attention level, these approaches remove the need for a fixed reference frame and have been shown to improve multi-view reasoning and novel-view generation.
+Building on these insights, \textit{our UCPE %\emph{Unified Camera Positional Encoding (UCPE)} 
+extends beyond perspective cameras by jointly encoding poses, intrinsics, and distortion within a geometry-consistent formulation.}
+This unified representation seamlessly integrates with our attention adapter, allowing Diffusion Transformers to reason about camera geometry consistently across different projection types and achieve accurate viewpoint control.

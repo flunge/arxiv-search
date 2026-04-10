@@ -1,0 +1,112 @@
+In this supplementary material, we present additional implementation details and results that could not be included in the main paper due to space constraints. In Sec.~\ref{app:implementation}, we provide further details on the model architecture and training procedure. In Sec.~\ref{app:ablation}, we report additional ablation studies to support our design choices. In Sec.~\ref{app:results}, we include more qualitative results. Finally, we discuss the limitations of our work in Sec.~\ref{app:limitation}.
+
+\section{Implementation Details}
+\label{app:implementation}
+As mentioned in Sec.~\ref{sec:setups}, \ourmethod{} model is initialized from the pretrained weights of Infinity~\cite{han2024infinity}.  Although video VAEs~\cite{openai2024sora,yang2025cogvideoxtexttovideodiffusionmodels} are widely recognized for improving temporal coherence and yielding better FVD scores, we instead directly adopt the multi-scale image tokenizer used in Infinity~\cite{han2024infinity} to better accommodate drastic camera motions and varying frame rates. 
+
+\ourmethod{} includes two model variants with approximately 130M and 2B parameters. Unless otherwise specified, all experiments use the 2B model. The 130M model is only used in several ablation studies, including Tab.~\ref{tab:position}, Fig.~\ref{fig:model_scale}, and Tab.~\ref{tab:errors}.
+
+The training of \ourmethod{} includes three stages as follows. In the first stage, we first train the model on short multi-view video clips containing 4 frames at a resolution of $192\times336$. The frame intervals are independently sampled between $0.1\text{s}$ and $1\text{s}$. We use a batch size of 64 and a learning rate of \textit{5e-5}, and train for $4\text{k}$ iterations. In the second stage, we then train the model on the same short clips but at a higher resolution of $384\times672$. The batch size is reduced to 32, and the learning rate is decreased to \textit{2.5e-5}. This stage also runs for $4\text{k}$ iterations. In the last stage, we adopt the recurrent training scheme described in Alg.~\ref{alg:recurrent}. The model is trained on long multi-view image sequences with 20 frames at $384\times672$ resolution. We use a batch size of 32 and a learning rate of \textit{2.5e-6} for 300 iterations. All training is conducted on 32 NVIDIA A100 GPUs using the AdamW optimizer~\cite{loshchilov2017decoupled}.
+
+
+
+\begin{table}[tb]
+    \centering
+    \caption{Ablation Study on Spatio-Temporal Module.}
+    \label{tab:global}
+    \vspace{-10pt}
+    \begin{tabular}{c|cc}
+    \toprule
+        \textbf{S.-T. Module} & \textbf{FID}$\downarrow$ & \textbf{FVD}$\downarrow$   \\
+    \midrule
+        decoupled & 15.6 & 140 \\
+        global & \textbf{10.5} & \textbf{91} \\ 
+    \bottomrule
+    \end{tabular}
+\end{table}
+
+
+\begin{table}[tb]
+    \centering
+    \caption{Ablation Study on Random Errors in Training.}
+    \label{tab:errors}
+    \vspace{-10pt}
+    \begin{tabular}{c|cc}
+    \toprule
+        \textbf{Random Errors} & \textbf{FID}$\downarrow$ & \textbf{FVD}$\downarrow$   \\
+    \midrule
+        \XSolidBrush & 19.8  & 142  \\
+        \Checkmark & \textbf{17.2} & \textbf{124} \\ 
+    \bottomrule
+    \end{tabular}
+\end{table}
+
+
+\section{Additional Ablation Study}
+\label{app:ablation}
+\paragraph{Global Causal Attention.}
+In Sec.~\ref{sec:framework}, we introduce a global self-attention module within the dual-causal block that jointly attends over all cameras and frames to ensure spatio-temporal consistency. Following prior work~\cite{gao2023magicdrive,wen2024panacea,wang2024driving}, we also experiment with an alternative decoupled design that applies two sequential self-attention modules: one for cross-view interactions per frame and one for cross-frame interactions per camera. As shown in Tab.~\ref{tab:global}, the global attention module significantly outperforms the decoupled spatio–temporal design. The decoupled approach implicitly assumes strong temporal correlation across frames captured by the same camera, thereby injecting strong ego-motion priors. In contrast, the global attention module incorporates minimal inductive bias and therefore generalizes better.
+
+\paragraph{Random Errors in Training.}
+\ourmethod{} inherits the teacher-forcing autoregressive training scheme used in VAR~\cite{tian2024visual} and Infinity~\cite{han2024infinity}, which can lead to error propagation due to the mismatch between training and inference. To mitigate this issue, we follow the idea introduced in Infinity~\cite{han2024infinity} and inject random errors into the bit-wise multi-scale tokens $X_k$ across all three training stages by randomly flipping a portion of bits in each token. As shown in Tab.~\ref{tab:errors}, this simple strategy improves video generation quality by narrowing the gap between training and inference.
+
+\section{Additional Qualitative Results}
+\label{app:results}
+
+\paragraph{Zero-Shot to Novel Camera Configurations.} The ray-level relative position embedding enables \ourmethod{} to generalize to unseen camera configurations. In Fig.~\ref{fig:waymo}, we generate multi-view videos under the camera setup of the Waymo Open Dataset~\cite{sun2020scalability}, which is never seen during training. Nevertheless, \ourmethod{} is able to synthesize multi-view videos with reasonable visual quality and temporal coherence.
+
+\paragraph{Camera Rotation \& Shifting.} In Fig.~\ref{fig:app_camera}, \ourmethod{} is able to simulate camera rotations and translations. This highlights another advantage of our ray-level position embedding: it enables \ourmethod{} to effectively function as a feed-forward novel view synthesis model.
+
+\paragraph{Multi-View Video Generation.} In Fig.~\ref{fig:nuplan_video} and Fig.~\ref{fig:nuscenes_video}, we present additional examples of multi-view video generation across diverse camera configurations and environments. We also provide several synthetic multi-view videos in the \textit{videos/} folder using different frame rates (with object and map conditions visualized). \ourmethod{} demonstrates strong condition fidelity and high visual realism.
+
+\section{Limitation and Future Work}
+\label{app:limitation}
+Our current training data are limited to driving scenarios, which constrains the generalization ability of \ourmethod{} in non-driving environments. In future work, we plan to incorporate more diverse datasets (\eg, robotics or UAV) into the training pipeline. In addition, our evaluation primarily focuses on multi-view video generation. We aim to explore broader applications of \ourmethod{}, such as closed-loop simulation. Recent advances in visual autoregressive models~\cite{guo2025fastvar,voronov2024switti} can also be readily integrated into the \ourmethod{} framework to further enhance its capability and efficiency.
+
+\newpage
+
+
+\begin{figure*}
+    \centering
+    \includegraphics[width=0.95\linewidth]{figs/waymo.pdf}
+    \vspace{-10pt}
+    \caption{Zero-Shot to Unseen Waymo Open Dataset Camera Configuration.}
+    \label{fig:waymo}
+\end{figure*}
+
+
+\begin{figure*}
+    \centering
+    \begin{subfigure}{0.9\linewidth}
+        \includegraphics[width=\linewidth]{figs/app_rotate.pdf}
+        \caption{Camera Rotation.}
+    \end{subfigure}
+    \begin{subfigure}{0.9\linewidth}
+        \includegraphics[width=\linewidth]{figs/app_shift.pdf}
+        \caption{Camera Shifting.}
+    \end{subfigure}
+    \caption{Novel View Synthesis with Camera Rotation and Shifting.}
+    \label{fig:app_camera}
+\end{figure*}
+
+\begin{figure*}
+    \centering
+    \includegraphics[width=\linewidth]{figs/nuplan_video.pdf}
+    \caption{Multi-View Video Generation with Eight Cameras.}
+    \label{fig:nuplan_video}
+\end{figure*}
+
+\begin{figure*}
+    \centering
+    \includegraphics[width=0.94\linewidth]{figs/nuscenes_video_cropped.pdf}
+    \caption{Multi-View Video Generation with Six Cameras.}
+    \label{fig:nuscenes_video}
+\end{figure*}
+
+% \begin{figure*}
+%     \centering
+%     \includegraphics[width=0.9\linewidth]{figs/offroad_video.pdf}
+%     \caption{Multi-View Video Generation in the Wild.}
+%     \label{fig:offroad_video}
+% \end{figure*}
+

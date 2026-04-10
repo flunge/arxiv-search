@@ -1,0 +1,51 @@
+\section{Related Work}
+\label{sec:related}
+\subsection{Novel View Synthesis}
+% Novel view synthesis (NVS) aims to generate images of a scene from unseen viewpoints based on a set of input images. Neural Radiance Fields (NeRF) \cite{mildenhall2020nerf} pioneered this field by representing scenes as continuous volumetric functions parameterized by neural networks. Subsequent works have focused on improving rendering quality \cite{yu2021pixelnerf, barron2021mip, wang2021ibrnet}, reducing training time \cite{mueller2022instant, yu2022plenoctrees}, and enhancing generalization to unseen scenes \cite{yu2021pixelnerf, wang2021ibrnet}. Among these, Gaussian Splatting (GS) \cite{kerbl20233d} has emerged as a powerful technique, representing scenes with 3D Gaussians that can be efficiently rendered and trained rapidly. However, GS typically requires dense input views to achieve high-quality results, limiting its applicability in scenarios with sparse data.
+
+\begin{figure*}[t]
+	\vspace{-0.3cm}
+	\begin{center}
+	   \includegraphics[trim={0cm 0cm 0cm 0cm},clip,width=1.0\linewidth]{figures/framework.pdf}
+	\end{center}
+	\vspace{-0.4cm}
+	% \vspace{-1.1cm}
+	\caption{\textbf{Framework of ICO-GS.} 
+	Given sparse input views, we initialize 3D Gaussians and extract deep features. 
+	Our method enforces intrinsic geometry-appearance consistency through two synergistic 
+	components: 
+	\textbf{(1) Robust Geometric Regularization.} Source features are warped to reference 
+	views via rendered depth, establishing occlusion-aware multi-view constraints through: 
+	(a) \textit{Robust Multi-view Photometric Consistency} that employs pixel-wise top-$k$ 
+	selection for occlusion handling, and (b) \textit{Edge-aware Depth Smoothness} that 
+	preserves sharp geometric structures. 
+	\textbf{(2) Geometry-Guided Appearance Optimization.} We leverage geometrically reliable 
+	regions identified by (c) \textit{Cycle Consistency Depth Filtering} to synthesize 
+	virtual views, then apply (d) \textit{Virtual-view Photometric Consistency} between 
+	synthesized and rendered images to propagate geometric correctness into appearance 
+	learning.
+	}
+	
+	\label{fig:framework}
+	\vspace{-0.4cm}
+  \end{figure*}
+
+Novel View Synthesis (NVS) seeks to generate novel perspectives of a scene given a collection of input images. The introduction of Neural Radiance Fields (NeRF)~\cite{mildenhall2021nerf} revolutionized this domain by representing scenes as volumetric radiance fields parameterized by multilayer perceptrons. Following this seminal work, substantial research efforts have been devoted to enhancing various aspects of NeRF, including photorealistic quality~\cite{barron2021mip,barron2022mip360,barron2023zip}, rendering efficiency~\cite{garbin2021fastnerf,fridovich2022plenoxels,muller2022instant,chen2022tensorf}, and generalization to complex scenarios such as dynamic environments~\cite{park2021nerfies,pumarola2021d} and unconstrained captures~\cite{martin2021nerf}. Despite achieving impressive visual fidelity, NeRF-based approaches inherently suffer from prohibitive computational demands.To overcome these computational bottlenecks, 3D Gaussian Splatting (3DGS)~\cite{kerbl20233d} emerged as a promising alternative by representing scenes with explicit 3D Gaussian primitives rather than implicit neural functions, enabling real-time novel view synthesis with comparable quality. This breakthrough has inspired numerous follow-up works that extend 3DGS to various challenging scenarios~\cite{yu2024mip, lu2024scaffold, matsuki2024gaussian, kocabas2024hugs, fu2024colmap, yan2024street}, including anti-aliasing~\cite{yu2024mip}, surface reconstruction~\cite{yu2024gaussian, huang20242d, li2024monogsdf}, dynamic scene modeling~\cite{wu20244d}, and memory-efficient representations~\cite{chen2024hac}. 
+Despite achieving impressive results on densely captured scenes, both NeRF and 
+3DGS exhibit severe degradation under sparse views, as their standard 
+optimization relies on dense multi-view supervision to disambiguate geometry 
+and appearance.
+
+
+\subsection{Sparse-view Novel View Synthesis}
+Neural rendering methods like NeRF and 3DGS optimize appearance independently per view through photometric losses, allowing appearance to overfit training observations while geometry remains  underconstrained, violating the multi-view consistency principle essential for sparse-view novel view synthesis.
+Early sparse-view NeRF methods introduced various regularization strategies, including semantic consistency via CLIP embeddings~\cite{jain2021dietnerf}, patch-based geometric regularization~\cite{niemeyer2022regnerf}, and frequency regularization~\cite{yang2023freenerf} to constrain this ill-posed optimization. 
+
+For 3DGS, several works analyzed the overfitting issue in sparse-view 3DGS and include dual-model regularization~\cite{zhang2024cor} or dropout~\cite{park2025dropgaussian,xu2025dropoutgs,chen2025quantifying} to mitigate it. 
+However, these methods lack analysis of the intrinsic geometry of the Gaussian primitives.
+Alternative approaches~\cite{zhu2024fsgs,li2024dngaussian,xiong2023sparsegs, paliwal2024coherentgs, chung2024depth} integrate external monocular depth priors from pre-trained estimators~\cite{ranftl2021vision, cao2022mvsformer}, such priors are subject to scale ambiguity and can introduce erroneous or misleading noise. 
+Some methods propose dense initialization~\cite{zheng2025nexusgs} and binocular warping consistency~\cite{han2024binocular}, but they cannot guarantee that the geometry of the Gaussian primitives remains accurate throughout iterative optimization, which limits their effectiveness.
+Unlike prior methods that do not adequately enforce intrinsic consistency between 
+accurate geometry and reliable appearance, we propose a framework grounded in 
+intrinsic consistency optimization, based on the principle that geometry and 
+appearance should be mutually correct and reinforcing.

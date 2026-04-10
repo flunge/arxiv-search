@@ -1,0 +1,52 @@
+\section{Introduction}
+% 重点是geometrically accurate
+% Reconstructing geometrically accurate real-world scenes continues to be a longstanding challenge in 3D vision.
+Reconstructing geometrically accurate real-world scenes continues to be a longstanding challenge in 3D vision. Such capability is crucial for applications like immersive VR experiences, realistic gaming environments, and digital content creation, where both geometric fidelity and visual consistency are essential.
+To address this, 3D Gaussian Splatting (3DGS)~\cite{kerbl20233d} has recently shown impressive performance in novel view synthesis and scene reconstruction. It represents a scene as a collection of discrete, semi-transparent ellipsoids, which are rendered onto the image plane through “splatting”.
+Existing Gaussian-based reconstruction methods mainly follow two paradigms. 
+Traditional approaches, such as vanilla 3DGS, rely on a preprocessing step using COLMAP~\cite{schoenberger2016sfm} to generate an initial point cloud and typically require access to hundreds of posed views. These methods then perform scene-specific optimization over tens of thousands of iterations, often taking several hours to converge to high-quality results.
+In contrast, feedforward approaches employ pretrained models to directly predict per-pixel 3D Gaussians from sparse inputs—often as few as two images—without any preprocessing. These methods can reconstruct a 3D scene within milliseconds, enabling real-time and scalable applications.
+
+However, we observe that existing feedforward methods tend to generate degraded 3D scenes. The reconstructed surfaces often collapse into nearly spherical, discrete point clouds with color biases and visible voids. 
+% TODO: 加一句话 为什么 high-level
+This degradation stems from the under-utilization of the anisotropic properties of Gaussian primitives, which makes it difficult to disentangle geometry from appearance. Moreover, since current feedforward methods rely primarily on image loss, they often yield biased geometry and appearance under sparse or weakly constrained viewpoints.
+% This degradation arises because the anisotropy of Gaussian primitives is underutilized, making it difficult to disentangle geometric structure from appearance. When supervision relies solely on RGB image loss—particularly under sparse or weakly constrained viewpoints—the optimization often converges to biased geometry and appearance attributes.
+These issues are often subtle in rendered images at the original resolution and near reference views, but become prominent when the camera moves closer or shifts to off-axis viewpoints. This discrepancy indicates that standard novel view synthesis (NVS) metrics fail to accurately capture the geometric and textural fidelity of the scene.
+
+To address these challenges and provide a more accurate reconstruction, we propose SurfSplat, a feedforward model that reconstructs 3D scenes from sparse images using 2D Gaussian Splatting (2DGS) as the representation primitive.
+Unlike 3DGS, 2DGS captures anisotropic structures more effectively, resulting in improved geometric precision. 
+However, direct training of 2DGS often suffers from instability that arises from the complex coupling between geometric attributes and rendering outcomes. This issue is amplified under limited supervision, where gradients cannot effectively disentangling geometry from appearance. The faceted nature of 2D Gaussians further intensifies the problem, as even minor geometric perturbations can produce substantial deviations in rendered outputs.
+% TODO: 加一句话 为什么 high-level
+% This instability stems from the complex coupling between geometric attributes and rendering outcomes during volume rendering. Under limited supervision, gradients cannot effectively disentangle geometry from appearance, and the faceted nature of 2D Gaussians amplifies this issue, as even small geometric perturbations can cause large deviations in rendered results.
+To tackle this, we introduce two key components: (1)
+\textbf{\textit{an explicit surface continuity prior}}, which binds the rotation and scale attributes of each 2DGS to its spatial position, encouraging smooth and coherent surfaces. (2)
+\textbf{\textit{a forced alpha blending strategy}}, which helps the model escape local optima and reduces color bias during training.
+
+Evaluating the quality of 3D scenes produced by feedforward models is also nontrivial. Traditional geometry metrics such as Chamfer Distance or F1 Score are ineffective due to incomplete or sparse outputs and the lack of dense ground truth. Furthermore, most datasets lack out-of-distribution viewpoints for reliable assessment.
+To address this, we propose \textbf{High-Resolution Rendering Consistency (HRRC)}: a novel metric that evaluates scene fidelity by rendering the 3D model at high resolutions, thereby simulating close-up views that expose hidden artifacts like spatial voids. Moreover, HRRC can be computed directly from standard datasets without requiring new annotations.
+
+Built upon these components, SurfSplat reconstructs continuous, high-fidelity 3D scenes with significantly fewer holes and artifacts when viewed from challenging perspectives. Unlike previous 3DGS-based methods that predict Gaussian attributes independently, our approach explicitly models continuity and structure, enhancing both geometric accuracy and rendering consistency. 
+
+In summary, the main contributions of this work are as follows:
+\begin{itemize}
+    \item We propose \textbf{SurfSplat}, a feedforward network that reconstructs 3D scenes using 2D Gaussian surfels from sparse inputs. Our model leverages a surface continuity prior and forced alpha blending to significantly improve reconstruction quality.
+    
+    \item We introduce \textbf{HRRC}, a high-resolution rendering-based metric that reveals surface discontinuities and enables fairer evaluation of forward-generated scenes through dense sampling.
+    
+    \item Extensive experiments demonstrate that SurfSplat achieves \textbf{state-of-the-art} performance in both standard and HRRC metrics on RealEstate10K, DL3DV, and ScanNet, setting a new benchmark for novel view synthesis under sparse-view settings.
+\end{itemize}
+
+% \begin{figure}[ht]
+%   \centering
+%   \includegraphics[width=1\linewidth]{images/method_comparation.pdf}
+%   \caption{}
+%   \label{fig:method_comparation}
+% \end{figure}
+
+% To better capture fine-grained geometric details, 2D Gaussian Splatting (2DGS)~\cite{huang20242d} has been introduced as a differentiable surface element representation.
+
+% In general, the rendered image of a 3D scene under an arbitrary viewpoint can be decomposed into two components: dominant continuous surfaces and sparse discontinuous edges.
+% On continuous surfaces, the position, rotation, and scale of the associated 2D Gaussian surfels are inherently coupled due to local planarity and surface smoothness.
+% This structural regularity suggests that the geometric attributes of surfels, particularly rotation and scale, can be effectively inferred from their spatial distribution, rather than being predicted independently.
+% By leveraging surface continuity priors, the prediction space of 2DGS can be substantially reduced, thereby simplifying the learning problem without introducing complex regularization terms or requiring additional supervision.
+

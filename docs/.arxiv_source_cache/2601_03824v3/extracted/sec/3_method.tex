@@ -1,0 +1,278 @@
+\section{Method}
+\label{sec:method}
+\begin{figure*}
+    \centering
+    \includegraphics[width=\linewidth]{figs/IDESplat_net.pdf}
+    \caption{The overall architecture of IDESplat. IDESplat consists of three key parts: a feature extraction backbone, an iterative depth probability estimation process, and a Gaussian Focused Module (GFM). The iterative process is built upon cascaded Depth Probability Boosting Units (DPBUs). Within each DPBU, depth probabilities are estimated sequentially by stacked Warp-Index Epipolar Attention (WIEA) blocks, where each block operates on progressively refined features and thus produces distinct probability estimates. Each unit combines multi-level warp results in a multiplicative manner to mitigate the inherent unreliability of a single warp. As IDESplat iteratively updates the depth candidates and boosts the probability estimates, the depth map becomes more precise, leading to accurate Gaussian means.}
+    \label{fig:IDESplat}
+    \vspace{-4mm}
+\end{figure*}
+
+\subsection{Preliminaries.}
+%
+Given a sequence of $V$ sparse-view images $\mathcal{I} = \{ {\mathcal I}^{i}\}_{i=1}^{V}$, where each image ${\mathcal I}^i$ has dimensions $H \times W \times 3$, and the corresponding camera projection matrices are ${\mathcal P}^i \in \mathbb{R}^{3 \times 4}$.
+%
+The goal of the generalizable 3DGS task is to learn a network that maps images to 3D Gaussian parameters. This process is defined as:
+%
+\begin{equation}
+\label{eq:eq1}
+    f_{\bm \theta}: \{ ({\mathcal I}^{i}, {\mathcal P}^i) \}_{i=1}^{V} \mapsto \{ (\bm{\mu}_j, \bm{\alpha}_j, \bm{\Sigma}_j, \bm{c}_j ) \}_{j=1}^{V \times H \times W},
+\end{equation}
+%
+where $f_{\bm \theta}$ is a feed-forward network with learnable parameters ${\bm \theta}$.
+%
+The parameters $\bm{\mu}_j$, $\bm{\alpha}_j$, $\bm{\Sigma}_j$, and $\bm{c}_j$ are the Gaussian mean, opacity, covariance, and color, respectively.
+%
+% With one Gaussian corresponding to each pixel, the total number of Gaussians equals the total number of pixels across all input images.
+%
+Since Gaussian means are difficult to predict directly, most existing methods estimate them by unprojecting a depth map into 3D.
+%
+The depth estimation scheme is as follows:
+%
+First, the input image sequence is processed using a multi-view feature extraction backbone, resulting in a downsampled feature $\bm F \in \mathbb{R}^{V \times \frac{H}{4} \times \frac{W}{4} \times C}$.
+%
+% Next, a discrete set of depth candidates is defined as ${\bm G} = [d_1, d_2, \cdots, d_D] \in \mathbb{R}^{D}$.
+%
+Then, the cost volume is computed based on $\bm{F}$, the camera projection matrices ${\mathcal{P}}^i$, ${\mathcal{P}}^j$ for different views, and the depth candidates ${\bm{G}} = [d_1, d_2, \cdots, d_D] \in \mathbb{R}^{D}$.
+%
+Specifically, the feature ${\bm F}^j$ from view $j$ is warped to view $i$ as follows:
+%
+\begin{equation}
+\label{eq:warp_ori}
+    {\bm F}^{j \to i} = \mathcal{W}({\bm F}^j, {\mathcal P}^i, {\mathcal P}^j, \bm G) \in \mathbb{R}^{\frac{H}{4} \times \frac{W}{4}  \times D\times C},
+\end{equation}
+%
+where $\mathcal{W}$ denotes the warp operator. The correlation is then computed as the dot product between $\bm{F}^{i}$ and $\bm{F}^{j \to i}_{d_m}$:
+%
+%
+\begin{equation}
+\label{eq:correlation}
+    {\bm C}_{d_m}^{i} = ({\bm F}^i \cdot {\bm F}^{j \to i}_{d_m} / \sqrt{C}) \in \mathbb{R}^{\frac{H}{4} \times \frac{W}{4}},
+\end{equation}
+%
+%
+where $m \in \{1,\ldots,D\}$ and $C$ denotes the feature channel dimension. 
+%
+% This typical correlation computation method has to store all the dense warping features, which leads to a memory issue, especially when the depth candidate size $D$ is large.
+%
+Subsequently, $\bm{C}^{i} = [\bm{C}_{d_1}^{i}, \ldots, \bm{C}_{d_D}^{i}]$ is refined with a U-Net and upsampled to the input resolution as $\tilde{\bm{C}}^{i} \in \mathbb{R}^{H \times W \times D}$.
+%
+Finally, a $\mathrm{softmax}$ function is applied to obtain the probability of each candidate depth, and the final depth map is computed as their weighted average.
+
+
+To achieve high-quality 3D reconstruction, an accurate depth map $\bm{D}$  is crucial since it determines the centers of 3D Gaussians.
+%
+% So, the central challenge is how to fully leverage multi-view features to accurately estimate depth probabilities at the candidate depths.
+%
+However, this commonly used method only relies on a single cross-view warp to compute feature similarity, underutilizing cross-view geometry and often leading to unreliable, coarse depth estimates.
+%
+In addition, this typical correlation computation method requires storing all the dense warping features, which incurs significant memory overhead, especially when the depth candidate size $D$ is large.
+
+
+
+
+
+\subsection{Iterative Multi-View Depth Estimation}
+\label{sec:i_d_e}
+
+
+In this paper, we propose IDESplat to iteratively boost the feature similarity measure using multiple warp operations.
+%
+As IDESplat progressively mines geometric cues to identify high-probability potential depth candidates, it can produce refined and reliable depth probability estimation results for precise Gaussian mean prediction.
+%
+
+
+
+
+
+\noindent \textbf{Warp-Index Epipolar Attention.}
+%
+The warp operation is key to constructing the cost volume or epipolar attention map, as it establishes pixelwise correspondences between features in the source and target views.
+%
+However, as shown in Eq.~\eqref{eq:warp_ori}, this warping operation requires sampling target-view features for each depth candidate, thereby incurring high memory cost.
+%
+To alleviate the inherent memory overhead, we introduce a Warp-Index Epipolar Attention mechanism that only stores warp indices for similarity matrix multiplication.
+%
+We first compute the warping index map $\bm{I}$ as follows:
+%
+%
+\begin{equation}
+\label{eq:warp}
+    {\bm I}^{j \to i} = \mathcal{IW}({\bm F}^j, {\mathcal P}^i, {\mathcal P}^j, \bm G) \in \mathbb{R}^{\frac{H}{4} \times \frac{W}{4} \times D},
+\end{equation}
+%
+where $\mathcal{IW}$ represents the operation that only records the indices obtained during warping, and $G$ is the depth candidate matrix.
+%
+Next, we compute the feature correlations in parallel as follows:
+%
+%
+\begin{equation}
+\label{eq:correlation}
+    {\bm C}^{i} = \mathbf{\Psi}({\bm F}^i, {\bm F}^j, {\bm I}^{j \to i}) \in \mathbb{R}^{\frac{H}{4} \times \frac{W}{4} \times D},
+\end{equation}
+%
+where $\mathbf{\Psi}$ denotes the Sparse Matrix Multiplication (SMM), which uses the warp index ${\bm I}^{j \to i}$ to determine the position in ${\bm F}^j$ for matrix multiplication with ${\bm F}^i$.
+%
+%
+%
+Then, we refine the correlation map $\bm{C}^{i}$ with a lightweight 2D U-Net to obtain $\tilde{\bm{C}}^{i} \in \mathbb{R}^{H \times W \times D}$. Finally, a $\mathrm{softmax}$ is applied along the depth dimension to obtain the attention weights:
+
+%
+\begin{equation}
+\bm{A}^{i}=\mathrm{softmax} (\tilde{\bm{C}}^{i}).
+\end{equation}
+%
+This attention map $A^{i}$ corresponds to the depth probability results of view $i$ for different depth candidates in a single estimation.
+%
+
+\noindent \textbf{Depth Probability Boosting Strategy.}
+%
+In each depth probability boosting unit, we stack $M$ Warp-Index Epipolar Attention layers to produce $M$ depth probability estimation results.
+%
+To combine these isolated estimated outputs for stronger depth estimation capability, we propose a depth probability boosting strategy.
+%
+Specifically, we initialize the depth probability matrix $\bm P_{0}$ as an all-ones matrix and compute the subsequent updates as follows:
+%
+\begin{align}
+\label{eq:hd_pa}
+    \bm P_{m}= Norm(\bm P_{m-1} \odot \bm A_{m}),
+\end{align}
+where $m \in \{1,\ldots,M\}$ and $\mathrm{Norm}(\cdot)$ denotes row-wise normalization. $\bm{P}_{m}$ represents the depth probability matrix generated by the $m$-th Warp-Index Epipolar Attention in the current depth probability boosting unit.
+%
+Depth candidates with consistently high probabilities across layers will be boosted through this cascaded element-wise product process.
+%
+As a result, the depth probability produced by the index-based epipolar attention layer can be gradually enhanced, becoming more reliable and accurate.
+
+
+\noindent \textbf{Iterative Depth Estimation Process.}
+%
+Based on the depth probability boosting strategy, each Depth Unit produces an enhanced depth-probability map $\bm{P}_{M,n}$ at iteration $n$.
+%
+To refine depth estimates symmetrically around the current prediction, we formulate the depth update using a relative depth-candidate offset vector $\Delta\bm{G}_{n}$, which allows the network to predict both positive and negative residuals.
+%
+Specifically, for the first iteration ($n=1$), we uniformly sample depth candidates within the initial range $[d_{\min}, d_{\max}]$. The depth-candidate vector used for feature matching is defined as $\bm{G}_{1} = [d_{\min}+{I}_{1},\ d_{\min}+2{I}_{1},\ \ldots,\ d_{\min}+\mathcal{D}_{1}{I}_{1}]$, where ${I}_{1} = (d_{\max}-d_{\min})/(\mathcal{D}_{1}+1)$ denotes the sampling interval and $\mathcal{D}_{1}$ is the number of candidates. Since the initial depth map is set to $\bm{D}_{0}=\bm{0}$, the relative offset vector in the first iteration is defined as $\Delta\bm{G}_{1}=\bm{G}_{1}$.
+%
+For subsequent iterations ($n>1$), the depth search range is centered at the previous depth estimate $\bm{D}_{n-1}$. Accordingly, the depth-candidate vector is updated as $\bm{G}_{n} = [\bm{D}_{n-1}-k{I}_{n},\ \ldots,\ \bm{D}_{n-1},\ \ldots,\ \bm{D}_{n-1}+k{I}_{n}]$, and the corresponding relative offset vector is $\Delta\bm{G}_{n} = [-k{I}_{n},\ \ldots,\ 0,\ \ldots,\ k{I}_{n}]$. Here, the interval shrinks as ${I}_{n} = {I}_{1}/n$, enabling progressively finer refinement over iterations, and the number of candidates is $\mathcal{D}_{n}=2k+1$.
+%
+The residual depth map $\Delta\bm{D}_{n}$ is then computed as the weighted sum of the relative offsets $\Delta\bm{G}_{n}$ with the probability map $\bm{P}_{M,n}$ along the depth dimension:
+%
+\begin{equation}
+\label{eq:softmax_depth}
+    {\Delta \bm D_{n}} = {\bm P_{M,n}} {\Delta \bm G_{n}}.
+\end{equation}
+%
+The refined depth map is updated additively at each iteration:
+%
+\begin{equation}
+\label{eq:depth_update}
+    {\bm D_{n}} = {\bm D_{n-1}} + {\Delta \bm D_{n}},
+\end{equation}
+%
+where $n \in \{ 1, \ldots, N \}$. ${\bm D_{N}}$ is the final depth map of the iterative depth estimation process, from which the Gaussian mean parameters are obtained through unprojection.
+%
+Enabled by our memory-efficient Warp-Index Epipolar Attention, IDESplat progressively increases the feature resolution over iterations.
+%
+In the final stage, IDESplat performs warping and similarity computation at the original input resolution of $256 \times 256$ to produce the refined depth map.
+
+
+
+
+
+\subsection{Gaussian Focused Module}
+\label{GFM}
+For the remaining Gaussian parameters, we introduce a window-based Gaussian Focused Module that can filter irrelevant Gaussians and retains the most relevant tokens for attention weight computation.
+%
+The window-based attention performs pairwise interactions for each Gaussian token, often including numerous irrelevant ones.
+%
+This dense interaction not only slows down the model but also introduces noise into the attention results.
+%
+Inspired by \cite{long2025progressive}, we introduce a Gaussian Focused Layer that reuses the previous layer's Gaussian correlation map to guide attention in the current layer.
+%
+Formally, for the Gaussian parameters of a given view, $G \in \mathbb{R}^{C \times H \times W}$, we apply three linear layers to obtain $\mathbf{Q}$, $\mathbf{K}$, and $\mathbf{V}$.
+We use a matrix $\mathbf{I}_{G}$ to record the indices of Gaussian tokens with high similarity.
+%
+$\mathbf{I}_{G}^{0}$ is initialized as an all-ones matrix and is updated after each similarity computation.
+%
+Then, we compute the Gaussian similarity map as follows:
+%
+%
+\begin{equation} 
+    \label{eq:sparse_sa_calculation}
+    \mathbf{S}^{l} = \mathbf{\Psi} (\mathbf{Q}^{l}, \mathbf{K}^{l}, \mathbf{I}^{l-1}),
+\end{equation}
+%
+%
+where $\mathbf{\Psi}$ denotes the SMM operation, and $S^{l}$ is the similarity map of the $l$-th Gaussian-Focused Layer.
+%
+Subsequently, we compute the sparse Gaussian attention map $\mathbf{A}^{l}$ for the current $l$-th layer as follows:
+%
+%
+\begin{align}
+\label{eq:pfa_b}
+    \mathbf{A}^{l} &= \mathcal{S}\!\left(\operatorname{Norm} \big( \mathbf{A}^{l-1} \odot Softmax(\mathbf{S}^{l})  \big)\right),
+\end{align}
+%
+%
+where $\mathcal{S}$ denotes the sparsification operation that retains the top half of the weights in each row of the attention map. The positions of the retained weights are recorded as $\mathbf{I}_{G}^{l}$, which stores the selected highly similar Gaussian relations.
+%
+Finally, the output Gaussian features are reweighted as follows:
+%
+%
+\begin{equation}
+\label{eq:attn_v}
+    \mathbf{O}^{l} = \mathbf{\Psi}(\mathbf{A}^{l}, \mathbf{V}^{l}, \mathbf{I}^{l}).
+\end{equation}
+%
+%
+The Gaussian Focused Module consists of a series of Gaussian Focused Layers connected in sequence.
+%
+As the layer index $l$ increases, $\mathbf{I}_{G}^{l}$ becomes progressively sparser, gradually identifying the Gaussian positions that are most important to each query location.
+%
+This module leverages token similarity across layers to filter out the influence of irrelevant Gaussian features, achieving relational and sufficiently enriched Gaussian feature interactions.
+
+
+
+
+
+
+% \subsection{Model Architecture}
+% \label{sec:m_arch}
+% Our IDESplat consists of three components: the feature extraction backbone, the iterative depth estimation process, and the gaussian focused module.
+
+
+% \noindent \textbf{Feature Extraction Backbone.}
+% The feature extraction backbone follows the design of ~\cite{xu2025depthsplat} and can be divided into two parts: multi-view feature extraction and monocular feature extraction.
+% %
+% The pre-trained Unimatch~\citep{xu2023unifying} network is used as the multi-view feature extraction branch, and the pre-trained DepthAnything V2~\cite{yang2024depth} network based on the ViT-small version is used as the monocular feature extraction branch.
+% %
+% The outputs of these two branches are directly stacked along the channel dimension using concatenation and then fused through convolution.
+% %
+% This backbone captures rich multi-view geometry and texture information, which is then used as input to the iterative depth estimation process.
+
+
+% \noindent \textbf{Iterative Depth Estimation Process.}
+% %
+% To achieve both high-quality reconstruction performance and real-time efficiency, we design an iterative pipeline with three Depth Probability Boosting Units (DPBUs).
+% %
+% As a result, the pipeline produces three progressively refined depth outputs.
+% %
+% Each DPBU consists of two Warp-Index Epipolar Attention layers connected in sequence, and their attention maps are combined via a Hadamard product to multiplicatively boost depth probabilities and yield accurate depth estimates.
+% %
+% Across the entire pipeline, IDESplat performs six warp operations.
+% %
+% In addition, the feature resolution increases stage by stage—the input resolutions of the three units are $64 \times 64$, $128 \times 128$, and $256 \times 256$, respectively.
+% %
+
+
+
+% \noindent \textbf{Gaussian Focused Module.}
+% The Gaussian Focused Module consists of six Gaussian-focused layers, with a feature partition window size of 16 and a shift window strategy.
+% %
+% After each attention calculation, sparse operations are applied to retain only the most relevant half of the Gaussian positions.
+% %
+% The number of retained Gaussian weight values in each layer is [256, 256, 128, 128, 64, 64], respectively.
+% %
+% The module uses multi-head attention with 6 attention heads, and the total number of channels is 256. 
+% %
+% Additionally, we incorporate LePE positional encoding~\cite{dong2022cswin} during the attention computation.
+

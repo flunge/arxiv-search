@@ -3,6 +3,7 @@ from pathlib import Path
 import fitz
 
 from build_blog import (
+    _choose_main_tex,
     _figure_band_bounds,
     _pick_best_figure_rect,
     build_all_posts,
@@ -132,5 +133,49 @@ def test_pick_best_figure_rect_prefers_region_closest_to_caption() -> None:
     assert round(best.x0, 1) == 45.3
     assert round(best.y1, 1) == 391.7
     doc.close()
+
+
+def test_choose_main_tex_prefers_title_matching_paper_over_format_template(tmp_path: Path) -> None:
+    format_tex = tmp_path / "format.tex"
+    main_tex = tmp_path / "main.tex"
+    supp_tex = tmp_path / "supp.tex"
+
+    format_tex.write_text(
+        """
+        \\documentclass{article}
+        \\title{Formatting Guidelines}
+        \\begin{document}
+        \\section{Initial Submission}
+        \\section{Preserving Anonymity}
+        \\section{Formatting Guidelines}
+        \\end{document}
+        """,
+        encoding="utf-8",
+    )
+    main_tex.write_text(
+        """
+        \\documentclass{article}
+        \\title{AirSplat Alignment and Rating for Robust Feed-Forward 3D Gaussian Splatting}
+        \\begin{document}
+        \\begin{abstract}Actual paper abstract.\\end{abstract}
+        \\section{Method}
+        Actual paper body.
+        \\end{document}
+        """,
+        encoding="utf-8",
+    )
+    supp_tex.write_text(
+        """
+        \\documentclass{article}
+        \\title{AirSplat Supplementary}
+        \\begin{document}
+        Supplementary material.
+        \\end{document}
+        """,
+        encoding="utf-8",
+    )
+
+    picked = _choose_main_tex(tmp_path, "AirSplat Alignment and Rating for Robust Feed-Forward 3D Gaussian Splatting")
+    assert picked == main_tex
 
 

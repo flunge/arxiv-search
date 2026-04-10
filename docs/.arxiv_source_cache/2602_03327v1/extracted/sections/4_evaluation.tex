@@ -1,0 +1,95 @@
+\section{Evaluation}
+
+For testing strategy, we adhere to previous state-of-the-art models to ensure comparability.
+The datasets used for the evaluation are Tanks and Temples~\cite{tankstemples}, MipNeRF360~\cite{mipnerf360}, LLFF~\cite{mildenhall2019llff} and DTU~\cite{dtu}.
+
+\paragraph{Implementation Details.}
+The Tanks and Temples dataset covers real-world indoor and outdoor scenes, but we only use a subset of 8 scenes, as done by other sparse-view models like \textit{Intern-GS} and \textit{InstantSplat}. We focus on the 3-view setting and therefore use the same train/test split. This means the testing set includes 12 images uniformly sampled without the first and last frame and the remaining set is the training set where we again uniformly sampled the 3 views~\cite{InstantSplat}. For Tanks and Temples, no downsampling is applied.
+
+The MipNeRF360 dataset contains real-world $360^\circ$ indoor and outdoor scenes. For this dataset, two different approaches are used. One for the 3-view setting as defined by \textit{Gaussian Scenes}~\cite{GaussianScenes} and one for the 12-view setting as defined by \textit{SparseGS}~\cite{SparseGS}. For both settings, the 4x downsampled images are used, to adhere to the evaluation strategies of state-of-the-art models.  For the 3-view setting, we use every 8th image as testing set and uniformly sample the 3 training views. For the 12-view setting, we use the split dataset provided by \textit{SparseGS}~\cite{SparseGS}. The 12-view setting uses only 6 of the 9 scenes contained in the MipNeRF360 dataset, whereas the 3-view setting uses all 9 scenes.
+
+The LLFF dataset contains real-world forward-facing images. For this dataset, we used the same evaluation strategy as defined by \textit{DNGaussian}. A downsampling rate of 8 is used, and we adhere to the train/test split of the 3-view setting of \textit{DNGaussian}~\cite{DNGaussian}.
+
+Lastly, we also evaluated on the DTU dataset, which contains highly calibrated lab captures of object centric scenes. This dataset also provides bit masks to separate the background and real camera poses. We used our own inferred camera poses. We again used the testing strategy defined by \textit{DNGaussian}. This time we used 4x downsampled images and the same train/test split of the 3-view setting of \textit{DNGaussian}~\cite{DNGaussian}. Similar to DNGaussian and other comparable methods, we applied the provided separation masks for the evaluation.
+
+We use the exact same settings for all evaluations. $\pi^3$~\cite{wang2025pi3} automatically downsamples the images to a certain pixel size, therefore we counteract the downsampling by rescaling the cameras to the full size. To make a fair comparison, we only project the training views to 3D space. The testing views are only used to get initial camera positions.
+We train for 7000 iterations, with depth loss, normal loss as well as pseudo views. The pseudo views are generated with a confidence threshold of 20\%. This means that we mask out the projected pixel with confidence under 20\%. Splitting of Gaussians is deactivated.
+We evaluate our model in terms of PSNR, SSIM and LPIPS.% compared to the ground truth. Peak Signal-to-Noise Ratio (PSNR), which is the mean-squared error between novel view and ground-truth view. Higher PSNR means better accuracy. Structural Similarity Index Measure (SSIM), which measures the structural similarity between the novel view and ground-truth view. This metric ranges from 0 to 1, where 1 is the identical image. Lastly, we also evaluate Learned Perceptual Image Patch Similarity (LPIPS), which is a perceptual distance measure that uses a pretrained neural network. This similarity measure is comparable to that of what a human would perceive, and it ranges from 0 to 1 where one is the identical image.
+
+\subsection{Quantitative Evaluation}
+\Cref{tab:llff_dtu_comparison,tab:evaluation_tat} show the comparison between \textit{Intern-GS}~\cite{InternGS}, \textit{InstantSplat}~\cite{InstantSplat}, \textit{SparseGS}~\cite{SparseGS}, \textit{DNGaussian}~\cite{DNGaussian}, \textit{FSGS}~\cite{fsgs}, 3DGS~\cite{3dgs2023} and Our method. On DTU and Tanks and Temples, our model can reconstruct the scene accurately, with good Gaussian surface alignment and without smoothing out high-frequency textures. On LLFF our model achieves slightly lower scores, because of missing information in unseen regions, as our model optimizes only on seen regions and known information. An example of this unseen region is illustrated in \cref{fig:llff_example}.
+
+\begin{figure}
+\centering
+\begin{subfigure}{.25\textwidth}
+    \centering
+    \captionsetup{justification=centering}
+    \includegraphics[width=.96\linewidth]{figures/llff/room_gt.jpg}
+    \caption{Ground Truth}
+    \label{fig:llff_gt}
+\end{subfigure}%
+\begin{subfigure}{.25\textwidth}
+    \centering
+    \captionsetup{justification=centering}
+    \includegraphics[width=.96\linewidth]{figures/llff/room_interngs.jpg}
+    \caption{Intern-GS}
+    \label{fig:llff_interngs}
+\end{subfigure}
+\vspace{0.3cm}
+\begin{subfigure}{.25\textwidth}
+    \centering
+    \captionsetup{justification=centering}
+    \includegraphics[width=.96\linewidth]{figures/llff/room_ours.jpg}
+    \caption{Ours}
+    \label{fig:llff_ours}
+\end{subfigure}
+\caption{The Figures show a comparison between Intern-GS~\cite{InternGS}, Ours and the Ground Truth. Our model has very accurate reflections and fewer artifacts, nevertheless our model can not correctly reconstruct the unseen region at the ceiling.}
+\label{fig:llff_example}
+\end{figure}
+
+\cref{tab:evaluation_mipnerf360_3view} shows the comparison between Gaussian Scenes, MASt3R Initialization, FSGS and Our method in the 3-view setting on MipNeRF360~\cite{GaussianScenes, fsgs}. Our model achieves the lowest LPIPS score and second highest PSNR and SSIM. Compared to FSGS our model does not rely on accurate camera poses from traditional SfM.
+
+\cref{tab:evaluation_mipnerf360_12view} shows the comparison between 3DGS, \textit{DNGaussian}, \textit{SparseGS} and Our method in 12-view setting on MipNeRF360~\cite{mipnerf360}. Our model achieves the highest results with very coherent and view-consistent final scene, as our model improves the Gaussian surface alignment significantly. A comparison can be seen in \cref{fig:garden_example}.\\
+To validate the accuracy of our camera pose estimates, we evaluate the Absolute Trajectory Error (ATE) on the Tank and Temples dataset. Our pose estimator, $\pi^3$, achieves a mean ATE of 0.0293 and a root mean squared error (RMSE) of 0.0325, demonstrating that it produces accurate camera poses suitable for fair comparison of photometric metrics in 3D Gaussian splatting.
+
+\begin{figure}
+\centering
+\begin{subfigure}{.25\textwidth}
+    \centering
+    \captionsetup{justification=centering}
+    \includegraphics[width=.96\linewidth]{figures/garden_sparsegs.png}
+    \caption{SparseGS}
+    \label{fig:garden_sparsegs}
+\end{subfigure}%
+\begin{subfigure}{.25\textwidth}
+    \centering
+    \captionsetup{justification=centering}
+    \includegraphics[width=.96\linewidth]{figures/garden_ours.png}
+    \caption{Ours}
+    \label{fig:garden_ours}
+\end{subfigure}
+\caption{The Figures show a comparison between SparseGS~\cite{SparseGS} and our method. Our model reconstructs the background and ground more accurately, and additionally decreases artifacts.}
+\label{fig:garden_example}
+\end{figure}
+
+\subsection{Ablation}
+We evaluate the impact of each individual optimization on our final result.
+The evaluation is conducted using the Barn scene from the Tanks and Temples dataset. It is evident that all of our optimizations improve the result even further. Dense point cloud initialization with the help of $\pi^3$ significantly improves the result by also reducing the time required for SfM.
+Our custom depth loss improves the score by allowing low confidence depth regions to optimize more freely.
+Normal regularization encourages the Gaussians' normals to match the ground-truth geometry. Depth warping improves the results by adding more views, which helps the model generalize better and avoid overfitting to the training views.
+Our full model achieves a PSNR of \textit{22.15} on the Barn scene. We also evaluated the effect of enabling splitting of Gaussians in our model. This setting results in a slight decrease in performance and was therefore deactivated. These results can be seen in \cref{tab:ablation}.
+\input{tables/ablation_study}
+
+In addition, we evaluate the impact of using PGSR compared to standard 3DGS for our sparse view setting (3-views).
+\Cref{tab:evaluation_3dgs_pgsr} shows that the planar depth created by PGSR helps significantly to place the Gaussians more accurately. Additionally, the losses introduced by PGSR help to improve the rendering results further. Our model remains stable even after increased training iterations and continues to show improved novel view synthesis results.
+A visual comparison between 3DGS and PGSR with different number of iterations can be seen in \cref{fig:pgsr_vs_3dgs}.
+\input{tables/3dgs_pgsr_comparison}
+\input{figures/PGSR_vs_3DGS}
+
+\input{tables/TaT_comparison}
+\input{tables/MipNeRF360_3view_comparison}
+\input{tables/MipNeRF360_12view_comparison}
+\input{tables/LLFF_DTU_comparison}
+
+%\input{tables/LLFF_comparison}
+%\input{tables/DTU_comparison}

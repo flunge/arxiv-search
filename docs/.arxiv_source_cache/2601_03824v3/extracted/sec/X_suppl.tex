@@ -1,0 +1,184 @@
+\clearpage
+\setcounter{page}{1}
+\maketitlesupplementary
+
+In this supplementary material, we provide additional details on model training, model architecture, ablation study on DPBU, experimental results on the DL3DV dataset, and more visual comparison results. Specifically, in Section A, we present the training details of the IDESplat model. In Section B, we provide the model architecture details of IDESplat and Warp-Index Epipolar Attention. In Section C, we present the experimental results of IDESplat on the DL3DV dataset, along with the ablation study on Depth Probability Boosting Units. Finally, in Section D, we include more visual comparison results for novel view synthesis and depth prediction.
+
+% \vspace{-2mm}
+\section*{A. Training Details}
+\label{sec:training_details}
+% 
+
+For a fair comparison, we trained our IDESplat using a standard setup~\cite{chen2024mvsplat, liu2025monosplat, xu2025depthsplat}. The training was done on 8 RTX 4090 GPUs with a batch size of 16, using the AdamW~\citep{loshchilov2017decoupled} optimizer for 300,000 iterations, which took approximately 3 days. We used a cosine learning rate schedule. For the pre-trained Depth Anything V2~\cite{yang2024depth} backbone, the learning rate was $2 \times 10^{-6}$, while other layers were trained with a learning rate of $2 \times 10^{-4}$. The network was trained with a combination of MSE and LPIPS losses between the rendered and ground truth images. Following~\cite{xu2025depthsplat}, for the newly added DL3DV dataset, we trained at a resolution of $256 \times 448$. First, we pre-trained on RE10k and then fine-tuned on the DL3DV dataset for 100K iterations, with a total batch size of 4, and the number of input views was randomly sampled from 2 to 6. During inference, we evaluated the model’s performance on different numbers of input views.
+
+
+% \vspace{-2mm}
+\section*{B. Model Architecture Details}
+\label{sec:model_arch_details}
+
+We provide a detailed description of the IDESplat network architecture, as shown in Figure~\ref{fig:IDESplat}. It consists of three main parts: a feature extraction backbone, an iterative depth estimation process, and a Gaussian focus module. The backbone has two branches: a multi-view branch using the pre-trained Unimatch~\citep{xu2023unifying} and a monocular branch using the ViT-small version of DepthAnything V2~\cite{yang2024depth}. The outputs from both branches are fused to provide multi-view geometry and texture information for the next modules.
+%
+The depth estimation process includes three Depth Probability Boosting Units (DPBU) that sequentially generate optimized depth results. Each DPBU contains two cascaded Warp-Index Epipolar Attention layers, which use the Hadamard product to enhance depth probabilities. The process is repeated for six transformations at resolutions of $64 \times 64$, $128 \times 128$, and $256 \times 256$.
+%
+The GFM has six layers, using a shifting window strategy with a window size of 16. After each attention calculation, the top half of the most relevant Gaussian positions are retained. The number of retained Gaussian weights per layer is [256, 256, 128, 128, 64, 64], and the module uses 6 attention heads with 256 channels in total.
+
+To address the memory issues in existing warp computations for cross-view similarity, we introduce Warp-Index Epipolar Attention. Unlike the existing method, which samples target view features for each depth candidate and consumes a lot of memory, our approach only stores transformation indices for similarity matrix multiplication and uses Sparse Matrix Multiplication (SMM) for efficient computation. This design enables IDESplat to perform multiple rounds of warp and depth estimation more efficiently.
+
+
+\begin{figure*}[htbp]
+    \centering
+    \includegraphics[width=\linewidth]{figs/IDESplat_Detail_arch_new.pdf}
+    \caption{The architecture of IDESplat. IDESplat comprises a feature extraction backbone, an iterative depth estimation process with cascaded Depth Probability Boosting Units (DPBUs), and a Gaussian Focused Module (GFM).}
+    \label{fig:IDESplat}
+    \vspace{-3mm}
+\end{figure*}
+
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\linewidth]{figs/WIEA.pdf}
+    \vspace{-4mm}
+    \caption{The difference between Warp-Index Epipolar Attention and Epipolar Attention.}
+    \label{fig:WIEA}
+    \vspace{-6mm}
+\end{figure}
+
+
+\section*{C. More Experimental Results}
+\label{sec:more_exp_results}
+
+We conducted additional experiments on the DL3DV dataset to further evaluate the proposed IDESplat method. DL3DV is a large-scale real-world multi-view video dataset, which helps validate our method's reconstruction capability in more complex and larger scenes. The experimental results, shown in Table~\ref{tab:dl3dv_compare}, demonstrate outstanding performance of our method compared to existing MVSplat and DepthSplat methods. IDESplat outperforms DepthSplat by \textbf{0.62dB}, \textbf{0.41dB}, and\textbf{ 0.42dB} when using 2, 4, and 6 input views, respectively. These results clearly show that our IDESplat provides better reconstruction performance in large, complex scenes with multiple input views compared to existing methods. 
+
+We also conducted ablation experiments on DPBU with different numbers of Warp-Index Epipolar Attention. The results in Table~\ref{tab:ablation_DPBUs} show that depth probabilities can only undergo Multiplicative Boosting when more than one Warp-Index Epipolar Attention is used. Our IDESplat performs well when the number of attention layers exceeds one, and the performance improves as the number of layers increases. Considering both efficiency and performance, we chose the model with two Warp-Index Epipolar Attention layers.
+
+\begin{table}[t]
+
+\begin{center}
+\small
+
+\caption{\textbf{Quantitative Experimental Results and Comparisons on DL3DV}. Our IDESplat consistently outperforms MVSplat and DepthSplat across different numbers of input views. 
+}
+\vspace{-2mm}
+\resizebox{\linewidth}{!}{
+\begin{tabular}{lcccccccccccccccccccccc}
+\toprule
+Method & \#Views & PSNR $\uparrow$ & SSIM $\uparrow$ & LPIPS $\downarrow$\\
+    
+\toprule
+
+
+MVSplat~\cite{chen2024mvsplat} & \multirow{2}{*}[-2pt]{2} & 17.54 & 0.529 & 0.402\\
+DepthSplat~\cite{xu2025depthsplat} & & 19.31 & 0.615 & 0.310 \\
+IDESplat & & \textbf{19.93} & \textbf{0.635} & \textbf{0.300} \\
+
+\midrule
+
+MVSplat~\cite{chen2024mvsplat} & \multirow{2}{*}[-2pt]{4} & 21.63 & 0.721 & 0.233 \\
+DepthSplat~\cite{xu2025depthsplat} & & 23.12 & 0.780 & 0.178\\
+IDESplat & & \textbf{23.53} & \textbf{0.789} & \textbf{0.176} \\
+
+\midrule
+
+MVSplat~\cite{chen2024mvsplat} & \multirow{2}{*}[-2pt]{6} & 22.93 & 0.775 & 0.193 \\
+DepthSplat~\cite{xu2025depthsplat} & & 24.19 & 0.823 & 0.147 \\
+IDESplat & & \textbf{24.61} & \textbf{0.829} & \textbf{0.146} \\
+
+
+
+\bottomrule
+\end{tabular}
+\label{tab:dl3dv_compare}
+\vspace{-6mm}
+}
+\end{center}
+\end{table}
+
+
+
+
+\begin{table}[htbp]
+    \footnotesize
+    \vspace{-6mm}
+    \centering
+    \caption{\textbf{Ablation results for DPBU with different numbers of Warp-Index Epipolar Attention.}  All results are reported on the RealEstate10K dataset. 
+    % Here, an iteration count of 0 denotes using a single warp operation without any DPBUs, while the other entries correspond to using different numbers of DPBUs.
+    }
+    \vspace{-2mm}
+    % Reduce column separation
+    \setlength{\tabcolsep}{1.2pt} % Adjust this value as needed
+    \begin{tabular}{c|ccc|ccc}
+        \toprule
+        Number of WIEA & Params (M) & Mem. (M) & Time (s) & PSNR$\uparrow$ & SSIM$\uparrow$ & LPIPS$\downarrow$ \\
+        \midrule
+        1           & 36.4 & 2033 & 0.082 & 27.11 & 0.882 & 0.116 \\
+        2           & 37.6 & 2336 & 0.110 & 27.56 & 0.889 & 0.110 \\
+        3           & 38.9 & 2642 & 0.139 & 27.65 & 0.890 & 0.109 \\
+        4           & 40.2 & 2954 & 0.172 & 27.72 & 0.893 & 0.107 \\
+        \bottomrule
+    \end{tabular}
+        \label{tab:ablation_DPBUs}
+        \vspace{-6mm}
+\end{table}
+
+
+
+
+
+\section*{D. More Visual Comparison Results}
+\label{sec:more_exp_results}
+
+We also provide more visual comparison results in this supplementary material, as shown in Fig.~\ref{fig:suppl_re10k_visual} and Fig.~\ref{fig:visual_suppl_DL3DV}. Through these qualitative visual comparisons, it can be observed that our IDESplat outperforms existing methods in novel view synthesis. Even in complex lighting and textured regions, our method achieves better reconstruction results. Furthermore, in Fig.~\ref{fig:suppl_re10k_depth_visual} and Fig.~\ref{fig:suppl_depth_DL3DV}, we provide more qualitative depth map comparisons. The results show that our method significantly improves both the consistency and fine texture details of the depth maps, whether in indoor or outdoor environments, compared to existing methods.
+%
+To show how IDESplat refines depth maps over iterations, we compare results visually in Fig.~\ref{fig:suppl_iteration_depth}. Each iteration represents one pass through the Depth Probability Boosting Unit.
+%
+We can see that with more steps, the depth map gets better and more detailed. After 3 steps, the model can work at the original image size and the depth map is clearer.
+%
+With more iterations, the depth map improves. This leads to more accurate Gaussian centers, which creates a better scene reconstruction.
+
+
+\begin{figure*}
+    \centering
+    \includegraphics[width=\linewidth]{figs/suppl_re10k_visual.pdf}
+    \caption{The comparison of visualization results for novel view synthesis on the RealEstate10K dataset. }
+    \label{fig:suppl_re10k_visual}
+    \vspace{-3mm}
+\end{figure*}
+
+
+
+\begin{figure*}
+    \centering
+    \includegraphics[width=\linewidth]{figs/visual_suppl_DL3DV.pdf}
+    \caption{The comparison of visualization results for novel view synthesis on the DL3DV dataset.}
+    \label{fig:visual_suppl_DL3DV}
+    \vspace{-3mm}
+\end{figure*}
+
+
+\begin{figure*}
+    \centering
+    \includegraphics[width=\linewidth]{figs/suppl_re10k_depth_visual.pdf}
+    \caption{Comparison of depth prediction maps for different models on the RE10K dataset.}
+    \label{fig:suppl_re10k_depth_visual}
+    \vspace{-3mm}
+\end{figure*}
+
+
+\begin{figure*}
+    \centering
+    \includegraphics[width=\linewidth]{figs/suppl_depth_DL3DV.pdf}
+    \caption{Comparison of depth prediction maps for different models on the DL3DV dataset.}
+    \label{fig:suppl_depth_DL3DV}
+    \vspace{-3mm}
+\end{figure*}
+
+
+
+
+\begin{figure*}
+    \centering
+    \includegraphics[width=\linewidth]{figs/suppl_iteration_depth.pdf}
+    \caption{Visualization of intermediate depth prediction maps at different iterations in the IDESplat network.}
+    \label{fig:suppl_iteration_depth}
+    \vspace{-3mm}
+\end{figure*}

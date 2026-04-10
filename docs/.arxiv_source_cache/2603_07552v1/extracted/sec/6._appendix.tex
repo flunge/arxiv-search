@@ -1,0 +1,109 @@
+\appendix
+\section*{Appendix}
+    This appendix is organized as follows: Section~\ref{sec:appendix-validation} provides the full list of validation scenes. Section~\ref{sec:appendix-imple-details} contains additional implementation details. Section~\ref{sec: appendix-ablation-vggt} presents an ablation study on the spatial misalignment encountered when directly using VGGT~\cite{wang2025vggt} for 3D geometry generation. Section~\ref{sec:appendix-temporal-inputs} presents an ablation study evaluating how multi-frame inputs enhance the capability for novel-view synthesis. Finally, Section~\ref{sec:appendix-gaussian-flow} provides visualizations of dynamic Gaussians, and Section~\ref{sec:appendix-comparison} offers extensive qualitative comparisons of urban scene reconstruction and novel-view synthesis against baseline methods.
+
+
+\section{Validation Scenes List}~\label{sec:appendix-validation}
+In our experiment, we selected 14 representative scenes from the original nuScenes dataset’s~\cite{caesar2020nuscenes} validation split as the validation subset. Covering diverse conditions in time (day/night), weather (sunny/rainy), driving behaviors (static/straight/turning), and traffic density, these scenes effectively evaluate the novel-view synthesis ability for reconstruction while reducing the evaluation cost vs. the full validation split. The 14 selected scenes are: \textit{scene-0014, scene-0018, scene-0098, scene-0100, scene-0103, scene-0270, scene-0271, scene-0278, scene-0553, scene-0558, scene-0802, scene-0906, scene-0968, scene-1065}.
+
+
+\section{Implementation Details}~\label{sec:appendix-imple-details}
+\paragraph{Architecture.} 
+We resize the original input images from the nuScenes dataset~\cite{caesar2020nuscenes} from a resolution of \(1600\times 900\times 3\) to \(518\times 280\times 3\). Following VGGT~\cite{wang2025vggt}, we adopt a \(14\times 14\) patch size and retain the camera token along with four register tokens in the feature backbone. Specifically, we feed the tokens from the 4-th, 11-th, 17-th, and 23-rd blocks into the Gaussian Center Prediction Head (GCPH) and Gaussian Parameter Prediction Head (GPPH), while excluding the camera token and four register tokens from the head inputs. For GCPH, we clamp outlier depth values to restrict the depth maps to a range of 1.5m (minimum) to 110m (maximum). For GPPH, we upsample the features to the resized image resolution (consistent with GCPH), process the resized image using a convolutional and ReLU layer, and then concatenate the resulting features with the upsampled features.
+
+\paragraph{Training Loss (Project Loss).}
+The project loss enforces photometric consistency between a warped source image and the target image, leveraging a two-stage pipeline to ensure geometric validity and appearance alignment for novel-view synthesis in urban scenes. Process is also illustrated in Fig.~\ref{fig:project-loss}.
+
+Start with the Target Image \( I_t \) (captured at time \( t \)) and its corresponding predicted depth map \( \text{DP}_t \). First, backproject 2D pixels in \( I_t \) to 3D points in the target camera frame using the inverse camera intrinsics \( K_t^{-1} \) and \( \text{DP}_t \). For a pixel \( (u, v) \) in \( I_t \), the 3D point \( P_t \) is computed as:
+\[
+P_t = K_t^{-1} \cdot \begin{bmatrix} u \cdot D_t(u, v) \\ v \cdot D_t(u, v) \\ D_t(u, v) \end{bmatrix}
+\]
+Next, apply ego-motion transformation to convert \( P_t \) from the target frame to the source frame using the 6-DoF pose \( T(t \to s) \) (rigid transformation matrix), yielding \( P_s = T(t \to s) \cdot P_t \). Finally, perform projection + normalization to project \( P_s \) back to 2D pixel coordinates in the source camera view using the source camera intrinsics \( K_s \), then normalize the coordinates to the range \([-1, 1]\) (required for grid sampling) to get \(\text{pix\_coords}\).
+
+Use \(\text{pix\_coords}\) from the geometric pipeline to warp the Source Image \( I_s \) via the grid\_sample operation (bilinear interpolation) in deep learning frameworks, generating the Warped Image \( I_s' \). Concurrently, generate a Warped Mask \( M_s\) to filter invalid regions:
+\[
+M_s = \begin{cases} 
+1 & \text{if } \text{pix\_coords} \in [-1, 1]^2 \text{ and non-NaN} \\
+0 & \text{otherwise}
+\end{cases}
+\]
+This mask excludes pixels projected outside the source image bounds or occluded during transformation.
+
+The Project Loss is defined as the masked L1 loss between the Warped Image \( I_s' \) and the Target Image \( I_t \), ensuring only valid pixels contribute to training:
+\[
+\frac{1}{\sum M_s + \epsilon} \sum_{u, v} \left| I_s'(u, v) \cdot M_s(u, v) - I_t(u, v) \cdot M_s(u, v) \right|
+\]
+where \( \epsilon = 10^{-8} \) is a small constant to avoid division by zero, and \( \sum M_s\) is the number of valid pixels in the Warped Mask. Element-wise multiplication with \( M_s\) suppresses gradients from invalid/occluded regions, enforcing geometric and photometric alignment. The final project loss combines a weighted L1 loss (measuring pixel-wise intensity differences between warped predicted images and warped ground-truth images) and a weighted SSIM loss (evaluating structural and perceptual consistency) as follows.
+\begin{equation}
+\mathcal{L}_{\text{project}} = \mathcal{L}_{\text{masked}} \left( \lambda_{l1} \cdot \mathcal{L}_{l1} + \lambda_{\text{ssim}} \cdot \mathcal{L}_{\text{ssim}} \right)
+\end{equation}
+
+
+\begin{figure}[t]
+    \setlength{\belowcaptionskip}{0pt}
+	\centering
+	\includegraphics[width=0.45\textwidth]{figures/project-loss.pdf}
+	\caption{\textbf{Project Loss Computing Pipeline.} Note that \(K_t\) and \(K_s\) are identical since the camera is fixed.}\label{fig:project-loss}
+\end{figure}
+
+
+\paragraph{Training.} To form training batches, we segment each scene into consecutive 6-frame clips, each covering a 0.5-second duration, with the 1st and 6th frames serving as context frames. During training, for Project Loss computation, we designate the 1st frame as the target frame \( I_t \) and the subsequent frame (i.e., the 2nd frame) as the source frame \( I_s \). Additionally, we render the 4D Gaussians into different time frames, including novel-time frames (spanning from the 1st to the 5th frame), with corresponding sampling probabilities of [0.7, 0.3, 0.2, 0.1, 0.1, 0.05].
+
+\section{Ablation Study on Spatial Misalignment with Original VGGT}\label{sec: appendix-ablation-vggt}
+In this section, we analyze the 3D geometric accuracy when directly employing the original VGGT model to process multi-view imagery. Specifically, we input a single frame consisting of six-view images into the original VGGT to estimate camera poses, depth maps, and point maps. We then evaluate the spatial alignment by calculating the distance distribution between the point maps generated by VGGT and the ground truth LiDAR point clouds from the nuScenes dataset. The resulting distribution is illustrated in Fig.~\ref{fig:appendix_vggt_distance_hist}.
+
+Our results reveal a significant scale misalignment between the original VGGT point map outputs and the LiDAR ground truths. This suggests that without domain-specific adaptation, the original VGGT cannot accurately reconstruct the scale of complex urban environments. However, as shown in the visualization in Fig.~\ref{fig:appendix_vggt_scales}, we observe that when a global scale factor is applied to the VGGT point maps, they align closely with the LiDAR data. This indicates that while the foundation model successfully captures the structural geometry of the scene, it fails to recover the absolute metric scale. These findings further underscore the necessity of incorporating pre-calibrated sensor parameters into the Gaussian prediction heads to build metrically accurate 4D Gaussian representations.
+\begin{figure}[t]
+    \setlength{\belowcaptionskip}{0pt}
+	\centering
+	\includegraphics[width=0.5\textwidth]{figures/radius_hist_scale_mismatch.pdf}
+	\caption{\textbf{Distribution of Spatial Distances between the Point Maps Generated by the Original VGGT and Ground Truth LiDAR Point Clouds}, highlighting significant metric misalignment.}\label{fig:appendix_vggt_distance_hist}
+\end{figure}
+
+\begin{figure*}[t]
+    \setlength{\belowcaptionskip}{0pt}
+	\centering
+	\includegraphics[width=1.0\textwidth]{figures/scale_mismatch.pdf}
+	\caption{\textbf{Qualitative Comparison of VGGT-Generated Point Maps Across Various Scale Factors}, demonstrating the structural consistency despite metric scale ambiguity.}\label{fig:appendix_vggt_scales}
+\end{figure*}
+
+\section{Ablation Study for Temporal Inputs}\label{sec:appendix-temporal-inputs}
+\input{tables/ablation_temporal}
+To analyze how multi-frame inputs improve novel-view synthesis performance, we compare ReconDrive-S (single-frame input) against ReconDrive (two-frame input). As shown in Table~\ref{tab:ablation-temporal}, ReconDrive achieves a PSNR of 23.99, an SSIM of 0.7234, and an LPIPS of 0.2591, significantly outperforming ReconDrive-S across all metrics. This demonstrates that multi-frame fusion enhances synthesis quality because leveraging multiple frames expands the reconstructed visual field and provides complementary viewpoint information. Consequently, this leads to substantially higher fidelity and perceptual quality in the rendered outputs.
+
+\section{Dynamic Gaussian Rendering Visualization}\label{sec:appendix-gaussian-flow}
+In Fig.~\ref{fig:dynamic-gaussian}, we render the dynamic Gaussians as time progresses, masking out other static Gaussians. The resulting positions of the moving vehicles align well with the ground truth images, illustrating the effectiveness of our dynamic object mask and motion estimation for dynamic scene synthesis.
+\begin{figure*}[t]
+    \setlength{\belowcaptionskip}{0pt}
+	\centering
+	\includegraphics[width=1.0\textwidth]{figures/dynamic-gaussian-flow.pdf}
+	\caption{\textbf{Dynamic Gaussian Rendering Visualization.} The rendered dynamic vehicles exhibit accurate motion and align closely with their counterparts in the ground truth images. Note that we have enhanced the exposure of the rendered images for visualization purposes to facilitate comparative observation.}\label{fig:dynamic-gaussian}
+\end{figure*}
+
+
+\section{Visualization Comparisons with Diverse Methods}\label{sec:appendix-comparison}
+To further demonstrate the effectiveness of our ReconDrive framework, we conduct extra visualization comparisons with five state-of-the-art methods, including Street Gaussians~\cite{yan2024street}, PVG~\cite{chen2023periodic}, DeformableGS~\cite{yang2024deformable}, OminiRe~\cite{chen2025omnire}, and DrivingForward~\cite{tian2025drivingforward}—under both Multi-Frame (MF) and Single-Frame (SF) modes across the selected validation scenes. The results (Figs.~\ref{fig:comparison-vis-2}–\ref{fig:comparison-vis-4}) demonstrate ReconDrive’s superiority in both scene reconstruction and novel-view synthesis.
+
+\begin{figure*}[t]
+    \setlength{\belowcaptionskip}{0pt}
+	\centering
+	\includegraphics[width=1.0\textwidth]{figures/method-comparison-vis-scene-0098.pdf}
+	\caption{\textbf{Visual Comparisons of Scene Reconstruction and Novel-View Synthesis on Scene-0098 (from 14 Selected Validation Scenes).}
+    Consistent with prior results, our ReconDrive maintains high-quality rendering in both scene reconstruction (Original View) and novel-view synthesis (1–3m lateral movement) compared to per-scene optimization methods (Street Gaussians, PVG, DeformableGS, OminiRe).}\label{fig:comparison-vis-3}
+\end{figure*}
+
+\begin{figure*}[t]
+    \setlength{\belowcaptionskip}{0pt}
+	\centering
+	\includegraphics[width=1.0\textwidth]{figures/method-comparison-vis-scene-0968.pdf}
+	\caption{\textbf{Visual Comparisons of Scene Reconstruction and Novel-View Synthesis on Scene-0968 (from 14 Selected Validation Scenes).}
+    Consistent with prior results, our ReconDrive maintains high-quality rendering in both scene reconstruction (Original View) and novel-view synthesis (1–3m lateral movement) compared to per-scene optimization methods (Street Gaussians, PVG, DeformableGS, OminiRe). Against the feed-forward DrivingForward, it preserves precise visual consistency—clear in tree near the car —with more notable performance gains as movement increases, plus less distortion/blurriness, especially at image boundaries.}\label{fig:comparison-vis-2}
+\end{figure*}
+
+\begin{figure*}[t]
+    \setlength{\belowcaptionskip}{0pt}
+	\centering
+	\includegraphics[width=1.0\textwidth]{figures/method-comparison-vis-scene-1065.pdf}
+	\caption{\textbf{Visual Comparisons of Scene Reconstruction and Novel-View Synthesis on Scene-1065 (from 14 Selected Validation Scenes).}
+    Consistent with prior results, our ReconDrive maintains high-quality rendering in both scene reconstruction (Original View) and novel-view synthesis (1–3m lateral movement) compared to per-scene optimization methods (Street Gaussians, PVG, DeformableGS, OminiRe). Against the feed-forward DrivingForward (MF/SF modes), it preserves precise visual consistency. This visualization further demonstrates that ReconDrive performs exceptionally well in critical scenarios like nighttime environments.}\label{fig:comparison-vis-4}
+\end{figure*}

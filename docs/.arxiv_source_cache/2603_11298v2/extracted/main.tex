@@ -1,0 +1,1199 @@
+\documentclass[runningheads]{llncs}
+
+% ---------------------------------------------------------------
+% Include basic ECCV package
+ 
+% TODO REVIEW: Insert your submission number below by replacing '*****'
+% TODO FINAL: Comment out the following line for the camera-ready version
+\usepackage[final,year=2026,ID=2455]{eccv}
+% TODO FINAL: Un-comment the following line for the camera-ready version
+% \usepackage{eccv}
+
+% OPTIONAL: Un-comment the following line for a version which is easier to read
+% on small portrait-orientation screens (e.g., mobile phones, or beside other windows)
+% \usepackage[mobile]{eccv}
+
+
+% ---------------------------------------------------------------
+% Other packages
+
+% Commonly used abbreviations (\eg, \ie, \etc, \cf, \etal, etc.)
+\usepackage{eccvabbrv}
+
+% Include other packages here, before hyperref.
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{xcolor}
+\usepackage{float}
+\usepackage{subcaption}
+
+% The "axessiblity" package can be found at: https://ctan.org/pkg/axessibility?lang=en
+\usepackage[accsupp]{axessibility}  % Improves PDF readability for those with disabilities.
+
+
+% ---------------------------------------------------------------
+% Hyperref package
+
+% It is strongly recommended to use hyperref, especially for the review version.
+% Please disable hyperref *only* if you encounter grave issues.
+% hyperref with option pagebackref eases the reviewers' job, but should be disabled for the final version.
+%
+% If you comment hyperref and then uncomment it, you should delete
+% main.aux before re-running LaTeX.
+% (Or just hit 'q' on the first LaTeX run, let it finish, and you
+%  should be clear).
+
+% TODO FINAL: Comment out the following line for the camera-ready version
+\usepackage[pagebackref,breaklinks,colorlinks,citecolor=eccvblue]{hyperref}
+% TODO FINAL: Un-comment the following line for the camera-ready version
+% \usepackage{hyperref}
+
+% Support for ORCID icon
+\usepackage{orcidlink}
+
+\newcommand{\repeatthanks}{\textsuperscript{\thefootnote}}
+
+\begin{document}
+
+% ---------------------------------------------------------------
+% TODO REVIEW: Replace with your title
+\title{InstantHDR: Single-forward Gaussian Splatting for High Dynamic Range 3D Reconstruction}
+
+% TODO REVIEW: If the paper title is too long for the running head, you can set
+% an abbreviated paper title here. If not, comment out.
+% \titlerunning{Abbreviated paper title}
+
+% TODO FINAL: Replace with your author list. 
+% Include the authors' OCRID for the camera-ready version, if at all possible.
+\author{Dingqiang Ye\thanks{co-first authors; $^{\dagger}$corresponding author}\inst{1} \and
+Jiacong Xu\repeatthanks\inst{1}\and
+Jianglu Ping\inst{1}\and \\
+Yuxiang Guo\inst{1}\and
+Chao Fan\inst{2}\and
+Vishal M. Patel$^{\dagger,1}$
+}
+
+% TODO FINAL: Replace with an abbreviated list of authors.
+% \authorrunning{F.~Author et al.}
+% First names are abbreviated in the running head.
+% If there are more than two authors, 'et al.' is used.
+
+% % TODO FINAL: Replace with your institution list.
+% \institute{Johns Hopkins University, Baltimore MD 21218, USA \and
+% Shenzhen University, Guangdong 518060, China
+% \email{lncs@springer.com}\\
+% \url{http://www.springer.com/gp/computer-science/lncs} \and
+% ABC Institute, Rupert-Karls-University Heidelberg, Heidelberg, Germany\\
+% \email{\{abc,lncs\}@uni-heidelberg.de}}
+
+% TODO FINAL: Replace with your institution list.
+\institute{Johns Hopkins University, USA \and
+Shenzhen University, China \\
+\email{\{dye6,jxu155,jping1,yguo87\}@jhu.edu},
+\email{chaofan996@szu.edu.cn},\email{vpatel36@jhu.edu}
+}
+
+
+\maketitle
+
+\begin{abstract}
+High dynamic range (HDR) novel view synthesis (NVS) aims to reconstruct HDR scenes from multi-exposure low dynamic range (LDR) images.
+Existing HDR pipelines heavily rely on known camera poses, well-initialized dense point clouds, and time-consuming per-scene optimization.
+Current feed-forward alternatives overlook the HDR problem by assuming exposure-invariant appearance.
+To bridge this gap, we propose InstantHDR, a feed-forward network that reconstructs 3D HDR scenes from uncalibrated multi-exposure LDR collections in a single forward pass.
+Specifically, we design a geometry-guided appearance modeling for multi-exposure fusion, and a meta-network for generalizable scene-specific tone mapping.
+Due to the lack of HDR scene data, we build a pre-training dataset, called HDR-Pretrain, for generalizable feed-forward HDR models, featuring 168 Blender-rendered scenes, diverse lighting types, and multiple camera response functions.
+Comprehensive experiments show that our InstantHDR delivers comparable synthesis performance to the state-of-the-art optimization-based HDR methods while enjoying $\sim700\times$ and $\sim20\times$ reconstruction speed improvement with our single-forward and post-optimization settings.
+All code, models, and datasets will be released after the review process.
+
+\keywords{High Dynamic Range \and 3D Gaussian Splatting \and Novel-View Synthesis \and Feed-Forward Models}
+\end{abstract}
+
+
+\section{Introduction}
+\label{sec:intro}
+% 1. HDR任务是什么；
+% 2. 以前的HDR方法怎么做，主要是在设计xxx，根本问题是时间久，不可泛化；feed-forward开始流行，但缺少相关设计。
+% 3. 面临的挑战：1. 不同视角的多曝光融合。直接融合明亮的图片a和昏暗的图片b，会导致外观重建不一致。2. 每个场景的相机映射函数不同，如索尼 尼康等等都有各自的色彩偏好。3. 缺少相关HDR数据集进行大规模预训练。
+% 4. InstantHDR：xxxxx
+% 5. 实验如何，contribution如何
+
+% 1. HDR任务是什么；
+High dynamic range (HDR) novel view synthesis (NVS) aims to reconstruct HDR scenes from multi-view low dynamic range (LDR) images captured at varying exposures.
+Unlike typical low dynamic range (from 0 to 255) imaging, which often suffers from detail loss in extreme lighting and color distortion due to sensor limitations, HDR captures a broader spectrum of luminance (from 0 to +$\infty$).
+Through integrating advanced frameworks like NeRF~\cite{mildenhall2021nerf} or 3D Gaussian Splatting~\cite{kerbl20233d} with a tone mapper to model the camera response function (CRF), HDR task enables the re-rendering of photo-realistic novel views with controllable exposure.
+Its ability to faithfully represent real-world light and shadow makes it indispensable for multiple applications such as autonomous driving~\cite{yang2020surfelgan,huang2023neural,wang2023sparsenerf,tancik2022block}, digital humans~\cite{liu2021neural,hu2021egorenderer,zheng2023ilsh,zheng2022structured}, and immersive image editing~\cite{liu2021editing,sun2022ide,yuan2022nerf,kobayashi2022decomposing}.
+
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{asset/1_Compare.pdf}
+\caption{
+Comparisons of reconstructed time (yellow boxes), scenes (left) and rendered views (right) between the GaussianHDR~\cite{liu2025gausshdr} (top), original AnySplat~\cite{jiang2025anysplat} (middle) and our InstantHDR (bottom).
+(i) GaussianHDR~\cite{liu2025gausshdr} spends expensive $25~mins$ and produces tearing artifacts, as its initial point clouds collapse under the sparse-view inputs.
+(ii) AnySplat~\cite{jiang2025anysplat} naively fuses multi-exposure inputs, causing ghosting artifacts and lacking exposure control.
+(iii) Our InstantHDR reconstructs 3D-consistent HDR scenes in few seconds and renders clean LDR images with controllable exposure time.
+}
+\label{fig:1_compare}
+\end{figure}
+
+% 2. 以前的HDR方法怎么做，主要是在设计xxx，根本问题是时间久，不可泛化；feed-forward开始流行，但缺少相关设计。
+Existing HDR NVS methods~\cite{huang2022hdr,cai2024hdr,liu2025gausshdr} are predominantly optimization-based.
+However, this paradigm is inherently costly and fails to generalize, as it necessitates time-consuming per-scene optimization, precisely calibrated camera poses, and dense multi-view inputs for point cloud initialization.
+%For instance, in Fig.~\ref{fig:1_compare}, GaussianHDR~\cite{liu2025gausshdr} is hard to reconstruct under 4-view LDR inputs, as exposure-induced appearance inconsistencies hinder reliable SfM-based point cloud initialization in sparse-view settings.Moreover, heavy computational overhead and data dependency impede their application in real-time scenes.
+For example, as shown in Fig.~\ref{fig:1_compare}, GaussianHDR~\cite{liu2025gausshdr} struggles to reconstruct scenes from only four LDR views, since exposure-induced appearance inconsistencies degrade the reliability of SfM-based point cloud initialization in sparse-view settings. Furthermore, their heavy computational overhead and strong data dependency limit practical deployment in real-time scenarios.
+
+% 3. 面临的挑战：1. 不同视角的多曝光融合。直接融合明亮的图片a和昏暗的图片b，会导致外观重建不一致。2. 如何在曝光不同的图片中找到几何对应区域？ 3. 每个场景的相机映射函数不同，如索尼 尼康等等都有各自的色彩偏好。4. 缺少相关HDR数据集进行大规模预训练。
+Recently, 3D feed-forward  models~\cite{wang2025vggt,jiang2025anysplat} have revolutionized scene reconstruction by inferring geometry in seconds, achieving impressive speed and generalization than optimization-based methods. Integrating this paradigm into the HDR NVS tasks could boost model generalizability and inference speed.
+However, directly applying the original feed-forward models to HDR reconstruction may encounter the following issues. 
+(a) \textbf{Exposure-induced Appearance Inconsistency}: 
+Naive fusion leads to severe ghosting — as shown in Fig.~\ref{fig:1_compare}. The same white wall appears bright at $\Delta=32s$ but nearly black at $\Delta=0.125s$, causing visible artifacts in AnySplat~\cite{jiang2025anysplat}.
+(b) \textbf{Pixel-level Geometric Alignment}: 
+Establishing accurate pixel-level geometric correspondences remains a non-trivial task under large brightness variations.
+(c) \textbf{Camera Response Functions Inconsistency}: 
+In real world, different camera and software apply distinct color transformations (\textit{e.g.}, AgX, Filmic), making it difficult to learn a unified tone mapping operator.
+(d) \textbf{HDR Data Scarcity}: Current publicly available HDR datasets~\cite{huang2022hdr,jun2022hdr} are insufficient (as shown in Tab.~\ref{tab:hdr_datasets}) to support the robust large-scale pre-training required for feed-forward models.
+
+%To address these issues, we propose a novel feed-forward 3D reconstruction method, namely InstantHDR, for HDR novel view synthesis.
+%InstantHDR consists of two core designs.
+%First, a Geometry-guided Appearance Modeling Module that normalizes multi-exposure LDR inputs into a unified exposure space and leverages geo-attention maps from the geometry encoder to fuse patch-level irradiance features. 
+%Fine-grained texture details are recovered by injecting Difference of Gaussians (DoG) high-frequency cues, lifting the representation to pixel-level irradiance before predicting HDR 3D Gaussians. 
+%Second, a Meta Net that takes the HDR Gaussians, LDR images, and context exposure times as input to predict scene-specific tonemapper parameters, enabling generalizable HDR-to-LDR rendering with controllable exposure time $\Delta t$.
+%The entire pipeline operates in a single forward pass without per-scene optimization, significantly improving reconstruction speed compared to recent optimization-based methods.
+%With an optional fast post-optimization, InstantHDR presents superior synthesis quality in sparse-view settings and comparable performance in dense-view scenarios.
+
+To address these challenges, we propose \textbf{InstantHDR}, a novel feed-forward 3D reconstruction framework for HDR novel view synthesis. InstantHDR comprises two key components. First, a \textit{geometry-guided appearance modeling module} normalizes multi-exposure LDR inputs into a unified exposure space and utilizes geo-attention from the geometry encoder to fuse patch-level irradiance features. Fine-grained texture details are further recovered by incorporating Difference of Gaussians (DoG) high-frequency cues, lifting the representation to pixel-level irradiance before predicting HDR 3D Gaussians. Second, a \textit{MetaNet} takes the predicted HDR Gaussians, LDR images, and exposure times as input to estimate scene-specific tonemapper parameters, enabling generalizable HDR-to-LDR rendering with controllable exposure time $\Delta t$. The entire pipeline operates in a single forward pass without per-scene optimization, significantly improving reconstruction speed over recent optimization-based methods. With an optional lightweight post-optimization step, InstantHDR achieves superior synthesis quality in sparse-view while maintaining competitive performance in dense-view.
+
+
+
+Our contributions can be summarized as follows:
+
+% TODO
+% 还有介绍数据集, 这里不需要，在contribution里面提一句也可以
+
+% 下面不用说
+%Nevertheless, we observe a challenge for current feed-forward methods in dense-view post-optimization: the coordinate misalignment between predicted Gaussian spaces and ground-truth cameras introduces misguided supervision, limiting the performance upper bound.
+
+\textbf{(i)} 
+We propose InstantHDR, the first feed-forward HDR novel view synthesis method. It features a geometry-guided appearance module for exposure-robust multi-view fusion and a meta-network for generalizable tone mapping, enabling 3D HDR reconstruction from uncalibrated multi-exposure LDRs in seconds.
+
+\textbf{(ii)} 
+We build HDR-Pretrain, a large-scale dataset of 168 synthetic indoor scenes to support feed-forward HDR pretraining. 
+Experiments show InstantHDR achieves competitive quality while being $\sim$700$\times$ (single-forward) and $\sim$20$\times$ (post-optimization) faster than SoTA optimization-based HDR methods.
+
+\section{Related Works}
+
+\noindent\textbf{High Dynamic Range Imaging.} 
+HDR imaging has traditionally been approached by merging multiple LDR exposures captured from a fixed viewpoint~\cite{exposure_fusion} or by recovering the camera response function from bracketed LDR sequences~\cite{malik, ward2008high,wu2024fast}.
+While effective for static scenes, these methods suffer from ghosting artifacts when scene motion is present.
+Subsequent works~\cite{hdr_20,hdr_24,hdr_26,hdr_58,hdr_63} mitigate this by estimating optical flow to detect and compensate for motion prior to fusion.
+More recently, learning-based approaches leveraging CNNs~\cite{hdr_cnn_1,hdr_cnn_2,hdr_cnn_3,hdr_cnn_4} and Transformers~\cite{hdr_trans_1,hdr_trans_2,hdr_trans_3,neural_gaffer,magic,promptfix} directly learn LDR-to-HDR mappings from data.
+Additionally, several methods reconstruct HDR from single LDR images using handcrafted priors in an unsupervised or self-supervised manner~\cite{SelfHDR,2021labeled,SMAE,nazarczuk2022self,fei2023generative,li2024chaos}.
+However, all these methods operate in the 2D image domain and lack 3D scene understanding, making them unable to synthesize HDR views from novel view.
+
+\noindent\textbf{Gaussian Splatting.}
+3D Gaussian Splatting (3DGS)~\cite{3dgs} represents scenes as collections of anisotropic Gaussian primitives, enabling real-time rendering through efficient rasterization—offering a significant speed advantage over NeRF-based volumetric ray-marching~\cite{mildenhall2022nerf,jun2022hdr,huang2022hdr}.
+This efficiency has driven its adoption across diverse tasks including dynamic scenes~\cite{dynamic3,dynamic1,dynamic2}, SLAM~\cite{slam3,slam4,slam2,slam1}, inverse rendering~\cite{InverseRendering2,InverseRendering3,InverseRendering1}, digital humans~\cite{humangaussian,hugs,gauhuman}, 3D generation~\cite{dreamgaussian,gaussiandreamer,luciddreamer}, and medical imaging~\cite{x_gaussian,r2gs}.
+Nevertheless, current HDR extensions~\cite{cai2024hdr,liu2025gausshdr,bolduc2025GaSLight,liu2025mono4dgs,singh24_hdrsplat,gong2025casual3dhdr,li2025sehdr,jin2024lighting,cui2025luminance,zhou2025lita} of 3DGS remain predominantly optimization-based, resulting in expensive per-scene reconstruction times.
+Our work aims to fill this gap.
+
+\noindent\textbf{Feed-forward 3D Reconstruction.}
+Recent advances pursue end-to-end 3D reconstruction directly from unposed images.
+Pioneering works such as DUSt3R~\cite{wang2024dust3r} and MASt3R~\cite{mast3r} replace traditional multi-stage pipelines with a unified model that jointly estimates depth and performs dense scene fusion.
+Subsequent approaches~\cite{wang20243d, liu2025slam3r, murai2025mast3r, wang2025continuous, wang2025vggt, yang2025fast3r, tang2025mv} extend this paradigm by cascading transformer blocks to simultaneously recover camera poses, point trajectories, and scene geometry in a single forward pass.
+A parallel line of research~\cite{jiang2023leap, wang2023pf, hong2024pf3plat, ye2024no, zhang2025flare, smart2024splatt3r, chen2024pref3r} targets novel view synthesis from unposed sparse-view images.
+These feed-forward models offer remarkable reconstruction speed, strong generalization to unseen scenes, and minimal data requirements compared to optimization-based pipelines.
+Their potential for HDR reconstruction remains largely unexplored.
+Our work explores this promising direction.
+
+\section{Method}
+\label{sec:method}
+
+Given uncalibrated multi-view LDR images captured at varying exposures, InstantHDR reconstructs HDR 3D Gaussians and renders novel views at any target exposure (Fig.~\ref{fig:pipeline}).
+We first formalize the problem in Sec.~\ref{sec:setup}, then detail the pipeline design in Sec.~\ref{sec:pipeline}, including a Geo-guided Appearance Modeling module (Sec.~\ref{sec:appearance}) and a 3D HDR-to-2D LDR Mapping module (Sec.~\ref{sec:tonemapping}), and finally present our training strategies in Sec.~\ref{sec:loss}.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{asset/method.pdf}
+\caption{
+\textbf{Overview of InstantHDR.} 
+Given multi-exposure LDR images, the frozen geometry branch estimates depth and camera poses, while the appearance branch normalizes exposures ($F_E$), fuses cross-view irradiance via geometry-guided attention ($F_A$), and recovers pixel-level details via DoG upsampling. 
+The Gaussian head $F_G$ combines both branches to produce HDR 3D Gaussians.
+The Meta Net $F_M$ predicts tone-mapping parameters for rendering LDR images at controllable exposures.
+}
+\label{fig:pipeline}
+\end{figure}
+
+%% =====================================================
+\subsection{Problem Setup}
+\label{sec:setup}
+
+\paragraph{\textbf{Inputs.}}
+Consider $V$ \emph{uncalibrated} views of a single 3D scene, given as context images $\{I_v\}_{v=1}^{V}$, $I_v \in \mathbb{R}^{H \times W \times 3}$, each captured at a known exposure time $\Delta t_v$.
+For convenience, we work in log-exposure space and define $\ell_v = \log_2 \Delta t_v$.
+
+\paragraph{\textbf{Outputs.}}
+InstantHDR jointly reconstructs the scene geometry and HDR appearance by predicting:
+
+\noindent
+\emph{(a)~HDR 3D Gaussians.}
+A collection of $G$ anisotropic 3D Gaussians
+\begin{equation}
+    \bigl\{(\boldsymbol{\mu}_g,\, \sigma_g,\, \boldsymbol{r}_g,\, \boldsymbol{s}_g,\, \boldsymbol{c}_g^{h})\bigr\}_{g=1}^{G},
+\end{equation}
+where each Gaussian is parameterized by a center position $\boldsymbol{\mu} \in \mathbb{R}^{3}$, an opacity $\sigma \in \mathbb{R}^{+}$, an orientation quaternion $\boldsymbol{r} \in \mathbb{R}^{4}$, an anisotropic scale $\boldsymbol{s} \in \mathbb{R}^{3}$, and an HDR color embedding $\boldsymbol{c}^{h} \in \mathbb{R}^{3 \times (k{+}1)^{2}}$ parameterized as degree-$k$ spherical-harmonic (SH) coefficients that encode \emph{log-radiance}, following~\cite{liu2025gausshdr,cai2024hdr}.
+
+\noindent
+\emph{(b)~Camera parameters.}
+Per-view parameters $\{p_v \in \mathbb{R}^{9}\}_{v=1}^{V}$, where $p_v$ comprises a focal length, a 3-DoF rotation (axis-angle), a 3-DoF translation, and a 2-DoF principal-point offset.
+
+\noindent
+\emph{(c)~Scene-level attributes.}
+A mid-exposure anchor $\bar{\ell} = \tfrac{1}{2}(\max_v \ell_v + \min_v \ell_v)$, serving as the reference exposure level, and the parameters $\boldsymbol{\theta}$ of a lightweight tonemapper that approximates the scene-specific camera response function (CRF).
+
+\paragraph{\textbf{Overall mapping.}}
+Formally, our model implements:
+\begin{equation}
+    f_{\boldsymbol{\Theta}}\!:\;
+    \{I_v,\, \ell_v\}_{v=1}^{V}
+    \;\longmapsto\;
+    \Bigl\{(\boldsymbol{\mu}_g,\, \sigma_g,\, \boldsymbol{r}_g,\, \boldsymbol{s}_g,\, \boldsymbol{c}_g^{h})\Bigr\}_{g=1}^{G}
+    \;\cup\;
+    \{p_v\}_{v=1}^{V}
+    \;\cup\;
+    \{\bar{\ell},\, \boldsymbol{\theta}\}.
+\label{eq:mapping}
+\end{equation}
+% At test time, given a novel camera pose $p^{*}$ and a target log-exposure $\ell^{*}$, the predicted Gaussians can be rasterized and tonemapped to synthesize a photorealistic LDR image at the desired exposure.
+
+
+
+%% =====================================================
+\subsection{Pipeline Overview}
+\label{sec:pipeline}
+
+As illustrated in Fig.~\ref{fig:pipeline}, our pipeline consists of two branches: a \emph{geometry branch} that estimates scene structure from multi-view images, and an \emph{appearance branch} that reconstructs HDR irradiance from exposure-inconsistent inputs.
+Given $V$ uncalibrated multi-exposure LDR images, the geometry branch encodes them into high-dimensional features via a pretrained transformer and decodes depth maps and camera poses.
+The appearance branch---our core contribution---uses a \emph{Geo-guided Appearance Modeling} module that leverages geometric correspondences from the geometry branch to fuse multi-exposure information into a coherent HDR representation.
+The outputs of both branches are combined by a Gaussian head to produce HDR 3D Gaussians, which are then converted to LDR via a learned tonemapper (Sec.~\ref{sec:tonemapping}).
+
+
+\paragraph{\textbf{Geometry Branch.}}
+The geometry branch provides the structural foundation for our pipeline.
+Following VGGT~\cite{wang2025vggt} and AnySplat~\cite{jiang2025anysplat}, we adopt a pretrained alternating-attention transformer as the geometry backbone.
+Each image $I_v$ is patchified into $N = \tfrac{HW}{p^{2}}$ tokens of dimension $d$ using DINOv2~\cite{oquab2023dinov2}, where $p{=}14$ and $d{=}1024$.
+To each token sequence $\boldsymbol{t}_v^{G} \in \mathbb{R}^{N \times d}$, we prepend a learnable camera token $\boldsymbol{t}_v^{\text{cam}} \in \mathbb{R}^{1 \times d}$ and four register tokens $\boldsymbol{t}_v^{R} \in \mathbb{R}^{4 \times d}$.
+The combined tokens from all $V$ views are processed by an $L$-layer alternating-attention transformer, where each layer applies frame-wise self-attention followed by global cross-view attention.
+Dedicated decoder heads for camera poses $p_v$ and depth maps $D_v$ are \emph{frozen} together with the geometry encoder throughout training.
+
+\paragraph{\textbf{Gaussian Head.}}
+The Gaussian head combines information from both branches to predict HDR-aware Gaussian attributes.
+It takes the geometry tokens $\boldsymbol{t}_v^{G}$ and the high-resolution irradiance features $\boldsymbol{f}_v^{\text{hr}}$ produced by the Geo-guided Appearance Modeling module (Sec.~\ref{sec:appearance}) as input.
+The Gaussian head remains \emph{trainable}, enabling it to output HDR-aware Gaussian attributes $\{\sigma_g, \boldsymbol{r}_g, \boldsymbol{s}_g, \boldsymbol{c}_g^{h}\}$.
+
+
+%% =====================================================
+\subsection{Geo-guided Appearance Modeling}
+\label{sec:appearance}
+The frozen geometry branch provides reliable structure but cannot handle exposure-induced appearance inconsistency.
+We introduce the Geo-guided Appearance Modeling module, which mitigates this problem through three stages:
+(1)~\emph{Exposure Normalization} aligns inputs to a common reference level,
+(2)~\emph{Geo-guided Cross-view Attention} fuses irradiance features using geometric correspondences from the frozen backbone, and
+(3)~\emph{High-Resolution Upsampling} recovers pixel-level textures via high-frequency cues.
+The output features are decoded into log-radiance SH colors $\boldsymbol{c}_g^{h}$ for each Gaussian.
+
+\paragraph{\textbf{Exposure Normalization $F_E$.}}
+To fuse multi-exposure views, we first remove the exposure-induced brightness variation by normalizing all appearance features to a shared reference level.
+We define the relative log-exposure of each view as $\tilde{\ell}_v = \ell_v - \bar{\ell}$, where $\bar{\ell}$ is the mid-exposure anchor from Eq.~\eqref{eq:mapping}, and encode $\tilde{\ell}_v$ into a $d$-dimensional embedding $\mathbf{e}_v$ via sinusoidal positional encoding~\cite{mildenhall2021nerf}.
+Meanwhile, we extract per-view appearance tokens $\boldsymbol{t}_v^{A} \in \mathbb{R}^{N \times d}$ from each LDR image using a separate patch encoder with the same patch size $p$ and dimension $d$ as the geometry backbone.
+A FiLM layer~\cite{perez2018film} then predicts per-view affine parameters:
+\begin{equation}
+    (\gamma_v,\, \beta_v)
+    = \mathrm{FiLM}\!\bigl(\mathbf{e}_v,\;
+    \bar{\mathbf{a}}_v,\;
+    \bar{\mathbf{a}}\bigr),
+\end{equation}
+where $\bar{\mathbf{a}}_v = \tfrac{1}{N}\sum_{n=1}^{N} \boldsymbol{t}_{v,n}^{A}$ is the per-view feature mean and $\bar{\mathbf{a}} = \tfrac{1}{V}\sum_{v=1}^{V} \bar{\mathbf{a}}_v$ is the global scene summary.
+The appearance tokens are then modulated as:
+\begin{equation}
+    \hat{\boldsymbol{t}}_v^{A}
+    = \boldsymbol{t}_v^{A} \odot (1 + \gamma_v) + \beta_v,
+\end{equation}
+aligning all views to a shared irradiance level before cross-view fusion.
+Note that unlike methods that first linearize inputs via inverse gamma correction~\cite{SelfHDR}, our model operates directly on camera-output LDR images (which are typically gamma-encoded), since our training objective reconstructs multi-exposure LDR images rather than linear HDR radiance (Sec.~\ref{sec:loss}).
+
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=1\linewidth]{asset/Attn.pdf}
+\caption{
+\textbf{Geo-guided Cross-view Attention.} 
+(a) The module reuses Q, K from the 14th frozen geometry encoder layer to guide appearance fusion. 
+(b) Attention maps visualization shows that the it naturally and accurately matches query patches (red box) across views under large viewpoint and extreme exposure variations ($\Delta t$: 0.5--32s).
+}
+\label{fig:attention_map}
+\end{figure}
+
+
+% \paragraph{\textbf{Geo-guided Cross-view Attention $F_A$.}}
+% Different exposures capture complementary information: bright exposures reveal shadow details while dark exposures preserve highlights.
+% Fusing this complementary information across views requires cross-view correspondences, which are challenging under large viewpoint and appearance changes and are typically solved by optimization-based feature matching. 
+% Interestingly, we observe that \textit{the global attention maps in the frozen geometry encoder already encode reliable cross-view geometric correspondences}, and therefore reuse them to guide appearance fusion (see Fig.~\ref{fig:attention_map}).
+% Diverse elements such as leaves, cups, doorframes, and mirrors are accurately matched across views despite extreme exposure variations, greatly benefiting our appearance modeling.
+% Concretely, we perform a \emph{cross-attention} operation in which the queries $Q$ and keys $K$ are extracted from the 14th global attention layer of the geometry encoder, while the values are the exposure-normalized appearance tokens $\hat{\boldsymbol{t}}_v^{A}$:
+% \begin{equation}
+%     \tilde{\boldsymbol{t}}_v^{A}
+%     = \mathrm{softmax}\!\left(\frac{Q K^{\!\top}}{\sqrt{d}}\right) \hat{\boldsymbol{t}}_v^{A}.
+% \end{equation}
+
+\paragraph{\textbf{Geo-guided Cross-view Attention $F_A$.}}
+Different exposures capture complementary information: bright exposures reveal shadows while dark ones preserve highlights.
+Fusing them requires cross-view correspondences, which are challenging under large viewpoint and exposure changes.
+Interestingly, we observe that \textit{the global attention maps in the frozen geometry encoder already encode reliable cross-view geometric correspondences, greatly benefiting our appearance modeling}.
+Therefore, we reuse these attention maps to guide appearance fusion.
+As shown in Fig.~\ref{fig:attention_map} (b), diverse elements such as leaves, cups, doorframes, and mirrors are accurately matched across views despite extreme exposure variations.
+\begin{equation}
+    \tilde{\boldsymbol{t}}_v^{A}
+    = \mathrm{softmax}\!\left(\frac{Q K^{\!\top}}{\sqrt{d}}\right) \hat{\boldsymbol{t}}_v^{A}.
+\end{equation}
+
+\paragraph{\textbf{High-Resolution Upsampling $F_U$.}}
+The irradiance features $\tilde{\boldsymbol{t}}_v^{A}$ operate at patch resolution ($\tfrac{H}{p} \times \tfrac{W}{p}$), losing high-frequency details critical for realistic appearance.
+To recover pixel-level textures while preserving the fused low-frequency irradiance, we adopt a Difference-of-Gaussians (DoG) guided upsampling strategy.
+We first encode each full-resolution LDR image into a feature map $\mathbf{g}_v \in \mathbb{R}^{d'\times H \times W}$ via a shallow CNN.
+A low-passed version $\mathbf{g}_v^{\downarrow\uparrow}$ is obtained by downsampling and bilinearly upsampling $\mathbf{g}_v$, yielding the high-frequency residual $\mathbf{g}_v - \mathbf{g}_v^{\downarrow\uparrow}$.
+This residual is then added to the bilinearly upsampled irradiance features to produce pixel-level irradiance features:
+\begin{equation}
+    \boldsymbol{f}_v^{\text{hr}}
+    = \mathrm{Conv}\!\bigl(
+      \mathrm{Up}(\tilde{\boldsymbol{t}}_v^{A})
+      + \mathrm{Conv}(\mathbf{g}_v - \mathbf{g}_v^{\downarrow\uparrow})
+    \bigr)
+    \;\in\; \mathbb{R}^{d \times H \times W},
+\label{eq:upsample}
+\end{equation}
+combining multi-view irradiance consensus with per-image structural detail.
+
+
+\paragraph{\textbf{HDR 3D Gaussian Prediction.}}
+We now merge the geometry and appearance branches to produce HDR 3D Gaussians.
+A DPT decoder~\cite{ranftl2021vision} upsamples the geometry tokens $\boldsymbol{t}_v^{G}$ to pixel resolution, and the result is added to the irradiance features $\boldsymbol{f}_v^{\text{hr}}$.
+A lightweight CNN then regresses per-Gaussian opacity, orientation, scale, and log-radiance SH color:
+\begin{equation}
+    \{\sigma_g,\, \boldsymbol{r}_g,\, \boldsymbol{s}_g,\, \boldsymbol{c}_g^{h}\}
+    = F_G\!\bigl(\mathrm{DPT}(\boldsymbol{t}_v^{G}) + \boldsymbol{f}_v^{\text{hr}}\bigr).
+\end{equation}
+The Gaussian centers $\boldsymbol{\mu}_g$ are obtained by back-projecting the predicted depth maps $D_v$ through the estimated camera poses $p_v$.
+The Gaussians are then voxelized~\cite{jiang2025anysplat} to reduce primitive count for efficient splatting.
+
+
+%% =====================================================
+\subsection{3D HDR-to-2D LDR Mapping}
+\label{sec:tonemapping}
+
+Given HDR 3D Gaussians, rendering a photorealistic LDR view requires recovering the Camera Response Function (CRF) that maps scene irradiance to observed pixel values.
+Unlike optimization-based methods that overfit a per-scene MLP tonemapper~\cite{liu2025gausshdr,cai2024hdr}, our method seeks a \emph{generalizable} tonemapper that adapts to different cameras without per-scene optimization.
+We achieve this goal via a \textbf{Meta Net} $F_M$ that predicts the parameters of a lightweight tonemapper from scene context.
+
+
+\paragraph{\textbf{Tone Mapping Formulation.}}
+We convert HDR radiance to LDR in two steps.
+First, Gaussian splatting rasterizes the linear radiance into a per-pixel HDR image at view $v$:
+\begin{equation}
+    \mathbf{H}_v
+    = \mathcal{R}\!\bigl(\exp(\boldsymbol{c}_g^{h}),\,
+      \sigma_g,\, \boldsymbol{r}_g,\, \boldsymbol{s}_g,\, \boldsymbol{\mu}_g;\; p_v\bigr)
+    \;\in\; \mathbb{R}^{H \times W \times 3},
+\label{eq:rasterize}
+\end{equation}
+where $\mathcal{R}(\cdot)$ denotes the differentiable rasterization with alpha-weighted blending~\cite{kerbl20233d} in linear radiance space, $p_v$ is the camera pose, and the $\exp$ converts log-radiance SH colors $\boldsymbol{c}_g^{h}$ back to linear radiance before blending.
+
+Second, following the log-domain CRF model~\cite{debevec2023recovering}, a learned tonemapper $g_{\boldsymbol{\theta}}$ maps the log-irradiance to $[0,1]$ LDR values:
+\begin{equation}
+    \mathbf{L}_v(\ell)
+    = g_{\boldsymbol{\theta}}\!\bigl(
+      \log \mathbf{H}_v
+      + (\ell - \bar{\ell})\cdot\log 2
+    \bigr),
+\label{eq:tonemap}
+\end{equation}
+where $\mathbf{L}_v(\ell) \in \mathbb{R}^{H \times W \times 3}$ is the rendered LDR image at view $v$ under target log-exposure $\ell$, $\bar{\ell}$ is the mid-exposure anchor from Eq.~\eqref{eq:mapping}, and the term $(\ell - \bar{\ell})\cdot\log 2$ adjusts the irradiance to the desired exposure level.
+Here $g_{\boldsymbol{\theta}}$ is a two-layer MLP with hidden dimension $h$ (input: $3 \to$ hidden: $h$ with ReLU $\to$ output: $3$ with sigmoid), acting as a learnable inverse CRF.
+Rather than learning a fixed $\boldsymbol{\theta}$, we predict \emph{scene-specific} parameters via the Meta Net, enabling adaptation to different cameras and tone curves without per-scene optimization.
+
+
+\paragraph{\textbf{Meta Net $F_M$.}}
+The Meta Net infers scene-specific tonemapper parameters $\boldsymbol{\theta}$ in a single forward pass, enabling $g_{\boldsymbol{\theta}}$ to reproduce the original camera's tone curve without per-scene optimization.
+% For brevity, we denote the full set of pixel-level Gaussians (before voxelization) as $\mathcal{G} = \{(\boldsymbol{\mu}_g, \sigma_g, \boldsymbol{r}_g, \boldsymbol{s}_g, \boldsymbol{c}_g^{h})\}_{g=1}^{G}$, where $G = V \!\times\! H \!\times\! W$.
+For brevity, we denote the full set of pixel-level Gaussians (before voxelization) as:
+\begin{equation}
+    \mathcal{G} = \bigl\{(\boldsymbol{\mu}_g,\, \sigma_g,\, \boldsymbol{r}_g,\, \boldsymbol{s}_g,\, \boldsymbol{c}_g^{h})\bigr\}_{g=1}^{G},
+    \quad G = V \!\times\! H \!\times\! W.
+\end{equation}
+The Meta Net takes three inputs:
+(i)~the full-resolution LDR features $\mathbf{g}_v$ from the upsampling CNN (Eq.~\eqref{eq:upsample}),
+(ii)~the per-view exposure embeddings $\{\mathbf{e}_v\}_{v=1}^{V}$, and
+(iii)~the predicted HDR Gaussians $\mathcal{G}$.
+These are concatenated and compressed by a strided convolutional encoder and then globally pooled across all spatial and views dimensions to produce a scene-level descriptor $\boldsymbol{\theta}$:
+\begin{equation}
+    \boldsymbol{\theta}
+    = F_M\!\bigl(\{\mathbf{g}_v\},\, \{\mathbf{e}_v\},\, \mathcal{G}\bigr)
+    \;\in\; \mathbb{R}^{d_{\theta}},
+\end{equation}
+where $d_{\theta}$ encodes all weights and biases of the two-layer tonemapper $g_{\boldsymbol{\theta}}$.
+
+
+
+%% =====================================================
+\subsection{Training Strategies}
+\label{sec:loss}
+
+\paragraph{\textbf{Training Objective.}}
+InstantHDR is trained end-to-end without any 3D or HDR supervision, using only multi-view LDR images with known exposure times.
+The geometry encoder and its decoder heads remain frozen; only the appearance branch, the Gaussian head, and the Meta Net are optimized.
+
+During training, the target views are same with the context views, i.e., the model predicts HDR Gaussians $\mathcal{G}$ and tonemapper parameters $\boldsymbol{\theta}$ from $\{I_v, \ell_v\}_{v=1}^{V}$ and is supervised by rendering back to the same views and exposures via Eqs.~\eqref{eq:rasterize}--\eqref{eq:tonemap}.
+At test time, the target view and exposure can differ from the context set, enabling novel-view synthesis at arbitrary exposures.
+The total loss is:
+\begin{equation}
+    \mathcal{L} = \mathcal{L}_{\text{RGB}} + \lambda_g \,\mathcal{L}_g.
+\end{equation}
+The photometric loss compares rendered and ground-truth LDR images:
+\begin{equation}
+    \mathcal{L}_{\text{RGB}}
+    = \frac{1}{V}\sum_{v=1}^{V}
+    \Bigl[
+      \mathrm{MSE}\bigl(I_v,\, \mathbf{L}_v(\ell_v)\bigr)
+      + \lambda_{\text{perc}} \cdot \mathcal{L}_{\text{perc}}\bigl(I_v,\, \mathbf{L}_v(\ell_v)\bigr)
+    \Bigr].
+\end{equation}
+The geometry consistency loss enforces alignment between the depth maps $D_v$ from the frozen DPT head and the rendered depth maps $\hat{D}_v$ from the predicted Gaussians.
+Since $D_v$ can be unreliable in challenging regions (\eg, sky or reflective surfaces), we utilize the jointly learned confidence map $C_v^{D}$ and apply supervision only to the top-$N\%$ most confident pixels:
+\begin{equation}
+    \mathcal{L}_g = \frac{1}{V}\sum_{v=1}^{V} \bigl(D_v[M_v] - \hat{D}_v[M_v]\bigr)^2,
+\end{equation}
+where $M_v$ is a binary mask corresponding to the top-$N$ quantile of $C_v^{D}$; we set $N{=}30$ in all experiments.
+Our model learns HDR representations implicitly by correctly reconstructing LDR images across different exposure times.
+
+\paragraph{\textbf{Post-Optimization.}}
+We also can refine the predicted Gaussians and camera parameters via post optimization.
+After pruning low-opacity Gaussians ($\sigma < 0.01$), we minimize a combination of MSE and SSIM losses between rendered and input images for 1K iterations, back-propagating gradients through all Gaussian attributes, and tonemapper parameters.
+The learning rates are: 1.6e-4 (position), 5e-3 (scale), 1e-3 (rotation), 5e-2 (opacity), and 2.5e-3 (color).
+
+% \paragraph{\textbf{Evaluation-Time Pose Alignment.}}
+% Since InstantHDR predicts poses rather than assuming known ones, the reconstructed scene may differ from the ground truth by a rigid transformation.
+% To fairly compare with pose-dependent baselines~\cite{liu2025gausshdr,cai2024hdr}, we follow prior pose-free works~\cite{ye2024no} and align poses at test time: we freeze $\mathcal{G}$ and $\boldsymbol{\theta}$, then optimize only the target camera pose so that $\mathbf{L}_v(\ell_v)$ matches $I_v$.
+% This step is solely for evaluation and is not needed in practice.
+
+
+\section{Experiments}
+
+% 1. Pretraining Datasets / Dataset Vis / Table
+% Implementation Details.
+% Evaluation Metrics.
+
+% 2-1. Main LDR Compare / LDR Vis
+% 2-2. 
+% 3. HDR Compare / HDR Vis
+% 4. Ablation - Exp Norm / Cross-view Attn / Upsampling
+
+
+\begin{table}[t]
+\centering
+\caption{Comparison of existing HDR datasets for novel view synthesis. ``Pano.'' denotes panoramic 360$^\circ$ images. ``Multi-Exp.'' indicates multi-exposure LDR images, with the number of exposures in parentheses.}
+\resizebox{1\linewidth}{!}{
+\renewcommand{\arraystretch}{0.6}
+\begin{tabular}{lcccccc}
+\toprule
+Dataset & Source & \#Scenes & Type & HDR GT & Multi-Exp. & Depth/Normal \\
+\midrule
+HDR-NeRF~\cite{huang2022hdr} & Blender + Real & 8 + 4 & Object/Indoor & \checkmark & \checkmark~(5) & \texttimes \\
+HDR-Plenoxels~\cite{jun2022hdr} & Blender + Real & 5 + 4 & Indoor & \texttimes & \checkmark~(3) & \texttimes \\
+Pano-NeRF~\cite{lu2024pano} & Blender + Replica + Real & 5 + 8 + 3 & Indoor (Pano.) & \checkmark & \checkmark~(9) & \checkmark \\
+PanDORA~\cite{dastjerdi2024pandora} & Real capture (360$^\circ$) & 14 & Indoor (Pano.) & \checkmark & \checkmark~(2) & \texttimes \\
+\midrule
+HDR-Pretrain (Ours) & Blender & \textbf{168} & Indoor & \checkmark & \checkmark~(5) & \checkmark \\
+\bottomrule
+\end{tabular}
+\label{tab:hdr_datasets}
+}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{asset/HDR_Pretrain.pdf}
+\caption{
+\textbf{Examples from our HDR-Pretrain dataset.} 
+Each scene includes multi-view, multi-exposure LDR images at varying $\Delta t$, 32-bit HDR ground truth, depth and normal maps, rendered under diverse tone-mapping operators (Standard, AgX, Filmic).
+}
+\label{fig:HDR_Pretrain}
+\end{figure}
+
+
+\noindent\textbf{Pretraining Dataset.}
+HDR datasets with multi-view LDR images remain extremely scarce.
+As shown in Tab.~\ref{tab:hdr_datasets}, existing benchmarks contain only a handful of scenes, far from sufficient for large-scale pretraining.
+To bridge this gap, we construct \textbf{HDR-Pretrain}, in Fig.~\ref{fig:HDR_Pretrain}, a large-scale synthetic dataset of 168 photorealistic indoor scenes rendered in Blender.
+The 3D assets are sourced from HSSD~\cite{khanna2024habitat}, an open-source collection of realistic interiors originally built for embodied AI research.
+Following HDR-NeRF~\cite{huang2022hdr}, we sample viewpoints on a $5\times7$ grid with $2.5^\circ$ / $5^\circ$ angular steps per scene and render 32-bit HDR images via Cycles path tracing at $448\times448$ resolution.
+Each view is paired with 5 exposure-bracketed LDR images under a randomly chosen tone-mapping operator, as well as depth and normal maps.
+We randomly apply one of three tone-mapping operators (AgX, Filmic, Standard) per scene to increase data diversity.
+
+\noindent\textbf{Evaluation Dataset.}
+We mainly evaluate on the HDR-NeRF benchmark~\cite{huang2022hdr}, which contains 8 synthetic and 4 real indoor scenes, each captured from 35 viewpoints at 5 exposure levels $\{t_1, t_2, t_3, t_4, t_5\}$.
+Following the standard protocol~\cite{huang2022hdr}, 18 views with one exposure drawn from $\{t_1, t_3, t_5\}$ are used as input, while the remaining views are held out for evaluation.
+For clarity, we report the average LDR metrics across all 5 exposures rather than separating observed (LDR-OE) and novel (LDR-NE) exposures.
+We further test under sparse-view settings with only 4 or 8 input views.
+
+% \noindent\textbf{Implementation Details.}
+% We build upon AnySplat~\cite{jiang2025anysplat}, initializing from its pretrained weights with the most backbone frozen during training.
+% The voxel size for differentiable voxelization is set to $\epsilon=0.002$.
+% We train the model using AdamW with a cosine learning rate scheduler, a peak learning rate of $2\times10^{-4}$, and a warmup of 1K iterations.
+% Training runs for $30K$ iterations on a single node with bf16 mixed precision.
+% The input resolution is $448\times448$, and we apply intrinsic augmentation via random center-cropping and horizontal flipping.
+% For the training objective, we set $\lambda_{\text{perc}}=0.05$ and $\lambda_{\text{g}}=0.1$.
+% During each iteration, we randomly sample $2\sim10$ context views per scene.
+% We train InstantHDR on 8 NVIDIA A6000 GPUs for approximately two days.
+% Due to the domain gap between real and our synthetic HDR-Pretrain scenes, we finetune on HDR-Plenoxels 4 real scenes before evaluating on HDR-NeRF real scenes, ensuring the testing scenes is always unseen.
+% Following other pose-free methods~\cite{ye2024no}, we perform test-time pose alignment for evaluation and post optimization.
+
+\noindent\textbf{Implementation Details.}
+We build upon AnySplat~\cite{jiang2025anysplat} with its backbone frozen, using a voxel size of $\epsilon{=}0.002$.
+Training uses AdamW with cosine scheduling, peak learning rate $2{\times}10^{-4}$, 1K warmup, and runs for 30K iterations in bf16 precision on 8 NVIDIA A6000 GPUs for $\sim$2 days.
+Input resolution is $448{\times}448$ with random cropping and flipping augmentation.
+We set $\lambda_{\text{perc}}{=}0.05$ and $\lambda_{\text{g}}{=}0.1$, sampling $2{\sim}10$ context views per iteration.
+Due to the domain gap between real and our synthetic HDR-Pretrain scenes, we finetune on HDR-Plenoxels 4 real scenes before evaluating on HDR-NeRF real scenes, ensuring the testing scenes is always unseen.
+Following pose-free methods~\cite{ye2024no}, we perform test-time pose alignment for evaluation and post optimization.
+
+\noindent\textbf{Evaluation Metrics.}
+All images are resized to $448\times 448$ for fair comparison.
+We report PSNR, SSIM, LPIPS~\cite{zhang2018unreasonable}, and reconstruction time for quantitative and efficiency comparison.
+Following HDR-NeRF~\cite{huang2022hdr}, HDR results are evaluated in the tone-mapped domain using the $\mu$-law~\cite{kalantari2017deep}, with 99th-percentile normalization to suppress extreme HDR values.
+
+\subsection{Quantitative Results}
+
+\noindent\textbf{LDR Comparisons on Zero-shot Inference.}
+% We first evaluate zero-shot cross-domain performance on HDR-NeRF~\cite{huang2022hdr} scenes.
+% Existing feed-forward models such as AnySplat~\cite{jiang2025anysplat} do not account for exposure inconsistency across input views, leading to severely degraded reconstruction under varying exposures.
+% As shown in Tab.~\ref{tab:hdr_nerf}, our InstantHDR consistently outperforms AnySplat by a large margin across all settings.
+% On the real scenes with 8 input views, InstantHDR surpasses AnySplat by +5.65 dB in PSNR, +0.155 in SSIM, and $-$0.167 in LPIPS, while maintaining comparable reconstruction time within 1.582 seconds.
+% The gap is even more pronounced on synthetic scenes, where InstantHDR exceeds AnySplat by +8.07 dB in PSNR and +0.256 in SSIM with 8 views.
+% These results demonstrate that InstantHDR generalizes well to unseen scenes with exposure-inconsistent inputs while maintaining fast reconstruction speed.
+We first evaluate zero-shot results on HDR-NeRF~\cite{huang2022hdr} scenes.
+AnySplat~\cite{jiang2025anysplat} ignores exposure inconsistency, leading to severely degraded results.
+As shown in Tab.~\ref{tab:hdr_nerf}, InstantHDR consistently outperforms AnySplat by large margins (\textit{e.g.}, +5.65 dB on real scenes, +8.07 dB on synthetic scenes with 8 views) with negligible increases of reconstruction time, showing strong generalization to exposure-inconsistent inputs.
+
+\noindent\textbf{LDR Comparisons on Optimization.}
+We further compare against state-of-the-art optimization-based methods, HDR-GS~\cite{cai2024hdr} and GaussianHDR~\cite{liu2025gausshdr}.
+In this setting, we post-optimize the Gaussians and tone-mapping parameters produced by InstantHDR and AnySplat for 1K iterations, denoted as InstantHDR\_1K and AnySplat\_1K. 
+Under the challenging 4-view sparse setting on real scenes, InstantHDR\_1K achieves 22.16 dB PSNR and 0.762 SSIM, surpassing GaussianHDR by +2.90 dB and +0.071 in SSIM, demonstrating that the diverse geometric priors from feed-forward foundation models greatly benefit sparse-view reconstruction.
+Under the denser 18-view setting, our method remains competitive on real scenes while showing a modest gap on synthetic scenes.
+Notably, InstantHDR\_1K requires only $\sim$30--40 seconds per scene, roughly \textbf{20$\times$} faster than HDR-GS and \textbf{50$\times$} faster than GaussianHDR, attributing to the good feed-forward initialization and the ability to skip the costly iterative densification.
+
+
+
+\begin{table}[t]
+\centering
+\caption{Quantitative LDR comparison on HDR-NeRF~\cite{huang2022hdr} real and synthetic scenes with varying numbers of input views. 
+We compare our method, as well as its variants with 1K iters of post-optimization (Ours\_1K), against AnySplat~\cite{jiang2025anysplat} HDR-GS~\cite{cai2024hdr} and GaussianHDR~\cite{liu2025gausshdr}.
+Time denotes per-scene reconstruction time in seconds.
+}
+\label{tab:hdr_nerf}
+% \setlength{\tabcolsep}{4pt}
+\resizebox{\textwidth}{!}{
+\renewcommand{\arraystretch}{0.8}
+\begin{tabular}{cl cccc cccc cccc}
+\toprule[2pt]
+\multirow{2}{*}{Mode} & \multirow{2}{*}{Method} & \multicolumn{4}{c}{4 Views} & \multicolumn{4}{c}{8 Views} & \multicolumn{4}{c}{18 Views} \\
+\cmidrule(lr){3-6} \cmidrule(lr){7-10} \cmidrule(lr){11-14}
+ &  & PSNR$\uparrow$ & SSIM$\uparrow$ & LPIPS$\downarrow$ & Time(s)$\downarrow$ & PSNR$\uparrow$ & SSIM$\uparrow$ & LPIPS$\downarrow$ & Time(s)$\downarrow$ & PSNR$\uparrow$ & SSIM$\uparrow$ & LPIPS$\downarrow$ & Time(s)$\downarrow$ \\
+\midrule
+\multicolumn{14}{l}{\textit{HDR-NeRF Real Dataset}~\cite{huang2022hdr}} \\
+\multirow{2}{*}{Zero-shot}
+& AnySplat~\cite{jiang2025anysplat} & 12.10 & 0.517 & 0.497 & \textbf{0.973} & 13.30 & 0.569 & 0.436 & \textbf{1.180} & 13.91 & 0.600 & 0.403  & \textbf{2.139} \\
+& InstantHDR (Ours) & \textbf{18.44} & \textbf{0.721} & \textbf{0.269} & 1.033 & \textbf{18.95} & \textbf{0.724} & \textbf{0.269} & 1.582 & \textbf{19.48} & \textbf{0.745} & \textbf{0.257} & 2.512 \\
+\midrule
+\multirow{4}{*}{Optimization}
+& HDR-GS~\cite{cai2024hdr} & 15.40 & 0.622 & 0.334 & 872 & 23.02 & 0.791 & 0.121 & 736 & 27.42 & 0.893 & 0.047 & 815 \\
+& GaussianHDR~\cite{liu2025gausshdr} & 19.26 & 0.691 & 0.270 & 1833 & 24.96 & \textbf{0.854} & \textbf{0.068} & 1816 & \textbf{29.36} & 0.929 & \textbf{0.024} & 1891 \\
+& AnySplat\_1K~\cite{jiang2025anysplat} & 11.84 & 0.486 & 0.468 & \textbf{30} & 13.63 & 0.580 & 0.372 & \textbf{33} & 14.86 & 0.689 & 0.266 & 40 \\
+& InstantHDR\_1K (Ours) & \textbf{22.16} & \textbf{0.762} & \textbf{0.259} & 32 & \textbf{25.32} & 0.852 & 0.160 & 40 & 29.19 & \textbf{0.931} & 0.086 & \textbf{39} \\
+\midrule[2pt]
+\multicolumn{14}{l}{\textit{HDR-NeRF Syn Dataset}~\cite{huang2022hdr}} \\
+\multirow{2}{*}{Zero-shot}
+& AnySplat~\cite{jiang2025anysplat} & 13.98 & 0.525 & 0.400 & \multirow{2}{*}{-}& 14.51 & 0.573 & 0.378 & \multirow{2}{*}{-} & 15.27 & 0.534 & 0.327 & \multirow{2}{*}{-} \\
+& InstantHDR (Ours) & \textbf{21.76} & \textbf{0.728} & \textbf{0.172} &  & \textbf{22.58} & \textbf{0.785} & \textbf{0.138} &  & \textbf{22.59} & \textbf{0.830} & \textbf{0.115} &  \\
+\midrule
+\multirow{4}{*}{Optimization}
+& HDR-GS~\cite{cai2024hdr} & 24.26 & 0.711 & 0.210 & \multirow{4}{*}{-} & 30.60 & 0.867 & 0.086 & \multirow{4}{*}{-} & 29.93 & 0.917 & 0.061 & \multirow{4}{*}{-} \\
+& GaussianHDR~\cite{liu2025gausshdr} & 21.62 & 0.646 & 0.224 &  & \textbf{34.49} & \textbf{0.924} & \textbf{0.026} &  & \textbf{38.63} & \textbf{0.969} & \textbf{0.009} &  \\
+& AnySplat\_1K~\cite{jiang2025anysplat} & 14.01 & 0.526 & 0.347 &  & 15.42 & 0.656 & 0.248 &  & 16.39 & 0.624 & 0.221 &  \\
+& InstantHDR\_1K (Ours) & \textbf{27.63} & \textbf{0.825} & \textbf{0.137} &  & 32.75 & 0.922 & 0.061 &  & 35.99 & 0.965 & 0.037 &  \\
+\bottomrule[2pt]
+\end{tabular}
+}
+\end{table}
+
+
+\begin{table}[t]
+\centering
+\caption{
+(a) Quantitative HDR comparison on HDR-NeRF~\cite{huang2022hdr} synthetic scenes with 8 input views, evaluated in the $\mu$-law tone-mapped domain.
+(b) Ablation study of InstantHDR. Zero-shot results on HDR-NeRF~\cite{huang2022hdr} real scenes with 8 input views.
+}
+% \label{tab:hdr_plenoxels}
+% \setlength{\tabcolsep}{4pt}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{cc}
+
+\renewcommand{\arraystretch}{0.9}
+\begin{tabular}{cl cccc}
+\multicolumn{6}{c}{\fontsize{11}{11}\selectfont(a) HDR Comparision on HDR-NeRF~\cite{huang2022hdr} syn scenes.} \\
+\toprule[2pt]
+Mode & Method & PSNR$\uparrow$ & SSIM$\uparrow$ & LPIPS$\downarrow$ & Time(s)$\downarrow$ \\
+\midrule
+\multirow{2}{*}{Zero-shot}
+& AnySplat & 8.93 & 0.595 & 0.416 & \textbf{1.180}\\
+& InstantHDR (Ours) & \textbf{15.29} & \textbf{0.772} & \textbf{0.140} & 1.582 \\
+\midrule
+\multirow{4}{*}{Optimization}
+& HDR-GS & 27.69 & 0.871 & 0.090 & 736 \\
+& GaussianHDR & \textbf{31.62} & 0.887 & \textbf{0.037} & 1816 \\
+& AnySplat\_1K & 9.52 & 0.678 & 0.268 & \textbf{33} \\
+& InstantHDR\_1K (Ours) & 27.55 & \textbf{0.899} & 0.076 & 40 \\
+\bottomrule[2pt]
+\end{tabular}
+
+& 
+
+\renewcommand{\arraystretch}{1.1}
+\begin{tabular}{l ccc}
+\multicolumn{4}{c}{\fontsize{11}{11}\selectfont(b) Ablation on HDR-NeRF~\cite{huang2022hdr} real scenes.} \\
+\toprule[2pt]
+Method & PSNR$\uparrow$ & SSIM$\uparrow$ & LPIPS$\downarrow$ \\
+\midrule
+w/o Meta Net & 16.32 & 0.699 & 0.289 \\
+w/o Exposure Norm & 13.72 & 0.693 & 0.278 \\
+w/o Cross-view Attn & 17.63 & 0.702 & 0.277 \\
+w/o Upsampling & \textbf{19.20} & 0.718 & 0.386 \\
+Ours & 18.95 & \textbf{0.724} & \textbf{0.269} \\
+\bottomrule[2pt]
+\end{tabular}
+
+\label{tab:hdr_syn}
+\end{tabular}
+}
+\end{table}
+
+% \begin{figure}[t]
+% \centering
+% % \includegraphics[width=\linewidth]{asset/LDR-syn.pdf}
+% \includegraphics[height=6cm]{asset/LDR-syn.pdf}
+% \caption{
+% \textbf{LDR visual comparisons on the synthetic scenes.} 
+% Feed-forward methods~\cite{jiang2025anysplat} fail on multi-exposure inputs, while optimization-based methods~\cite{liu2025gausshdr} require $\sim$2K seconds per scene. Our InstantHDR achieves competitive quality in under 40s. Yellow/blue tags denote reconstruction time/PSNR.
+% }
+% \label{fig:ldr-syn}
+% \end{figure}
+
+% \begin{figure}[t]
+% \centering
+% \includegraphics[height=6cm]{asset/LDR-real.pdf}
+% \caption{
+% \textbf{LDR visual comparisons on real scenes.} Our InstantHDR generalizes well to real-world captures.
+% Blue tags denote reconstruction PSNR.\
+% }
+% \label{fig:ldr-real}
+% \end{figure}
+
+
+\noindent\textbf{HDR Comparisons.}
+Tab.~\ref{tab:hdr_syn} (a) reports HDR results on HDR-NeRF synthetic scenes.
+Although never supervised with HDR ground truth, InstantHDR implicitly recovers HDR from multi-exposure LDR inputs, outperforming AnySplat by +6.36 dB in PSNR in zero-shot mode.
+With 1K steps of post-optimization, InstantHDR\_1K reaches 27.55 dB PSNR and 0.899 SSIM, achieving comparable performance to HDR-GS (27.69 dB) while surpassing GaussianHDR in SSIM.
+The remaining gap with GaussianHDR in PSNR is likely due to its dedicated 3D--2D dual-branch tone-mapping design, whereas both our method and HDR-GS adopt a simpler single tone mapping branch.
+We believe that incorporating more advanced tone-mapping modules is a promising avenue for future works.
+
+
+\subsection{Qualitative Results}
+\noindent\textbf{LDR Novel View Rendering.}
+In Fig.~\ref{fig:ldr}, AnySplat struggles in exposure variations, while GaussianHDR is time-consuming. 
+Our InstantHDR generalizes well to both synthetic and real-world scenes, renders clean, exposure-controllable LDR views in seconds, and achieves competitive quality after 1K post-optimization.
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}[t]{\linewidth}
+  \centering
+  \includegraphics[width=\linewidth]{asset/LDR-syn.pdf}
+  % \includegraphics[height=6cm]{asset/LDR-syn.pdf}
+  \caption{LDR visual comparisions on HDR-NeRF~\cite{huang2022hdr} synthetic scenes.}
+  \label{fig:ldr-syn}
+\end{subfigure}\\[4pt]
+\begin{subfigure}[t]{\linewidth}
+  \centering
+  \includegraphics[width=\linewidth]{asset/LDR-real.pdf}
+  % \includegraphics[height=6cm]{asset/LDR-real.pdf}
+  \caption{LDR visual comparisions on HDR-NeRF~\cite{huang2022hdr} real scenes.}
+  \label{fig:ldr-real}
+\end{subfigure}
+\caption{\textbf{LDR visual comparisons.}
+Feed-forward methods~\cite{jiang2025anysplat} fail on multi-exposure inputs, while optimization-based methods~\cite{liu2025gausshdr} require $\sim$2K seconds per scene. Our InstantHDR achieves competitive quality in under 40s. Yellow/blue tags denote reconstruction time/PSNR.}
+\label{fig:ldr}
+\end{figure}
+
+
+
+
+\noindent\textbf{HDR Novel View Rendering.}
+As shown in Fig.~\ref{fig:hdr}, zero-shot HDR outputs from feed-forward models (AnySplat \& InstantHDR) appear overly bright, as extreme radiance values are hard to predict accurately in a single-foward, so inflate the average brightness after normalization.
+We see this as an open challenge for feed-forward HDR models. 
+After 1K post-optimization, this issue is largely alleviated, with our InstantHDR producing results similar to GaussianHDR.
+
+\begin{figure}[t]
+\centering
+\includegraphics[height=4.5cm]{asset/HDR.pdf}
+% \includegraphics[width=\linewidth]{asset/HDR.pdf}
+\caption{
+\textbf{HDR visual comparisons.} After 1K post-optimization, our InstantHDR produces HDR results comparable to time-consuming GaussianHDR.
+}
+\label{fig:hdr}
+\end{figure}
+
+
+\begin{figure}[t]
+\centering
+\includegraphics[height=2.5cm]{asset/Ablation.pdf}
+\vskip-10pt\caption{
+\textbf{Ablation visualization.} Attn.=cross-view attention, Exp.=exposure normalization, Up.=upsampling. Removing Attn.\ causes wall ghosting; removing Exp.\ shifts overall brightness; removing Up.\ produces blurry results.
+}
+\label{fig:ablation}
+\end{figure}
+
+
+
+\subsection{Ablation Study}
+%As shown in Tab.~\ref{tab:hdr_syn}~(b) and Fig.~\ref{fig:ablation}, each component contributes meaningfully.
+%Without Meta Net, training becomes harder to converge as the model cannot adapt to varying camera response functions.
+%Dropping exposure normalization causes the largest performance drop, since unaligned brightness across views confuses the fusion.
+%Disabling cross-view attention introduces ghosting on flat surfaces like walls.
+%Finally, omitting upsampling preserves overall structure but loses fine details, producing notably blurry outputs.
+As shown in Tab.~\ref{tab:hdr_syn}~(b) and Fig.~\ref{fig:ablation}, each component plays a critical role. 
+Removing the MetaNet makes training unstable, as the model cannot adapt to varying camera response functions. 
+Eliminating exposure normalization leads to the largest performance degradation, since inconsistent brightness across views disrupts feature fusion. 
+Disabling cross-view attention introduces ghosting artifacts on smooth surfaces such as walls. 
+Finally, removing the upsampling module preserves coarse structure but loses fine details, resulting in blurry outputs.
+
+
+\vspace{-1em}
+\section{Conclusion}
+\label{sec:conclusion}
+We present InstantHDR, the first feed-forward framework for HDR novel view synthesis from uncalibrated multi-exposure LDR images.
+By leveraging geometry-guided cross-view attention for exposure-robust appearance fusion and a meta-network for scene-adaptive tone mapping, InstantHDR reconstructs HDR scenes in few seconds.
+We also introduce HDR-Pretrain, a 168-scene synthetic dataset to address the data scarcity for feed-forward HDR pretraining.
+Experiments demonstrate that InstantHDR achieves competitive quality to optimization-based methods while being orders of magnitude faster.
+We hope this InstantHDR can inspire more ideas on real-time 3D HDR reconstruction.
+
+% \section{Introduction}
+% \label{sec:intro}
+
+% This document serves as an example submission to ECCV \ECCVyear{}.
+% It illustrates the format authors must follow when submitting a paper. 
+% At the same time, it gives details on various aspects of paper submission, including preservation of anonymity and how to deal with dual submissions.
+% We advise authors to read this document carefully.
+
+% The document is based on Springer LNCS instructions as well as on ECCV policies, as established over the years.
+
+
+
+% \section{Initial Submission}
+
+% \subsection{Language}
+% All manuscripts must be in English.
+
+
+% \subsection{Template}
+% Papers must be prepared with the official LNCS style from Springer.
+% This applies to both review and camera-ready versions.
+% Springer requires manuscripts to be prepared in \LaTeX{} (strongly encouraged) or Microsoft Word. 
+
+% Authors preparing their paper with \LaTeX{} must use the template provided by ECCV, which is based on the corresponding Springer class file \texttt{llncs.cls} but includes line numbers for review (\cref{sec:line-numbering}) and properly anonymizes the paper for review (as in this example document).
+% Authors who -- for whatever reason -- cannot use \LaTeX{} can alternatively use the official LNCS Word template from Springer.
+% However, it is the authors' responsibility to ensure that the resulting PDF file is consistent with this example paper and follows it as closely as possible (\ie, includes line numbers, is properly anonymized, \etc).
+
+% We would like to stress that the class/style files and the template must not be manipulated and that the guidelines regarding font sizes and format must be adhered to. 
+% For example, please refrain from using any \LaTeX{} or \TeX{} command that modifies the layout settings of the template (\eg, \verb+\textheight+, \verb+\vspace+, \verb+\baselinestretch+, \etc).
+% Such manual layout adjustments should be limited to very exceptional cases.
+% This is to ensure that the end product is as homogeneous as possible.
+
+% Papers that differ significantly from the required style may be rejected without review.
+
+
+% \subsubsection{Fonts.}
+% Springer's templates for \LaTeX{} are based on CMR, and the XML templates for Word are based on Times. 
+% We ask you to use the font according to the template used for your papers. 
+% Specifically, please refrain from using Times when preparing your paper with \LaTeX{}.
+% Using a different font can be interpreted as purposely circumventing the length limitations and may lead to rejection without review.
+
+
+% \subsection{Paper Length}
+% Papers submitted for review must be complete. 
+% The length should match that intended for final publication. 
+% Papers accepted for the conference will be allocated 14 pages (plus additional pages for references) in the proceedings. 
+% Note that the allocated 14 pages do not include the references. 
+% The reason for this policy is that we do not want authors to omit references for sake of space limitations.
+
+% Papers with more than 14 pages (excluding references) will be rejected without review.
+% This includes papers where the margins and formatting including the font are deemed to have been significantly altered from those laid down by this style guide.
+
+% The reason such papers will not be reviewed is that there is no provision for supervised revisions of manuscripts. 
+% The reviewing process cannot determine the suitability of the paper for presentation in 14 pages if it is reviewed in 16.
+
+
+% \subsection{Paper ID}
+% It is imperative that the paper ID is mentioned on each page of the manuscript of the review version.
+% Enter your paper ID in the appropriate place in the \LaTeX{} template (see \texttt{\%TODO REVIEW}).
+% The paper ID is a number automatically assigned to your submission when registering your paper submission on the submission site.
+
+
+% \subsection{Line Numbering}
+% \label{sec:line-numbering}
+% All lines should be numbered in the initial submission, as in this example document. 
+% This makes reviewing more efficient, because reviewers can refer to a line on a page. 
+% Line numbering is removed in the camera-ready version.
+
+
+% \section{Policies}
+% The policies governing the review process of ECCV \ECCVyear{} are detailed on the conference webpage (see \url{ https://eccv.ecva.net/Conferences/2026/SubmissionPolicies}), such as regarding confidentiality, dual submissions, double-blind reviewing, plagiarism, and more. 
+% By submitting a paper to ECCV, the authors acknowledge that they have read the submission policies and that the submission follows the rules set forth.
+
+% Accepted papers will be published in LNCS proceedings with Springer.
+% To that end, authors must follow the Springer Nature Code of Conduct for Authors (see \url{https://www.springernature.com/gp/authors/book-authors-code-of-conduct}).
+% We would like to draw particular attention to the policies regarding figures and illustrations, as well as ethical approval and informed consent, which are also reproduced on the ECCV website.
+
+
+% \section{Preserving Anonymity}
+% \label{sec:blind}
+% ECCV reviewing is double blind, in that authors do not know the names of the area chair/reviewers of their papers, and the area chairs/reviewers cannot, beyond reasonable doubt, infer the names of the authors from the submission and the additional material. 
+% You must not identify the authors nor provide links to websites that identify the authors, neither in the paper nor in the supplemental material.
+% If you need to cite a different paper of yours that is being submitted concurrently to ECCV, you should \emph{(1)} cite these papers anonymously, \emph{(2)} argue in the body of your paper why your ECCV paper is non-trivially different from these concurrent submissions, and \emph{(3)} include anonymized versions of those papers in the supplemental material.
+% Violation of any of these guidelines may lead to rejection without review. 
+
+% Many authors misunderstand the concept of anonymizing for blind review.
+% Blind review does not mean that one must remove citations to one's own work---in fact it is often impossible to review a paper unless the previous citations are known and available.
+
+% Blind review means that you do not use the words ``my'' or ``our'' when citing previous work.
+% That is all.
+% (But see below for tech reports.)
+
+% Saying ``this builds on the work of Lucy Smith [1]'' does not say that you are Lucy Smith;
+% it says that you are building on her work.
+% If you are Smith and Jones, do not say ``as we show in [7]'', say ``as Smith and Jones show in [7]'' and at the end of the paper, include reference 7 as you would any other cited work.
+
+% An example of a bad paper just asking to be rejected:
+% \begin{quote}
+%   \begin{center}
+%       An analysis of the frobnicatable foo filter.
+%   \end{center}
+
+%    In this paper we present a performance analysis of our previous paper [1], and show it to be inferior to all previously known methods.
+%    Why the previous paper was accepted without this analysis is beyond me.
+
+%    [1] Removed for blind review
+% \end{quote}
+
+% An example of an acceptable paper:
+% \begin{quote}
+%   \begin{center}
+%      An analysis of the frobnicatable foo filter.
+%   \end{center}
+
+%    In this paper we present a performance analysis of the  paper of Smith \etal [1], and show it to be inferior to all previously known methods.
+%    Why the previous paper was accepted without this analysis is beyond me.
+
+%    [1] Smith, L and Jones, C. ``The frobnicatable foo filter, a fundamental contribution to human knowledge''. Nature 381(12), 1-213.
+% \end{quote}
+
+% If you are making a submission to another conference at the same time, which covers similar or overlapping material, you may need to refer to that submission in order to explain the differences, just as you would if you had previously published related work.
+% In such cases, include the anonymized parallel submission [1] as supplemental material and cite it as
+% \begin{quote}
+%   [1] Authors. ``The frobnicatable foo filter'', ECCV \ECCVyear Submission ID 00324, Supplied as supplemental material {\tt 00324.pdf}.
+% \end{quote}
+
+% Finally, you may feel you need to tell the reader that more details can be found elsewhere, and refer them to a technical report.
+% For conference submissions, the paper must stand on its own, and not \emph{require} the reviewer to go to a tech report for further details.
+% Thus, you may say in the body of the paper ``further details may be found in~\cite{Anonymous24b}''.
+% Then submit the tech report as supplemental material.
+% Again, you may not assume the reviewers will read this material.
+
+% Sometimes your paper is about a problem, which you tested using a tool that is widely known to be restricted to a single institution.
+% For example, let's say it's 1969, you have solved a key problem on the Apollo lander, and you believe that the ECCV audience would like to hear about your
+% solution.
+% The work is a development of your celebrated 1968 paper entitled ``Zero-g frobnication: How being the only people in the world with access to the Apollo lander source code makes us a wow at parties'', by Zeus \etal.
+
+% You can handle this paper like any other.
+% Do not write ``We show how to improve our previous work [Anonymous, 1968].
+% This time we tested the algorithm on a lunar lander [name of lander removed for blind review]''.
+% That would be silly, and would immediately identify the authors.
+% Instead write the following:
+% \begin{quotation}
+%    We describe a system for zero-g frobnication.
+%    This system is new because it handles the following cases:
+%    A, B.  Previous systems [Zeus et al. 1968] did not  handle case B properly.
+%    Ours handles it by including a foo term in the bar integral.
+
+%    ...
+
+%    The proposed system was integrated with the Apollo lunar lander, and went all the way to the moon, don't you know.
+%    It displayed the following behaviours, which show how well we solved cases A and B: ...
+% \end{quotation}
+% As you can see, the above text follows standard scientific convention, reads better than the first version, and does not explicitly name you as the authors.
+% A reviewer might think it likely that the new paper was written by Zeus \etal, but cannot make any decision based on that guess.
+% He or she would have to be sure that no other authors could have been contracted to solve problem B.
+
+% For sake of anonymity, authors must omit acknowledgements in the review copy. 
+% They can be added later when you prepare the final copy.
+
+
+% \section{Formatting Guidelines}
+
+% \subsection{Headings}
+% Headings should be capitalized (\ie, nouns, verbs, and all other words except articles, prepositions, and conjunctions should be set with an initial capital) and should, with the exception of the title, be aligned to the left.
+% Only the first two levels of section headings should be numbered, as shown in \cref{tab:headings}.
+% The respective font sizes are also given in \cref{tab:headings}. 
+% Kindly refrain from using ``0'' when numbering your section headings.
+% Words joined by a hyphen are subject to a special rule. 
+% If the first word can stand alone, the second word should be capitalized.
+
+% \begin{table}[tb]
+%   \caption{Font sizes of headings. 
+%     Table captions should always be positioned \emph{above} the tables.
+%   }
+%   \label{tab:headings}
+%   \centering
+%   \begin{tabular}{@{}lll@{}}
+%     \toprule
+%     Heading level & Example & Font size and style\\
+%     \midrule
+%     Title (centered)  & {\Large\bf Lecture Notes \dots} & 14 point, bold\\
+%     1st-level heading & {\large\bf 1 Introduction} & 12 point, bold\\
+%     2nd-level heading & {\bf 2.1 Printing Area} & 10 point, bold\\
+%     3rd-level heading & {\bf Headings.} Text follows \dots & 10 point, bold\\
+%     4th-level heading & {\it Remark.} Text follows \dots & 10 point, italic\\
+%   \bottomrule
+%   \end{tabular}
+% \end{table}
+
+% Here are some examples of headings: 
+% ``Criteria to Disprove Context-Freeness of Collage Languages'', ``On Correcting the Intrusion of Tracing Non-deterministic Programs by Software'', ``A User-Friendly and Extendable Data Distribution System'', ``Multi-flip Networks: Parallelizing GenSAT'', ``Self-determinations of Man''.
+
+
+% \subsection{Figures}
+% \label{sect:figures}
+% For \LaTeX{} users, we recommend integrating figures in your paper using the package \texttt{graphicx}.
+
+% It is essential that all illustrations are clear and legible. 
+% Vector graphics (rather than rasterized images) should be used for diagrams and schemas whenever possible. 
+% Please check that the lines in line drawings are not interrupted and have a constant width. 
+% Line drawings are to have a resolution of at least 800 dpi (preferably 1200 dpi).
+% Grids and details within figures must be clearly legible and may not be written one on top of the other. 
+% The lettering in figures should not use font sizes smaller than 6\:pt ($\sim$2\:mm character height). 
+
+% Figures should be numbered and should have a caption, which should always be positioned \emph{under} the figures, in contrast to the caption belonging to a table, which should always appear \emph{above} the table.
+% Figures and Tables should be cross-referred in the text.
+
+% If they are short, they are centered between the margins (\cf \cref{fig:short}). 
+% Longer captions, covering more than one line, are justified (\cref{fig:example} shows an example). 
+% Captions that do not constitute a full sentence, do not have a period.
+
+
+% \begin{figure}[tb]
+%   \centering
+%   \includegraphics[height=6.5cm]{eijkel2}
+%   \caption{One kernel at $x_s$ (\emph{dotted kernel}) or two kernels at $x_i$ and $x_j$ (\emph{left and right}) lead to the same summed estimate at $x_s$.
+%     This shows a figure consisting of different types of lines.
+%     Elements of the figure described in the caption should be set in italics, in parentheses, as shown in this sample caption. 
+%     The last sentence of a figure caption should generally end with a full stop, except when the caption is not a full sentence.
+%   }
+%   \label{fig:example}
+% \end{figure}
+
+% \begin{figure}[tb]
+%   \centering
+%   \begin{subfigure}{0.68\linewidth}
+%     \fbox{\rule{0pt}{0.5in} \rule{.9\linewidth}{0pt}}
+%     \caption{An example of a subfigure}
+%     \label{fig:short-a}
+%   \end{subfigure}
+%   \hfill
+%   \begin{subfigure}{0.28\linewidth}
+%     \fbox{\rule{0pt}{0.5in} \rule{.9\linewidth}{0pt}}
+%     \caption{Another example of a subfigure}
+%     \label{fig:short-b}
+%   \end{subfigure}
+%   \caption{Centered, short example caption}
+%   \label{fig:short}
+% \end{figure}
+
+% If possible (\eg, if you use \LaTeX) please define figures as floating objects. 
+% \LaTeX{} users, please avoid using the location parameter ``h'' for ``here''. 
+% If you have to insert a pagebreak before a figure, please ensure that the previous page is completely filled.
+
+
+% \subsection{Formulas}
+% Displayed equations or formulas are centered and set on a separate line (with an extra line or half line space above and below). 
+% Equations should be numbered for reference. 
+% The numbers should be consecutive within the contribution, with numbers enclosed in parentheses and set on the right margin.
+% For example,
+% \begin{align}
+%   \psi (u) & = \int_{0}^{T} \left[\frac{1}{2}
+%   \left(\Lambda_{0}^{-1} u,u\right) + N^{\ast} (-u)\right] \text{d}t \; \\
+% & = 0
+% \end{align}
+% and 
+% \begin{equation}
+%   E = m\cdot c^2.
+%   \label{eq:important}
+% \end{equation}
+% Please do not include section counters in the numbering.
+
+% Numbering equations makes reviewing more efficient, because reviewers can refer to a line on a page.  
+% It is important for readers to be able to refer to any particular equation.
+% Just because you did not refer to it in the text does not mean some future reader might not need to refer to it.
+% It is cumbersome to have to use circumlocutions like ``the equation second from the top of page 3''.
+% (Note that the ruler will not be present in the final copy, so is not an alternative to equation numbers).
+% All authors will benefit from reading Mermin's description of how to write mathematics:
+% \url{https://doi.org/10.1063/1.2811173}.
+
+% % No color equations in Springer publications.
+% Equations should never be in color and should be punctuated in the same way as ordinary text.
+% They should not be pasted in as figures.
+
+
+% \subsubsection{Lemmas, Propositions, and Theorems.}
+% The numbers accorded to lemmas, propositions, and theorems, \etc should appear in consecutive order, starting with Lemma 1. 
+% Please do not include section counters in the numbering like ``Theorem 1.1''.
+
+
+% \subsection{Footnotes.}
+% The superscript numeral used to refer to a footnote appears in the text either directly after the word to be discussed or -- in relation to a phrase or a sentence -- following the punctuation mark (comma, semicolon, or period).%
+% \footnote{The footnote numeral is set flush left and the text follows with the usual word spacing. 
+%   Second and subsequent lines are indented. 
+% }
+% For remarks pertaining to the title or the authors' names, in the header of a paper, symbols should be used instead of a number.
+% Please note that no footnotes may be included in the abstract.
+
+
+% \subsection{Cross References}
+% For the benefit of author(s) and readers, please use the
+% \begin{verbatim}
+%   \cref{...}
+% \end{verbatim}
+% command for cross-referencing to figures, tables, equations, or sections.
+% This will automatically insert the appropriate label alongside the cross reference as in this example:
+% \begin{quotation}
+%   To see how our method outperforms previous work, please see \cref{fig:example} and \cref{tab:headings}.
+%   It is also possible to refer to multiple targets as once, \eg~to \cref{fig:example,fig:short-a}.
+%   You may also return to \cref{sec:intro} or look at \cref{eq:important}.
+% \end{quotation}
+% If you do not wish to abbreviate the label, for example at the beginning of the sentence, you can use the
+% \begin{verbatim}
+%   \Cref{...}
+% \end{verbatim}
+% command. Here is an example:
+% \begin{quotation}
+%   \Cref{fig:example} is also quite important.
+% \end{quotation}
+
+
+% \subsection{Program Code}
+% Program listings or program commands in the text are normally set in typewriter font (\eg, \texttt{printf("Hello world!\textbackslash{}n");}).
+
+
+% \subsection{Citations}
+% Arabic numbers are used for citation, which is sequential either by order of citation or by alphabetical order of the references, depending on which sequence is used in the list of references. 
+% The reference numbers are given in brackets and are not superscript.
+% Please observe the following guidelines:
+% \begin{itemize}
+% \item Single citation: \cite{Anonymous24}
+% \item Multiple citation: \cite{Alpher02,Alpher03,Alpher05,Anonymous24b,Anonymous24}. 
+%   The numbers should be listed in numerical order.
+%   If you use the template as advised, this will be taken care of automatically.
+% \item If an author's name is used in the text: Alpher \cite{Alpher02} was the first \ldots
+% \end{itemize}
+% Please write all references using the Latin alphabet. If the title of the book you are referring to is, \eg, in Russian or Chinese, then please write (in Russian) or (in Chinese) at the end of the transcript or translation of the title.
+% All references cited in the text should be in the list of references and vice versa.
+
+% References should be formatted with the official LNCS reference style.
+% The \LaTeX{} template already takes care of that through the use of the \texttt{splncs04.bst} Bib\TeX{} style file.
+% Springer strongly encourages you to include DOIs (Digital Object Identifiers) in your references (\cf \cite{ECCV2022}). 
+% The DOI is a unique code allotted by the publisher to each online paper or journal article. 
+% It provides a stable way of finding published papers and their metadata. 
+% The insertion of DOIs increases the overall length of the references section, but this should not concern you as the reference section is not counted toward the page limit.
+
+
+% \subsection{Miscellaneous}
+% Compare the following:
+% \begin{center}
+%   \begin{tabular}{ll}
+%     \verb'$conf_a$'          & $\qquad conf_a$ \\
+%     \verb'$\mathit{conf}_a$' & $\qquad \mathit{conf}_a$
+%   \end{tabular}
+% \end{center}
+% See The \TeX book, p.\ 165.
+
+% The space after \eg, meaning ``for example'', should not be a sentence-ending space.
+% So \eg is correct, \emph{e.g.} is not.
+% The provided \verb'\eg' macro takes care of this.
+
+% When citing a multi-author paper, you may save space by using ``et alia'', 
+% shortened to ``\etal'' (not ``{\em et.\ al.}'' as ``{\em et\hskip 0.1em}'' is a complete word).
+% If you use the \verb'\etal' macro provided, then you need not worry about double periods when used at the end of a sentence as in Alpher \etal.
+% However, use it only when there are three or more authors.
+% Thus, the following is correct:
+%    ``Frobnication has been trendy lately.
+%    It was introduced by Alpher~\cite{Alpher02}, and subsequently developed by
+%    Alpher and Fotheringham-Smythe~\cite{Alpher03}, and Alpher \etal~\cite{Alpher04}.''
+
+% This is incorrect: ``... subsequently developed by Alpher \etal~\cite{Alpher03} ...'' because reference~\cite{Alpher03} has just two authors.
+
+
+
+% \subsection{Most Frequently Encountered Issues}
+% Please kindly use the checklist below to deal with some of the most frequently encountered issues in the latex files of ECCV submissions.
+
+% \begin{itemize}
+% \item I have removed all \verb| \vspace| and \verb|\hspace|  commands from my paper.
+% \item I have not used \verb|\cite| command in the abstract.
+% \item I have entered a correct \verb|\titlerunning{}| command and selected a meaningful short name for the paper.
+% \item I have used the same name spelling in all my papers accepted to ECCV and ECCV Workshops.
+% \item I have added acknowledgments without a section number, e.g. using the \verb|\section*{}| command.
+% \item Excluding references and acknowledgments, my paper is no longer than 14 pages.
+% \item I have not decreased the font size of any part of the paper (except tables) to fit into 14 pages, I understand Springer editors will remove such commands.
+% \end{itemize}
+
+
+% \section{Conclusion}
+% The paper ends with a conclusion. 
+
+% \clearpage\mbox{}Page \thepage\ of the manuscript.
+% \clearpage\mbox{}Page \thepage\ of the manuscript.
+% \clearpage\mbox{}Page \thepage\ of the manuscript.
+% \clearpage\mbox{}Page \thepage\ of the manuscript.
+% \clearpage\mbox{}Page \thepage\ of the manuscript. This is the last page.
+% \par\vfill\par
+% Now we have reached the maximum length of an ECCV \ECCVyear{} submission (excluding references and acknowledgements).
+% References should start immediately after the main text, but can continue past p.\ 14 if needed. 
+% \clearpage  % TODO FINAL: This \clearpage needs to be removed from both review and camera-ready versions.
+
+% \section*{Acknowledgements}
+% Please insert your acknowledgments here.
+
+% ---- Bibliography ----
+%
+% BibTeX users should specify bibliography style 'splncs04'.
+% References will then be sorted and formatted in the correct style.
+%
+\bibliographystyle{splncs04}
+\bibliography{main}
+\end{document}

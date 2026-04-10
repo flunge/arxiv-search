@@ -1,0 +1,74 @@
+
+\section{More Implementation Details}
+\boldparagraph{Training}
+During the training process, we first randomly sample a clip from the training videos, the context image are sampled with farthest point sampling based on camera centers from training video clips to ensure sufficent input coverage. The target images are randomly sampled from the whole video clip.
+We employ the AdamW optimizer~\citep{adamw}, setting the initial learning rate for the backbone to $2\times10^{-5}$ and other parameters to $2\times10^{-4}$. The weight of intrinsic loss $\lambda_{\text{intrin}}$, pose loss $\lambda_{\text{pose}}$, and opacity loss are set to $0.5$, $0.1$, and $0.01$ respectively.
+For the mix-forcing training, we set $t_{start}=80k$, $t_{end}=100k$, and mixing ratio $r=0.1$.
+
+\boldparagraph{Evaluation}
+For comparison with baseline methods on novel view synthesis, we use the $224\times224$ version of our model to ensure a fair comparison, as it best aligns with the experimental settings of the other baselines. Different prior methods adopt different input resolutions (\eg, MVSplat~\citep{mvsplat} and NoPoSplat~\cite{mvsplat} use $256\times256$, while DepthSplat~\citep{depthsplat} uses $256\times448$). Due to computational constraints and to avoid noise from in-house reproduction, it is not feasible to retrain all baselines and our model at a unified resolution. However, we have taken care to ensure that the comparisons remain fair and meaningful: 
+1) Our model has the smallest receptive size among all compared methods. Since all methods first center-crop and then resize, square crops result in minimal receptive coverage. We use this model for novel view synthesis comparisons to maintain fairness.
+2) Because our model has the smallest receptive size, we can center-crop and resize the rendered outputs of other methods, ensuring that all comparisons are performed on the same image content.
+
+\boldparagraph{Optional Post-Optimization} 
+This fast optimization step refines the predicted camera poses, Gaussian centers, and colors for 200 iterations. We use learning rates of 0.005 for pose parameters, 0.0016 for Gaussian means, and 0.0025 for colors. The total optimization time varies with the number of input views: 17.7s for 6 views, 51.1s for 12 views, and 165s for 24 views.
+
+
+\section{More Experimental Analysis}
+
+\subsection{On the Utility of Ground-Truth Pose Priors}
+A noteworthy and somewhat counter-intuitive result emerges from our experiments, as shown in Tables~\ref{tab:nvs_dl3dv} and~\ref{tab:nvs_re10k}. In settings with a small number of input views (\eg, 6 views), our model operating in the fully \textit{pose-free} setting outperforms its \textit{pose-dependent} counterpart, which is supplied with ground-truth camera poses. We hypothesize that this is due to the inherent noise and potential inconsistencies within the ``ground-truth'' poses themselves, which are typically derived from Structure-from-Motion (SfM) pipelines.
+For sparse-view reconstructions, minor inaccuracies in SfM poses can lead to subtle misalignments when aggregating local Gaussians. In contrast, our pose-free model is optimized end-to-end to produce a set of camera poses and a 3D representation that are maximally photometrically consistent with each other. This internal self-consistency can lead to higher-quality renderings than forcing the model to align with a slightly imperfect ground-truth coordinate system. Moreover, the slight misalignment of the target pose also contributes to this.
+
+However, this trend reverses as the number of input views and the scene scale increase (see Tab.~\ref{tab:nvs_dl3dv}). For larger view counts (\eg, 12 and 24), the pose-dependent setting regains its advantage. This occurs because pose estimation becomes more challenging as the scene scale increases, whereas SfM-based ground-truth poses provide a strong geometric prior. This analysis highlights the robustness of our model: it can learn priors strong enough to compensate for noisy ground-truth data in sparse-view scenarios, while also effectively leveraging ground-truth pose information when the scene scale is large.
+
+
+\subsection{Ablation on Output Gaussian Space}
+\input{tables/ablation_gaussian}
+As discussed in Sec.~\ref{sec:design}, a fundamental design choice is the output representation space. We compare our approach of predicting Gaussians in a \textbf{local}, per-view space against the alternative of predicting them directly into a unified \textbf{canonical} space. Tab.~\ref{tab:ablation_gaussain} shows that the local prediction strategy significantly outperforms the canonical one on all metrics. This result empirically validates our hypothesis that predicting in a local space is more scalable and robust, especially as the number of views increases, as it avoids the difficulty of forcing a single network to align features from multiple views into one arbitrary coordinate frame.
+
+\subsection{Impact of Intrinsic Condition Embedding (ICE)}
+\input{tables/ablation_intrinsic}
+Table~\ref{tab:ablation_intrinsic} evaluates three inference scenarios: (1) ground-truth intrinsics, (2) predicted intrinsics, and (3) no intrinsic conditioning. Removing intrinsics causes a clear performance drop, confirming their importance for resolving scale ambiguity. Using predicted intrinsics significantly outperforms the no-intrinsic baseline and comes close to ground-truth, demonstrating that ICE enables high-quality reconstruction even from uncalibrated inputs.
+
+
+
+\subsection{Ablation on Plücker rays}
+\input{tables/ablation_pluker}
+Some prior pose-dependent methods~\citep{llrm, gslrm} incorporate rich geometric ray representations, such as Plücker coordinates, to help the network align multi-view information. We investigate whether such explicit geometric cues are necessary for our model. Tab.~\ref{tab:ablation_pluker} shows that incorporating a Plücker ray embedding provides no significant performance benefit; the metrics are nearly identical to our default model. This result demonstrates that our model learns to effectively establish cross-view correspondence and align local Gaussians using image features alone, without relying on explicit geometric embeddings. This simplifies the architecture and reinforces its suitability for pose-free scenarios where such information may not be readily available or reliable.
+
+\section{Limitations}
+Our method leverages a feedforward approach to reconstruct wide-coverage scenes from an arbitrary number of unposed images. However, the maximum number of input views is constrained by GPU memory. Therefore, an interesting future direction is to explore incremental feedforward reconstruction~\citep{cut3r}. Moreover, as shown in Tab.~\ref{tab:nvs_dl3dv}, pose optimization can still substantially improve the performance of our Gaussians, indicating that the current feedforward model has significant potential for further enhancement.
+
+\begin{figure}[tp]
+    \centering
+    \vspace{-3mm}
+    \includegraphics[width=1\linewidth, trim={0mm 0cm 0 0cm},clip]{images/scannetpp_more.pdf}
+    \vspace{-3mm}
+    \caption{\textbf{More qualitative comparison on ScanNet++.} \ourmethod{} demonstrates strong generalization to the unseen ScanNet++ dataset, producing more coherent reconstructions than AnySplat by better fusing multi-view Gaussians. The quality improves as more input views are provided (left to right). Notably, while our model performs well without priors (Ours w/o p.), providing ground-truth intrinsics (Ours w/ p.) further enhances generalization and fusion, leading to the highest fidelity results.}
+    \vspace{-3mm}
+    \label{fig:nvs_scannetpp_more}
+\end{figure}
+
+\section{More Visual Comparisons}
+Here, we provide more qualitative comparisons on the ScanNet++~\citep{scannetpp}, RealEstate10K~\citep{re10k}, and DL3DV~\citep{dl3dv} datasets. 
+As shown in Fig.~\ref{fig:nvs_scannetpp_more}, Fig.~\ref{fig:re10k_more}, and Fig.~\ref{fig:dl3dv_more}, our pose-free method consistently outperforms the previous SOTA pose-free method, NoPoSplat~\citep{noposplat}. Moreover, we can even achieve superior novel view rendering quality compared to SOTA pose-required methods~\citep{mvsplat, depthsplat} and optimization-based methods~\citep{instantsplat}.
+
+\section{Use of Large Language Models}
+We use LLMs solely for improving grammar, wording, and overall readability of the manuscript. The model is not used for ideation, experimental design, implementation, or analysis. All technical content, methodology, and results are original and developed entirely by the authors.
+
+\begin{figure}[tp]
+    \centering
+    \includegraphics[width=1\linewidth, trim={0mm 0cm 0 0cm},clip]{images/re10k_more.pdf}
+    \caption{\textbf{Qualitative comparison on RealEstate10K~\citep{re10k}}. Our method achieves high-quality novel view synthesis compared with the previous SOTA pose-required method~\citep{depthsplat} and pose-free method~\citep{noposplat}.}
+    \label{fig:re10k_more}
+\end{figure}
+
+
+\begin{figure}[tp]
+    \centering
+    \includegraphics[width=1\linewidth, trim={0mm 0cm 0 0cm},clip]{images/dl3dv_more.pdf}
+    \caption{\textbf{Qualitative comparison on DL3DV~\citep{dl3dv}}. We compare our method with state-of-the-art optimization-based~\citep{instantsplat}, pose-required~\citep{mvsplat, depthsplat}, and pose-free~\citep{noposplat, anysplat} methods. Here, the results of our method are obtained under the \textit{pose-free, intrinsic-free} setting. The results demonstrate that our method generates novel view images of higher quality than these methods.
+    }
+    \label{fig:dl3dv_more}
+\end{figure}

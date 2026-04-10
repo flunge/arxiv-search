@@ -1,0 +1,37 @@
+\section{Related works}
+\label{sec:rw}
+
+\paragraph{LiDAR Scene Generation}
+
+
+Some LiDAR scan generation methods, such as UltraLiDAR~\cite{xiong_ultralidar_2023} and OLiDM~\cite{yan2025olidm}, directly take point clouds as input.
+To control for non-uniform and large point cloud sizes, these methods rely on encoding and pre-processing strategies such as voxelization or padding to create uniform point clouds \cite{kirby2024logen}.
+The second and most widely used modality, range images, requires no costly pre-processing, and builds on top of existing classic image architectures like UNet~\cite{milioto_rangenet_2019} or ViT~\cite{ando_rangevit_2023}.
+Range images enable an easier fusion between modalities and the possibility to use large pretrained models~\cite{buburuzan_mobi_2025}.
+
+First attempts to use diffusion on range images opted for pixel space diffusion~\cite{zyrianov2022learning, nakashima_lidar_2024,zhu2025spiral}, which comes at the price of a costly generation process limiting the size of the network. More recent works, such as~\cite{ran_towards_2024,hu_rangeldm_2024}, switch to a latent diffusion approach~\cite{rombach_high-resolution_2022}.
+Conversely, R2Flow~\cite{nakashima_fast_2025} argues that diffusion in pixel space is essential for high-fidelity results. To reduce inference time, it introduces a rectified flow model that lowers the number of required sampling steps. In contrast, we argue that latent diffusion can also deliver high-quality generation, provided the variational autoencoder is trained with an adversarial loss as in \cite{hu_rangeldm_2024}.
+
+Significant advancements in range image generation architectures include the introduction of circular padding for convolutions in the UNet~\cite{milioto_rangenet_2019,ran_towards_2024,nakashima_lidar_2024}, the use of autoencoders as in LiDM~\cite{ran_towards_2024}, and improvements in range image projection~\cite{triess_scan-based_2020, hu_rangeldm_2024}.
+\cite{triess_scan-based_2020} points out that the assumption of translation equivariance in convolutions is not fully satisfied for range images, due to distance dilation as a function of pitch.
+LiDARGen~\cite{zyrianov2022learning} and R2DM~\cite{nakashima_lidar_2024} address translation equivariance by introducing spatial Fourier features of the angular coordinates as an additional input channel to a UNet. These features act as positional encodings to generate front view centered range images.
+In contrast, we employ a transformer architecture, which naturally incorporates positional information without requiring such encodings.
+
+
+\paragraph{Vision Foundation Models for Generation} 
+Image synthesis has progressed from GANs \cite{goodfellow2014generative}, to autoregressive \cite{van2016conditional}, diffusion \cite{ho_denoising_2020}, and flow matching (FM) models \cite{lipmanflow}. 
+While GANs enable fast generation, they often suffer from limited coverage and training instability \cite{brock2018large}.
+On the other hand, diffusion methods offer stable training with simple objectives but rely on slow, iterative sampling \cite{song_score-based_2020}.
+Recent hybrid approaches, such as \cite{rombach_high-resolution_2022}, address these trade-offs leveraging VAEs (variational autoencoders) and GANs to compress images into a smaller latent space, and a diffusion model for synthesis, improving both efficiency and fidelity.
+
+Pioneering work REPA \cite{yu_representation_2025} observes that training speed in latent diffusion models is mainly limited by learning a meaningful internal representation of images. To address this, it guides the learning process by aligning intermediate projections with the feature maps of the DINOv2 encoder \cite{oquab2024dinov2}, which results in faster training and improved generation quality.
+Building on this idea, subsequent works have examined the effectiveness of this additional loss \cite{wang_repa_2025} and its application to UNet architectures \cite{tian_u-repa_2025}.
+\cite{yao_reconstruction_2025} improves reconstruction and generation quality by introducing a latent alignment loss that, unlike REPA, directly operates in the VAE latent space before diffusion training.
+The REPA-E~\cite{leng_repa-e_2025} training method shows that the REPA loss can serve as a useful signal for the encoder, allowing end-to-end training. By backpropagating the REPA loss both to the diffusion model and the VAE, it jointly guides their internal representations, leading to improved alignment and generation quality.
+
+\paragraph{Self-supervised Pretraining of LiDAR Scenes}
+Self-supervised learning methods on images have provided strong general backbones yielding representations useful for a wide variety of downstream tasks \cite{oquab2024dinov2}. 
+Recent work has aimed to develop analogous backbones for 3D LiDAR point clouds as foundation models.
+SONATA \cite{wu2025sonata} follows a self-distillation pretraining strategy, using only the encoder of a UNet as the backbone.
+ScaLR \cite{puy2024three} instead distills DINOv2~\cite{oquab2024dinov2} features into its 3D backbone using paired LiDAR point clouds and camera images, aligning 3D features with those extracted by the pretrained 2D backbone.
+Along the same line, OpenScene~\cite{peng2023openscene} distills CLIP features into 3D features. 

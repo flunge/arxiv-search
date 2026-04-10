@@ -42,6 +42,8 @@
 | P1 | 每个章节中，若 ≥70% 的段落长度 < 55 字，判定"段落过碎" |
 | P2 | 禁止出现疑似截断的中文句（结尾含 `（`、`(`、`、`、`，`、`；`、`/`） |
 | P3 | 公式解读段落中，重复内容占比 < 0.65 才合格（重复过多视为生成退化） |
+| P4 | 技术细节中的公式必须放回对应 `3.x / 3.x.x` 小节；若 ≥80% 且至少 8 条公式都集中出现在 technical 最后一个小标题之后，判定为“公式集中堆尾” |
+| P5 | 图示与表格也必须回到与原文一致的逻辑位置；若 placement 元数据显示多个 source owner 被渲染到单一尾部 owner，判定为“图/表集中堆尾” |
 
 ### 2.4 理解评价章节
 
@@ -95,6 +97,8 @@
 - 重写 `purpose` 类型：`summary` / `innovation` / `technical` / `experiment` / `takeaway` / `equation` / `caption`。
 - Takeaway 使用 `_compose_takeaway_source` 组合摘要 + 方法 + 实验 + 结论四段内容，再传给 LLM。
 - 段落后处理 `_postprocess_rewrite_output` 会过滤直译痕迹句和截断句。
+- source 抽取阶段会为公式补充 `section/subsection/subsubsection` owner；generic technical 渲染必须按 owner 把公式插回对应小节，不能统一附在 technical 尾部。
+- source 抽取阶段同样会为 `figure/table` 补充 `section/subsection/subsubsection` owner；图表渲染必须跟随对应小节注入，不能只按 summary / technical / experiment 三个大桶粗暴堆放。
 
 ---
 
@@ -126,6 +130,8 @@
 | 作者/机构噪声 | 作者单位、项目页 URL 出现在段落正文 | `_remove_author_affiliation_noise` | ✅ 已修复 |
 | 省略号截断 | 翻译或改写结果末尾 `...` 残留 | `_postprocess_rewrite_output` + 验证器 | ✅ 已修复 |
 | 公式解读高重复 | 同一篇博客所有公式给出几乎相同解读 | `recent_explains` 去重滑动窗口 | ✅ 已修复 |
+| 公式堆在章节尾部 | 3.1/3.2 的公式全部落到 3.3.x 末尾，读者无法对应上下文 | 公式 owner 元数据 + 按 subsection/subsubsection 归位渲染 + 验证器尾部堆叠检测 | ✅ 已修复 |
+| 图表堆在章节尾部 | Fig/Table 虽然来自 3.3/4.2，但被统一塞到 technical 或 experiment 顶部/尾部 | figure/table owner 元数据 + 按小节归位渲染 + placement 校验 | ✅ 已修复 |
 | Takeaway 缺局限/未来 | 理解评价只有贡献陈述，无局限或改进方向 | LLM prompt 三层结构 + 验证器双重检查 | ✅ 已修复 |
 | 摘要 ≈ 技术细节 | 两章节文字几乎相同 | `_pick_section_text` 分别取 abstract/method 节 | ✅ 已修复 |
 

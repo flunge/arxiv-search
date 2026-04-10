@@ -1,0 +1,105 @@
+\section{Introduction}
+\label{sec:introduction}
+
+Novel view synthesis (NVS) has witnessed remarkable progress with 3DGS~\cite{kerbl20233d}, which represents scenes as 
+collections of anisotropic 3D Gaussians to achieve photorealistic rendering 
+at real-time speeds. 
+While 3DGS achieves real-time rendering and high visual quality on densely 
+captured scenes, its performance degrades dramatically under 
+sparse-view settings commonly encountered in practical scenarios.
+
+% 这有点长了
+The degradation stems from a fundamental issue in 3DGS optimization: 
+\textbf{lack of intrinsic consistency between geometry and appearance}.
+In 3DGS, each primitive is parameterized by coupled intrinsic properties, 
+including geometric attributes (position $\boldsymbol{\mu}$, covariance 
+$\boldsymbol{\Sigma}$, opacity $\alpha$) defining its spatial structure, 
+and appearance attributes (view-dependent color $\mathbf{c}(\mathbf{d})$) 
+determining its photometric contribution.
+For faithful scene reconstruction, these properties must satisfy 
+\emph{intrinsic consistency}: geometry should accurately capture the underlying 
+3D structure, while appearance should coherently reflect surface photometry 
+across viewpoints.
+However, sparse-view 3DGS violates this consistency. 
+The standard 3DGS optimization relies on per-view photometric supervision that 
+independently minimizes rendering loss for each training view.
+With limited observations, this independent supervision allows appearance to 
+overfit individual views by compensating for geometric errors, while 3D geometry 
+remains severely underconstrained due to lack of explicit multi-view regularization.
+This leads to internally inconsistent 
+Gaussians that produce plausible renderings on training views but severe 
+artifacts (floaters or blurriness) on novel views.
+These challenges are particularly pronounced in weakly-textured regions, 
+where the absence of distinctive appearance cues further exacerbates geometric 
+ambiguity.
+
+
+Addressing this requires jointly solving two coupled challenges. 
+\textbf{First}, how to effectively constrain geometry under sparse observations? 
+Recent studies have employed pretrained depth estimation models~\cite{zhu2024fsgs,li2024dngaussian,xiong2023sparsegs, xu2025depthsplat} 
+to regularize 3DGS geometry, but such approaches suffer from scale ambiguity and 
+noise introduced by imperfect pretrained models. 
+Other methods~\cite{zhu2024fsgs,zheng2025nexusgs} rely on dense initialization, 
+yet the initial geometric cues tend to be gradually forgotten during subsequent optimization.
+\textbf{Second}, how to couple accurate geometry with reliable appearance optimization to prevent overfitting? 
+BinocularGS~\cite{han2024binocular} builds virtual binocular pairs from rendered depth 
+to enforce disparity consistency, but this approach relies on rendered depth whose 
+reliability is not guaranteed, potentially propagating depth errors into appearance optimization 
+and limiting rendering quality.
+
+
+To this end, we propose \textbf{ICO-GS} (\textbf{I}ntrinsic Geometry-Appearance 
+\textbf{C}onsistency \textbf{O}ptimization for Sparse-view \textbf{G}aussian 
+\textbf{S}platting), a principled framework that restores intrinsic consistency 
+in sparse-view 3DGS through synergistic geometry-appearance optimization.
+Our key insight is that faithful geometry and appearance emerge from their 
+\emph{mutual reinforcement}: well-constrained geometry guides appearance to 
+learn view-consistent photometry, while reliable appearance supervision in 
+turn refines geometry.
+We realize this synergy through two coupled components.
+
+
+\textbf{Geometric regularization via multi-view photometric consistency.}
+Under ideal conditions, a 3D point observed from multiple viewpoints should 
+exhibit photometric consistency. However, illumination variations, occlusions, 
+and monocularly visible regions violate this assumption. 
+We therefore adopt feature-based multi-view consistency to regularize geometry, 
+mitigating the impact of lighting and imaging variations. 
+To handle occlusions prevalent in sparse-view settings, we employ pixel-wise 
+top-$k$ selection: for each pixel, we compute photometric errors across all 
+source views and retain only the $k$ most consistent ones, robustly filtering 
+occluded or unreliable observations. 
+For monocularly visible regions, we further incorporate an edge-aware depth 
+smoothness term that enforces local coherence while preserving sharp geometric 
+boundaries. 
+These complementary constraints yield geometry that is both multi-view consistent 
+and structurally sound, proving particularly effective in weakly-textured 
+regions where photometric cues are scarce.
+
+\textbf{Geometry-guided appearance optimization via virtual view consistency.}
+To couple geometry with appearance, we leverage the regularized depth to 
+synthesize virtual views, propagating geometric constraints to appearance.
+However, naively using all depth estimates introduces noise from uncertain regions.
+We address this via cycle-consistency depth filtering: we project each pixel's 
+depth to source views and back-project to the original view, retaining only 
+pixels with consistent spatial locations.
+The filtered depth then guides virtual view synthesis through depth-conditioned 
+warping, providing geometric supervision that encourages appearance to capture 
+view-consistent photometry rather than overfit individual observations.
+
+
+Our contributions are summarized as follows:
+\begin{itemize}[leftmargin=*,nosep]
+      \item We identify \emph{intrinsic consistency}, defined as the coupled correctness 
+      of geometry and appearance, as a fundamental principle for sparse-view 3DGS, 
+      and reveal how its violation causes severe degradation in novel views.
+    \item We address geometry underconstraint through feature-based multi-view 
+          photometric regularization with pixel-wise top-$k$ consistency and 
+          edge-preserving smoothness.
+    \item We prevent appearance overfitting through geometry-guided optimization 
+          that synthesizes virtual views from cycle-filtered depth, coupling 
+          geometric accuracy with photometric quality.
+    \item Extensive experiments validate that ICO-GS achieves state-of-the-art sparse-view novel view synthesis across diverse scenes, particularly on weakly-textured data, with 1.1 dB PSNR gains over prior arts on 3-view DTU scenarios.
+\end{itemize}
+
+

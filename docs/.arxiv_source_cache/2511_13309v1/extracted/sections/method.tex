@@ -1,0 +1,142 @@
+\section{\sysname}
+
+\label{sec_seqlidar}
+
+\cref{fig_diagram_seqnet} illustrates the pipeline of \sysname: During training, we first derive the three multimodal conditions: road sketches, scene captions and object priors. Then, \modelname\ takes as input a sequence of noised equirectangular images, conditioned on the three multimodal conditions, and predicts the added noises. During inference, \modelname\ reconstructs the sequence of equirectangular images, again utilizing the three multimodal conditions.
+In this section, we first detail the multimodal conditions and then elaborate on the specifics of \modelname.
+
+\subsection{Preliminary}
+Our method is based on diffusion models, and we briefly introduce its principle in this section. We employ the denoising diffusion probabilistic model (DDPM). In DDPM, a forward diffusion process will gradually destroy a sample $\boldsymbol{x}$ by adding Gaussian noise at each timestep $t$: $\boldsymbol{x}_t=\alpha_t \boldsymbol{x} + \sigma_t \epsilon$. The variable $\boldsymbol{x}_t$ will finally arrive at Gaussian distribution, which can be written by
+\begin{equation}
+    q(\boldsymbol{x}_t|\boldsymbol{x}) = \mathcal{N} (\alpha_t\boldsymbol{x}, \sigma^2_t \boldsymbol{I}), 
+\end{equation}
+where $\alpha_t$ and $\sigma_t$ are hyperparameters that determine the noise scheduling. We follow the $\alpha$-cosine schedule \cite{saharia2022photorealistic} where $\alpha_t=\cos(\pi t/2)$, $\sigma_t=\sin(\pi t/2)$. Consequently, the intermediate transition process of variable from timestep $s$ to $t$ ($0<s<t<1$) can be formulated as 
+\begin{equation}
+    q(\boldsymbol{x}_t|\boldsymbol{x}_s)= \mathcal{N} (\alpha_{t|s}\boldsymbol{x}_s, \sigma^2_{t|s} \boldsymbol{I}), 
+\end{equation}
+where $\alpha_{t|s}={\alpha_t}/{\alpha_s}$, $\sigma^2_{t|s}=\sigma^2_t - \alpha^2_{t|s}\sigma^2_s$.
+
+A reverse diffusion process is used to denoise the sample in the latent space, which can be represented as
+\begin{equation}
+\label{eq_p_step}
+    p(\boldsymbol{x}_s|\boldsymbol{x}_t) = \mathcal{N}(\boldsymbol{\mu}_t(\boldsymbol{x}, \boldsymbol{x}_t), \Sigma^2_t\boldsymbol{I}),
+\end{equation}
+where $\boldsymbol{\mu}_t(\boldsymbol{x}, \boldsymbol{x}_t)=(\alpha_{t|s}\sigma^2_s/\sigma^2_t) \cdot \boldsymbol{x}_t + (\alpha_s\sigma^2_{t|s}/\sigma^2_t) \cdot \boldsymbol{x}$, $\Sigma^2_t=\sigma^2_{t|s}\sigma^2_s/\sigma^2_t$.
+
+During training, with a noised sample $\boldsymbol{x}_t$, the model is learning to estimate the unknown $\boldsymbol{x}_s$ via  estimating $\boldsymbol{x}$ in \cref{eq_p_step}. Practically, we adopt $\epsilon$-prediction \cite{saharia2022photorealistic} by reparameterizing $\boldsymbol{x}$ as a function of $\boldsymbol{x}_t$ and $\epsilon$. The loss function is denoted as 
+\begin{equation}
+    \mathcal{L} = \mathbb{E}_{\boldsymbol{x}, \boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I}, t)} \left [ \| \boldsymbol{\epsilon} - \hat{\boldsymbol{\epsilon}}(\boldsymbol{x}_t, t, \boldsymbol{c}) \| ^2 \right ],
+\end{equation}
+where $\boldsymbol{c}$ means conditions (will be described in \cref{sec_seqlidar}).
+
+Once the model is trained, we evaluate \cref{eq_p_step} iteratively as $t: 1 \rightarrow 0$ and the final sample is expected to approximate the data distribution. We set the number of iterations as 256 in denoising process.
+
+
+
+
+
+
+\subsection{Multimodal Conditions}
+\label{sec_conditions}
+
+\begin{figure}[t]
+    \begin{center}
+       \includegraphics[width=\linewidth]{figures/conditions.pdf}
+    \end{center}
+       \caption{Visualization of the multimodal conditions of an example from the nuScenes dataset (Images have been resized for better visualization). }
+       \label{fig_condition}
+ \end{figure}
+
+\noindent \textbf{Road Sketch}:
+The road sketch incorporates road layouts and object-specific information.
+Firstly, road layouts are delineated through curbs and lane lines. This representation provides a pixel-to-pixel control of the spatial organization of the road.
+Secondly, object-specific information is instantiated as 3D bounding boxes, which encapsulate the size, location, and heading direction of each object. 
+\begin{comment}
+This representation offers the following advantages:
+1) It facilitates precise object-level manipulations, allowing for detailed control over individual elements within the scene. And 2) The use of multiple 3D bounding boxes implicitly conveys occlusion states, providing depth and spatial relationship information without explicit encoding.
+\end{comment}
+
+To integrate the two components into a unified representation, both the road layouts and 3D bounding boxes are projected onto the equirectangular image (will be detailed soon) plane of the LiDAR sensor. This results in a road sketch that has a same size as the input equirectangular image.  \cref{fig_condition} depicts an example of road sketch condition from the nuScenes dataset.
+
+
+ \begin{figure*}[t]
+    \begin{center}
+       \includegraphics[width=1\linewidth]{figures/seqnet.pdf}
+    \end{center}
+       \caption{The pipeline of \sysname. We first derive multi-modal conditions, including road sketches, scene captions and object priors from a given road scene (see \cref{sec_conditions}).  Then, the proposed \modelname\ predicts the sequential noises based on the multimodal conditions, where Equirectangular Spatial-Temporal Convolution (EST-Conv) and Equirectangular Spatial-Temporal Convolution (EST-Trans) enforce spatial and temporal consistency (see \cref{sec_seqnet} ).}
+       \label{fig_diagram_seqnet}
+ \end{figure*}
+
+\noindent \textbf{Scene Caption}:
+In addition to foreground control by road sketches, we propose to use scene captions that provide a comprehensive description of the background. Unfortunately, existing LiDAR datasets lack high-quality scene captions: the KITTI-360 dataset \cite{Liao2022PAMI} does not include scene captions, while the nuScenes dataset \cite{caesar2020nuscenes} provides only brief, one-sentence descriptions of the weather or time of day. 
+Therefore, we leverage capabilities of the powerful vision-language model GPT-4V \cite{hurst2024gpt} to generate detailed scene captions. Specifically, we input the surrounding images into GPT-4V and request descriptive text for the depicted scene. 
+\cref{fig_condition} depicts an example of the scene caption condition from the nuScenes  dataset. In this example, the scene caption encompasses not only the foreground object "taxi", but also the background elements such as "trees" and "grassy areas". 
+
+
+
+\noindent \textbf{Object Priors}:
+In autonomous driving scenarios, LiDAR measurements of different elements are often imbalanced; for example, a vehicle may be represented by hundreds of points, whereas the ground may encompass thousands. Diffusion models typically attempt to approximate the entire scene without addressing this imbalance, which can result in suboptimal generation quality for objects.
+To mitigate this issue, we propose initially synthesizing the point clouds of objects, which then serve as a condition to guide the model in generating the entire scene. The underlying intuition is that while road sketches indicate the locations of objects, the distribution of points for those objects is not adequately guided. Incorporating synthetic object point clouds as priors provides a stronger guidance during the denosing process.
+
+
+We train an object generation model, DiT-3D \cite{mo2023ditd}, conditioned on the object's category, size, polar coordinates relative to the LiDAR sensor, and heading direction. We denote these conditions as \(\{category, l, w, h, \rho, \theta, \phi, \Phi\}\). The object priors are obtained by generating the point clouds of the objects using the pretrained object generation model. We then project these object points onto the equirectangular image plane of the LiDAR sensor. 
+
+
+\subsection{\modelname}
+
+\label{sec_seqnet}
+
+
+We follow \cite{nakashima2024lidar, wu2024text2lidar} and adopt equirectangular representation due to its efficiency in describing large scenes.  A LiDAR sensor with $H \times W$ spatial resolution captures range and reflectance measurements at $W$ azimuth angles and $H$ elevation angles, resulting in an equirectangular image $\boldsymbol{x} \in \mathbb{R}^{2\times H \times W}$. 
+%Similar to \cite{nakashima2024lidar}, 
+We scale a range variable using ${\hat{d}}= \nicefrac{\log{(d+1)}}{\log{(d_{max}+1)}}$ and subsequently normalize it to the range $[-1, 1]$.
+
+
+As is depicted in \cref{fig_diagram_seqnet}, the proposed \modelname\ is a UNet-like encoder-decoder model \cite{saharia2022photorealistic}, incorporating stacked Equirectangular Spatial-Temporal Convolution (EST-Conv) modules across four scales, along with an Equirectangular Spatial-Temporal Transformer (EST-Trans) module at the bottleneck. 
+
+
+
+
+\noindent \textbf{EST-Conv}:
+Research in RGB image generation has explored 3D convolutions for learning temporal features. However, equirectangular images possess distinct characteristics compared to standard RGB images:  1) the pixel coordinates $(\theta, \phi)$ exhibit strong correlation with LiDAR data patterns (e.g., regions that are in close proximity and are positioned low tend to represent the ground), 2) the left and right boundaries of equirectangular images represent a continuous region in LiDAR measuring space (particularly for LiDAR sensors with 360-degree horizontal field-of-view (FOV)), and 3) the pixel value distribution differs significantly from that of RGB images. The unique properties of equirectangular images make the optimum solution for processing sequential equirectangular images unknown.
+
+\begin{table*}[t]
+\centering
+\begin{tabular}{l|c|ccc|ccc} 
+\toprule
+                                      & \multirow{2}{*}{Venues} & \multicolumn{3}{c|}{KITTI-360}     & \multicolumn{3}{c}{nuScenes}                                       \\
+                                      &                         & FRD$\downarrow$                       & MMD$^1$$\downarrow$  & JSD$\downarrow$            & FRD$\downarrow$     & MMD$^1$$\downarrow$  & JSD$\downarrow$             \\ 
+\midrule
+LiDARGen \cite{zyrianov2022learning} & ECCV2022                & 2040.1             & 3.87          & 0.067          & -                 & 19.00         & 0.160           \\
+R2DM$^2$ \cite{nakashima2024lidar}        & ICRA2024                & \underline{275.67}  & 5.55          & 0.049          & -                 & -             & -               \\
+Text2LiDAR$^2$ \cite{wu2024text2lidar}    & ECCV2024                & 831.64             & 4.36          & 0.044          & -                    & -             & -               \\
+RangeLDM$^2$ \cite{hu2025rangeldm}        & ECCV2024                & 2022.71             & \textbf{0.75} & \textbf{0.035} & \underline{492.49}  & \underline{2.75}  & \underline{0.054}   \\
+%LidarDM \cite{zyrianov2024lidardm}        & ICRA2025                & -             & \underline{1.67} & 0.119 & -  & -  & -   \\
+\rowcolor{color_ours}
+\sysname               &                         & \textbf{244.25}  & \underline{3.31}  & \underline{0.042}  & \textbf{210.55} & \textbf{1.84} & \textbf{0.045}  \\
+\bottomrule
+\multicolumn{5}{l}{\footnotesize 1: MMD has been multiplied by \({10^{4}}.\)} \\
+\multicolumn{5}{l}{\footnotesize 2: We reproduced the results with their released source codes.} \\
+\end{tabular}
+\centering
+\caption{Unconditional generation results of different methods on the KITTI-360 test set and the nuScenes val split.}
+\label{tabel1}
+
+\end{table*}
+
+
+Therefore, we propose EST-Conv, a novel approach designed to learn spatial and temporal features from equirectangular images.
+In EST-Conv, to enhance spatial consistency, we leverage the correlation between pixel coordinates and LiDAR measurements by extracting Fourier features \cite{tancik2020fourier} for each pixel coordinate $(\theta, \phi)$ and concatenating these features with the input equirectangular images. The integration of Fourier features helps the model better capture the underlying geometric patterns in LiDAR data.
+Moreover, equirectangular images capture a 360-degree horizontal field of view, implying that the left and right boundaries represent continuous 3D space. To better model this spatial continuity, we replace standard zero-padding in 2D convolutions with circular padding, enhancing feature learning across horizontal image boundaries. Sequential equirectangular features are expaned along the batch dimension prior to being processed by 2D convolutional operations.  
+
+To enforce temporal consistency, we adopt 3D convolutions to directly process sequential equirectangular features. The unique geometry of equirectangular projections means adjacent pixels may represent distant objects in 3D space. Therefore, we implement 3D convolutions with small kernel sizes (d=3, h=1, w=1). Finally, we employ an Alpha-blender \cite{blattmann2023stable} to combine spatial and temporal equirectangular features. The Alpha-blender can be written as $\boldsymbol{y}=\alpha\cdot \boldsymbol{x}_S+(1-\alpha)\cdot\boldsymbol{x}_T$, where $\alpha$ is a learnable parameter, $\boldsymbol{x}_S$ and $\boldsymbol{x}_T$ are spatial and temporal features respectively. 
+
+
+\noindent \textbf{EST-Trans}:
+Convolutions efficiently process features with progressively increasing receptive fields but exhibit limitations in capturing long-range correlations. On the other hand, attention mechanisms can effectively model long-range dependencies, albeit with significant computational overhead.
+To effectively model long-range dependencies, we introduce EST-Trans and apply it exclusively at the bottleneck layer as illustrated in \cref{fig_diagram_seqnet}. We emperically found that this design strike a good balance between performance and efficiency.
+In EST-Trans, input sequences are stacked along the batch dimension before applying spatial attention and then expanded before applying temporal attention. Spatial attention captures relationships across individual equirectangular images, while temporal attention facilitates feature interactions among sequential equirectangular images. This architecture minimizes computational costs while simultaneously improving both spatial and temporal consistency.
+
+\noindent \textbf{Injecting Multimodal Conditions}: 
+Due to the distinct characteristics of the three conditioning types, we implement tailored strategies for each. For road sketches, we employ channel concatenation due to their precise pixel-to-pixel correspondence with equirectangular images. For object priors, which may object involve shape transformations, we leverage ControlNet \cite{zhang2023adding} conditioning strategy to provide enhanced learning capacity. For scene captions, in addition to applying cross-attention \cite{saharia2022photorealistic}, we fuse timestep variables with captions to prevent captions’ influence from being overshadowed by the other two conditions. Additional architecture details are provided in the supplementary materials.
+

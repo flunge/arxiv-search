@@ -1,0 +1,314 @@
+\section{Method}
+
+Our framework builds upon VGGT and extends it from static 3D perception to dynamic 4D reconstruction. 
+The key idea is to establish a unified geometric representation, namely DPMs, as the core of temporal modeling. 
+Based on this formulation, we introduce temporal reasoning via a MTA module, predict future geometry via a Future Point Head (FPH), and further refine dynamic geometry through a DGSHead. 
+An overview of the proposed architecture is shown in Fig.~\ref{fig:pipeline}.
+
+\subsection{Dynamic Point Map and Task Formulation}
+
+% We denote the camera/view index by $v \in \{1,\dots,N_v\}$ and the discrete frame index by $t \in \{1,\dots,\tau\}$, where $N_v$ is the number of camera views and $\tau$ is the clip length. 
+% Unless otherwise specified, temporal prediction is defined on frame pairs $(v,t)$ and $(v,t+\delta)$ from the same camera stream, where $\delta$ denotes a discrete temporal offset.
+% Modeling point-wise motion is expected to facilitate the learning of dynamic information within the network. 
+% Previous works~\cite{sucar2025dynamic} define dynamic point maps on top of DUSt3R~\cite{wang2024dust3r}. 
+% In the static case, the point map at time $t$ for view $v$ is formulated as
+% \begin{equation}
+% P_{v,t} = \pi^{-1}(I_{v,t}; K_{v,t}, E_{v,t}) \in \mathbb{R}^{3 \times H \times W},
+% \end{equation}
+% where $\pi^{-1}(\cdot)$ denotes the back-projection from image coordinates to 3D space using the camera intrinsics $K_{v,t}$ and extrinsics $E_{v,t}$. 
+% Each pixel $(x,y)$ in $I_{v,t}$ corresponds to a 3D point $\mathbf{p}_{v,t}(x,y)$ defined in the camera coordinate system at time $t$.
+% To model dynamics, prior DPM formulations~\cite{sucar2025dynamic} introduce a temporal extension under a fixed reference viewpoint and time condition. 
+% Instead of defining each frame in its own coordinate system, all frames are expressed in a shared reference frame:
+% \begin{equation}
+% P_{v,t}^{(\mathrm{ref})} = \mathcal{T}_{(v,t)\rightarrow \mathrm{ref}}
+% \big( \pi^{-1}(I_{v,t}; K_{v,t}, E_{v,t}) \big),
+% \end{equation}
+% where $\mathcal{T}_{(v,t)\rightarrow \mathrm{ref}}$ denotes the transformation that aligns the 3D points from frame $(v,t)$ to the reference frame. 
+% Temporal correspondence can then be modeled as
+% \begin{equation}
+% \Delta P_{v,t}^{(\mathrm{ref})} = P_{v,t+\delta}^{(\mathrm{ref})} - P_{v,t}^{(\mathrm{ref})},
+% \end{equation}
+% which represents point-wise 3D motion in a temporally consistent coordinate space.
+
+
+% In our formulation, the VGGT backbone inherently predicts point maps in a learned canonical coordinate system. 
+% Therefore, instead of explicitly constructing dynamic point maps from externally provided camera transformations, we directly regress point maps through a feed-forward model. 
+% Given a multi-view input clip $\{I_{v,t}\}$, the network predicts
+% \begin{equation}
+% \hat{P}_{v,t}, \hat{P}_{v,t+\delta} = f_{\theta}\!\left(\{I_{v,t}\}\right)\Big|_{(v,t),(v,t+\delta)},
+% \end{equation}
+% where $f_{\theta}$ denotes the proposed DynamicVGGT. 
+% Both predicted point maps are represented in a unified canonical frame, enabling the model to learn point-wise motion implicitly through
+% $
+% \Delta \hat{P}_{v,t} = \hat{P}_{v,t+\delta} - \hat{P}_{v,t}.
+% $
+% This formulation avoids explicitly relying on externally specified frame-to-reference transformations in the dynamic formulation, while still preserving the geometric prior of the original VGGT backbone. 
+
+% It therefore provides a unified basis for dynamic task design, as illustrated in Fig.~\ref{fig:dynamic_task}.
+% Specifically, we introduce two complementary tasks built upon this formulation: 
+% (i) the FPH, which learns implicit motion by enforcing inter-frame point consistency, and 
+% (ii) the DGSHead, which explicitly refines dynamic geometry through scene-flow-supervised Gaussian optimization.
+
+We denote the camera index by $v \in \{1,\dots,N_v\}$ and the frame index by $t \in \{1,\dots,\tau\}$. 
+Temporal modeling is defined on frame pairs $(v,t)$ and $(v,t+\delta)$ from the same camera stream.
+Following prior work~\cite{sucar2025dynamic}, a static point map is defined as
+\begin{equation}
+P_{v,t} = \pi^{-1}(I_{v,t}; K_{v,t}, E_{v,t}) \in \mathbb{R}^{3 \times H \times W}.
+\end{equation}
+
+To model dynamics, previous DPM formulations align all frames into a shared reference frame:
+\begin{equation}
+P_{v,t}^{(\mathrm{ref})} =
+\mathcal{T}_{(v,t)\rightarrow \mathrm{ref}}
+\big(\pi^{-1}(I_{v,t};K_{v,t},E_{v,t})\big),
+\end{equation}
+
+so that temporal motion is expressed as
+\begin{equation}
+\Delta P_{v,t}^{(\mathrm{ref})} =
+P_{v,t+\delta}^{(\mathrm{ref})}-P_{v,t}^{(\mathrm{ref})}.
+\end{equation}
+
+In contrast, VGGT directly predicts point maps in a learned canonical frame. 
+Given a multi-view clip $\{I_{v,t}\}$, our model predicts
+\begin{equation}
+\hat{P}_{v,t},\hat{P}_{v,t+\delta}=
+f_\theta(\{I_{v,t}\})|_{(v,t),(v,t+\delta)},
+\end{equation}
+
+which enables implicit motion learning through
+$
+\Delta\hat{P}_{v,t}=\hat{P}_{v,t+\delta}-\hat{P}_{v,t}.
+$
+This formulation avoids explicitly relying on externally specified frame-to-reference transformations in the dynamic formulation, while still preserving the geometric prior of the original VGGT backbone. 
+
+It therefore provides a unified basis for dynamic task design, as illustrated in Fig.~\ref{fig:dynamic_task}.
+Specifically, we introduce two complementary tasks built upon this formulation: 
+(i) the FPH, which learns implicit motion by enforcing inter-frame point consistency, and 
+(ii) the DGSHead, which explicitly refines dynamic geometry through scene-flow-supervised Gaussian optimization.
+
+\begin{figure}[t]
+\centering
+  \includegraphics[width=0.9\columnwidth]{figs/dynamic_task_design.pdf}
+  \caption{\textbf{Dynamic task formulation.} 
+  We formulate dynamic point maps by designing two complementary tasks that model point-wise motion over time. 
+  The Future Point Head learns implicit motion through inter-frame point consistency, while the Dynamic 3D Gaussian Splatting Head provides explicit motion supervision via scene flow to refine dynamic geometry.}
+  \label{fig:dynamic_task}
+\end{figure}
+
+\subsection{Motion-aware Temporal Attention}
+
+Although the DPM formulation captures temporal variations at the geometric level, relying solely on point-wise displacement is still insufficient for accurate dynamic reconstruction. 
+Previous work, such as StreamVGGT~\cite{zhuo2025streaming}, also introduces temporal attention to enhance temporal modeling. 
+However, its sequential stacking of AA blocks tends to cause unstable training and degraded performance in the early stages.
+To address this limitation, we propose a Motion-aware Temporal Attention (MTA) module that explicitly models motion cues at the feature level and integrates temporal reasoning into the VGGT backbone. 
+The key idea is to introduce learnable motion tokens that dynamically encode inter-frame motion information, guiding temporal attention to focus on motion-consistent regions.
+
+Given the aggregated token features $\tilde{F}_{v,t} = [F_{v,t}^{c}; F_{v,t}^{p}]$ produced by the AA blocks, we remove the camera token $F_{v,t}^{c}$ and concatenate the patch tokens $F_{v,t}^{p}$ with learnable motion tokens to form the MTA input. 
+For each MTA layer $l$, temporal correlations are computed in parallel across all frames along the temporal dimension $\tau$. 
+The input to the $l$-th MTA layer is defined as
+\begin{equation}
+F_{m,v,t}^{(l)} = 
+\begin{cases}
+\mathrm{Concat}\!\left(M_{v,t}^{(l)},\, F_{v,t}^{p(l)}\right), & l = 1,\\
+\mathrm{Concat}\!\left(M_{v,t}^{(l)},\, F_{v,t}^{p(l)} + F_{v,t}^{p(l-1)}\right), & l > 1,
+\end{cases}
+\end{equation}
+where $M_{v,t}^{(l)}$ denotes the motion tokens and $F_{v,t}^{p(l)}$ denotes the spatial patch tokens from the AA branch at layer $l$.
+% 中文：这里把所有 token 都补上了 view index。
+% 中文：同时把时间长度 T 改成 \tau，避免和 transformation T 混淆。
+Temporal attention is computed independently for each patch position and each view:
+\begin{equation}
+A_{t,t'}^{(l)} = 
+\mathrm{Softmax}\!\left(
+\frac{Q_{t}^{\mathrm{attn},(l)} \left(K_{t'}^{\mathrm{attn},(l)}\right)^\top}{\sqrt{d}}
++ B_{t,t'}^{\mathrm{time}}
+\right),
+\end{equation}
+\begin{equation}
+\tilde{F}_{m,v,t}^{(l)} = \sum_{t'=1}^{\tau} A_{t,t'}^{(l)} V_{t'}^{\mathrm{attn},(l)},
+\end{equation}
+where $t,t' \in \{1,\dots,\tau\}$ denote discrete frame indices within the sampled clip, and $B_{t,t'}^{\mathrm{time}}$ denotes the temporal positional bias implemented using rotary position embeddings.
+The updated temporal features are then processed by layer normalization and an MLP with residual connections:
+\begin{equation}
+F_{m,v,t}^{(l+1)} = \mathrm{MLP}^{(l)}\!\left(\mathrm{LayerNorm}\!\left(\tilde{F}_{m,v,t}^{(l)}\right)\right) + F_{m,v,t}^{(l)}.
+\end{equation}
+
+After the final MTA layer, we denote the temporally enhanced feature for view $v$ at time $t$ by
+\begin{equation}
+TA_{v,t} = F_{m,v,t}^{(L)},
+\end{equation}
+where $L$ is the number of MTA layers. 
+The resulting feature $TA_{v,t}$ is used by both the Future Point Head and the Dynamic 3DGS Head.
+This formulation enables simultaneous message passing across temporal spans and enhances the model’s ability to capture motion continuity and temporally coherent geometry.
+
+\subsection{Future Point Prediction}
+
+Building upon the unified DPM representation and the feature-level temporal modeling provided by MTA, 
+we further introduce a Future Point Head (FPH) to explicitly learn point-wise motion dynamics. 
+Specifically, the FPH predicts the 3D point map of a future frame from the temporally enhanced feature at the current timestep, enabling the network to learn short-term motion continuity in a self-supervised manner.
+Given the temporally enhanced feature $TA_{v,t}$ produced by the MTA module, the FPH predicts the point map of the same camera stream at a future timestep:
+\begin{equation}
+\hat{P}_{v,t+\delta}^{\,\mathrm{fut}} = \mathrm{DPT}_{p}(TA_{v,t}),
+\end{equation}
+where $\mathrm{DPT}_{p}(\cdot)$ denotes a DPT head~\cite{ranftl2021vision} for future point regression.
+To further encourage physically plausible point motion trajectories, we introduce a temporal consistency regularization:
+\begin{equation}
+\mathcal{L}_{\mathrm{temp}}=
+\frac{1}{|\mathcal{N}|}\sum_{i\in \mathcal{N}}
+\left\|
+\left(\mathbf{p}_{v,t+\delta}^{(i)}-\mathbf{p}_{v,t}^{(i)}\right)
+-
+\left(\hat{\mathbf{p}}_{v,t+\delta}^{(i)}-\hat{\mathbf{p}}_{v,t}^{(i)}\right)
+\right\|_{1},
+\label{eq:temporal_consistency}
+\end{equation}
+where $\mathbf{p}_{v,t}^{(i)}$ and $\hat{\mathbf{p}}_{v,t}^{(i)}$ denote the ground-truth and predicted 3D coordinates of the $i$-th valid point at time $t$, respectively, and $\mathcal{N}$ denotes the set of valid points.
+The displacement field
+$
+\Delta \mathbf{p}_{v,t}^{(i)} = \mathbf{p}_{v,t+\delta}^{(i)}-\mathbf{p}_{v,t}^{(i)}
+$
+acts as a coarse motion representation that encourages the network to learn inter-frame point displacement within the shared DPM coordinate space. 
+We emphasize that $\mathcal{L}_{\mathrm{temp}}$ supervises motion implicitly at the point-map level, which complements the explicit motion supervision introduced later in the Dynamic 3DGS Head.
+
+\subsection{Dynamic 3D Gaussian Splatting Head}
+
+To further model dynamic scenes at the primitive level, we introduce a Dynamic 3D Gaussian Splatting (3DGS) Head as a downstream dynamic reconstruction task.
+
+This module takes both the temporally enhanced features $TA_{v,t}$ from MTA and the RGB appearance cues from the input images as inputs, and converts them into time-varying 3D Gaussian primitives that jointly model geometry, appearance, and motion. 
+We observe that freezing the AA blocks causes the pretrained VGGT backbone to overemphasize geometric reasoning while weakening appearance cues, which degrades Gaussian rendering quality. 
+To compensate for this issue, we fuse image features extracted by $\mathrm{Conv}(\cdot)$ with geometric features obtained from $TA_{v,t}$:
+\begin{equation}
+F_{v,t}^{\mathrm{app}} = \mathrm{Conv}(I_{v,t}),
+\end{equation}
+\begin{equation}
+F_{g,v,t},\, D_{g,v,t} = \mathrm{DPT}_{g}(TA_{v,t}),
+\end{equation}
+\begin{equation}
+G_{v,t} = F_{v,t}^{\mathrm{app}} + F_{g,v,t},
+\end{equation}
+where $F_{g,v,t}$ denotes the Gaussian features used to initialize Gaussian primitives, and $D_{g,v,t}$ denotes the predicted Gaussian depth.
+At each timestep, the predicted Gaussian depth $D_{g,v,t}$ together with the camera predictions from the retained VGGT camera branch are used to reconstruct a point map $P_{v,t}^{g}$, which initializes the Gaussian centers $\mu_i$. 
+Each Gaussian primitive is parameterized as
+$
+\{\mu_i, \sigma_i, r_i, c_i, \nu_i\},
+$
+where $\mu_i$ denotes the center, $\sigma_i$ the scale, $r_i$ the rotation, $c_i$ the color, and $\nu_i$ the velocity vector.
+
+We further leverage the $M$ learnable motion tokens introduced in MTA to decode a set of velocity bases $\nu_b \in \mathbb{R}^{3}$, forming a shared dynamic representation for Gaussian motion. 
+To describe temporal evolution, we assume constant velocity within a short clip:
+\begin{equation}
+\mu_{i,t+\delta} = \mu_{i,t} + \delta \cdot \nu_{i,t}.
+\end{equation}
+
+During training, scene-flow supervision is applied to encourage each Gaussian primitive to carry a physically meaningful velocity attribute. 
+Unlike $\mathcal{L}_{\mathrm{temp}}$, which constrains coarse inter-frame displacement at the point-map level, the Gaussian motion supervision explicitly regularizes motion in the dynamic Gaussian space and therefore provides complementary supervision for dynamic reconstruction.
+
+% 中文：这句再次明确 L_temp 和 L_flow 分工不同，不是重复监督。
+
+\subsection{Training Objective}
+
+To enable the model to learn dynamic geometry progressively, we adopt a two-stage training strategy that follows a curriculum-style paradigm from synthetic to real-world data. 
+In the first stage, the model is trained on high-quality synthetic autonomous driving datasets, where dense geometry and reliable motion cues are available. 
+The stage-1 training objective combines static and temporal supervision:
+\begin{equation}
+\mathcal{L}_{\mathrm{stage1}} =
+\mathcal{L}_{\mathrm{cam}}
++ \mathcal{L}_{\mathrm{depth}}
++ \mathcal{L}_{\mathrm{point}}^{(t)}
++ \mathcal{L}_{\mathrm{point}}^{(t+\delta)}
++ \lambda_{\mathrm{temp}} \mathcal{L}_{\mathrm{temp}}.
+\end{equation}
+
+The camera loss supervises the predicted camera parameters $\hat{g}$:
+$
+\mathcal{L}_{\mathrm{cam}} = \sum_{i=1}^{N} \left\| \hat{g}_i - g_i \right\|_{\epsilon},
+$
+where $\hat{g}_i$ and $g_i$ denote the predicted and ground-truth camera parameters, respectively, and $\|\cdot\|_{\epsilon}$ denotes the Huber loss. 
+The depth loss $\mathcal{L}_{\mathrm{depth}}$ and point-map losses $\mathcal{L}_{\mathrm{point}}^{(t)}$ and $\mathcal{L}_{\mathrm{point}}^{(t+\delta)}$ follow VGGT~\cite{wang2025vggt}. 
+This stage focuses on learning temporal consistency by predicting future point maps, allowing the network to capture short-term motion while preserving the geometric priors of the pretrained backbone.
+
+In the second stage, we fine-tune the model on real driving datasets using the Dynamic 3DGS objective. 
+The overall stage-2 objective is defined as
+\begin{equation}
+\mathcal{L}_{\mathrm{stage2}} = \mathcal{L}_{\mathrm{stage1}} + \mathcal{L}_{\mathrm{3DGS}},
+\end{equation}
+where
+\begin{equation}
+\mathcal{L}_{\mathrm{3DGS}} =
+\mathcal{L}_{\mathrm{rgb}}
++ \lambda_{\mathrm{gs}} \mathcal{L}_{\mathrm{gsdepth}}
++ \lambda_{\mathrm{dist}} \mathcal{L}_{\mathrm{distill}}
++ \lambda_{\mathrm{flow}} \mathcal{L}_{\mathrm{flow}}.
+\end{equation}
+
+\begin{figure}[t]
+\centering
+  \includegraphics[width=0.9\columnwidth]{figs/point_comparison_v2.pdf}
+  \caption{\textbf{Depth and Point Maps Comparison}. The sparsity of LiDAR point clouds degrades the results, leading to less smooth depth maps and rougher point clouds.}
+  \label{fig:depth_lidar}
+\end{figure}
+
+For image reconstruction, we use
+$
+\mathcal{L}_{\mathrm{rgb}} = \mathrm{MSE}(I_{v,t}, \hat{I}_{v,t}),
+$
+where $I_{v,t}$ is the ground-truth RGB image and $\hat{I}_{v,t}$ is the image rendered from the predicted dynamic Gaussian primitives.
+
+We observe that directly using sparse LiDAR point clouds as supervision on real autonomous driving datasets leads to severe performance degradation due to their limited density and uneven spatial distribution. 
+To alleviate this issue, we introduce a depth distillation strategy. 
+Specifically, the depth predicted by the stage-1 point-map branch serves as the teacher signal, while the Gaussian depth branch predicts the student depth:
+$
+\mathcal{L}_{\mathrm{distill}} = \left\| D_{g,v,t} - \mathrm{sg}\!\left(D^{\mathrm{pm}}_{v,t}\right) \right\|_1,
+$
+where $D^{\mathrm{pm}}_{v,t}$ denotes the depth predicted by the stage-1 geometry branch and $\mathrm{sg}(\cdot)$ denotes the stop-gradient operator. 
+In addition, $\mathcal{L}_{\mathrm{gsdepth}}$ is a standard $L_1$ loss, whose supervision is provided by the pretrained model~\cite{wang2025moge}. 
+This strategy mitigates the noise caused by point-cloud sparsity and stabilizes Gaussian optimization, as shown in Fig.~\ref{fig:depth_lidar}.
+
+\begin{table*}[t]
+\centering
+\caption[Valori medi]{\textbf{Point Map Reconstruction on KITTI and Waymo(val).} KITTI uses monocular input with every 3 consecutive frames per camera. Waymo uses 3 frames (stride 4) from FRONT, SIDE\_LEFT, and SIDE\_RIGHT cameras, totaling 9 images per group. }
+{\footnotesize\setlength{\tabcolsep}{.8mm}
+{\begin{tabular}{lcccccccccccccccccc}
+\toprule[1.2pt]                      
+\multirow{3}{*}{\textbf{Methods}} & \multicolumn{6}{c}{\textbf{{KITTI (monocular)}}}   & \multicolumn{6}{c}{\textbf{{Waymo (3 cameras)}}}
+\\ 
+\cmidrule(lr){2-7} \cmidrule(lr){8-13} \cmidrule(lr){14-19}
+& \multicolumn{3}{c}{\textbf{{Mean}}} & \multicolumn{3}{c}{\textbf{{Med.}}} &
+\multicolumn{3}{c}{\textbf{{Mean}}} & \multicolumn{3}{c}{\textbf{{Med.}}} 
+\\ 
+\cmidrule(lr){2-4} \cmidrule(lr){5-7} \cmidrule(lr){8-10} \cmidrule(lr){11-13}
+          & $ \text{Acc.} \downarrow $     & 
+          $ \text{Comp.} \downarrow  $     &
+          $ \text{NC} \uparrow  $     & 
+          $ \text{Acc.} \downarrow   $     & 
+          $ \text{Comp.} \downarrow    $     & 
+          $ \text{NC} \uparrow   $     & 
+          $ \text{Acc.} \downarrow   $     & 
+          $ \text{Comp.} \downarrow    $     &
+          $ \text{NC} \uparrow  $     & 
+          $ \text{Acc.} \downarrow $     & 
+          $ \text{Comp.} \downarrow  $     &
+          $ \text{NC} \uparrow  $     &   
+\\ 
+\midrule
+
+VGGT\cite{wang2025vggt}            & 1.489 & 0.690 & 0.918 & 1.329 & \textbf{0.535} & \textbf{0.971}    & 4.635 & 2.667 & 0.561 & 2.634 & 1.734 & 0.590  \\
+StreamVGGT\cite{zhuo2025streaming}      & 1.078 & \textbf{0.495} & 0.899 & 0.867 & 0.390 & 0.949    & 4.598 & 2.626 & 0.564 & 2.567 & 1.789 & 0.592  \\
+DynamicVGGT     &\textbf{0.901} &\underline{0.584} &\textbf{0.939} &\textbf{0.733} &\underline{0.464} &\underline{0.963}   &\textbf{4.021} &\textbf{2.390} &\textbf{0.562} &\textbf{1.971} &\underline{1.564} &\underline{0.603}                \\
+
+\bottomrule[1.2pt]
+\end{tabular}
+}
+}
+\label{tab:point-estimation}
+\end{table*}
+
+Finally, we use scene-flow supervision for explicit Gaussian motion learning:
+$
+\mathcal{L}_{\mathrm{flow}} = \mathrm{MSE}(\mathbf{s}_{v,t}, \hat{\mathbf{s}}_{v,t}),
+$
+where $\mathbf{s}_{v,t}$ and $\hat{\mathbf{s}}_{v,t}$ denote the ground-truth and predicted scene flow, respectively. 
+Compared with $\mathcal{L}_{\mathrm{temp}}$, which supervises coarse point displacement in the DPM space, $\mathcal{L}_{\mathrm{flow}}$ explicitly constrains motion in the Gaussian representation. 
+The two losses therefore operate at different levels and are complementary rather than redundant.
+

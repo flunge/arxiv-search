@@ -1,0 +1,483 @@
+\renewcommand\thefigure{\Alph{figure}} 
+\setcounter{figure}{0}
+\renewcommand\thetable{\Alph{table}} 
+\setcounter{table}{0}
+\renewcommand{\thesection}{\Alph{section}}
+\setcounter{section}{0}
+
+\setcounter{page}{1}
+% \maketitlesupplementary
+% \usepackage{multirow} % 补上缺失的multirow包
+
+
+% \usepackage{siunitx}
+% \usepackage{adjustbox}
+\definecolor{myorange}{RGB}{230,145,56}
+\newcolumntype{Y}{>{\raggedleft\arraybackslash}X}
+\newcommand{\ccell}[4]{#1/#2/#3/#4} % 合并cell数据显示
+
+
+
+\definecolor{myorange}{RGB}{230,145,56}
+\section{Supplementary Material}
+\label{sec:supplementary}
+
+% % \title{Supplementary Material for
+% % HRGS: Hierarchical Gaussian Splatting for Memory-Efficient High-Resolution 3D Reconstruction}
+% % \author{
+% %   \parbox{\textwidth}{\centering
+% %     First Author \\
+% %     Institution1 \\
+% %     \texttt{firstauthor@i1.org}
+% %   }
+% %   \and
+% %   \parbox{\textwidth}{\centering
+% %     Second Author \\
+% %     Institution2 \\
+% %     \texttt{secondauthor@i2.org}
+% %   }
+% % }
+
+
+% \maketitle
+
+% \input{secs/appendix}
+
+% 参考文献配置
+% \bibliographystyle{plainnat}
+% \bibliography{reference}  % 对应 reference.bib 文件
+
+% \begin{figure*}[h!]
+%   \centering
+%   \centering \includegraphics[width=1.0\textwidth]{fig3.png}
+%   % \fbox{\rule{0pt}{2in} \rule{0.9\linewidth}{0pt}}
+%    % \includegraphics[width=0.8\linewidth, color=gray]{egfigure.eps}
+%   \caption{%
+%     \textbf{Qualitative Comparison on the Mip-NeRF 360 Dataset.} Comparisons are conducted on the full-resolution dataset, showing that our method more faithfully preserves fine-scale structures and achieves superior visual fidelity compared to 3DGS and Mip-Splatting.}
+
+%    \label{fig:1}
+%    % \vspace{-0.2cm}
+% \end{figure*}
+
+
+\begin{figure*}[ht!]
+  \centering
+  \centering \includegraphics[width=1.0\textwidth]{fig3.png}
+  % \fbox{\rule{0pt}{2in} \rule{0.9\linewidth}{0pt}}
+   % \includegraphics[width=0.8\linewidth, color=gray]{egfigure.eps}
+  \caption{%
+    \textbf{Qualitative comparison on the Mip-NeRF 360 Dataset.} Comparisons are conducted on the full-resolution dataset, showing that our method more faithfully preserves fine-scale structures and achieves superior visual fidelity compared to 3DGS and Mip-Splatting.}
+
+   \label{fig:1}
+   % \vspace{-0.2cm}
+\end{figure*}
+
+\section{Implementation Details}
+%In most experiments, we utilize PyTorch 2.0.1 with CUDA 11.7, preserving hyperparameter settings identical to those of 3DGS~\cite{3dgs}. For outdoor scenes in the TNT dataset, we integrate decoupled appearance modeling~\cite{vast} to address exposure artifacts.  To holistically validate method robustness,We conduct supplementary experiments including: (1) detailed visual comparisons of rendering details under 1× 2×, 4×, and 8× downsampling ratios in the Mip-NeRF 360 bicycle scene (Fig.~\ref{fig:4}), and (2) stepwise degradation analysis through resolution reduction to 1/8 of the original scale (downsampled regime) with quantitative metrics summarized in Table~\ref{tab1}
+
+
+All experiments are conducted using machines equipped with NVIDIA A5000 GPUs, with PyTorch 2.0.1 and CUDA 11.7 as the software environment. For comparison methods that exceed the memory capacity of the A5000 setup, we employ NVIDIA A800 GPUs to ensure reliable execution and fair evaluation. Unless otherwise specified, we adopt the same hyperparameter settings as 3DGS~\cite{3dgs}. For outdoor scenes in the TNT dataset~\cite{TNT}, we incorporate decoupled appearance modeling~\cite{vast} to mitigate exposure-related artifacts. 
+%To further enhance reconstruction quality, we adopt the pruning strategy from LightGaussian~\cite{lightgaussian} to remove outlier Gaussians. 
+All models are trained and evaluated on the same data splits as used in 2DGS~\cite{2Dgs}, across the TNT~\cite{TNT} and Mip-NeRF360~\cite{Mip-NeRF360} benchmarks.
+
+
+
+
+
+\section{Additional Ablation Study}
+In this section, we further investigate the contributions of our proposed modules. We begin by analyzing the block-wise training strategy in Sec.\ref{sec:block_training}. Next, we examine the impact of the Data Division and IDGP strategies in Sec.\ref{sec:data_division} and Sec.\ref{sec:idgp}, respectively. While these ablations were previously conducted in the main paper, they were limited to a single scene. Here, we extend the evaluation to the full dataset, providing a more comprehensive and robust analysis. Finally, in Sec.\ref{sec:res_scale}, we assess the effectiveness of our method across various resolution scales.
+
+\subsection{ Block-Wise Training for High-Resolution Reconstruction}
+\label{sec:block_training}
+%In our methodology, we adopt a block-wise training strategy to enhance computational efficiency. To validate the effectiveness of this approach in high-resolution scenarios, we conducted comparative experiments with CityGS~\cite{Citygs}, which also employs block-wise partitioning. To ensure fairness in the experiments, we used the block partitioning method proposed by the CityGS authors, dividing the scenes into 4 blocks consistent with our method, and conducted experiments on the full-resolution Mip-NeRF 360 dataset. Evaluation metrics included reconstruction quality indicators such as PSNR, SSIM, and LPIPS, as well as efficiency metrics such as GPU memory consumption, per-block model size, and final aggregated model scale.
+% \zhd{
+% We employ a block-wise training strategy to improve computational efficiency, and evaluate its effectiveness in high-resolution scenarios through comparisons with CityGS~\cite{Citygs}, which also utilizes block partitioning. 
+We first validate our proposed block-wise training strategy in high-resolution scenarios by comparing it against the block partitioning scheme adopted in CityGS~\cite{Citygs}.
+For fair comparison, we implemented the four-block division scheme following the methodology from the CityGS and conducted experiments on the full-resolution Mip-NeRF 360 dataset.
+
+% we adopt the same four-block division scheme and conduct experiments on the full-resolution Mip-NeRF 360 dataset. 
+%Evaluation metrics include PSNR, SSIM, LPIPS for reconstruction quality, and GPU memory usage, per-block model size, and aggregated model scale for efficiency.
+
+% As shown in Tab.~\ref{tab:D}, our method achieves superior rendering quality. 
+% Additionally, Tab.~\ref{tab:cell} illustrates its advantages in reducing memory overhead and improving model scalability.
+% Our method demonstrates a consistent reduction in total model size on the Mip-NeRF 360 dataset.
+% For instance, 587.05 MB vs. 1126.4 MB for the bicycle scene, and 160.10 MB vs. 278.52 MB for bonsai, with similarly substantial improvements observed at the block level (see Tab.~\ref{tab:cell}). 
+% %Benefiting from the Importance-Driven Gaussian Pruning (IDGP), our per-block models are 40–60\% smaller than those of CityGS, effectively balancing compactness and geometric fidelity (e.g., 187.22 MB vs. 512.63 MB in bicycle-cell0).
+% \chl{In addition}, as illustrated in Fig.~\ref{fig:2}, our method achieves notably lower GPU memory consumption compared to 3DGS, Mip-Splatting, and CityGS, demonstrating the efficacy of structured partitioning and pruning in jointly optimizing computational efficiency and model compactness.
+% }
+%The experimental results demonstrate that our method achieves superior rendering quality.~\ref{tab:D} while significantly reducing memory overhead and optimizing model scalability. In terms of model scale, in the bicycle scene of the Mip-NeRF 360 dataset, the total model size of CityGS was 1126.4 MB, while ours was only 794.23 MB; in the bonsai scene, CityGS was 278.52 MB, and ours was 283.29 MB, with significantly smaller model sizes in multiple blocks (~\ref{tab:cell}). Thanks to the Importance-Driven Gaussian Pruning (IDGP) strategy, our block partitioning scheme achieved a 40-60\% reduction in per-block model size compared to CityGS. For example, in the cell0 block of the bicycle scene, our model size (567.05 MB) was only about 88\% of CityGS (512.63 MB), effectively controlling the overall model scale while preserving geometric fidelity.
+
+%In terms of GPU memory consumption, our method's average memory footprint on the full-resolution dataset was significantly lower than that of 3DGS, Mip-Splatting, and CityGS (Fig.~\ref{fig:2}). Overall, this strategy achieves a balance between quality, efficiency, and model scale in high-resolution reconstruction through the combination of structured block partitioning and intelligent pruning.
+\begin{figure}[ht!]
+  \centering
+  \centering \includegraphics[width=1.0\textwidth,height=0.4\textheight]{sub_fig.pdf}
+
+  % \fbox{\rule{0pt}{2in} \rule{0.9\linewidth}{0pt}}
+   % \includegraphics[width=0.8\linewidth, color=gray]{egfigure.eps}
+   \caption{\textbf{Comparison of 3DGS, Mip-Splatting, CityGS and Ours at full resolution on the Mip-NeRF 360 dataset.}  }
+   \label{fig:3}
+\end{figure}
+
+
+As shown in Tab.~\ref{tab:D}, our method achieves superior rendering quality compared to CityGS. As illustrated in Fig.~\ref{fig:3}, our approach demonstrates exceptional detail preservation in intricate geometric features and textural nuances. Additionally, Tab.~\ref{tab:cell} highlights the advantages of our block partitioning strategy over CityGS in enhancing model scalability. Across the Mip-NeRF 360 dataset, our method consistently reduces the total model size. For example, in the bicycle scene, the model size is 587.05 MB compared to the baseline's 1126.4 MB, with comparable improvements observed at the block level Tab.~\ref{tab:cell}. Furthermore, as shown in Fig.~\ref{fig:2}, our method substantially reduces GPU memory consumption compared to 3DGS, Mip-Splatting, and CityGS, underscoring its superior optimization of computational efficiency over CityGS despite employing similar block partitioning strategies.
+
+
+
+\begin{table}[t]
+    \centering
+    \caption{\textbf{Mip-NeRF 360 Full-Resolution Results.} \textbf{Bold} indicates the best.}
+    \vspace{2pt}
+    \footnotesize
+    \setlength{\tabcolsep}{3.5pt}
+    \begin{tabular}{@{}lcccccccc@{}}
+    \toprule
+    & Mip-NeRF & Instant-NGP & zip-NeRF & 3DGS & 3DGS+EWA & CityGS & Mip-Splatting & \textbf{Ours} \\
+    \midrule
+    PSNR $\uparrow$     & 24.10 & 24.27 & 20.27 & 19.59 & 22.81 & 24.71 & {26.22} & {\textbf{27.91}} \\
+    SSIM $\uparrow$     & 0.706 & 0.698 & 0.559 & 0.619 & 0.643 & 0.702 & {0.765} & {\textbf{0.863}} \\
+    LPIPS $\downarrow$  & 0.428 & 0.475 & 0.494 & 0.476 & 0.449 & 0.401 & {0.392} & {\textbf{0.342}} \\
+    \bottomrule
+    \label{tab:D}
+    \end{tabular}
+    \vspace{-0.3cm}
+\end{table}
+
+
+
+
+
+
+
+\begin{table}[htbp]
+\caption{\textbf{Comparison of model sizes (MB) across CityGS and Ours.} \textbf{Bold} indicates the best.}
+\centering
+\scriptsize
+\begin{tabular}{c|ccccc|ccccc}
+\hline
+\multirow{2}{*}{Scene} & \multicolumn{5}{c|}{\textbf{CityGS (MB)}} & \multicolumn{5}{c}{\textbf{Ours (MB)}} \\
+& Total & cell0 & cell1 & cell2 & cell3 & Total & cell0 & cell1 & cell2 & cell3 \\
+\hline
+bicycle & {1126.4} & 512.63 & 480.45 & 70.92 & 63.11 & \textbf{587.05} & 187.22 & 238.32 & 100.76 & 61.75 \\
+bonsai  & {278.52} & 49.97  & 43.83  & 117.54 & 67.18 & \textbf{160.10} & 49.81  & 47.16  & 48.18  & 34.01 \\
+counter & {215.85} & 21.38  & 22.26  & 78.73  & 93.49 & \textbf{144.58} & 23.06  & 36.63  & 36.36  & 45.54 \\
+flowers & {738.18} & 269.72 & 276.41 & 96.18  & 93.87 & \textbf{399.71} & 163.86 & 133.96 & 65.55  & 63.33 \\
+garden  & {1196.80} & 269.72 & 276.41 & 96.18  & 93.87 & \textbf{360.52} & 114.76 & 86.78  & 87.60  & 79.39 \\
+kitchen & {324.08} & 30.26  & 26.46  & 157.15 & 110.21 & \textbf{170.94} & 38.41  & 35.78  & 76.55  & 47.52 \\
+stump   & {873.41} & 399.37 & 302.45 & 171.59 & 191.51 & \textbf{368.62} & 103.86 & 103.32 &80.75  & 80.69 \\
+treehill& {745.24} & 273.96 & 236.07 & 136.24 & 98.97 & \textbf{385.84} & 109.68 & 149.32 & 66.55  & 60.29 \\
+room    & {301.02} & 33.58  & 94.33  & 74.08  & 106.03 & \textbf{221.97} & 316.31  & 33.84  & 75.64  & 76.19 \\
+\hline
+\end{tabular}
+\label{tab:cell}
+\end{table}
+
+
+
+
+
+
+\begin{figure}[htbp]
+  \centering
+  \centering \includegraphics[width=0.7\textwidth,height=0.3\textheight]{gpu_memory_comparison.pdf}
+
+  % \fbox{\rule{0pt}{2in} \rule{0.9\linewidth}{0pt}}
+   % \includegraphics[width=0.8\linewidth, color=gray]{egfigure.eps}
+   \caption{\textbf{Average GPU memory consumption of 3DGS, Mip-Splatting, CityGS, and our method on the Full-Resolution Mip-NeRF 360 dataset.}  }
+   \label{fig:2}
+\end{figure}
+
+
+\subsection{ Ablation of the Data Division.}
+\label{sec:data_division}
+% As shown in Table.~\ref{tab2}, we conducted chunk-based ablation experiments on the entire TNT dataset to evaluate the impact of data-partitioning strategies, using the original Gaussian global prior as the baseline. 
+% The study systematically assessed the effects of progressively removing strategies such as contraction, SSIM-based assignment (SO Ass.), and boundary-based assignment (BO Ass.) on 3D reconstruction quality, with PSNR and F1 score serving as evaluation metrics. 
+% %The experimental settings included five groups: baseline (without any optimization strategies), w/o contraction (without contraction strategy), w/o SO Ass. (without SSIM-based assignment strategy), w/o BO Ass. (without boundary-based assignment strategy), and Full (with complete strategies).
+% Results showed that the baseline achieved a PSNR of 22.19 and an F1 score of 0.36. Removing the contraction strategy (w/o contraction) increased PSNR to 23.63 and F1 to 0.38. Further removing SO Ass. (w/o SO Ass.) improved PSNR to 24.89 and F1 to 0.41. However, removing BO Ass. (w/o BO Ass.) decreased PSNR to 23.96 and F1 to 0.43. The Full group with complete strategies achieved the optimal performance, reaching a PSNR of 25.02 and an F1 score of 0.45.
+
+
+As shown in Table.~\ref{tab2}, we conducted chunk-based ablation experiments on the entire TNT dataset to evaluate the impact of data-partitioning strategies, using the original Gaussian global prior as the baseline. 
+We systematically investigate the contribution of individual components, including contraction, SSIM-based assignment (SO Ass.) and boundary-based assignment (BO Ass.).
+
+The results in the first and last columns of Tab.~\ref{tab2} demonstrate the effectiveness of our proposed method in improving performance (0.36 vs. 0.45). 
+The second column in Tab.~\ref{tab2} further indicates that assigning relevant data in the contracted space is essential for enhancing reconstruction quality. 
+The third column in Tab.~\ref{tab2} highlights the importance of SO Ass. in data partitioning, and we also found that BO Ass. plays a significant role in preventing artifacts at the edges of blocks.
+
+
+
+\begin{table*}[h]
+    \small
+    % \vspace{-0.4cm}
+    \centering
+    % \caption{\textbf{Ablation of the Data Division on the 'Ignatius' scene from the TNT dataset.} “SO Ass.” denotes SSIM-based Observation Assignment, while “BO Ass.” refers to Boundary-based Observation Assignment.}
+    \caption{\textbf{Ablation on Data Division (performed on the full TNT dataset).} “SO Ass.” refers to SSIM-based assignment, while “BO Ass.” denotes boundary-based assignment. \textbf{Bold} indicates the best.}
+    \label{tab4}
+    \renewcommand{\arraystretch}{0.9}
+    \setlength{\tabcolsep}{6pt}
+    \begin{tabular}{lccccc}
+    \toprule[1pt]
+    \multirow{2}{*}{\textbf{Method}} & \multicolumn{5}{c}{\textbf{Settings}} \\
+    \cmidrule{2-6}
+     & baseline & w/o contraction & w/o SO Ass. & w/o BO Ass. & Full \\
+    \midrule[0.8pt]
+    PSNR $\uparrow$ & 22.19 & 23.63 & 24.89 & 23.96 & \textbf{25.02} \\
+    F1 $\uparrow$    & 0.36  & 0.38  & 0.41  & 0.43  & \textbf{0.45} \\
+    \bottomrule[1pt]
+    \end{tabular}
+    \label{tab2}
+    % \vspace{-0.2cm}
+\end{table*}
+
+\begin{figure*}[ht]
+  \centering
+  \centering \includegraphics[width=1.0\textwidth,height=0.55\textheight]{bicycle.pdf}
+  % \fbox{\rule{0pt}{2in} \rule{0.9\linewidth}{0pt}}
+   % \includegraphics[width=0.8\linewidth, color=gray]{egfigure.eps}
+   \caption{\textbf{Qualitative comparsion on Mip-NeRF 360 for different resolution scales.}  }
+   \label{fig:4}
+\end{figure*}
+
+
+
+
+\subsection{Ablation of Importance-DrivenGaussian Pruning.}
+\label{sec:idgp}
+%To validate the effectiveness of the Importance-Driven Gaussian Pruning (IDGP) strategy in high-resolution reconstruction, we conducted ablation experiments on the full-resolution Mip-NeRF 360 dataset, comparing the baseline model with a variant excluding IDGP (denoted as "Baseline w/o IDPG"). 
+%The evaluation focuses on model size, GPU memory consumption, and reconstruction quality metrics (PSNR, SSIM, LPIPS) .
+%As shown in Table.~\ref{tab6} , removing IDGP leads to a significant increase in model size from 313.72 MB (Baseline) to 621.04 MB (Baseline w/o IDPG), accompanied by a 42\% rise in GPU memory consumption (from 19 GB to 27 GB). Despite a marginal PSNR improvement (28.02 vs. 27.91), the SSIM decreases from 0.863 to 0.821, indicating a trade-off between model scale and structural fidelity. This demonstrates that IDGP effectively reduces redundant Gaussians, optimizing model efficiency while maintaining comparable reconstruction quality, thereby confirming its critical role in memory-efficient high-resolution 3D reconstruction on the Mip-NeRF 360 dataset.
+
+
+To evaluate the impact of Importance-Driven Gaussian Pruning (IDGP), we performed ablation studies on the full-resolution Mip-NeRF 360 dataset by comparing the proposed method with a variant that excludes IDGP. 
+As shown in Tab.~\ref{tab6}, removing IDGP results in a substantial increase in model size from 313.72 MB to 621.04 MB, along with a 42\% rise in GPU memory usage (19 GB to 27 GB). Although PSNR slightly improves (28.02 vs. 27.91), the SSIM drops notably (0.821 vs. 0.863). These results underscore the effectiveness of IDGP in eliminating redundant Gaussians, significantly enhancing model efficiency while preserving high-quality reconstruction, thus highlighting its importance for memory-efficient 3D reconstruction in high-resolution settings.
+
+
+\begin{table}[h]
+    \centering
+    \small
+    % \caption{\textbf{Ablation Studies on the Scene of the Full-Resolution Mip-NeRF 360 Dataset\cite{Mip-NeRF360}.} }
+    \caption{{\textbf{Ablation study on IDPG across the entire full resolution Mip-NeRF 360 Dataset\cite{Mip-NeRF360}.}} }
+    \label{tab:3}
+    \begin{tabular}{@{}lccccc@{}}
+    \toprule
+    \textbf{Method} & \textbf{Model Size(MB)} & \textbf{GPU Memory(G)} & \textbf{PSNR} & \textbf{SSIM} & \textbf{LPIPS} \\
+    \midrule
+    w/o IDPG &  621.04    & 27     & 28.02 & 0.821 & 0.308 \\
+    Ours (Full)           & 313.72        &   19  & 27.91 & 0.863 & 0.342 \\
+    \bottomrule
+      \label{tab6}
+    \end{tabular}
+    \vspace{-0.2cm}
+\end{table}
+
+
+
+\subsection{Robustness Validation Across Resolution Scales}
+\label{sec:res_scale}
+% To comprehensively validate the robustness of our method across different resolution scales, we designed supplementary experiments integrating qualitative visual analysis and quantitative metric evaluation. 
+% %Specifically, these experiments aim to assess whether our method exhibits greater robustness than other approaches as resolution decreases, and to demonstrate the consistency of its structural fidelity under varying computational constraints.
+% First, we conducted detailed visual comparisons of rendering details in the Mip-NeRF 360 bicycle scene at 2×, 4×, and 8× downsampling ratios Fig.~\ref{fig:4}. 
+% At each resolution scale, we visualized fine-grained structures such as bicycle spokes, tire textures, and background foliage to evaluate how our method preserves geometric and textural details as input resolution declines. 
+% The results show that even at an 8× downsampling ratio (1/8 of the original resolution), our method maintains discernible edge clarity and minimal aliasing, whereas comparative methods exhibit noticeable blurring and structural degradation. 
+% This highlights the method’s resilience in handling low-resolution inputs without compromising visual fidelity.
+% Additionally, we performed a stepwise degradation analysis by systematically reducing the input resolution to 1/8 of the original scale and quantified performance using PSNR, SSIM, and LPIPS metrics Tab.~\ref{tab1}. 
+% Quantitative results show that our method achieves a PSNR of 29.39 at 1/2 resolution, 29.84 at 1/4 resolution, and 29.84 at 1/8 resolution, outperforming baselines such as 3DGS and Mip-Splatting across all scales. 
+% Notably, SSIM values remain above 0.884 even at the lowest resolution, indicating strong preservation of structural similarity. 
+% In contrast, competing methods show more pronounced declines in SSIM and increases in LPIPS (perceptual error), underscoring our method’s superior robustness to resolution variations.
+% Collectively, these experiments demonstrate that our method maintains high-fidelity 3D reconstruction across a broad range of resolution scales, from full resolution to highly downsampled regimes, validating its robustness and adaptability to diverse computational and data input scenarios.
+
+
+To thoroughly evaluate the robustness of our method across varying resolution scales, we performed detailed visual comparisons of rendering quality on the Mip-NeRF 360 dataset at multiple resolution levels.
+As shown in Tab.~\ref{tab1}, we compare our method with several existing approaches, including mip-NeRF~\cite{Mip-NeRF360}, Instant-NGP~\cite{InstantNGP}, zip-NeRF~\cite{zip-nrf}, 3DGS~\cite{3dgs}, 3DGS+EWA~\cite{EWV}, and Mip-Splatting~\cite{mip360-splatting}. 
+Our approach demonstrates comparable performance to these prior methods at one-eighth of the original resolution. 
+Furthermore, at higher resolutions, our method significantly outperforms all state-of-the-art techniques.
+As shown in Fig.~\ref{fig:4}, our method produces high-fidelity imagery devoid of fine-scale texture distortions.
+While 3DGS~\cite{3dgs} introduces noticeable erosion artifacts due to dilation operations, Mip-Splatting~\cite{mip360-splatting} shows improved performance, yet still exhibits evident texture distortions. In contrast, our method avoids such issues, producing images that are both aesthetically pleasing and closely aligned with the ground truth, demonstrating the effectiveness of our hierarchicall refined strategy.
+
+
+
+
+% \begin{table}[htbp]
+% \centering
+% \scriptsize
+% \begin{tabular}{c|ccccc|c|ccccc}
+% \hline
+% \multirow{2}{*}{Scene} & \multicolumn{5}{c|}{\textbf{CityGS (MB)}} & \textbf{3DGS (MB)} & \multicolumn{5}{c}{\textbf{Ours (MB)}} \\
+% & Total & cell0 & cell1 & cell2 & cell3 & Total & Total & cell0 & cell1 & cell2 & cell3 \\
+% \hline
+% bicycle & 1126.4 & 512.63 & 480.45 & 70.92 & 63.11 & \textcolor{cyan}{844.23} & \textcolor{orange}{587.05} & 187.22 & 238.32 & 100.76 & 61.75 \\
+% bonsai  & \textcolor{cyan}{278.52} & 49.97  & 43.83  & 117.54 & 67.18 & 343.29 & \textcolor{orange}{160.10} & 49.81  & 47.16  & 48.18  & 34.01 \\
+% counter & \textcolor{cyan}{215.85} & 21.38  & 22.26  & 78.73  & 93.49 & 274.12 & \textcolor{orange}{144.58} & 23.06  & 36.63  & 36.36  & 45.54 \\
+% flowers & 738.18 & 269.72 & 276.41 & 96.18  & 93.87 & \textcolor{cyan}{599.21} & \textcolor{orange}{399.71} & 163.86 & 133.96 & 65.55  & 63.33 \\
+% garden  & \textcolor{cyan}{1196.80} & 269.72 & 276.41 & 96.18  & 93.87 & 1259.52 & \textcolor{orange}{360.52} & 114.76 & 86.78  & 87.60  & 79.39 \\
+% kitchen & \textcolor{cyan}{324.08} & 30.26  & 26.46  & 157.15 & 110.21 & 424.16 & \textcolor{orange}{170.94} & 38.41  & 35.78  & 76.55  & 47.52 \\
+% stump   & 873.41 & 399.37 & 302.45 & 171.59 & 191.51 & \textcolor{cyan}{609.14} & \textcolor{orange}{368.62} & 103.86 & 103.32 &80.75  & 80.69 \\
+% treehill& 745.24 & 273.96 & 236.07 & 136.24 & 98.97 & \textcolor{cyan}{515.48} & \textcolor{orange}{385.84} & 109.68 & 149.32 & 66.55  & 60.29 \\
+% room    & \textcolor{cyan}{301.02} & 33.58  & 94.33  & 74.08  & 106.03 & 388.54 & \textcolor{orange}{221.97} &316.31  & 33.84  & 75.64  & 76.19 \\
+% \hline
+% \end{tabular}
+% \caption{Comparison of model sizes (MB) across CityGS, 3DGS, and Ours. The smallest total model size for each scene is highlighted in orange; the second smallest is highlighted in cyan.}
+% \label{tab:cell}
+% \end{table}
+
+
+
+
+
+
+
+\begin{table*}[!ht]
+\caption{\textbf{Quantitative results on Mip-NeRF 360 (Downscaled Resolutions).} The best results are highlighted in \textbf{\textcolor{BurntOrange}{orange}}, while the second-best results are marked in \textbf{\textcolor{cyan}{blue}}. Our method demonstrates consistent superiority across different resolution scales.}  % 标题移动到表格环境开头
+\vspace{-0.3cm}
+\label{tab1}
+\centering  % 保持居中
+\vspace{0.2cm}  % 可根据需要微调标题与表格间距
+\scalebox{0.85}{
+\begin{tabular}{lccc|ccc|ccc}
+\hline
+\textbf{} & \multicolumn{3}{c|}{\textbf{1/2x Res.}} & \multicolumn{3}{c|}{\textbf{1/4x Res.}} & \multicolumn{3}{c}{\textbf{1/8x Res.}}  \\ 
+\textbf{} & PSNR $\uparrow$ & SSIM $\uparrow$ & LPIPS $\downarrow$ & PSNR $\uparrow$ & SSIM $\uparrow$ & LPIPS $\downarrow$ & PSNR $\uparrow$ & SSIM $\uparrow$ & LPIPS $\downarrow$\\ \hline
+mip-NeRF & 24.16 & 0.670 & 0.370 & 25.18 & 0.727 & 0.260 & 29.26 & 0.860 & 0.122  \\ 
+Instant-NGP & 24.27 & 0.626 & 0.445 & 24.76 & 0.639 & 0.367 & 26.79 & 0.746 & 0.239  \\ 
+zip-NeRF & 20.87 & 0.565 & 0.421 & 23.27 & 0.696 & 0.257 & \textbf{\textcolor{cyan}{29.66}} & 0.875 & \textbf{\textcolor{BurntOrange}{0.097}}  \\ 
+3DGS & 20.71 & 0.619 & 0.394 & 23.05 & 0.740 & 0.243 & 29.19 & 0.880 & \textbf{\textcolor{cyan}{0.107}}  \\ 
+3DGS+EWA & 23.70 & 0.667 & 0.369 & 25.90 & 0.775 & 0.236 & 29.30 & 0.880 & 0.114  \\ 
+Mip-Splatting & \textbf{\textcolor{cyan}{26.47}} & \textbf{\textcolor{cyan}{0.754}} & \textbf{\textcolor{cyan}{0.305}} & \textbf{\textcolor{cyan}{27.39}} & \textbf{\textcolor{cyan}{0.808}} & \textbf{\textcolor{cyan}{0.205}} & 29.39 & \textbf{\textcolor{cyan}{0.884}} & 0.108  \\ 
+Ours  & \textbf{\textcolor{BurntOrange}{28.42}} & \textbf{\textcolor{BurntOrange}{0.868}} & \textbf{\textcolor{BurntOrange}{0.238}} & \textbf{\textcolor{BurntOrange}{29.30}} & \textbf{\textcolor{BurntOrange}{0.870}} & \textbf{\textcolor{BurntOrange}{0.146}} & \textbf{\textcolor{BurntOrange}{29.84}} & \textbf{\textcolor{BurntOrange}{0.893}} & 0.112  \\ \hline
+\end{tabular}
+}
+\vspace{-0.3cm}
+\end{table*}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\FloatBarrier
+\begin{figure}[ht]
+  \centering
+  \centering \includegraphics[width=1.0\textwidth,height=0.46\textheight]{Fig5.pdf}
+  % \fbox{\rule{0pt}{2in} \rule{0.9\linewidth}{0pt}}
+   % \includegraphics[width=0.8\linewidth, color=gray]{egfigure.eps}
+   \caption{\textbf{Qualitative results on the Mip-NeRF360 dataset.} Our method reconstructs surfaces with fine geometry details and produces high-fidelity renderings on Mip-NeRF360 dataset. }
+   \label{fig:a1}
+\end{figure}
+
+
+
+
+
+
+
+
+
+
+\section{Additional Qualitative Results}
+% Fig.\ref{fig:a1} presents the rendering (top) and reconstruction (bottom) results on the Mip-NeRF360\cite{Mip-NeRF360} dataset. Additionally, the rendering results for the TNT~\cite{TNT} and Replica~\cite{replica} datasets are also shown in Fig.~\ref{fig:a2}. From these results, it is evident that our method achieves high-quality 3D reconstruction performance.
+
+As shown in Fig.\ref{fig:1}, our method preserves fine-scale structures more accurately and achieves higher visual fidelity than 3DGS\cite{3dgs} and Mip-Splatting~\cite{mip360-splatting} across three representative scenes.
+Fig.~\ref{fig:a1} displays the rendering (top) and surface reconstruction (bottom) results on the Mip-NeRF360~\cite{Mip-NeRF360} dataset. 
+Additional rendering results on the TNT~\cite{TNT} and Replica~\cite{replica} datasets are provided in Fig.~\ref{fig:a2}. Collectively, these visual comparisons substantiate our method's capability for high-quality 3D reconstruction while maintaining critical geometric details.
+
+
+
+
+% \begin{figure*}[h]
+%   \centering
+%   \centering \includegraphics[width=1.0\textwidth,height=0.65\textheight]{bicycle.pdf}
+%   % \fbox{\rule{0pt}{2in} \rule{0.9\linewidth}{0pt}}
+%    % \includegraphics[width=0.8\linewidth, color=gray]{egfigure.eps}
+%    \caption{\textbf{Qualitative comparsion on Mip-NeRF 360 for different resolution scales.}  }
+%    \label{fig:4}
+% \end{figure*}
+
+
+% \begin{figure}[t]
+%   \centering
+%   \centering \includegraphics[width=1.0\textwidth,height=0.5\textheight]{Fig5.pdf}
+%   % \fbox{\rule{0pt}{2in} \rule{0.9\linewidth}{0pt}}
+%    % \includegraphics[width=0.8\linewidth, color=gray]{egfigure.eps}
+%    \caption{\textbf{Qualitative results on the Mip-NeRF360 dataset.} Our method reconstructs surfaces with fine geometry details and produces high-fidelity renderings on Mip-NeRF360 dataset. }
+%    \label{fig:a1}
+% \end{figure}
+
+
+
+% \begin{figure}[t]
+%   \centering
+%   \centering \includegraphics[width=1.0\textwidth,height=0.5\textheight]{Fig6.png}
+%   % \fbox{\rule{0pt}{2in} \rule{0.9\linewidth}{0pt}}
+%    % \includegraphics[width=0.8\linewidth, color=gray]{egfigure.eps}
+%    \caption{\textbf{Qualitative rendering results on TNT and Replica dataset.}  }
+%    \label{fig:a2}
+% \end{figure}
+
+
+
+
+
+
+
+% \begin{table}[t]
+%     \centering
+%     \caption{\textbf{Mip-NeRF 360 Full-Resolution Results (Simplified)}. Best and second-best results are highlighted.}
+%     \label{tab:mipnerf_simple}
+%     \setlength{\tabcolsep}{4pt}
+%     \begin{tabular}{@{}lccccc@{}}
+%     \toprule
+%     & 3DGS & CityGS & Mip-Splat & \textbf{Ours} \\
+%     \midrule
+%     PSNR $\uparrow$     & 19.59 & 24.71 & \textcolor{cyan}{26.22} & \textcolor{BurntOrange}{27.91} \\
+%     SSIM $\uparrow$     & 0.619 & 0.702 & \textcolor{cyan}{0.765} & \textcolor{BurntOrange}{0.863} \\
+%     LPIPS $\downarrow$  & 0.476 & 0.401 & \textcolor{cyan}{0.392} & \textcolor{BurntOrange}{0.342} \\
+%     \bottomrule
+%     \end{tabular}
+%     \label{tab:3}
+% \end{table}
+
+
+
+
+\FloatBarrier
+\begin{figure}[ht]
+  \centering
+  \centering \includegraphics[width=1.0\textwidth,height=0.5\textheight]{Fig6.png}
+  % \fbox{\rule{0pt}{2in} \rule{0.9\linewidth}{0pt}}
+   % \includegraphics[width=0.8\linewidth, color=gray]{egfigure.eps}
+   \caption{\textbf{Qualitative rendering results on TNT and Replica dataset.}  }
+   \label{fig:a2}
+\end{figure}
+
+
+
+\section{Limitations}
+%One limitation of our method is that while it achieves high-resolution scene reconstruction under limited GPU resources, it incurs an increase in training time.  Consequently, although our approach is resource-efficient, its extended training duration may hinder rapid prototyping or deployment in time-sensitive applications. Future work should therefore explore strategies to accelerate training without sacrificing reconstruction quality.
+
+
+Although our method can achieve high-resolution scene reconstruction under limited GPU resources, extending the block-based framework to dynamic scenes introduces new challenges. In particular, ensuring temporal consistency across frames and accurately modeling motion across spatial partitions remain open problems. 
+Addressing these challenges will be a key focus of our future work, with the goal of enabling temporally coherent and spatially consistent reconstruction in dynamic environments.
+
+
+
+
+\section{Broader Social Impacts}
+\label{sec:impact}
+% This work introduces Hierarchical Gaussian Splatting (HRGS), a method designed to perform super-resolution image reconstruction under constrained computational budgets. HRGS attains high-fidelity 3D reconstruction while markedly decreasing GPU memory consumption and overall model size, thereby broadening the accessibility and practical reach of advanced 3D vision techniques. Such gains in resource efficiency facilitate deployment on low-power platforms—including mobile and embedded devices—opening avenues for more cost-effective applications in education, cultural-heritage preservation, smart-city visualization, and virtual or augmented-reality systems.
+
+% At the same time, we recognize that HRGS could be exploited for unauthorized spatial reconstruction or other privacy-sensitive use cases. Consequently, its dissemination and deployment should be guided by explicit ethical principles and regulatory safeguards to ensure that the technology serves the public interest and minimizes the risk of misuse. Future research should therefore prioritize privacy-preserving mechanisms, data-security protocols, and equitable access frameworks to promote the responsible and sustainable adoption of HRGS in society.
+
+
+This work presents Hierarchical Gaussian Splatting (HRGS), a super-resolution reconstruction framework tailored for computationally constrained environments. HRGS achieves high-fidelity 3D reconstruction while significantly reducing GPU memory usage and model size, thereby enhancing the accessibility of advanced 3D vision techniques. Its efficiency enables deployment on low-power platforms such as mobile and embedded devices, with promising applications in education, cultural heritage preservation, smart city visualization, and immersive virtual or augmented reality.
+However, we acknowledge the potential for misuse in privacy-sensitive contexts, such as unauthorized spatial reconstruction. To mitigate such risks, the deployment of HRGS should be governed by clear ethical guidelines and regulatory oversight.
+

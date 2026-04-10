@@ -45,7 +45,15 @@
     pre { white-space: pre-wrap; background:#f7f7f7; border-radius:8px; padding:12px; overflow-x:auto; }
     figure { margin: 24px 0; }
     figcaption { color: #666; font-size: 13px; }
-    img.paper-fig { width: 100%; border: 1px solid #ddd; border-radius: 8px; }
+    .article figure { width: min(100%, 760px); margin: 24px auto; }
+    img.paper-fig { display:block; width:auto; max-width:100%; max-height:460px; margin:0 auto; border: 1px solid #ddd; border-radius: 8px; background:#fafafa; cursor: zoom-in; box-sizing:border-box; }
+    .page-lightbox { position: fixed; inset: 0; z-index: 9999; display:flex; align-items:center; justify-content:center; padding:24px; background: rgba(15, 23, 42, 0.82); box-sizing:border-box; }
+    .page-lightbox[hidden] { display:none; }
+    .page-lightbox-inner { position: relative; max-width: min(96vw, 1400px); max-height: 92vh; display:flex; flex-direction:column; align-items:center; gap:12px; }
+    .page-lightbox-image { display:block; max-width: min(96vw, 1400px); max-height: calc(92vh - 64px); width:auto; height:auto; border-radius:12px; box-shadow: 0 18px 48px rgba(0,0,0,0.35); background:#fff; }
+    .page-lightbox-caption { max-width: min(92vw, 960px); color:#f3f4f6; font-size:13px; line-height:1.7; text-align:center; }
+    .page-lightbox-close { position:absolute; top:-12px; right:-12px; width:40px; height:40px; border:none; border-radius:999px; background:rgba(255,255,255,0.96); color:#111827; font-size:24px; line-height:1; cursor:pointer; box-shadow: 0 8px 24px rgba(0,0,0,0.22); }
+    .page-lightbox-close:hover { background:#ffffff; }
     .post-item { border:1px solid #e5e5e5; border-radius:8px; padding:10px 12px; margin:10px 0; }
     .layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 28px; align-items: start; justify-content: center; position: relative; }
     .sidebar { position: sticky; top: 18px; align-self: start; border-right: 1px solid #eee; padding-right: 16px; transition: width .2s ease, min-width .2s ease, padding .2s ease, border-color .2s ease; }
@@ -128,36 +136,63 @@
         resizeObserver.observe(shell);
       }
     });
+
+    function setupImageLightbox() {
+      var lightbox = document.getElementById('page-lightbox');
+      var lightboxImage = document.getElementById('page-lightbox-image');
+      var lightboxCaption = document.getElementById('page-lightbox-caption');
+      if (!lightbox || !lightboxImage || !lightboxCaption) return;
+
+      function closeLightbox() {
+        lightbox.setAttribute('hidden', 'hidden');
+        lightbox.setAttribute('aria-hidden', 'true');
+        lightboxImage.removeAttribute('src');
+        lightboxImage.alt = '';
+        lightboxCaption.textContent = '';
+        document.body.style.overflow = '';
+      }
+
+      function openLightbox(img) {
+        var src = img.getAttribute('data-full-src') || img.currentSrc || img.src;
+        if (!src) return;
+        var figure = img.closest('figure');
+        var caption = figure ? figure.querySelector('figcaption') : null;
+        lightboxImage.src = src;
+        lightboxImage.alt = img.alt || '';
+        lightboxCaption.textContent = caption ? caption.textContent.trim() : (img.alt || '');
+        lightbox.removeAttribute('hidden');
+        lightbox.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+      }
+
+      document.addEventListener('click', function(event) {
+        var target = event.target;
+        if (!target || !target.closest) return;
+        var clickedImage = target.closest('img.paper-fig');
+        if (clickedImage && !clickedImage.closest('#page-lightbox')) {
+          openLightbox(clickedImage);
+          return;
+        }
+        if (target === lightbox || target.closest('.page-lightbox-close')) {
+          closeLightbox();
+        }
+      });
+
+      document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape' && !lightbox.hasAttribute('hidden')) {
+          closeLightbox();
+        }
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', setupImageLightbox);
   </script>
 
-  <script>
-    window.MathJax = {
-      tex: {
-        inlineMath: [['$', '$'], ['\\(', '\\)']],
-        displayMath: [['$$', '$$'], ['\\[', '\\]']],
-        macros: {
-          mathds: ['\\mathbb{#1}', 1],
-          bm: ['\\boldsymbol{#1}', 1],
-          RR: '\\mathbb{R}',
-          EE: '\\mathbb{E}'
-        }
-      },
-      svg: { fontCache: 'global' },
-      startup: {
-        pageReady: () => {
-          return MathJax.startup.defaultPageReady().then(() => {
-            requestAnimationFrame(applyPageScale);
-          });
-        }
-      }
-    };
-  </script>
-  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
-<!-- source-grounding: arxiv_id=2603.25129v1; pdf=2603_25129v1_AirSplat Alignment and Rating for Robust Feed-Forward 3D Gaussian Splatting.pdf; source_dir=docs\.arxiv_source_cache\2603_25129v1\extracted; sections=7; figures=2; equations=2 -->
+<!-- source-grounding: arxiv_id=2603.25129v1; pdf=2603_25129v1_AirSplat Alignment and Rating for Robust Feed-Forward 3D Gaussian Splatting.pdf; source_dir=docs\.arxiv_source_cache\2603_25129v1\extracted; sections=4; figures=1; equations=0 -->
 
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
@@ -167,42 +202,64 @@
 
     <div class='tip'>
       <strong>一句话总结：</strong>
-      摘要应简明扼要地概括论文的内容。虽然摘要没有固定长度限制，但建议将摘要限制在 150 字左右。
+      在本文中，我们提出了 AirSplat，这是一种新颖的训练框架，可以有效地将 3DVFM 的稳健几何先验适应高保真、无姿势 NVS。我们的方法引入了两个关键的技术贡献。
     </div>
 
     <h2 id='summary'>简单摘要</h2>
-    <p>摘要应简明扼要地概括论文的内容。虽然摘要没有固定长度限制，但建议将摘要限制在 150 字左右。</p>
-<figure><img class='paper-fig' src='../assets/2603_25129v1/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：x 处的一个核（点核）或 x 和 x（左和右）处的两个核会导致 x 处的相同估计总和；标题中描述的图形元素应设置为斜体并放在括号中，如本示例标题所示</figcaption></figure>
-    <p>它说明了作者在提交论文时必须遵循的格式。同时，它还详细介绍了论文提交的各个方面，包括保留匿名性以及如何处理双重提交。</p>
+    <p>在本文中，我们提出了 AirSplat，这是一种新颖的训练框架，可以有效地将 3DVFM 的稳健几何先验适应高保真、无姿势 NVS。大规模基准测试的实验结果表明，我们的方法在重建质量方面显着优于最先进的无姿态 NVS 方法。</p>
+
+    <p>具体来说，实施细节，包括我们的模型权重更新策略。我们分析了我们提出的模块引入的计算训练开销。</p>
 
     <h2 id='innovation'>核心创新</h2>
-    <p>第一，第一个关键字 第二个关键字 第三个关键字 AirSplat。</p>
-    <p>第二，在本文中，我们提出了 AirSplat，这是一种新颖的训练框架，可以有效地将 3DVFM 的稳健几何先验适应高保真、无姿势 NVS。</p>
-    <p>第三，我们的方法引入了两个关键的技术贡献。</p>
+    <p>第一，在本文中，我们提出了 AirSplat，这是一种新颖的训练框架，可以有效地将 3DVFM 的稳健几何先验适应高保真、无姿势 NVS。</p>
+    <p>第二，我们的方法引入了两个关键的技术贡献。</p>
+    <p>第三，3D重建·3D视觉·高斯溅射⋆共同第一作者（同等贡献）。</p>
 
+    
+    
+    <!-- generic-tech-scope: source=Implementation Details||Geometry Estimation Performance Comparison||Training Overhead; rendered=Implementation Details||Geometry Estimation Performance Comparison||Training Overhead; missing=; source_eq=0; rendered_eq=0 -->
     <h2 id='technical'>技术细节</h2>
-    <p>我们的 AirSplat 有效消除了基线 DA3 [20] 产生的“漂浮物”（红色框）和模糊伪像（黄色虚线框），呈现清晰、结构一致的新颖视图。大规模基准测试的实验结果表明，我们的方法在重建质量方面显着优于最先进的无姿态 NVS 方法。3D重建·3D视觉·高斯溅射⋆共同第一作者（同等贡献）。</p>
+    <p>我们采用 AdamW 优化器，其学习率为 ，权重衰减为。我们使用带有预热阶段步骤的 OneCycleLR 调度程序。如表 2 所示，重做 SCPA 和 ROM 模块在训练期间会带来大约 62% 的计算开销。</p>
 
 
-    <p>$$ E = m\cdot c^2. $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 E、m、cdot、c 等量如何共同决定这个结果在方法链路中的作用。</p>
-    <p>$$ \psi (u) & = \int_{0}^{T} \left[\frac{1}{2} \left(\Lambda_{0}^{-1} u,u\right) + N^{\ast} (-u)\right] \text{d}t \; \\ & = 0 $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 psi、u、T、left 等量如何共同决定这个结果在方法链路中的作用。</p>
 
+
+    <h3>2 实施细节</h3>
+    <p>我们采用 AdamW 优化器，其学习率为 ，权重衰减为。我们使用带有预热阶段步骤的 OneCycleLR 调度程序。在基于评级的不透明度匹配（ROM）中，我们设置错误衰减率和稳定性常数。</p>
+    <h3>3 几何估计性能比较</h3>
+    <h3>4 训练开销</h3>
+    <p>如表 2 所示，重做 SCPA 和 ROM 模块在训练过程中引入了大约 62% 的计算开销。然而，这是一个非常值得的权衡，因为它严格只发生在训练阶段，以释放显着的性能提升和多视图一致性。</p>
+    <div class='card'><strong>源论文表 1（预览）</strong><div style='margin-top:6px;'>我们报告每次训练迭代的平均时间；虽然我们提出的模块（SCPA 和 ROM）引入了额外的前向传递和教师模型评估，但整体训练仍然易于处理。</div><div style='overflow-x:auto;margin-top:10px;'><table style='width:100%;border-collapse:collapse;font-size:12px;'><tr><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Methods</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Avg. Time (s) / Iter.</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'></th></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Baseline + Context-Target</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>2.35</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'></td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Baseline + Context-Target w/ SCPA</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>3.67</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'></td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Ours (Full Model)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>3.89</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'></td></tr></table></div><div style='font-size:12px;color:#666;margin-top:8px;'>表格为 source 预览；复杂排版、部分行列或强调格式可能已做简化。</div></div>
+
+
+
+
+    <!-- table-placement: source=4; rendered=4; tail_pile=0 -->
     <h2 id='experiment'>实验结论</h2>
-    <p>实验部分主要围绕 在本文中，我们提出了 AirSplat，这是一种新颖的训练框架，可以有效地将 3DVFM 的稳健几何先验适应高保真、无姿势 NVS 展开。结果表明，大规模基准测试的实验结果表明，我们的方法在重建质量方面显着优于最先进的无姿态 NVS 方法。</p>
-    <div class='card'><strong>源论文表 1（预览）</strong><div style='margin-top:6px;'>表格标题应始终位于表格上方。</div><div style='overflow-x:auto;margin-top:10px;'><table style='width:100%;border-collapse:collapse;font-size:12px;'><tr><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>lll@ Heading level</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Example</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Font size and style</th></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Title (centered)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Lecture Notes</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>14 point, bold</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>1st-level heading</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>1 Introduction</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>12 point, bold</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>2nd-level heading</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>2.1 Printing Area</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>10 point, bold</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>3rd-level heading</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Headings. Text follows</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>10 point, bold</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>4th-level heading</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Remark. Text follows</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>10 point, italic</td></tr></table></div><div style='font-size:12px;color:#666;margin-top:8px;'>表格为 source 预览；复杂排版、部分行列或强调格式可能已做简化。</div></div>
+    <p>实验部分主要围绕 高分辨率图像下的 NVS 性能比较 展开。</p>
 
 
+
+
+
+
+    <h3>5.1 高分辨率图像下的 NVS 性能比较</h3>
 
     <h2 id='takeaway'>理解评价</h2>
-    <p>如果把这篇论文放回问题背景里看，它真正的价值在于：摘要应简明扼要地概括论文的内容。这说明作者不是只补一个局部模块，而是在重新组织问题该怎样被解决。</p>
-    <p>最能支撑这个判断的，还是实验给出的证据：虽然摘要没有固定长度限制，但建议将摘要限制在 150 字左右。换句话说，这些设计并不只是概念上更完整，而是实实在在改变了最终结果。</p>
-    <p>当然，它离真正成熟的方案还有距离：当前方案的局限在于它仍然受制于计算资源、输入质量或场景复杂度，距离真正稳健的大规模部署还有差距。后续更值得继续推进的方向，是 后续更值得继续推进的方向，是未来继续提升效率、泛化能力以及在更复杂场景下的稳定性。</p>
+    <p>如果把这篇论文放回问题背景里看，它真正的价值在于：大规模基准测试的实验结果表明，我们的方法在重建质量方面显着优于最先进的无姿态 NVS 方法。这说明作者不是只补一个局部模块，而是在重新组织问题该怎样被解决。</p>
+    <p>最能支撑这个判断的，还是实验给出的证据：大规模基准测试的实验结果表明，我们的方法在重建质量方面显着优于最先进的无姿态 NVS 方法。换句话说，这些设计并不只是概念上更完整，而是实实在在改变了最终结果。</p>
+    <p>当然，它离真正成熟的方案还有距离：高分辨率图像下的 NVS 性能比较 限制和更广泛的讨论。后续更值得继续推进的方向，是 后续更值得继续推进的方向，是未来继续提升效率、泛化能力以及在更复杂场景下的稳定性。</p>
     
   </article>
 </div>
 
+  </div>
+</div>
+<div id='page-lightbox' class='page-lightbox' hidden aria-hidden='true'>
+  <div class='page-lightbox-inner'>
+    <button type='button' class='page-lightbox-close' aria-label='关闭大图' title='关闭'>&times;</button>
+    <img id='page-lightbox-image' class='page-lightbox-image' alt='' />
+    <div id='page-lightbox-caption' class='page-lightbox-caption'></div>
   </div>
 </div>
 </body>

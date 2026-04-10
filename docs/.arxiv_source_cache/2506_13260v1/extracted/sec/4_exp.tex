@@ -1,0 +1,394 @@
+\section{Experiments}\label{sec:exp}
+
+%\mtd{} consistently surpasses baseline approaches across a variety of settings.%, demonstrating the versatility and robustness of our method in different conditions.
+We elaborate our experimental settings in \cref{sec:exp_setup}, the quantitative and qualitative results of the proposed \mtd{} framework in \cref{sec:exp_quant,sec:exp_quali}, 
+and extensive ablation studies in \cref{sec:exp_ab}.
+
+\subsection{Experimental Setup}\label{sec:exp_setup}
+
+\textbf{Dataset and metrics}
+All experiments are conducted on the widely used \occnus{}\cite{occ3d} benchmark, which offers 3D occupancy labels for 18 categories 
+% (1 free space class, 16 semantic classes, and a generic obstacle class)
+ based on the large-scale nuScenes\cite{nuscenes} dataset.
+The annotations cover a spatial range of [-40m, -40m, -3.2m, 40m, 40m, 3.2m] with a voxel resolution of [0.4m, 0.4m, 0.4m], resulting in a $200\times 200 \times 16$ voxel grid per frame.
+The dataset is split into 700 training, 150 validation, and 150 test driving sequences, each lasting 20 seconds.
+We adopt geometric Intersection over Union (IoU) and semantic mean Intersection over Union (mIoU) as evaluation metrics. Results are reported at each future timestamp, along with the average performance over all timestamps on the validation set, in line with previous works.
+
+\textbf{Implementation details.}\label{sec:imp_detail}
+Unless otherwise specified, our world model predicts future occupancy over a 3-second horizon at 2 frames per second, conditioned on 4 frames of historical occupancy data, following the protocol established in OccWorld~\cite{occworld}.
+As outlined earlier, the \mtd{} framework is trained in multiple stages:
+(1) \textit{Diffusion-based World Model.} 
+We adopt the pre-trained Occ-VAE from DOME~\cite{dome} and train the diffusion-based world model for 2000 epochs with a total batch size of 128 and a learning rate of 2e-4.
+(2) \textit{Scene-centric Forecasting Module.} 
+This module is trained for 12 epochs using a total batch size of 32 and the CBGS resampling strategy~\cite{cbgs}.
+(3) \textit{\mtd{} \ctln{}.} 
+This component is trained for 1000 epochs with a total batch size of 64. 
+All models are trained on 4 H20 GPUs and use a learning rate of 1e-4 is not stated specifically.
+Please refer to the supplementary materials (\cref{app:imp_detail}) for additional implementation details, including network architectures and statistics, training hyperparameters, and planning trajectory configurations.
+
+
+
+\subsection{Quantitative Evaluation}\label{sec:exp_quant}
+
+\begin{table}[t]
+    \newcommand{\graycell}{\cellcolor{gray!30}}
+    \setlength{\tabcolsep}{0.006\linewidth}
+    \caption{
+        \textbf{4D occupancy generation performance under various settings.}
+        Each setting varies in terms of input modality and whether the ego trajectory (ego traj.) is predicted (Pred.) by a planning module or provided as ground truth (GT). 
+        % Most settings use 4-frame historical input except that for comparison with UniScene-Fore, both methods use 2-frame historical input.
+        ``Avg." indicates the average performance across 1s, 2s, and 3s horizons. The best performance in each setting is highlighted in bold.
+    }\label{tab:compare_sota}
+    \centering
+    \small
+    \begin{tabular}{l|cc|cccc|cccc}
+        \toprule            
+        \multirow{2}{*}{Method} & \multirow{2}{*}{Input} & \multirow{2}{*}{Ego traj.} &
+        \multicolumn{4}{c|}{mIoU (\%) $\uparrow$} & 
+        \multicolumn{4}{c}{IoU (\%) $\uparrow$} \\
+         & & & 1s & 2s & 3s & \graycell  Avg. & 1s & 2s & 3s & \graycell Avg. \\
+        \midrule
+        OccWorld-D~\cite{occworld} &  Camera & Pred. & 11.55 & 8.10 & 6.22 & \graycell 8.62  & 18.90 & 16.26 & 14.43 & \graycell 16.53 \\
+        OccWorld-T~\cite{occworld} &  Camera & Pred.  & 4.68 & 3.36 & 2.63 & \graycell 3.56 & 9.32 & 8.23 & 7.47 & \graycell 8.34 \\
+        OccWorld-S~\cite{occworld} &  Camera & Pred. & 0.28 & 0.26 & 0.24 & \graycell 0.26  & 5.05 & 5.01 & 4.95 & \graycell 5.00 \\
+        OccWorld-F~\cite{occworld} &  Camera & Pred.  &  8.03  & 6.91   &  3.54  &  \graycell 6.16  &     23.62   &  18.13  &  15.22  &  \graycell 18.99    \\
+        OccLLaMA~\cite{occllama} &  Camera & Pred. &  10.34  &  8.66  &  6.98  &  \graycell  8.66     &  25.81  &  23.19  &   19.97 &  \graycell  22.99  \\
+        OccVAR~\cite{occvar} &  Camera & Pred. &    17.17 &10.38 &7.82 &\graycell 11.79 & 27.60 &25.14 &20.33 & \graycell 24.35  \\
+        DFIT-OccWorld~\cite{dfit-occworld} &  Camera & Pred. & 13.38 & 10.16 & 7.96 & \graycell{10.50}  & 19.18 & 16.85 & 15.02 & \graycell{17.02} \\
+        Occ-LLM-S~\cite{occ-llm} &  Camera & Pred. & 11.28 & 10.21 & 9.13 & \graycell 10.21  & 27.11  & 24.07 & 20.19 &\graycell 23.79 \\
+        RenderWorld-S~\cite{renderworld} &  Camera & Pred. & 2.83  & 2.55 & 2.37 &\graycell 2.58  & 14.61 & 13.61 & 12.98 & \graycell 13.73  \\
+        \mtd{ (Ours)} &  Camera & Pred. & \textbf{25.57}  & \textbf{18.35} & \textbf{13.41} & \graycell {\textbf{19.11}}  & \textbf{45.36} & \textbf{37.06} & \textbf{30.46} &\graycell {\textbf{37.63}} \\
+
+% 05/14 14:23:14 - mmengine - INFO - Current val iou is [52.73471474647522, 45.35638391971588, 41.19707643985748, 37.0556116104126, 33.86086821556091, 30.46341836452484] while the best val iou is [52.73471474647522, 45.35638391971588, 41.19707643985748, 37.0556116104126, 33.86086821556091, 30.46341836452484]
+% 05/14 14:23:14 - mmengine - INFO - Current val miou is [32.65568136292345, 25.573868194923683, 21.789052819504455, 18.346204312846943, 15.863750940736601, 13.407210249672918] while the best val miou is [32.65568136292345, 25.573868194923683, 21.789052819504455, 18.346204312846943, 15.863750940736601, 13.407210249672918]
+% 05/14 14:23:14 - mmengine - INFO - avg val iou is 37.62513796488444
+% 05/14 14:23:14 - mmengine - INFO - avg val miou is 19.10909425248118
+
+        \midrule
+        DOME~\cite{dome} & Camera & GT &   24.12  &  17.41  &  13.24  &  \graycell 18.25  & 35.18        &  27.90  &  23.44 &  \graycell 28.84  \\
+        \mtd{ (Ours)} & Camera & GT & \textbf{26.56}  & \textbf{21.73} & \textbf{18.49} & \graycell {\textbf{22.26}}  & \textbf{48.08} & \textbf{43.84} & \textbf{40.28} &\graycell {\textbf{44.07}} \\
+
+% 05/14 14:23:14 - mmengine - INFO - Current val iou is [51.325541734695435, 48.07914197444916, 45.79783082008362, 43.84497404098511, 42.43859946727753, 40.27961790561676] while the best val iou is [51.325541734695435, 48.07914197444916, 45.79783082008362, 43.84497404098511, 42.43859946727753, 40.27961790561676]
+% 05/14 14:23:14 - mmengine - INFO - Current val miou is [30.49533494255122, 26.561552680590573, 23.994348965146962, 21.726973617778107, 20.11303544482764, 18.49478965296465] while the best val miou is [30.49533494255122, 26.561552680590573, 23.994348965146962, 21.726973617778107, 20.11303544482764, 18.49478965296465]
+% 05/14 14:23:14 - mmengine - INFO - avg val iou is 44.067911307017006
+% 05/14 14:23:14 - mmengine - INFO - avg val miou is 22.261105317111106
+
+        \midrule
+        Copy\&Paste~\cite{occworld} & 3D-Occ & Pred. &  14.91 & 10.54 & 8.52 & \graycell 11.33 & 24.47 & 19.77 & 17.31 & \graycell 20.52 \\ 
+        OccWorld~\cite{occworld} & 3D-Occ & Pred. & 25.78 & 15.14 & 10.51 & \graycell 17.14  & 34.63 & 25.07 & 20.18 & \graycell 26.63 \\
+        OccLLaMA~\cite{occllama}  & 3D-Occ & Pred. &   25.05  &   19.49  &  15.26  &  \graycell 19.93    &  34.56  &  28.53  &  24.41  &   \graycell 29.17 \\
+        OccVAR~\cite{occvar} & 3D-Occ & Pred. & 27.96 & \textbf{21.75} & 16.47 & \graycell 22.06 & 38.73 &29.50 & 24.86 & \graycell 31.03 \\
+        RenderWorld~\cite{renderworld} & 3D-Occ & Pred. & 28.69 & 18.89 & 14.83  & \graycell 20.80  & 37.74 & 28.41 & 24.08 & \graycell 30.08 \\
+        Occ-LLM~\cite{occ-llm} & 3D-Occ & Pred. & 24.02 & 21.65 & \textbf{17.29} & \graycell 20.99   & 36.65 & \textbf{32.14} & \textbf{28.77}  & \graycell \textbf{32.52}  \\
+        DFIT-OccWorld~\cite{dfit-occworld} & 3D-Occ & Pred. & \textbf{31.68} & 21.29 & 15.18 & \graycell{\textbf{22.71}}  & \textbf{40.28}
+        & 31.24 & 25.29 & \graycell{32.27} \\
+        \mtd{ (Ours)} & 3D-Occ & Pred. & 30.57  & 19.91 & 13.38 & \graycell {21.29}  & 36.96 & 28.26 & 21.86 &\graycell {29.03} \\
+
+
+% 05/14 14:09:05 - mmengine - INFO - Current val iou is [45.3999787569046, 36.96238398551941, 32.511648535728455, 28.256016969680786, 24.85816776752472, 21.864037215709686] while the best val iou is [45.3999787569046, 36.96238398551941, 32.511648535728455, 28.256016969680786, 24.85816776752472, 21.864037215709686]
+% 05/14 14:09:05 - mmengine - INFO - Current val miou is [41.0660817342646, 30.569861829280853, 24.729320319259866, 19.90714266019709, 16.29400394637795, 13.382023824926684] while the best val miou is [41.0660817342646, 30.569861829280853, 24.729320319259866, 19.90714266019709, 16.29400394637795, 13.382023824926684]
+% 05/14 14:09:05 - mmengine - INFO - avg val iou is 29.027479390303295
+% 05/14 14:09:05 - mmengine - INFO - avg val miou is 21.28634277146821
+
+
+        \midrule
+        DOME~\cite{dome} & 3D-Occ & GT & 35.11 & 25.89 & 20.29 & \graycell 27.10    & 43.99 & 35.36 & 29.74 &\graycell 36.36 \\
+        % &  &  \mtd{-O-MV (Ours)} &  37.70 & 27.29 & 22.62 & \graycell  29.21  & 44.82 & 36.01 & 30.79 &\graycell 37.20 \\
+        % &  &  \mtd{-O  (Ours)}  &  \textbf{38.33} & \textbf{35.05} & \textbf{29.90} & \graycell {\textbf{36.19}}  & \textbf{51.67} & \textbf{45.32} & \textbf{40.90} &\graycell {\textbf{45.97}} \\
+        \mtd{ (Ours)} & 3D-Occ & GT & \textbf{42.75} & \textbf{32.97} & \textbf{26.98} & \graycell  \textbf{34.23}  & \textbf{50.57} & \textbf{43.47} & \textbf{38.36} &\graycell \textbf{44.13} \\
+
+        \midrule
+        UniScene-Fore~\cite{uniscene} & 3D-Occ(2f),Box,Map   &  GT &   35.37 & 29.59 & 25.08 & \graycell {31.76}    & 38.34 & 32.70 & 29.09 &\graycell 34.84 \\
+        % &  & \mtd{-MV  (Ours)}  & 41.91  & 33.71 & 27.43 & \graycell {34.35}  & 46.05 & 39.75 & 34.35 &\graycell {40.05} \\
+        % &  & \mtd{(Ours)} & \textbf{45.26}  & \textbf{38.30} & \textbf{33.05} & \graycell {\textbf{38.87}}  & \textbf{51.79} & \textbf{46.20} & \textbf{41.53} &\graycell {\textbf{46.50}} \\
+        \mtd{  (Ours)}  & 3D-Occ(2f),Box,Map   &  GT & \textbf{45.98}  & \textbf{38.57} & \textbf{33.28} & \graycell \textbf{39.28}  & \textbf{52.11} & \textbf{46.73} & \textbf{42.65} &\graycell \textbf{47.16} \\
+
+% 05/14 13:57:40 - mmengine - INFO - Current val iou is [56.487977504730225, 52.11188793182373, 48.90182912349701, 46.7320591211319, 44.91143822669983, 42.650291323661804] while the best val iou is [56.487977504730225, 52.11188793182373, 48.90182912349701, 46.7320591211319, 44.91143822669983, 42.650291323661804]
+% 05/14 13:57:40 - mmengine - INFO - Current val miou is [52.20244228839874, 45.984514846521265, 41.62844033802257, 38.57071908081279, 36.08140480868956, 33.27648946467568] while the best val miou is [52.20244228839874, 45.984514846521265, 41.62844033802257, 38.57071908081279, 36.08140480868956, 33.27648946467568]
+% 05/14 13:57:40 - mmengine - INFO - avg val iou is 47.164746125539146
+% 05/14 13:57:40 - mmengine - INFO - avg val miou is 39.277241130669914
+
+        \bottomrule
+    \end{tabular}
+    % \vspace{-2em}
+\end{table}
+
+
+\textbf{Main results.}
+In the occupancy world modeling domain, existing methods differ significantly in their experimental setups. To enable a fair and comprehensive comparison, we adapt our proposed \mtd{} framework to match these various settings and report the main results in \cref{tab:compare_sota}.
+
+% — particularly in the input modality used and whether ego trajectories are predicted by a planning module or provided as ground truth.
+
+The first setting uses camera images as input and predicted ego trajectories from a planning module. 
+In this case, we employ a modified BEVDet~\cite{bevdet} to convert camera inputs into occupancy predictions.
+Among prior works, OccVAR previously achieved the best performance with an average mIoU of 11.79 and an average IoU of 24.35.
+In contrast, our \mtd{} achieve 19.11 mIoU and 37.63 IoU, significantly surpassing the previous best results by 62.1\% and 54.5\%, respectively.
+
+When ground-truth ego trajectories are used with the same camera input, our method further improves performance to 22.26 mIoU and 44.07 IoU, with gains of 3.15 and 6.44, respectively.
+In this setting, our method also outperforms the state-of-the-art DOME by a significant margin 22.0\% in mIoU and 34.6\% in IoU, highlighting the robustness of \mtd{}.
+% This is expected, as ground-truth trajectories eliminate the planning errors and provide more reliable trajectory conditioning.
+
+In the third setting, we adopt ground-truth occupancy inputs but use predicted ego trajectories.
+Here, the best prior mIoU (22.71) is achieved by DFIT-OccWorld, while the highest IoU (32.52) is obtained by Occ-LLM.
+It is noteworthy that both methods incorporate additional cues such as occupancy flow or language information into their frameworks.
+In comparison, our \mtd{}, despite relying solely on trajectory conditioning without such external information, still achieves competitive results of 21.29 mIoU and 29.03 IoU.
+We hypothesize that the slightly lower performance is due to \mtd{}'s strong dependency on trajectory input: since it generates occupancy strictly conditioned on predicted trajectories, it may be more sensitive to planning errors. We further validate the hypothesis in the ablation study. 
+Nevertheless, our method remains among the top-performing approaches, demonstrating its effectiveness even in this challenging setup.
+
+Under the configuration with both ground-truth occupancy and ground-truth trajectories, \mtd{} achieves 34.23 mIoU and 44.13 IoU, showing strong performance when free from upstream prediction errors. COME outperforms the state-of-the-art DOME by 26.3\% in mIoU and 21.3\% in IoU.
+Furthermore, with BEV layouts, \mtd{}'s performance increases further to 39.28 mIoU and 47.16 IoU. COME outperforms the state-of-the-art UniScene-Fore by 23.7\% in mIoU and 35.4\% in IoU.
+% These results confirm that incorporating richer spatial and semantic information can further enhance 4D occupancy generation.
+
+We leave two results in the supplementary material (\cref{sec:more_results}). \cref{tab:compare_long} demonstrates COME achieves better performance than DOME during all timestamps of long-term 8-s generation. \cref{tab:ablate_masking_strategy} demonstrates the best practice of masking strategy for balancing quantitative and qualitative results is to pose the invisibility mask on control features. 
+
+% \begin{table}[t]
+%     \newcommand{\graycell}{\cellcolor{gray!30}}
+%     \setlength{\tabcolsep}{0.007\linewidth}
+%     \caption{\textbf{Long-term 4D occupancy generation performance.} 
+%     Ground-truth 3D occupancy and trajectories are used as inputs. 
+%     The best results are highlighted in bold. 
+%     ``Avg." denotes the average performance over the 1 second to 8 second horizon.
+%     }       
+%     \label{tab:compare_long}
+%     \centering
+%     \small
+%     \begin{tabular}{l|cccccccc|c}
+%         \toprule
+%         \multirow{2}{*}{Method} &             
+%         \multicolumn{9}{c}{mIoU (\%) $\uparrow$} \\
+%         &  1s & 2s & 3s & 4s & 5s & 6s & 7s & 8s & \graycell  Avg. \\
+%         \midrule
+%         DOME~\cite{dome}    & 30.10 & 21.35  & 17.36 & 14.86 & 12.61    & 11.03 & 10.00 & 9.34  &\graycell 15.83  \\
+%         \mtd{ (Ours)}      &   \textbf{33.78}  &  \textbf{24.57}    &  \textbf{21.35} & \textbf{18.25} & \textbf{15.84}   & \textbf{13.85} & \textbf{12.99} & \textbf{11.96} &\graycell {\textbf{19.07}} \\ \midrule            
+%         \multirow{2}{*}{Method} & 
+%         \multicolumn{9}{c}{IoU (\%) $\uparrow$}  \\
+%         & 1s & 2s & 3s & 4s & 5s & 6s & 7s & 8s & \graycell Avg. \\ \midrule
+%         DOME~\cite{dome}       & 39.04 & 31.20 & 27.14 &  24.73 & 22.32  & 20.28 & 19.05 & 17.97 & \graycell  25.21 \\
+%         \mtd{ (Ours)}     &   \textbf{44.20}  &  \textbf{36.25}    &  \textbf{32.86} & \textbf{30.03} & \textbf{26.93}   & \textbf{24.70} & \textbf{23.30} & \textbf{21.44} &\graycell {\textbf{29.96}}  \\ 
+%         \bottomrule
+%     \end{tabular}
+% \end{table}
+
+
+
+% \textbf{Long-term Occupancy Generation.}
+% The ability to generate long-term predictions is crucial for world models, particularly in the context of autonomous driving. 
+% To evaluate this capability, we extend the prediction horizon from 3 seconds to 8 seconds and present the results in \cref{tab:compare_long}. 
+% Our method, \mtd{}, consistently outperforms baselines across all timestamps and on average, for both mIoU and IoU metrics. 
+% Specifically, \mtd{} achieves average mIoU and IoU scores of 19.07 and 29.96, surpassing DOME by 20.5\% and 18.8\% respectively.
+
+% In addition, we observe a significant performance drop in DOME: mIoU declines by 69.0\% from 30.10 at 1s to 9.34 at 8s, and IoU drops by 79.6\%. 
+% In contrast, \mtd{} shows a relatively smaller degradation, with mIoU and IoU decreasing by 64.6\% and 74.1\%, respectively. 
+% While degradation is inevitable over longer horizons, these results indicate that incorporating scene conditions contributes to more robust long-term modeling.
+
+
+
+
+\subsection{Qualitative Results}\label{sec:exp_quali}
+\begin{figure}
+    \centering
+    \includegraphics[width=1.0\textwidth]{fig/come_vis_example1.pdf}
+    \caption{
+        Qualitative results of 3-s 4D occupancy generation. 
+        % Visualization examples demonstrate the spatiotemporal consistency of \mtd{} for generating dynamic objects. DOME loses vehicles (left image) or exhibits category jumping (right image) during generation, while our \mtd{} method maintains foreground consistency in generation.
+        % \qtext{tbd}
+    }
+    \label{fig:come_vis_foreground}
+    % \vspace{-1em}
+\end{figure}
+
+\cref{fig:come_vis_foreground} presents visualizations comparing ground-truth occupancy with predictions from DOME and our method.
+We observe that DOME suffers from object category inconsistency (top example) and sudden object disappearance (bottom example).
+In contrast, \mtd{} produces results with improved spatial consistency, highlighting the efficacy of the scene condition injection.
+Additional qualitative results, including analyses of input variants, model architectures, and component contributions, are provided in the supplementary material (\cref{sec:more_vis}) for comprehensive evaluation.
+
+
+% \qtext{
+% We put more visualization results in the supplementary materials to better illustrate differences between more model variants and various inputs. They include the generation results with different driving commands and future trajectories\cref{fig:come_vis_pose_control}, with BEV layouts as input (\cref{fig:come_vis_bev_layout}), comparison between results across stages (\cref{fig:come_vis_world_model_controlnet}), comparison between different sensor inputs (\cref{fig:come_vis_sensor_input}), comparison between different masking strategies (\cref{fig:come_vis_mask_strategy}) and comparison between different model sizes (\cref{fig:come_vis_small_models}).
+% }
+
+\subsection{Ablation Study}\label{sec:exp_ab}
+
+
+\begin{table}[t]
+    \newcommand{\graycell}{\cellcolor{gray!30}}
+    \setlength{\tabcolsep}{0.006\linewidth}
+    \caption{
+        \textbf{Model performance in various stages.}
+        Here, ``Visible'', ``Invisible'' and ``All'' refer to voxels that are observed, unobserved, and the total set of voxels based on historical occupancy, respectively.
+    }
+    \label{tab:ablate_stages}
+    \centering
+    \small
+    \begin{tabular}{l|c|ccc|ccc}
+        \toprule
+        \multirow{2}{*}{Model}   & \multirow{2}{*}{Input} & 
+        \multicolumn{3}{c|}{mIoU (\%) $\uparrow$} & 
+        \multicolumn{3}{c}{IoU (\%) $\uparrow$} \\
+        & &  Visible & Invisible & All &  Visible & Invisible & All \\
+        \midrule
+        Stage1: World Model  & 3D-Occ (4f)     & 25.68 & 5.81 & 23.58  & 35.96 & 13.60 & 32.61 \\        
+        Stage2: Scene-Centric Forecasting  & 3D-Occ (4f)       &  42.74 & 0.09 & 39.12  & 55.08 & 0.31  & 48.00 \\
+        Stage3: ControlNet  & 3D-Occ (4f) & 40.06 & 5.56 & 34.23  & 51.12 & 14.95 & 44.13 \\\midrule
+        % Stage1-World-Model-8-s  & 3D-Occ   & 17.77 & 4.00 &  14.76  & 29.14 & 12.91 & 24.11 \\        
+        % Stage2-Scene-Centric-8-s  & 3D-Occ  & 38.23  & 0.08 &  30.35 & 54.40 & 0.18  & 39.37 \\
+        % Stage3-ControlNet-8-s  & 3D-Occ & 23.16 & 4.52 & 19.07  & 36.85 & 14.45 & 29.96  \\\midrule
+        Stage1: World-Model &   3D-Occ(2f),Box,Map    & 32.92 & 11.74 & 30.04  & 39.52 & 16.20 & 35.43 \\        
+        Stage2: Scene-Centric Forecasting &  3D-Occ(2f)    &   41.65    &  0.08 & 37.93  & 54.50 &  0.27 & 47.18 \\
+        Stage3: ControlNet  &  3D-Occ(2f),Box,Map & 42.75 & 14.85 & 39.28 & 52.78 & 20.48 &  47.16 \\
+        \bottomrule
+    \end{tabular}
+    % \vspace{-1em}
+\end{table}
+
+\textbf{Model performances across various stages.}
+In \cref{tab:ablate_stages}, we analyze the predicted occupancy across our three stages, evaluating visible, invisible, and all voxels.
+Consistently, the world model performs better in previously invisible areas, while scene-centric forecasting excels in observed regions.
+This validates our motivation: the generative world model exhibits strong imaginative capabilities but under-utilizes the 3D spatial consistency of the driving scene.
+In contrast, scene-centric forecasting achieves high accuracy in observed areas but lacks generative flexibility, limiting its imagination applicability to novel-view synthesis under diverse trajectories.
+
+In the third stage, we leverage the \ctln{} to combine the strengths of the two modules.
+Stage three model significantly improves performance in invisible regions compared to the forecasting module.
+Although the overall mIoU experiences a slight decline, the model gains imaginative capabilities and broader adaptability.
+With extra BEV layout inputs, \mtd{} demonstrates further enhanced generation of invisible scenes and achieves the best overall performance.
+These results showcase the effectiveness of our proposed framework.
+
+
+
+% \qtext{
+% \textbf{Effects of stages in \mtd{}.}
+% \cref{tab:ablate_stages} analysis the forecasting performance under different stages. For evaluation of scene-centric forecasting, we transform the future predictions of the current coordinate to the future coordinate. Future voxels that are invisible in the current coordinate are set as free. Even if only visible region matters, scene-centric forecasting already has comparably higher performance than the world model, which outperforms stage two by 65.9\% mIoU and 47.2\% IoU. With ControlNet that injects the knowledge of scene-centric forecasting to the world model, The stage three COME outperforms the vanilla world model by 45.2\% mIoU and 35.3\% IoU. we find that the addition of the control network significantly enhances the overall metric, making the generation more reasonable.
+% We also perform a simple post-fusion strategy: We use results of scene-centric forecasting of all visible regions of future voxels and use results of COME of all invisible regions of future voxels. We find this strategy further improves the mIoU metric to 41.46\% but decreases the IoU metrics. The post-fusion strategy has the risk of showing poor consistency between visible and invisible regions.
+% }
+
+
+
+\textbf{Effects of training setups.}
+\cref{tab:training_ablations} presents an ablation study on different training configurations within the proposed \mtd{} framework. 
+We first train \ctln{} with and without freezing the world model in the final stage, and present the results in \cref{tab:1a}. 
+It can be observed that training \ctln{} while keeping the world model frozen yields significantly better results, confirming the importance of aligning with the fine-tuning strategy validated in the original \ctln{}~\cite{controlnet} paper.
+
+In \cref{tab:1b}, we explore two model sizes for both the generative model and its corresponding \ctln{}. 
+Across both settings, the introduction of \ctln{} consistently improves performance by a substantial margin. 
+These gains are particularly pronounced under limited computational budgets, where mIoU increases from 7.78 to 32.00 and IoU from 18.14 to 42.03 — surpassing even the standalone world model with 1375.4 GFLOPS. 
+These results demonstrate that integrating \ctln{} significantly enhances the generative capability of the model even if the generation model is small.
+
+\begin{table}[t]
+    % \vspace{-0.5em}
+    \centering
+    \caption{Ablations on different training setups.
+    ``WM'' and ``ControlNet'' denote the world model and ControlNet in our \mtd{}, respectively.
+    }
+    \setlength{\tabcolsep}{0.007\linewidth}
+    \begin{subtable}[t]{0.3\textwidth}
+        \centering
+        \caption{
+            Effects of trainable parameters in the final stage.
+        }
+        \small
+        \begin{tabular}{l|cc}
+            \toprule
+            Trainable modules & mIoU & IoU \\
+            \midrule
+            ControlNet & 34.23 & 44.13  \\
+            WM\&ControlNet & 28.67 & 41.07 \\
+            \bottomrule
+        \end{tabular}
+        \label{tab:1a}
+    \end{subtable}
+    \qquad
+    \begin{subtable}[t]{0.6\textwidth}
+        \centering
+        \caption{
+            Model performances under different model sizes.
+        }
+        \small
+        \begin{tabular}{l|ccc|ccc}
+            \toprule
+            \multirow{2}{*}{Model} & \multicolumn{3}{c|}{Small} & \multicolumn{3}{c}{Base} \\
+             & mIoU & IoU & GFLOPS & mIoU & IoU  & GFLOPS\\
+            \midrule
+            WM & 7.78 & 18.14  & 147.8  & 23.49 & 32.36 & 1375.4\\
+            +ControlNet & 32.00 & 42.03 & 222.7 & 34.23 & 44.13 & 2066.6 \\
+            \bottomrule
+        \end{tabular}
+        \label{tab:1b}
+    \end{subtable}
+    \label{tab:training_ablations}
+    % \vspace{-0.5em}
+\end{table}
+
+% The scene-centric forecasting module has 27.31 M parameters and 737.76 GFLOPs. The base world model has 362.31M parameters and 1375.38 GLOPS. The base ControlNet has 158.49M parameters and 691.23 GLOPS. The base world model has 45.83M parameters and 147.85 GLOPS. The base ControlNet has 17.27M parameters and 74.86 GLOPS.
+
+\textbf{Effects of inference setups.}
+In \cref{tab:test_time_ablations}, we investigate how different inference configurations affect model performance. 
+We begin by analyzing the impact of the number of denoising steps during the diffusion process, as shown in \cref{tab:2a}. 
+Increasing the number of steps consistently improves generative performance. 
+The results indicate a clear positive correlation between performance and the number of denoising steps, with satisfactory results achieved when performing at least 10 steps.
+
+Next, we examine model performance using different sources of predicted occupancy and trajectories. 
+In \cref{tab:2c}, we replace ground-truth occupancy with predictions from a vision-only model, BEVStereo (mIoU = 42.54), and a fusion model, EFF-Occ (mIoU = 54.08). 
+The results show that stronger occupancy inputs lead to better generative outcomes.
+\cref{tab:2b} shows that gradually replacing the ground-truth pose and yaw with predicted values leads to a noticeable drop in model performance. 
+However, when we remove the influence of ego pose during evaluation - by aligning predicted and ground-truth occupancy to a same predicted future waypoint coordinate - the degradation is minimal, with only a 0.23 drop in mIoU and a 0.44 drop in IoU.
+This phenomenon suggests that the performance degradation primarily stems from misaligned trajectories, while the generated scene quality remains relatively unaffected by trajectory errors. 
+Further discussion is provided in our supplementary material (\cref{sec:discuss_eval}) .
+
+\begin{table}[t]
+% \vspace{-0.5em}
+    \centering
+    \caption{Ablations on various inference configurations.}\label{tab:test_time_ablations}
+    \setlength{\tabcolsep}{0.007\linewidth}
+    \small
+    \begin{subtable}[t]{0.2\textwidth}
+        \centering
+        \caption{
+            Effects of the denoising steps at the inference stage.
+        }\label{tab:2a}
+        \begin{tabular}{l|cc}
+            \toprule
+            \#step & mIoU & IoU \\
+            \midrule
+            2  & 4.41 & 14.47 \\
+            5  & 4.95 & 16.17 \\
+            10 & 33.42 & 44.35 \\
+            20 & 34.23 & 44.13 \\
+            \bottomrule
+        \end{tabular}        
+    \end{subtable}
+    \quad
+    \begin{subtable}[t]{0.33\textwidth}
+        \centering
+        \caption{
+            Model performance when ground-truth occupancy is replaced with different occupancy generators.
+            Here, ``C" and ``L" denote inputs from camera and LiDAR sensors, respectively.
+            }\label{tab:2c}
+        \begin{tabular}{lc|cc}
+            \toprule
+            Model & Input & mIoU & IoU \\
+            \midrule
+            BEVStereo~\cite{li2023bevstereo} & C & 22.26 & 44.07 \\
+            EFFOcc~\cite{effocc} &  LC & 26.75 & 50.49 \\    
+            \bottomrule
+        \end{tabular}            
+    \end{subtable}   
+    \quad 
+    \begin{subtable}[t]{0.3\textwidth}
+        \centering
+        \caption{
+            Effects of the used trajectories.
+             ``align." is the alignment operation of the ground-truth occupancies.
+            }\label{tab:2b}
+        \begin{tabular}{lll|cc}
+            \toprule
+            Pose2D & Yaw & Align. & mIoU & IoU \\
+            \midrule
+            GT & GT & - & 34.23 & 44.13 \\
+            Pred. & GT & - & 25.90 & 35.21  \\
+            Pred. & Pred. & - & 21.29 & 29.03 \\ 
+            Pred. & Pred. & \checkmark & 34.00 & 43.69 \\       
+            \bottomrule
+        \end{tabular}        
+    \end{subtable}         
+% \vspace{-0.5em}
+\end{table}

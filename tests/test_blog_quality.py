@@ -30,6 +30,7 @@ RECENTLY_FIXED_FULL_CLEAN = [
     "2503_02279v1",
     "2506_14229v1",
     "2603_22102v1",
+    "2512_07237v2",
 ]
 
 
@@ -216,6 +217,62 @@ def test_validator_flags_adjacent_duplicate_equation_explanations() -> None:
     assert any("相邻公式解读重复" in issue for issue in issues)
 
 
+def test_validator_flags_equations_piled_at_end_of_technical_section() -> None:
+    html_bad_placement = """
+    <html><body><article>
+      <div class='tip'><strong>一句话总结：</strong>这是一个包含具体问题、方法和结果的完整一句话总结，不会触发其他规则。</div>
+      <h2 id='summary'>简单摘要</h2><p>摘要内容完整，足够长，并且是正常中文描述。</p>
+      <h2 id='innovation'>核心创新</h2><p>第一，提出了统一编码。第二，引入了方向线索。第三，用轻量适配器接入预训练模型。</p>
+      <!-- equation-placement: source=3.1.1||3.1.2||3.1.3||3.1.3||3.2.1||3.2.1||3.2.1||3.2.2; rendered=3.3.2||3.3.2||3.3.2||3.3.2||3.3.2||3.3.2||3.3.2||3.3.2; tail_pile=1 -->
+      <h2 id='technical'>技术细节</h2>
+      <p>技术导语完整，解释方法主线与整体结构。</p>
+      <h3>3.1 预备知识</h3>
+      <h4>3.1.1 相机作为射线映射</h4><p>这里先解释相机如何统一写成射线映射。</p>
+      <h4>3.1.2 绝对相机编码</h4><p>这里解释绝对编码的基本局限。</p>
+      <h4>3.1.3 相对相机编码</h4><p>这里解释为什么还需要相对编码。</p>
+      <h3>3.2 统一相机位置编码</h3>
+      <h4>3.2.1 相对射线编码</h4><p>这里解释射线级编码。</p>
+      <h4>3.2.2 绝对方向编码</h4><p>这里解释 Lat-Up 图。</p>
+      <h3>3.3 空间注意力适配器</h3>
+      <h4>3.3.1 混合编码</h4><p>这里解释混合编码的注意力。</p>
+      <h4>3.3.2 并联适配器</h4><p>这里解释适配器插入方式。</p>
+      <p>$$ a = b $$</p><p>这条式子解释第一条公式。</p>
+      <p>$$ c = d $$</p><p>这条式子解释第二条公式。</p>
+      <p>$$ e = f $$</p><p>这条式子解释第三条公式。</p>
+      <p>$$ g = h $$</p><p>这条式子解释第四条公式。</p>
+      <p>$$ i = j $$</p><p>这条式子解释第五条公式。</p>
+      <p>$$ k = l $$</p><p>这条式子解释第六条公式。</p>
+      <p>$$ m = n $$</p><p>这条式子解释第七条公式。</p>
+      <p>$$ o = p $$</p><p>这条式子解释第八条公式。</p>
+      <h2 id='experiment'>实验结论</h2><p>实验内容完整，比较对象、指标和结论都比较清楚。</p>
+      <h2 id='takeaway'>理解评价</h2><p>这篇论文存在明显局限，未来可以继续改进和扩展方向。</p>
+    </article></body></html>
+    """
+
+    issues = validate_post_html(html_bad_placement)
+    assert any("技术细节公式集中堆在章节尾部" in issue for issue in issues)
+
+
+def test_validator_flags_figures_and_tables_piled_at_end_of_sections() -> None:
+    html_bad_assets = """
+    <html><body><article>
+      <div class='tip'><strong>一句话总结：</strong>这是一个包含具体问题、方法和结果的完整一句话总结，不会触发其他规则。</div>
+      <!-- source-grounding: arxiv_id=dummy; pdf=dummy.pdf; source_dir=dummy; sections=5; figures=4; equations=0 -->
+      <!-- figure-placement: source=3.1||3.3||4.2||4.2; rendered=4.3||4.3||4.3||4.3; tail_pile=1 -->
+      <!-- table-placement: source=4.1||4.2; rendered=4.3||4.3; tail_pile=1 -->
+      <h2 id='summary'>简单摘要</h2><p>摘要内容完整，足够长，并且是正常中文描述。</p>
+      <h2 id='innovation'>核心创新</h2><p>创新内容完整描述。</p>
+      <h2 id='technical'>技术细节</h2><p>技术内容完整描述。</p>
+      <h2 id='experiment'>实验结论</h2><p>实验内容完整，比较对象、指标和结论都比较清楚。</p>
+      <h2 id='takeaway'>理解评价</h2><p>这篇论文存在明显局限，未来可以继续改进和扩展方向，且这里提供了完整评价。</p>
+    </article></body></html>
+    """
+
+    issues = validate_post_html(html_bad_assets)
+    assert any("图示集中堆在章节尾部" in issue for issue in issues)
+    assert any("表格集中堆在章节尾部" in issue for issue in issues)
+
+
 def test_validator_flags_missing_review_scope_coverage() -> None:
     html_review_bad = """
     <html><body><article>
@@ -235,6 +292,24 @@ def test_validator_flags_missing_review_scope_coverage() -> None:
     assert any("review 技术细节公式覆盖不足" in issue for issue in issues)
 
 
+def test_validator_flags_where_residue_in_one_liner() -> None:
+    html_bad_cleanup = """
+    <html><body><article>
+      <div class='tip'><strong>一句话总结：</strong>这是一句完整总结，但是保留了 where 这个英文残词。</div>
+      <h2 id='summary'>简单摘要</h2>
+      <p>第一段完整摘要，介绍问题背景与任务目标。</p>
+      <p>第二段完整摘要，继续说明方法主线与实验结果。</p>
+      <h2 id='innovation'>核心创新</h2><p>创新内容完整描述，说明为什么这些设计重要。</p>
+      <h2 id='technical'>技术细节</h2><p>技术内容完整描述，解释模块如何工作以及为什么这样设计。</p>
+      <h2 id='experiment'>实验结论</h2><p>实验内容完整描述，比较对象、指标和结论都比较清楚。</p>
+      <h2 id='takeaway'>理解评价</h2><p>这篇论文存在明显局限，未来可以继续改进和扩展方向。</p>
+    </article></body></html>
+    """
+
+    issues = validate_post_html(html_bad_cleanup)
+    assert any("一句话总结存在英文连接词残留" in issue for issue in issues)
+
+
 @pytest.mark.parametrize("slug", RECENTLY_FIXED_FULL_CLEAN)
 def test_recently_fixed_sample_posts_now_pass_full_validator(slug: str) -> None:
     post_path = REPO_ROOT / "site" / "posts" / f"{slug}.html"
@@ -252,6 +327,17 @@ def test_render_page_uses_escaped_mathjax_sequences() -> None:
     # Regression: script src must be normal HTML quotes, otherwise MathJax fails to load.
     assert 'src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"' in html
     assert 'src=\\"https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js\\"' not in html
+
+
+def test_render_page_includes_lightbox_and_figure_size_controls() -> None:
+    html = _render_page("demo", "<figure><img class='paper-fig' src='demo.png' alt='demo' /></figure>")
+
+    assert ".article figure { width: min(100%, 760px); margin: 24px auto; }" in html
+    assert "max-height:460px" in html
+    assert "cursor: zoom-in" in html
+    assert "setupImageLightbox" in html
+    assert "id='page-lightbox'" in html
+    assert "id='page-lightbox-image'" in html
 
 
 def test_validator_flags_non_sequential_figure_numbering() -> None:

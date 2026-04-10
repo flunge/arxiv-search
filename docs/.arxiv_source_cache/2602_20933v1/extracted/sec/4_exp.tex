@@ -1,0 +1,264 @@
+\begin{figure*}[t]
+\centering
+\includegraphics[width=1.\textwidth]{figs/compare_mip_blender.pdf} 
+\caption{\textbf{Qualitative comparisons on the Blender (8 views) and MipNeRF-360 (12 views) datasets.}}
+\label{fig:compare_mip_blender}
+\end{figure*}
+
+\section{Experiments}
+
+\subsection{Implementation Details}
+
+\noindent\textbf{Datasets.}  
+Our experiments are conducted on three standard datasets: two real-world datasets of LLFF~\cite{mildenhall2019llff-data} and MipNeRF-360~\cite{barron2022mipnerf-360}, and one synthetic dataset of Blender~\cite{mildenhall2020nerf}. We follow previous works~\cite{wang2023sparsenerf,park2025dropgaussian,yang2023freenerf} to split the datasets into training and testing subsets with varying numbers of input views.
+
+\vspace{1mm}
+\noindent\textbf{Metrics.}  
+To comprehensively evaluate rendering quality, we adopt three widely used metrics: Peak Signal-to-Noise Ratio (PSNR, higher is better), Structural Similarity Index~\cite{wang2004image-ssim} (SSIM, higher is better), and Learned Perceptual Image Patch Similarity~\cite{zhang2018-lpips} (LPIPS, lower is better).
+
+\vspace{1mm}
+\noindent\textbf{Baselines.}  
+We compare our method against several state-of-the-art approaches, including NeRF-based sparse-view methods (Mip-NeRF~\cite{barron2022mipnerf-360}, RegNeRF~\cite{niemeyer2022regnerf}, DietNeRF~\cite{jain2021dietnerf}, FreeNeRF~\cite{yang2023freenerf}) and 3DGS-based methods (3DGS~\cite{kerbl2023-3dgs}, DNGaussian~\cite{li2024dngaussian}, FSGS~\cite{zhu2024fsgs}, CoR-GS~\cite{zhang2024corgs}). We particularly focus on comparing with two Dropout-based methods, DropGaussian~\cite{park2025dropgaussian} and DropoutGS~\cite{xu2025Dropoutgs}.
+
+
+\vspace{1mm}
+\noindent\textbf{Training Details.}  
+All experiments are implemented using the PyTorch framework and conducted on a single NVIDIA H100 GPU. We maintain the same optimizer settings and learning rate strategy as the original 3DGS, training for 10,000 iterations across all datasets. The key hyperparameters are set as follows: the anchor sampling rate $ p_a $ linearly increases from 0 to 0.02 based on the value of iterations; The number of nearest neighboring Gaussians $ k $ is set to 10; the Dropout rate for SH coefficients $ p_{sh} $ is 0.2, with $ l_{\text{max}} $ set to 0, 1, and 2 at 2,000, 4,000, and 6,000 iterations, respectively. For methods involving randomness, including ours, CoR-GS, and the Dropout-based baselines, we report the mean metrics over 3 independent runs. 
+
+For more experimental results, please refer to the supplementary materials.
+
+\begin{table}[t]
+  \centering
+  \caption{\textbf{Quantitative comparison on the MipNeRF-360 (12 views) and Blender (8 views) datasets}. SH\textsubscript{\textit{n}} denotes retaining only the first \textit{n} degrees of SH coefficients during inference.}
+  \resizebox{1.\linewidth}{!}{
+    \input{tabs/compare_mip_blender}
+    }
+\label{tab:compare_mip_blender}
+\end{table}
+
+\begin{figure*}[t]
+\centering
+\caption{\textbf{Compatibility to different 3DGS variants on the LLFF dataset (3 views)}. The proposed \methodname{} can be easily integrated into other 3DGS-based methods and improve their performance.}
+\includegraphics[width=1.\textwidth]{figs/compatibility.pdf} 
+\label{fig:compatibility}
+\end{figure*}
+
+\subsection{Comparison Results}
+
+\noindent\textbf{Quantitative Comparison.}  
+We first perform quantitative evaluations on the LLFF, MipNeRF-360 and Blender datasets under varying sparse view conditions, with results presented in Tables~\ref{tab:compare_llff} and \ref{tab:compare_mip_blender}. 
+Our method consistently outperforms all baselines. On the LLFF dataset, particularly in the extremely sparse 3-view setting, our method significantly surpasses other Dropout-based approaches that discard individual Gaussians. This demonstrates the effectiveness of the proposed anchor-based Dropout strategy. As the number of views increases, our approach continues to significantly enhance 3DGS performance. 
+Similar performance is observed on the MipNeRF-360 and Blender datasets, confirming that our regularization technique robustly addresses the core challenges of 3DGS under sparse-view conditions.
+
+\vspace{1mm}
+\noindent\textbf{Qualitative Comparison.}  
+As illustrated in Figures~\ref{fig:compare_llff} and~\ref{fig:compare_mip_blender}, we provide qualitative comparisons across various scenes, illustrating the superiority of our method. 
+%
+By removing entire regions, our method simulates occlusions and missing information, prompting Gaussians to store more complete scene context. This leads to more complete and consistent novel view synthesis, as evidenced in Figure~\ref{fig:compare_llff}, where our method preserves more structural detail compared to baselines, which suffer from distortion artifacts and information loss.
+% 
+Furthermore, baseline methods produce numerous Gaussian-shaped artifacts in Figure~\ref{fig:compare_mip_blender}, especially around object boundaries and in the background. In contrast, our method effectively suppresses these issues by discouraging the model from overfitting complex surfaces with a small number of high-opacity Gaussians, resulting in smoother and more natural geometric structures. 
+%
+
+
+
+\subsection{Compression of Model Size} 
+A unique aspect of our method is the Dropout of SH coefficients, which enables the scene appearance to be stored incrementally from low-degree to high-degree terms. 
+At inference time, the trained model can be truncated by removing high-degree SH coefficients. As shown in Tables~\ref{tab:compare_mip_blender}, even a model retaining only the zeroth-degree SH coefficients outperforms the vanilla 3DGS, while requiring only 25\% of the parameters. This provides a flexible way to balance model size and performance.
+
+
+\begin{table}[t]
+  \centering
+  \caption{\textbf{Compatibility to 3DGS variants on the LLFF dataset (3 views)}. The proposed \methodname{} can be easily integrated into various 3DGS-based methods and improve their performance.}
+  \resizebox{0.8\linewidth}{!}{
+    \input{tabs/compatibility}
+    }
+\label{tab:compatibility}
+\end{table}
+
+
+
+\subsection{Compatibility} 
+The proposed Dropout framework is lightweight and modular, making it easy to plug into other 3DGS variants. As shown in Table~\ref{tab:compatibility} and Figure~\ref{fig:compatibility}, applying our framework to the FSGS~\cite{zhu2024fsgs}, Cor-GS~\cite{zhang2024corgs}, DNGaussian~\cite{li2024dngaussian}, and Scaffold-GS~\cite{lu2024scaffold} significantly improves their performance under sparse view conditions. This suggests that our method is broadly applicable and can enhance the robustness of other 3DGS frameworks in view-scarce scenarios.
+
+% 
+\begin{table}[t]
+\centering
+\caption{\textbf{Comparison of training time on different datasets.} We achieve a substantial performance improvement with a negligible increase in computational time.}
+\resizebox{0.8\linewidth}{!}{
+\begin{tabular}{c|lccl}
+\toprule
+\multirow{2}[4]{*}{Method} & PSNR↑ & SSIM↑ & LPIPS↓ & Total Time↓ \\
+\cmidrule{2-5}      & \multicolumn{4}{c}{LLFF dataset (3 views)} \\
+\midrule
+3DGS  & 19.17 & 0.646 & 0.268 & \textbf{741.6s} \\
+Ours  & \textbf{20.68} & \textbf{0.724} & \textbf{0.194} & 760.2s \\
+\midrule
+      & \multicolumn{4}{c}{Blender dataset (8 views)} \\
+\cmidrule{2-5}3DGS  & 22.13 & 0.855 & 0.132 & \textbf{863.3s} \\
+Ours  & \textbf{25.50} & \textbf{0.891} & \textbf{0.088} & 887.7s \\
+\midrule
+      & \multicolumn{4}{c}{MipNeRF-360 dataset (12 views)} \\
+\cmidrule{2-5}3DGS  & 18.58 & 0.526 & 0.419 & \textbf{1083.2s} \\
+Ours  & \textbf{19.93} & \textbf{0.576} & \textbf{0.362} & 1114.8s \\
+\bottomrule
+\end{tabular}%
+}
+\label{tab:time_comparison}
+\end{table}
+
+
+\begin{table*}[t]
+  \centering
+  \caption{\textbf{Hyperparameter sensitivity of the anchor selection probability $p_a$, number of neighbors $k$, and SH Dropout probability $p_{sh}$}. The evaluation is conducted on the LLFF dataset (3 views).}
+  \resizebox{0.8\linewidth}{!}{
+\begin{tabular}{c|ccc|c|ccc|c|ccc}
+\toprule
+$p_a$ & PSNR↑ & SSIM↑ & LPIPS↓ & $k$   & PSNR↑ & SSIM↑ & LPIPS↓ & $p_{sh}$ & PSNR↑ & SSIM↑ & LPIPS↓ \\
+\midrule
+0.005 & 20.25 & 0.705 & 0.211 & 1     & 20.12 & 0.701 & 0.216 & 0.1   & 20.56 & 0.721 & 0.198 \\
+0.01  & 20.50  & 0.718  & \textbf{0.194} & 5     & 20.39 & 0.719 & 0.200  & 0.2   & \textbf{20.68} & 0.724 & \textbf{0.194} \\
+0.02  & \textbf{20.68} & \textbf{0.724} & \textbf{0.194} & 10    & \textbf{20.68} & \textbf{0.724} & \textbf{0.194} & 0.3   & 20.65 & \textbf{0.725} & 0.197 \\
+0.03  & 20.32 & 0.710  & 0.202 & 15    & 20.43 & 0.721 & 0.198 & 0.4   & 20.44 & 0.713 & 0.202 \\
+0.04  & 19.97 & 0.665 & 0.257 & 20    & 20.07 & 0.706 & 0.224 & 0.5   & 20.49 & 0.711 & 0.208 \\
+\bottomrule
+\end{tabular}%
+    }
+  \label{tab:sensitivity}
+\end{table*}
+
+
+\begin{table}[t]
+  \centering
+  \caption{\textbf{Ablation results of the designed components on the LLFF datasets (3 views).}}
+  \resizebox{0.9\linewidth}{!}{
+    \input{tabs/ablation_component}
+    }
+\label{tab:ablation_component}
+\end{table}
+
+\begin{table}[ht]
+\centering
+\caption{\textbf{Ablation results of different SH Dropout strategies on the Blender dataset (8 views).}}
+\resizebox{0.88\linewidth}{!}{
+\begin{tabular}{l|ccc}
+\toprule
+      & PSNR↑ & SSIM↑ & LPIPS↓ \\
+\midrule
+Drop SH Randomly & 25.12 & 0.885 & 0.097  \\
+Drop SH by Degree (Ours) & \textbf{25.50 } & \textbf{0.891} & \textbf{0.088} \\
+\bottomrule
+\end{tabular}
+}
+\label{tab:sh_ablation}
+\end{table}
+
+
+
+\subsection{Training Efficiency}
+Our method introduces an additional computational step during training, i.e., nearest neighbor search for anchor Gaussians. To accelerate this process, we implement it efficiently using CUDA on GPUs~\cite{Garcia2010knn-cuda}.
+%
+We run our method and the vanilla 3DGS on the same NVIDIA H100 GPU for 10,000 iterations to compare their total training time on different datasets.
+As shown in Table~\ref{tab:time_comparison}, our method incurs only a modest increase in training time (less than 2.8\% compared to 3DGS). Given the substantial improvement in rendering quality (an average PSNR gain of 2 dB), this marginal computational cost is well justified.
+
+
+
+\subsection{Ablation Study}
+\noindent\textbf{Effectiveness of each dropout component}. We conduct ablation studies in Table~\ref{tab:ablation_component}, revealing the following:  
+(1) Removing the ``Drop Anchor" strategy leads to significant performance declines across all metrics, confirming the efficacy of our spatial Anchor-based Dropout in breaking local redundancy for regularization.
+(2) Omitting the ``Drop SH" module also results in performance degradation, demonstrating that regularizing appearance attributes is another effective approach to mitigating overfitting.
+%
+The full model achieves the best performance, indicating that Drop Anchor and Drop SH are complementary and jointly enhance the model’s overall performance.
+
+\vspace{1mm}
+\noindent\textbf{Drop SH by Degree \textit{vs} Drop SH Randomly.}
+In \methodname{}, we use a ``Drop SH by Degree" strategy for discarding high-degree SH coefficients during training. 
+%
+We compare it against a more direct baseline: ``Drop SH Randomly". In this alternative strategy, we do not operate on entire degrees but instead randomly set individual SH coefficients to zero with the same probability.
+%
+The results in Table~\ref{tab:sh_ablation} demonstrate that our ``Drop SH by Degree" strategy significantly outperforms randomly dropping individual SH coefficients. 
+
+
+
+\vspace{1mm}
+\noindent\textbf{Hyperparameter Sensitivity Analysis}.
+We conduct a sensitivity analysis on three key hyperparameters: (1) anchor selection probability $p_a$ (default: 0.02), (2) number of neighbors $k$ (default: 10), and (3) SH Dropout probability $p_{sh}$ (default: 0.2). Experiments are performed on the LLFF dataset (3 views), with results in Table~\ref{tab:sensitivity}.
+%
+The parameter $p_a$ controls the proportion of Gaussians selected as anchors. A small $p_a$ gives insufficient regularization. Conversely, an excessively large $p_a$ drops too many Gaussians, which can disrupt the scene's geometric structure and degrade performance.
+%
+The Number of Neighbors $k$ determines the size of the ``information voids" around each anchor.
+A small $k$ creates voids that are too small and easily compensated for, weakening the regularization effect; too large $k$ removes critical local structures and hurts performance.
+%
+The probability $p_{sh}$ controls the dropout of high-degree SH coefficients to prevent overfitting to fine color details. A lower value of $p_{sh}$ provides insufficient regularization, while a higher value overly penalizes the SH coefficients, degrading performance.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\iffalse
+
+\noindent\textbf{Hyperparameter Sensitivity Analysis}.
+We conduct a sensitivity analysis on three key hyperparameters: (1) \textit{the anchor selection probability} $p_a$ (default: 0.02), (2) \textit{the number of neighbors} $k$ (default: 10), and (3) \textit{the SH Dropout probability} $p_{sh}$ (default: 0.2). All experiments are performed on the LLFF dataset (3 views), with results presented in Table~\ref{tab:sensitivity}.
+
+\vspace{1mm}
+\noindent\textbf{Anchor Selection Probability $p_a$}. This parameter controls the proportion of Gaussians selected as anchors. We evaluate $p_a$ within $[0.005, 0.01, 0.02, 0.03, 0.04]$.
+A $p_a$ that is too small (e.g., 0.005) provides insufficient regularization. Conversely, an excessively large $p_a$ (e.g., 0.04) drops too many Gaussians, which can disrupt the scene's geometric structure and degrade performance.
+
+\vspace{1mm}
+\noindent\textbf{Number of Neighbors $k$}. This parameter determines the size of the "information voids" by dropping $k$ neighbors around each anchor. We test $k$ within $[1, 5, 10, 15, 20]$.
+A small $k$ creates voids that are too small and easily compensated for, weakening the regularization effect. A large $k$ removes overly large regions, which may destroy crucial local structures and adversely affect performance.
+
+\vspace{1mm}
+\noindent\textbf{SH Dropout Probability $p_{sh}$}. This hyperparameter controls the dropout of high-degree SH coefficients to prevent overfitting to fine color details. We test $p_{sh}$ within $[0.1, 0.2, 0.3, 0.4, 0.5]$.
+We observe the best performance at $p_{sh}=0.2$. A lower value provides insufficient regularization, while a higher value overly penalizes the SH coefficients, degrading performance.
+
+
+% ------------------------------
+\subsection{Hyperparameter Sensitivity Analysis}
+%
+We conduct a sensitivity analysis on three key hyperparameters: (1) \textit{the anchor selection probability} $p_a$ (default: 0.02), (2) \textit{the number of neighbors} $k$ (default: 10), and (3) \textit{the SH Dropout probability} $p_{sh}$ (default: 0.2). All experiments are performed on the LLFF dataset (3 views). For each analysis, we vary the target hyperparameter while keeping the others fixed to evaluate its impact on model performance. The results are presented in Table~\ref{tab:sensitivity}.
+
+\vspace{1mm}
+\noindent\textbf{Anchor Selection Probability $p_a$}. The parameter $p_a$ controls the proportion of Gaussians selected as anchors during training.
+We evaluate $p_a$ within the range of $[0.005, 0.01, 0.02, 0.03, 0.04]$.
+% 
+The results in Table~\ref{tab:sensitivity} indicate that when $p_a$ is too small (e.g., 0.005), the dropped regions are insufficient to provide effective regularization, leading to limited performance gains. As $p_a$ increases, performance improves. However, an excessively large $p_a$ (e.g., 0.04) causes too many Gaussians to be dropped, which can disrupt the scene's geometric structure and lead to unstable training, thereby degrading performance. 
+
+
+\vspace{1mm}
+\noindent\textbf{Number of Neighbors $k$}. The parameter $k$ determines the number of neighboring Gaussians dropped around each anchor, directly influencing the size of the ``information voids." We test $k$ within the range of $[1, 5, 10, 15, 20]$.
+% 
+As shown in Table~\ref{tab:sensitivity}, the value of $k$ requires a balance between regularization strength and information preservation. A small $k$ creates dropped regions that are too small and easily compensated for by adjacent primitives, weakening the regularization effect. An overly large $k$ leads to overly large dropped regions, which may remove local structures crucial for scene understanding and thus adversely affect performance.
+
+\vspace{1mm}
+\noindent\textbf{SH Dropout Probability $p_{sh}$}. The hyperparameter $p_{sh}$ controls the probability of setting high-degree SH coefficients to zero during training, which is designed to prevent the model from overfitting to fine color details. We test $p_{sh}$ within the range of $[0.1, 0.2, 0.3, 0.4, 0.5]$.
+%
+We observe the best performance at $p_{sh}=0.2$. A lower $p_{sh}$ provides insufficient regularization, and Higher $p_{sh}$ overly penalizes the high-degree SH coefficients and consequently degrades performance.
+
+\fi
+
+
+% Additional experiments, including hyperparameter sensitivity, computational overhead, and extended ablation studies, can be found in the \textit{supplementary materials}.
+
+

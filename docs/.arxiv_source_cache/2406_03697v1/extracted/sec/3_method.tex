@@ -1,0 +1,141 @@
+\section{Methods}
+\begin{figure*}
+    \centering 
+    \includegraphics[width=0.9\linewidth]{pics/architecture.pdf} 
+    \caption{\textbf{Overview of our pipeline.} We initialize the 3D Gaussians with point clouds reconstructed from SfM. Then we aggregate the 3D Gaussians into superpoints, and predict the deformation for every 3D Gaussian at a given timestep. The image is rendered using the differentiable Gaussian rasterization on the deformed 3D Gaussians. Additionally, an optional non-rigid deformation network can be used to further improve the performance.}
+    \label{fig:overview}
+\end{figure*}
+
+This section initiates with a concise introduction to 3D Gaussian Splatting in Sec~\ref{sec:3D-GS}. 
+Subsequently, in Sec.\ref{sec:SP}, we elaborate on how to apply a time-variant deformation network to the superpoints for predicting the rotation and translation to render images at any timestep. To fully exploit the \textit{As-Rigid-As-Possible} feature within one superpoint, our method also introduces a property reconstruction loss in Sec.\ref{sec:loss}. We also illustrate how to aggregate 3D Gaussians into superpoints using a learnable association matrix in this section. Moreover, some details of optimization and inference are explained in Sec.~\ref{sec:opt}. Finally, our method can support the plugin of an optional non-rigid deformation network, we clarify this in Sec.~\ref{sec:non-rigid}.
+An overview of our method is illustrated in Fig. \ref{fig:overview}. 
+
+\subsection{Preliminary: 3D Gaussian Splatting} \label{sec:3D-GS}
+3D Gaussian Splatting(3D-GS)~\cite{3D-GS} propose a novel point-like scene representation, referred to as 3D Gaussians $\mathcal{G}=\{G_i: \gsP_i, \bm{s}_i, \bm{q}_i, \bm{\sigma}_i, \bm{h}_i\}$. 
+Each 3D Gaussian $G_i$ is defined by a 3D covariance matrix $\mathbf{\Sigma}_i$ in world space~\cite{Zwicker2001EWAVS} and a center location $\gsP_i$, following the expression:
+\begin{equation} \label{eq:gaussian}
+    G_i(\bm{x}) = \exp\left(-\frac{1}{2}(\bm{x}-\gsP_i)^{\top}\mathbf{\Sigma}_i^{-1}(\bm{x}-\gsP_i)\right).
+\end{equation}
+For differentiable optimization, the covariance matrix $\mathbf{\Sigma}_i$ can be break down into a scaling matrix $\mathbf{S}_i$ and a rotation matrix $\gsR_i$, i.e., $\mathbf{\Sigma}_i = \gsR_i\mathbf{S}_i\mathbf{S}_i^{\top}\gsR_i^{\top}$, where $\mathbf{S}_i$ is represented by a 3D vector $\bm{s}_i$ and $\gsR_i$ is represented by a quaternion $\bm{q}_i \in \mathbf{SO}(3)$.
+
+In the process of rendering a 2D image, 3D-GS projects 3D Gaussians onto a 2D image plane using the EWA Splatting algorithm~\cite{Zwicker2001SurfaceS}. The corresponding 2D Gaussian, defined by a covariance matrix $\mathbf{\Sigma}'$ in camera coordinates centered at $\gsP'$, is calculated as follows:
+\begin{equation}
+    \mathbf{\Sigma}' = \mathbf{J}\mathbf{W}\mathbf{\Sigma}\mathbf{W}^{\top}\mathbf{J}^{\top}, \quad \gsP' = \mathbf{J}\mathbf{W}\gsP,
+\end{equation}
+where $\mathbf{W}$ is the world-to-camera transformation matrix, and $\mathbf{J}$ is the Jacobian matrix of the affine approximation of the projective transformation. After sorting 3D Gaussians by depth, 3D-GS renders the image using volumetric rendering~\cite{VolumeRendering} (\ie $\alpha$-blending). The color $C(\bm{p})$ of pixel $\bm{p}$ is computed through blending $P$ ordered 2D Gaussians, as expressed by:
+\begin{equation}
+    \begin{split}
+    C(\bm{p}) & = \sum_{i=1}^{P}\bm{c}_i\alpha_i \prod_{j=1}^{i-1}(1-\alpha_j), \\
+    \alpha_i & = \bm{\sigma}_i \exp\left(-\frac{1}{2}(\bm{p}-\gsP'_i)^{\top}\mathbf{\Sigma}'_i(\bm{p}-\gsP'_i)\right),
+    \end{split}
+\end{equation}
+where $\sigma_i$ represents the opacity of each 3D Gaussian, $\bm{c}_i$ is the RGB color computed using the spherical harmonics coefficients $\bm{h}_i$ of the 3D Gaussian and the view direction.
+
+To optimize a static scene and facilitate real-time rendering, 3D-GS introduced a fast differentiable rasterizer and a training strategy that adaptively controls 3D Gaussians. Further details can be found in 3D-GS~\cite{3D-GS}, and the loss function utilized by 3D-GS is $\loss_1$ combined with a D-SSIM term:
+\begin{equation}
+    \loss_{img} = (1-\lambda)\loss_{1} + \lambda \loss_{\mathrm{D-SSIM}},
+\end{equation}
+where $\lambda$ is set to $0.2$.
+
+
+\subsection{Superpoint Gaussian Splatting} \label{sec:SP}
+
+It is evident that 3D-GS is suitable solely for representing static scenes. 
+Therefore, when confronted with a monocular/multi-view video capturing a dynamic scene, we opt to learn 3D Gaussians in a canonical space and the deformation of each 3D Gaussian across the temporal domain under the guidance of aggregated superpoints. Since we assume there are only rigid transformations for every single 3D Gaussian, only the center location $\gsP_i$ and rotation matrix $\gsR_i$ of a 3D Gaussian will vary with time, while other attributes (e.g., opacity $\bm{\sigma}_i$, scaling vector $\bm{s}_i$, and spherical harmonics coefficients $\bm{h}_i$) remain invariant.
+
+To model dynamic scene, we divide 3D Gaussians into  $M$ superpoints $\{\SP_j\}_{j=1}^{M}$ (\ie disjoint sets). Each superpoint $\SP_j$ contains several 3D Gaussians, while each 3D Gaussian has only one correspondent superpoint $\SP_j$. Following the principle of \textit{As-Rigid-As-Possible}, 3D Gaussians in the same superpoint $\SP_j$ should have similar deformation, which can represented by relative translation $\spT_j$ and rotation $\spR_j$ based on their center locations and rotation matrices in the canonical space.
+Therefore, the center location $\gsP_i^t$ and rotation matrix $\gsR_i^t$ of the $i$-th 3D Gaussian at time $t$ will be:
+\begin{equation} \label{transformation}
+    \gsP_i^t = \spR^t_j \gsP^c_i  + \spT^t_j, \gsR_i^t = \spR^t_j \gsR_i^c.
+\end{equation}
+
+So as to predict the relative translation $\spT_j^t$ and rotation $\spR_j^t$ of the $j$-th superpoint at time $t$, we directly employ a deformation neural network $\mathcal{F}$ that takes the timestep $t$ and canonical position  $\spP^c_j$ of the $j$-th superpoint as input, and outputs the relative transformations of superpoints with respect to the canonical space:
+\begin{equation} \label{eq:mlp-F}
+    (\spR_j^t, \spT_j^t) = \mathcal{F}(\gamma(\spP^c_j), \gamma(t)),
+\end{equation}
+where $\gamma$ denotes the positional encoding:
+\begin{equation}
+    \gamma(x) = (\sin(2^k x), \cos(2^k x))_{k=0}^{L-1},
+\end{equation}
+In our experiments, we set $L=10$ for $\gamma(\spP^c_j)$ and $L=6$ for $\gamma(t)$.
+
+
+During inference, to further decrease the rendering time, we can pre-compute the relative translation $\spT^t$ and rotation $\spR^t$ of superpoints predicted by the deformation network $\mathcal{F}$ at all timesteps. When rendering novel view images at a new timestep $t$ in the training set, the deformation of $j$-th superpoint can be calculated through interpolation:
+\begin{equation} \label{eq:interp}
+    \begin{split}    
+    \spT^t_j & = (1-w)\spT^{t_1}_j + w\spT^{t_2}_j, \\
+    \spR^t_j & = (1-w)\spR^{t_1}_j + w\spR^{t_2}_j, 
+    \end{split}
+\end{equation}
+where the linear interpolation weight $w = (t-t_1)/(t_2-t_1)$, and $t_1$ and $t_2$ are the two nearest timesteps in the training dataset.
+
+
+\subsection{Property Reconstruction Loss} \label{sec:loss}
+
+The key insight of superpixels/superpoints lies in that pixels/points with similar properties should be aggregated into one group.
+Following this idea, given an arbitrary timestep $t$, properties including the position $\spP^t$, the relative translation $\spT^t$ and relative rotation $\spR^t$ should be similar within one superpoint.
+We utilize a learnable association matrix $\Asso\inR{P\times M}$ to establish the connection between 3D Gaussians and superpoints, where $P$ is the number of 3D Gaussians and $M$ is the number of superpoints.
+Notably, only $K$ nearest superpoints of each Gaussian should be considered. 
+Therefore, the associated probability $a_{ij}$ between Gaussian $G_i$ and superpoint $\SP_j$ can be calculated as:
+\begin{equation}
+    a_{ij} = \begin{cases}
+      \displaystyle  \frac{\exp(\Asso_{ij})}{\sum_{j\in \knn_i}{\exp(\Asso_{ij})}}, & j \in \knn_i, \\
+        0, & \text{otherwise},
+    \end{cases}
+\end{equation}
+where $\knn_i$ is the set of $K$-nearest superpoints for the $i$-th Gaussian in the canonical space.
+
+With the associated probability $a_{ij}$, the properties $\bm{u}_j \in \{\spP^t_j, \spR_j^t, \spT_j^t\}$ of $j$-th superpoint can be reconstructed from the properties of Gaussians:
+\begin{equation} \label{eq:g2sp}
+\begin{split}
+   \gRsp: \bm{u}_j  & =\sum_{i \mid j \in \knn_i} \bar{a}_{ij} \bm{v}_i, \\
+   \mbox{where~} \bar{a}_{ij} & = \frac{a_{ij}}{\displaystyle \sum_{i \mid  j \in \knn_i}{a_{ij}}},
+\end{split}
+\end{equation}
+where $\bm{v}_i$ denotes the properties of $i$-th Gaussian, and ${i \mid j \in \knn_i}$ means all 3D Gaussians $i$ with the $j$-th superpoint in $\knn_i$.
+It is noteworthy that the relative rotation $\spR_i^t$ is represented by Lie algebra $\se3$, which enables linear rotation interpolation. 
+On the other hand, the properties $\bm{v}_i$ of the $i$-th Gaussian can also be reconstructed through adjacent superpoints:
+\begin{equation} \label{eq:sp2g}
+   \spRg: \bm{v}_i = \sum_{j \in \knn_i} a_{ij} \bm{u}_j.
+\end{equation}
+
+Ultimately, the property reconstruction loss is employed to ensure the consistency between the original properties $\bm{v}_i$ of Gaussians and the reconstructed properties $\bm{v}'_i$:
+\begin{equation} \label{eq:pr-loss}
+     \loss_{\bm{v}} = \frac{1}{P} \sum_{i}{\|\bm{v}_i, \bm{v}'_i\|},
+ \end{equation}
+ where $\bm{v}' = R_{sp\to g} (R_{g\to sp}(\bm{v}))$, and $\|\cdot, \cdot\|$ denotes the mean square error(MSE). And the more similar the Gaussian properties within the same superpoint are, the smaller this loss will be, thereby fully exploiting the \textit{As-Rigid-As-Possible} feature.
+
+
+Furthermore, the corresponding superpoint $\SP_j$ of Gaussian $G_i$ is the superpoint with the highest association probability:
+\begin{equation}
+    j^* = \argmax_{j \in \knn_i}a_{ij}.
+\end{equation}
+It is noteworthy that $j^*$ is the same as the $j$ in Eq. \ref{transformation}.
+ 
+\subsection{Optimization and Inference} \label{sec:opt}
+The computation of the overall loss function is:
+\begin{equation}
+    \loss = \loss_{img} + \sum_{\bm{v} \in \{\gsP^t, \spR^t, \spT^t\}} \lambda_{\bm{v}} \loss_{\bm{v}},
+\end{equation}
+where $\lambda_{\bm{v}}$ represents hyper-parameters controlling the weights, with $\lambda_{\gsP^t} = 10^{-3}$ and $\lambda_{\spR^t} = \lambda_{\spT^t}=1$.
+
+We implement our SP-GS with PyTorch, and $\mathcal{F}$ is a 8-layer MLPs with 256 hidden neurons. The network is trained for a total of 40k iterations, with the initial 3k iterations training without the deformation network $\mathcal{F}$ as a warm-up process to achieve relatively stable positions and shapes.
+3D Gaussians in the canonical space will be initialized after the warm-up training, and for the initialization of superpoints, $M$ Gaussians are sampled using the farthest point sampling algorithm, and the canonical positions $\spP^c$ of superpoints are equal to the centers of the sampled Gaussians.
+Moreover, the $A_{ij}$ of the learnable association matrix $\Asso$ will be initialized as 0.9 if the $j$-th superpoint is initialized with the $i$-th 3D Gaussian. Otherwise, $A_{ij}$ will be initialized as 0.1.
+Before each iteration, we calculate the canonical position of superpoints with Eq. \ref{eq:g2sp}.
+
+The Adam optimizer~\cite{Adam} is employed to optimize our models. For 3D Gaussians, the training strategies are the same as those of 3D-GS unless stated otherwise. For the learnable parameters of $\mathcal{F}$, the learning rate undergoes exponential decay, ranging from 1e-3 to 1e-5. The values for Adam's $\beta$ are set to (0.9, 0.999).
+
+\subsection{Optional Non-Rigid Deformation Network}\label{sec:non-rigid}
+Given the potential existence of non-rigid deformation in a dynamic scene, another optional non-rigid deformation network $\mathcal{G}$ is employed to learn the non-rigid deformation of each Gaussian for time $t$:
+\begin{equation}
+    (\hat{\spR}_i^t, \hat{\spT}_i^t) = \mathcal{G}(\gamma(\gsP_i^t)), \gamma(\bm{t})).
+\end{equation}
+By combining rigid motion with non-rigid deformation, the final center $\gsP^t_i$ and rotation matrix $\gsR^t_i$ of Gaussian $G_i$ can be computed as below:
+\begin{equation}
+    \begin{split}
+        \gsP_i^t & = \hat{\spR}_i^t (\spR_j^t \gsP^c_i + \spT_j^t) + \hat{\spT}_i^t, \\
+        \gsR_i^t & = \hat{\spR}_i^t \spR_j^t \gsR^c_i.
+    \end{split}
+\end{equation}
+For the version incorporating the non-rigid deformation network $\mathcal{G}$ (abbreviated as SP-GS+NG), the model is initialized with the pretrained model from the version with only $\mathcal{F}$ and trained for 20k iterations using the loss $\loss_{img}$. Besides, $\mathcal{G}$ is a 3-layer MLPs with 64 hidden neurons.

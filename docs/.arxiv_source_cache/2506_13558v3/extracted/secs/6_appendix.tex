@@ -1,0 +1,197 @@
+\clearpage
+\renewcommand{\thesection}{\Alph{section}}
+\setcounter{section}{0}
+
+\begin{center}
+    \textbf{\Large ~\ours: Large-Scale Driving Scene Generation with \\[0.4em] High Fidelity and Flexible Controllability}\\[1.2em]
+    \large Supplementary Material
+\end{center}
+
+\vspace{1.2em}
+{\large \textbf{Contents}}
+
+\startcontents[appendices]
+\printcontents[appendices]{l}{1}{\setcounter{tocdepth}{3}}
+
+\clearpage
+\section{Additional Implementation Details}
+In this section, we provide additional implementation details to facilitate reproducibility. Specifically, we elaborate on the experimental datasets, model implementation, and the evaluation metrics.
+
+
+\subsection{Datasets}
+We use Occ3D-nuScenes~\cite{Occ3D} to train our controllable occupancy generation module, and nuScenes~\cite{nuScenes} for the multi-view image and video generation modules. The textual scene graph-to-layout generation module is also trained using 3D bounding box and HD map annotations from nuScenes. The dataset comprises 1,000 driving scenes under diverse weather, lighting, and traffic conditions. Each 20-second scene includes about 40 annotated keyframes, yielding roughly 40,000 samples with 360° multi-view images, 3D occupancy, bounding boxes, and maps. We follow the standard split of 700 training and 150 validation scenes. For video generation, ASAP interpolation is applied to upsample the frame rate from 2 Hz to 12 Hz, yielding about 240 frames per scene and enabling more consistent training for temporally coherent video synthesis.
+Following DynamicCity~\cite{DynamicCity}, we map the original 17 semantic categories to 11 commonly used classes (see Table~\ref{tab:supp_mapping}) and conduct experiments both with and without label mapping to enable comprehensive comparisons.
+
+\input{tables/supp_mapping}
+
+\subsection{Model Implementation Details}
+\paragraph{Textual Scene Description Generation Module.}
+To construct the scene description memory bank $\mathcal{M}$, we utilize QWen2.5-VL~\cite{Qwen2.5-VL} to extract structured information from nuScenes. For each frame, six surround-view images are jointly processed to generate holistic scene descriptions, which are parsed into scene style $\mathcal{S}$, foreground objects $\mathcal{O}$, and background elements $\mathcal{B}$. Concurrently, 3D bounding boxes and lane markings are converted into textual scene-graph layouts $\mathcal{L}$. These components collectively form memory entries $m_i = \{\mathcal{S}, \mathcal{O}, \mathcal{B}, \mathcal{L}\}$.
+
+For retrieval, text descriptions are encoded using OpenAI’s text-embedding-3-small model and indexed with FAISS to enable efficient similarity search. During inference, given a coarse prompt $\mathcal{T}_\mathcal{P}$, we retrieve the top-$K$ relevant entries from $\mathcal{M}$, which are then combined with the prompt and fed into GPT-4o to generate a detailed and structured scene description $\mathcal{D}$.
+Please refer to Sec.~\ref{description} for further details and example illustrations.
+
+\paragraph{Scene-Graph to Layout Generation Module.}
+For the scene-graph to layout generation module, training and evaluation were conducted on a single NVIDIA A6000 GPU with 48GB of memory. We employed a batch size of 128 and trained the model for 400 epochs. The optimization was performed using the AdamW optimizer with an initial learning rate of $1 \times 10^{-4}$ and a cosine annealing scheduler. To ensure stable training and consistent representation, the 3D bounding boxes were normalized using dataset-specific parameters. Each bounding box $b_i$ was parameterized by its center coordinates $(x, y, z)$, dimensions $(l, w, h)$, and yaw angle $\theta$. Following standard practices in 3D object detection, we normalized the box center coordinates to the range $[0, 1]$, applied a logarithmic transformation to the dimensions, and represented the yaw angle using its sine and cosine components. Each graph node was augmented with an 8-dimensional noise vector to enhance robustness during training.
+
+\paragraph{Occupancy Generation Module.}
+For the occupancy generation module, the triplane-VAE encodes the original occupancy field with a resolution of $200 \times 200 \times 16$ into a triplane representation of spatial dimensions $(X_h, Y_h, Z_h) = (100, 100, 16)$ and feature dimension $C_h = 16$, reducing memory consumption while preserving structural details. 
+The triplane-VAE is trained using the Adam optimizer with an initial learning rate of $1 \times 10^{-3}$ and a step decay factor of 0.1, over 200 epochs on 4 NVIDIA A6000 GPUs with a batch size of 24 per GPU.
+
+During diffusion, the three orthogonal planes are arranged into a unified square feature map by zero-padding the uncovered corners, forming a tensor $\mathbf{h} \in \mathbb{R}^{X_h+Z_h, Y_h+Z_h, C_h}$. Attention is applied across this tensor to capture inter-plane correlations.
+The diffusion model is trained from scratch using the AdamW optimizer with an initial learning rate of $1 \times 10^{-4}$ and a cosine scheduler, over 300 epochs with a batch size of 12 per GPU.
+For occupancy outpainting, we adopt the RePaint sampling strategy with 5 resampling steps and a jump size of 20.
+
+\paragraph{Multi-View Image Generation Module.}
+We initialize the multi-view image generation module with pretrained Stable Diffusion v2.1 weights, while randomly initializing newly added parameters. The diffusion model is trained on 4 NVIDIA A6000 GPUs with a mini-batch size of 8, using the AdamW optimizer with a learning rate of $8 \times 10^{-5}$ and a cosine learning rate scheduler over 200 epochs. After initial training at a resolution of $224 \times 400$, we fine-tune the model for an additional 50K iterations at higher resolutions of $448 \times 800$ and $336 \times 600$. During inference, we use the UniPC~\cite{UniPC} scheduler with 20 steps and a Classifier-Free Guidance (CFG) scale of 1.2.
+
+\paragraph{Multi-View Video Generation Module.}
+We initialize the multi-view video generation module using the pretrained image diffusion U-Net and focus on fine-tuning the newly introduced temporal attention layers. The training is performed for 100 epochs with a total batch size of 8, where two reference frames are randomly sampled from the preceding five ground-truth frames, and each training sample contains 7 frames in total. For higher-resolution settings, we further train the model for 50K iterations, initializing from the corresponding lower-resolution weights. The temporal module is trained on eight NVIDIA A100 GPUs using the AdamW optimizer with a learning rate of $8 \times 10^{-5}$ and a cosine learning rate scheduler.
+
+During inference, the reference frames are drawn from previously generated video clips. For the first clip, we employ the single-frame image generation model to produce the initial reference frame, after which the system follows an autoregressive generation strategy. By default, two reference frames are used to generate the subsequent seven frames, enabling temporally coherent and geometrically consistent video synthesis across multiple views.
+
+\subsection{Evaluation Metrics for Occupancy Generation}
+Following the evaluation protocol of DynamicCity~\cite{DynamicCity}, we adopt two complementary strategies to assess the quality of occupancy generation:
+\vspace{-2mm}
+\begin{itemize}
+[align=right,labelsep=2pt,labelwidth=1em,leftmargin=*,itemindent=1pt]
+    \item \textbf{3D Evaluation}: We train a sparse convolutional autoencoder based on the MinkowskiUNet~\cite{Mink} architecture to extract 3D features from generated occupancy fields. Features from the final downsampling layer are aggregated via global average pooling and used to compute evaluation metrics using the Torch-Fidelity library~\cite{TorchFidelity}.
+    \item \textbf{2D Evaluation}: We render the 3D occupancy fields into 2D images for image-based evaluation. To ensure fair comparison, we standardize the rendering process across all methods using consistent semantic color mappings and camera parameters. We compute IS, FID, and KID using a standard pretrained InceptionV3~\cite{InceptionV3} network, and use a VGG-16~\cite{VGG16} model for precision and recall. Both networks are fine-tuned on our semantically color-mapped dataset to ensure domain alignment.
+\end{itemize}
+
+To evaluate the quality and diversity of the generated samples, we use several quantitative metrics: \textbf{1) Inception Score (IS)} measures both quality and diversity via the KL divergence between each image’s conditional label distribution and the marginal distribution, with higher scores indicating sharper and more diverse samples; \textbf{2) Fréchet Inception Distance (FID)} computes the distance between real and generated distributions in the Inception feature space, where lower values indicate higher fidelity; \textbf{3) Kernel Inception Distance (KID)} calculates the squared Maximum Mean Discrepancy (MMD) between real and generated features using a polynomial kernel, and is unbiased and less sensitive to sample size; \textbf{4) Precision} estimates the proportion of generated samples within the support of real data; \textbf{5) Recall} measures how well the generated distribution covers real data; and \textbf{6) F1-Score}, the harmonic mean of precision and recall, reflects the balance between generation quality and coverage.
+
+% \vspace{-2mm}
+\input{algorithm/supp_description}
+% \vspace{-2mm}
+
+\section{Additional Details of Scene Description Generation}
+\label{description}
+The scene description module constructs textual scene representations by integrating vision-language models (VLMs) and large language models (LLMs). As shown in Algorithm~\ref{alg:scene-description}, a scene memory bank is first built offline using a VLM. During inference, a RAG pipeline selects the most relevant memory items based on a user's coarse prompt, enabling the LLM to generate detailed, context-grounded scene descriptions. This framework supports flexible and scalable scene description generation.
+
+\subsection{Scene Description Memory Construction}
+To construct the scene description memory bank $\mathcal{M}$, we use QWen2.5-VL~\cite{Qwen2.5-VL} to extract structured scene information from the nuScenes dataset. For each annotated timestamp, the six surround-view camera images are processed by the VLM to generate a holistic natural language description, which is parsed into structured components $\{\mathcal{S}, \mathcal{O}, \mathcal{B}\}$: scene style (e.g., "a rainy afternoon in an urban area"), foreground objects with spatial and appearance attributes (e.g., "a red sedan parked alongside the walkway"), and background elements (e.g., "high-rise buildings in the distance"). In parallel, nuScenes 3D bounding boxes and lane markings are converted into a textual scene-graph layout $\mathcal{L}$ capturing spatial relationships (e.g., "car A is behind truck B", "pedestrian is on the sidewalk near lane L1"). Together, these components form each memory item $m_i$.
+
+\subsection{Novel Scene Description Generation}
+During inference, given a coarse user prompt $\mathcal{T}_\mathcal{P}$, we employ GPT-4o as the LLM-based generator $\mathcal{G}_{\text{description}}$ and implement a RAG mechanism to enrich the prompt with relevant memories. Specifically, both the prompt and the entries in the memory bank $\mathcal{M}$ are embedded using a pre-trained sentence embedding model (i.e., text-embedding-3-small). We then retrieve the top-K most semantically similar descriptions from $\mathcal{M}$. These retrieved examples serve as contextual references, enabling the LLM to generate a rich and coherent scene description $\mathcal{D} = \{\mathcal{S}, \mathcal{O}, \mathcal{B}, \mathcal{L}\}$ tailored to the user’s input.
+
+This RAG design is motivated by the need to bridge coarse user prompts and fine-grained scene representations, enabling few-shot generalization and knowledge transfer from similar scenes in the memory bank. Furthermore, the memory bank $\mathcal{M}$ is modular and extensible, supporting future inclusion of other datasets with minimal adaptation effort.
+
+
+
+\clearpage
+\subsection{Prompt Details and Scene Description Examples}
+The following system prompt is defined for \textbf{constructing scene description memories}. Given two images capturing the 360-degree surroundings, the VLM is guided to \textbf{extract and organize key elements of the driving scene} into a comprehensive representation:
+\input{algorithm/supp_prompt_con}
+
+The following system prompt is defined for \textbf{generating novel scene descriptions}. Given a coarse user prompt, the LLM is guided to retrieve semantically relevant scene descriptions from a structured memory bank. These retrieved references are then used to \textbf{enrich, clarify, and ground} the final output, resulting in a coherent and contextually accurate scene description:
+\input{algorithm/supp_prompt_gen}
+
+Representative examples of the generated scene descriptions, including scene style, foreground objects, background elements, and scene-graph layouts, are presented below:
+\input{algorithm/supp_prompt_exp1}
+\input{algorithm/supp_prompt_exp2}
+
+
+\clearpage
+\section{Additional Quantitative Results}
+\input{tables/supp_ablation_condition}
+\input{tables/supp_abalation_noise}
+
+\subsection{Effect of Spatial Conditioning}
+We evaluate the role of spatial conditioning using a \textit{text-only} variant that removes all spatial inputs (layout maps, object boxes, and perspective maps) while retaining textual prompts. As shown in Table~\ref{tab:ablation_spatial}, the absence of spatial cues causes clear degradation in visual realism (FID $\uparrow$ 9.45) and spatial fidelity (Vehicle mIoU $\downarrow$ 22.27\%), underscoring the importance of spatial conditioning for maintaining geometric coherence and consistent scene alignment.
+
+
+\subsection{Effect of Layout Type}
+To examine different layout representations in our dual-mode controllability design, we compare two layout types: 1) \textit{BEV semantic maps} for fine-grained spatial control and 2) \textit{BEV vector maps} of object boxes and lanes for efficient customization. As shown in Table~\ref{tab:ablation_layout}, both yield geometrically accurate and visually coherent scenes, while semantic maps provide stronger spatial priors with slightly better realism and downstream performance. This confirms that both layout types are fully compatible with our pipeline, enabling flexible and effective scene control.
+
+
+\subsection{Robustness and Efficiency}
+To assess potential error accumulation in our cascaded generation pipeline, we conduct a noise-injection ablation by applying Gaussian perturbations (25\% probability) to the initial layout, including 3D box centers and lane coordinates. As shown in Table~\ref{tab:ablation_noise}, the pipeline degrades gracefully under noise, with only marginal drops in downstream metrics. This robustness arises from the multi-stage alignment design, where occupancy-rendered semantic and depth priors enforce geometric consistency, and overlap-aware extrapolation maintains spatial continuity.
+
+We also report inference efficiency in Table~\ref{tab:inference_cost}. Each scene chunk is generated in about 6~seconds on a single RTX~A6000 GPU, showing that our system achieves a strong balance between robustness and computational efficiency for large-scale scene synthesis.
+
+\input{tables/supp_rag}
+
+\subsection{Effect of Retrieval-Augmented Generation}
+RAG enhances text-to-scene generation by expanding brief prompts into detailed scene descriptions through retrieving semantically related examples from a memory bank. This process transfers prior knowledge from similar scenes, improving layout accuracy and reducing user effort. Table~\ref{tab:ablation_rag} presents a human preference study in which ten participants evaluated 100 scene pairs generated with and without RAG across multiple criteria. The results show that RAG-based generation is consistently preferred (overall 77\% vs.\ 23\%), highlighting its effectiveness in grounding prompts and producing more diverse, realistic, and controllable scenes.
+
+\clearpage
+\section{Additional Qualitative Results}
+
+\subsection{Conditional Occupancy and Image Generation}
+Figure~\ref{fig:vis_result} presents additional conditional generation results, where layout conditions are used to synthesize multi-view images and 3D occupancy. These results demonstrate the effectiveness of our approach in generating coherent multi-modal outputs conditioned on low-level layout inputs. 
+\vspace{-.5em}
+\input{figures/vis_result}
+
+\input{figures/vis_text2scene_1}
+\input{figures/vis_text2scene_2}
+\input{figures/vis_largescale_supp}
+
+\clearpage
+\subsection{Text-to-Scene Generation}
+Figure~\ref{fig:vis_text2scene_1} and Figure~\ref{fig:vis_text2scene_2} illustrate examples of the text-to-scene generation pipeline, which primarily consists of four steps:
+\begin{itemize}
+[align=right,itemindent=0em,labelsep=2pt,labelwidth=1em,leftmargin=*,itemsep=0em] 
+\item Textual scene description generation: Given a coarse user text prompt, the LLM leverages RAG to retrieve semantically relevant scene descriptions from the memory bank, then composes a plausible scene description encompassing scene style, foreground and background elements, and a textual scene-graph layout.
+\item Scene-graph to layout generation: The layout diffusion model uses the textual scene-graph to generate the corresponding layout, including object bounding boxes and lane lines.
+\item Joint occupancy and multi-view image generation: The occupancy and image diffusion models leverage the layout for geometry control and the text description for semantic control, generating a coherent and realistic 3D occupancy field and multi-view images.
+\item Geometry and visual reconstruction: Given the generated voxels and images, we reconstruct the 3D scene while preserving intricate geometry and realistic appearance, supporting various downstream applications.
+\end{itemize}
+
+These results demonstrate that the proposed text-to-scene pipeline is an effective and flexible method for driving scene generation.
+
+\subsection{Large-Scale Scene Generation}
+Figure~\ref{fig:vis_largescale_supp} illustrates the results of large-scale scene generation. The results show that our method can generate coherent, large-scale driving scenes through consistency-aware extrapolation. Moreover, the generated occupancy and images are fused and lifted for large-scale scene reconstruction, preserving both intricate geometry and realistic visual appearance. The reconstructed scenes support novel RGB, depth, and occupancy rendering.
+
+\section{Potential Societal Impact \& Limitations}
+In this section, we discuss the potential societal impact of our work and outline its possible limitations.
+
+\subsection{Societal Impact}
+Our proposed framework, {\ours}, for large-scale controllable driving scene generation holds significant potential for real-world societal impact. By unifying fine-grained geometric accuracy with photorealistic visual fidelity, {\method} enables the generation of highly realistic and semantically consistent 3D driving environments. This capability directly supports the development of safer and more efficient autonomous driving systems by enabling rigorous simulation and validation across richly diverse scenarios, including rare cases such as complex intersections, unexpected pedestrian behavior, and unusual road layouts. As a result, {\method} can accelerate the development cycle of autonomous vehicles, reduce reliance on costly and time-consuming real-world data collection, and improve safety standards, ultimately contributing to a reduction in traffic-related accidents and fatalities.
+
+\subsection{Known Limitations}
+While {\ours} offers a promising framework for large-scale controllable 3D scene generation, several limitations remain and warrant further investigation.
+
+First, while {\method} supports dynamic 4D scene generation, the current autoregressive video diffusion framework is still limited in long-horizon synthesis. As the number of autoregressive iterations increases, errors in geometry and appearance may accumulate, leading to temporal drift and degraded motion consistency. Future work will focus on improving long-term temporal stability and mitigating error accumulation to achieve more robust and extended video generation.
+
+Second, the scene description memory bank is currently built from the nuScenes dataset~\cite{nuScenes}. While this dataset provides a solid foundation, its limited geometric and semantic diversity may restrict the range and realism of generated scenes. Incorporating additional datasets featuring a broader range of environments, weather conditions, and traffic patterns would enhance the system’s generalization and scene richness.
+
+Third, the occupancy generation pipeline depends on a fixed set of semantic categories predefined in the training data. As a result, introducing new object types or unseen classes requires retraining the model. This rigidity hinders adaptability in evolving or open-world settings. Future work could explore more extensible architectures that support incremental learning or open-vocabulary generation.
+
+Addressing these limitations is essential for enhancing the realism, scalability, and applicability of {\method} in real-world simulation and data generation tasks.
+
+\section{Public Resources Used}
+In this section, we acknowledge the public resources used, during the course of this work.
+
+\subsection{Public Datasets Used}
+\begin{itemize}
+    \item nuScenes\footnote{\url{https://www.nuscenes.org/nuscenes}} \dotfill CC BY-NC-SA 4.0
+    
+    \item nuScenes-devkit\footnote{\url{https://github.com/nutonomy/nuscenes-devkit}} \dotfill Apache License 2.0
+
+    \item Occ3D\footnote{\url{https://tsinghua-mars-lab.github.io/Occ3D}} \dotfill MIT License
+\end{itemize}
+
+
+\subsection{Public Implementations Used}
+\begin{itemize}
+    \item MagicDrive\footnote{\url{https://github.com/cure-lab/MagicDrive}} \dotfill Apache License 2.0
+    
+    \item SemCity\footnote{\url{https://github.com/zoomin-lee/SemCity}} \dotfill MIT License
+
+    \item DynamicCity\footnote{\url{https://github.com/3DTopia/DynamicCity}} \dotfill Unknown
+
+    \item DriveArena\footnote{\url{https://github.com/PJLab-ADG/DriveArena}} \dotfill Apache License 2.0
+
+    \item OccSora\footnote{\url{https://github.com/wzzheng/OccSora}} \dotfill Apache License 2.0
+
+    \item X-Drive\footnote{\url{https://github.com/yichen928/X-Drive}} \dotfill Apache License 2.0
+
+    \item MinkowskiEngine\footnote{\url{https://github.com/NVIDIA/MinkowskiEngine}} \dotfill MIT License
+
+    \item Torch-Fidelity\footnote{\url{https://github.com/toshas/torch-fidelity}} \dotfill Apache License 2.0
+
+    \item Qwen2.5-VL\footnote{\url{https://github.com/QwenLM/Qwen2.5-VL}} \dotfill Apache License 2.0
+
+    \item UniScene\footnote{\url{https://github.com/Arlo0o/UniScene-Unified-Occupancy-centric-Driving-Scene-Generation}} \dotfill Apache License 2.0
+\end{itemize}

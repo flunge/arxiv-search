@@ -1,0 +1,40 @@
+\section{Related work}
+\label{sec:related}
+
+\subsection{Primitive Importance Score Prediction}
+\label{sec:related_method}
+Existing approaches for estimating Gaussian primitive importance can be broadly categorized into attribute-based, rendering-based, and learning-based methods.
+
+\textbf{Attribute-based methods} adopt simple heuristics such as Gaussian volume and opacity, which were used in 3DGS~\cite{3dgs} and ADC-GS~\cite{adc} to detect redundant points. These methods are computationally efficient and easy to integrate, but they fail to reliably capture a Gaussian’s actual contribution to rendering quality, especially when multiple Gaussians overlap or interact in complex ways.  
+
+\textbf{Rendering-based methods} derive importance by measuring each Gaussian’s contribution to rendered images, either through visibility or via reconstruction error sensitivity.
+LightGaussian~\cite{lightgaussian} computes importance as the 2D projected area multiplied by absolute opacity and further refined by the 3D Gaussian volume. 
+PRoGS~\cite{progs} and EAGLES~\cite{eagles} replace absolute opacity with blending opacity obtained during rasterization, which better reflects accumulated visibility but lacks volume refinement. 
+MesonGS~\cite{mesongs} and HGSC~\cite{HGSC} combine blending opacity with volume, effectively integrating the strengths of both strategies for more stable scoring.
+These strategies provide a closer approximation to perceptual importance but come with notable limitations. 
+They rely on custom Gaussian rasterizers, and their computation time increase proportionally with the number of images used for score calculation. 
+In addition, their performance is sensitive to the number and distribution of views, as shown in the Supplementary Material (Sec.~\ref{sup:render_views}).
+Gradient-based variants estimate significance from reconstruction error sensitivity. 
+C3DGS~\cite{c3dgs} uses backward gradients, selecting the maximum SH coefficient channel for color and the maximum eigenvalue of the rotation or scaling matrix for geometry, while PUP-3DGS~\cite{pup} extends this idea by computing perturbation sensitivity from the Hessian of reconstruction errors. 
+While gradient signals can effectively indicate importance in well-optimized regions, they often produce unstable scores in poorly reconstructed areas, where large gradients arise from fitting errors rather than true contribution.
+
+\textbf{Learning-based approaches} incorporate joint optimization of a per-Gaussian mask into the reconstruction pipeline, enabling data-driven selection of effective primitives \cite{compact,hac,hacpp,contextgs,maskgaussian}.
+The mask implicitly encodes point significance, but these methods are tightly coupled with the reconstruction process, require lengthy optimization, and lack reusability. 
+Moreover, once the Gaussian set changes (e.g., after pruning or editing~\cite{gaussianeditor, grouping,vc_edit}), the learned importance distribution becomes invalid, limiting generalization and transferability.
+
+Motivated by these limitations, we propose RAP, a lightweight and rendering-free framework for efficient and generalizable Gaussian importance estimation.
+
+\subsection{Applications of Primitive Importance Score}
+\label{sec:app}
+The concept of Gaussian primitive importance has been extensively explored in 3D reconstruction, where importance-guided strategies are employed to eliminate redundancy while preserving scene fidelity.
+Prune-and-refine approaches \cite{lightgaussian,pup,hybridgs} typically remove low-importance primitives before refining the remaining set, while LP-3DGS \cite{lp3dgs} further learns to determine a favorable pruning ratio.
+
+Alternatively, Mini-Splatting~\cite{minisplatting} selects representative Gaussians through sampling instead of pruning, mitigating potential artifacts from aggressive removal.
+More recently, TAMING-3DGS~\cite{taming3dgs} utilizes importance scores to drive targeted densification, enhancing reconstruction efficiency under hardware and resource constraints.
+
+Gaussian primitive importance has also become a key factor in compression and coding frameworks. 
+Threshold-based pruning, adopted in MesonGS~\cite{mesongs} and EAGLES~\cite{eagles}, discards low-importance Gaussians prior to encoding to reduce data size. 
+Beyond simple thresholding, C3DGS~\cite{c3dgs} employs sensitivity-aware clustering to group Gaussians according to their visual contribution, thereby preserving perceptually important structures while improving compression efficiency. 
+Another direction focuses on learnable masking, with methods \cite{hac,hacpp,contextgs,maskgaussian} jointly optimizing mask values during reconstruction to guide the selection of effective primitives.
+This idea, first introduced in Compact-3DGS~\cite{compact}, has  been extended in compression-oriented frameworks to enable adaptive importance modeling.
+

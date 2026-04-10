@@ -1,0 +1,366 @@
+\section{Experiments}
+\label{sec:experiment}
+
+\paragraph{Implementation details.}
+For training, we use a mixture of Stereo4D~\citep{Jin:2025:S4D}, PointOdyssey~\citep{Zheng:2023:POA}, and Virtual KITTI 2~\citep{Gaidon:2016:VWP} by sampling each dataset in a minibatch with probability of 60\%, 20\%, and 20\% respectively.
+All datasets include (sparse) annotations of 3D points, 3D sceneflow, and camera pose.
+For efficient storage, we use 10\% of the full Stereo4D dataset by subsampling frames of the dataset.
+We initialize our network (\cref{fig:architecture}) using pretrained weights from NoPoSplat~\citep{Ye:2025:NPN} (Gaussian head) and MASt3R \citep{Leroy:2024:GIM} (rest), except for the camera head, which is trained from scratch.
+We train the model with varying aspect ratios with image width to be $512$.
+We apply photometric augmentations and geometric augmentations such as random scale crop, horizontal flip, and temporal flip.
+We train the model for 120k iteration steps with a global minibatch size of 16.
+The training takes around three days on four NVIDIA A100 40GB GPUs.
+
+\subsection{Evaluation on 2D and 3D tasks}
+\label{sec:exp:eval_2d_3d}
+We evaluate \ourmethod{} on various 2D and 3D geometry and motion tasks, such as depth, point, and scene flow, and compare it with recent methods that are specifically designed for joint geometry and motion estimation given a pair of input frames: DynaDUSt3R~\citep{Jin:2025:S4D}, ZeroMSF~\citep{Liang:2025:ZSM}, and the concurrent work ST4RTrack~\citep{Feng:2025:ST4}.\footnote{St4RTrack is primarily optimized for long-term tracking, unlike the short-term dynamics evaluated here.}
+
+All methods are evaluated under the same protocol, following DynaDUSt3R and ZeroMSF that use per-image median scale alignment for both point and scene flow. DynaDUSt3R uses the full Stereo4D dataset for training while ZeroMSF uses a mixture of synthetic datasets, including SHIFT, Dynamic Replica, Virtual KITTI 2, MOVi-F, Spring, and PointOdyssey. 
+Please see details on the inference setup of each method in~\cref{sec:app:inference_setup}.
+
+
+\begin{table}[t]
+\centering
+\scriptsize
+\setlength\tabcolsep{1pt}
+\caption{\textbf{Geometry estimation}: We report end-point error (EPE) for pointmap accuracy and absolute relative error (Abs.~Rel.) and $\delta{\lt}1.25$ for depth accuracy.
+Lower is better for EPE and Abs.~Rel., and higher is better for $\delta{\lt} 1.25$.
+}
+\newcolumntype{Y}{S[table-format=1.3, round-mode=places, round-precision=3]}
+\newcolumntype{Z}{S[table-format=2.2, round-mode=places, round-precision=2]}
+\label{tab:exp:depth}
+\begin{tabularx}{\linewidth}{@{} X @{\hskip 0.2em} *{4}{@ {\hskip 0.5em} Y Y Z} @{}}
+\toprule
+\multirow{2}{*}{Method} & \multicolumn{3}{c}{Stereo4D}  & \multicolumn{3}{c}{Bonn}  & \multicolumn{3}{c}{KITTI} & \multicolumn{3}{c}{Sintel final}\\
+\cmidrule(r){2-4} \cmidrule(r){5-7} \cmidrule(r){8-10} \cmidrule(r){11-13}
+& {EPE} & {Abs.~Rel.} & {$\delta{\lt} 1.25$} & {EPE} & {Abs.~Rel.} & {$\delta{\lt} 1.25$} & {EPE} & {Abs.~Rel.} & {$\delta{\lt} 1.25$} & {EPE} & {Abs.~Rel.} & {$\delta{\lt} 1.25$} \\
+\midrule
+MASt3R~\citep{Leroy:2024:GIM} & 1.8869 & 0.3141 & 66.5000 & 0.4870 & 0.1739 & 76.4857 & \bfseries 2.3036 & \bfseries 0.0865 & \uline{92.04} & 3.9972 & 0.3659 & 61.0337 \\
+MonST3R~\citep{Zhang:2025:MST} & 1.5038 & 0.1907 & 74.7522 & 0.1881 & \bfseries 0.0620 & \bfseries 96.2170 & 2.797 & 0.107 & 87.6071 & \bfseries 3.6067 & 0.3405 & 57.6134 \\
+DynaDUSt3R~\citep{Jin:2025:S4D}  & \uline{0.811} & \uline{0.112} & \uline{86.07} & 0.4236 & 0.0840 & 92.7514 & 4.8892 & 0.1158 & 83.3925 & 4.3620 & \bfseries 0.3013 & 61.0385 \\
+ZeroMSF~\citep{Liang:2025:ZSM} & 1.6619 & 0.2200 & 76.1773 & 0.2077 & 0.0787 & 91.5787 & 3.3921 & 0.107 & \bfseries 92.2784 & \uline{3.637} & 0.3332 & \bfseries 63.8576 \\
+St4RTrack~\citep{Feng:2025:ST4} & 1.4668 & 0.2093 & 71.2561 & \uline{0.181} & 0.0674 & 95.1704 & 4.7307 & 0.1252 & 82.8568 & 4.1447 & 0.3574 & 57.1376 \\
+\textbf{\ourmethod{} (Ours)} & \bfseries 0.6593 & \bfseries 0.1063 & \bfseries 88.38 & \bfseries 0.1622 & \uline{0.064} & \uline{96.04} & \uline{2.568} & \uline{0.090} & 88.92 & 3.8660 & \uline{0.319} & \uline{61.94} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{table}[t]
+\centering
+\scriptsize
+\newcolumntype{Y}{S[table-format=1.3, round-mode=places, round-precision=3]}
+\newcolumntype{Z}{S[table-format=2.2, round-mode=places, round-precision=2]}
+\setlength\tabcolsep{3pt}
+\caption{\textbf{Motion estimation.} We evaluate the scene flow accuracy on the Stereo4D test split \citep{Jin:2025:S4D} and KITTI Scene Flow 2015 Training \citep{Menze:2018:OSF}. Our approach substantially outperforms others, achieving the best numbers on all metrics. 
+}
+\label{tab:exp:scene_flow}
+\begin{tabularx}{0.8\linewidth}{@{} X @{\hskip 4em} *{3}{Y Z} @{}}
+\toprule
+\multirow{3}{*}{Method} & \multicolumn{4}{c}{Stereo4D} &
+\multicolumn{2}{c}{KITTI } \\
+\cmidrule(lr){2-5} \cmidrule(lr){6-7} 
+& \multicolumn{2}{c}{forward} & \multicolumn{2}{c}{backward} & \multicolumn{2}{c}{forward} \\
+ \cmidrule(lr){2-3} \cmidrule(lr){4-5} \cmidrule(lr){6-7}
+& {$\text{EPE}_\text{3D}\downarrow$} & 
+{$\delta^{0.05}_\text{3D}\uparrow$} & {$\text{EPE}_\text{3D}\downarrow$} & 
+{$\delta^{0.05}_\text{3D}\uparrow$} & {$\text{EPE}_\text{3D}\downarrow$} & 
+{$\delta^{0.05}_\text{3D}\uparrow$} \\
+\midrule
+DynaDUSt3R \citep{Jin:2025:S4D} & 0.1751 & \uline{51.46} & \uline{0.161} & \uline{52.16} & 0.4625 & 1.0925 \\
+ZeroMSF \citep{Liang:2025:ZSM} & \uline{0.164} & 45.6312 & {--} & {--} & \uline{0.442} & \uline{16.20} \\
+St4RTrack \citep{Feng:2025:ST4} &  0.3725 & 26.6157 & {--} & {--} & 0.7506 & 4.0082 \\
+\textbf{\ourmethod{} (Ours)} & \bfseries 0.0488 & \bfseries 83.0618 & \bfseries 0.0500 & \bfseries 82.6700 & \bfseries 0.1372 & \bfseries 47.7964 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+
+
+\paragraph{Geometry estimation.}
+\cref{tab:exp:depth} compares the accuracy of pointmaps and depth for geometry estimation on multiple benchmarks including Stereo4D test split~\citep{Jin:2025:S4D}, Bonn~\citep{Palazzolo:2019:RF3}, and KITTI Scene Flow 2015 Training \citep{Menze:2018:OSF}.
+For pointmap, we report averaged end-point error (EPE) between predicted pointmap and ground truth pointmap defined at the canonical camera coordinate. 
+For depth, we report standard depth metrics, absolute relative error (Abs.~Rel.) and percentage of inlier points ($\delta{\lt}1.25$).
+
+Our method substantially outperforms all direct competitors on Stereo4D and remains very competitive on the rest datasets.
+The trade-off across datasets of each method can stem from the mixture of training datasets that the method uses (\cf \cref{tab:exp:data_ablation}).
+For example, methods (\eg MonST3R and ZeroMSF) that use the Spring dataset for training usually show good performance on Sintel due to their narrow domain gap.
+\cref{fig:qualitative_main} visualizes qualitative results of all methods. 
+Our method estimates good depth boundaries especially where supervision signal is missing.
+
+\paragraph{Scene flow estimation.}
+\cref{tab:exp:scene_flow} compares with methods that estimate scene flow between two monocular images.
+The metrics includes 3D end-point-error (EPE) between ground truth and predicted estimates and the fraction of 3D points that have motion error within 5 cm ($\delta^{0.05}_\text{3D}$) compared to ground truth.
+Our method achieves the best accuracy on all metrics, especially with more than three times lower EPE on Stereo4D and KITTI than the best method.
+\cref{fig:qualitative_main} visualizes the source of the gain of our method. Unlike other methods, our method shows clear motion boundaries and disentanglement of motion between background and moving objects.
+
+
+
+
+\begin{figure*}[!t]
+\centering
+\scriptsize
+\setlength\tabcolsep{0.2pt}
+\newcommand{\qualimgjpg}[3]{\includegraphics[width=0.155\textwidth]{figure/qual/main/#1/#2/#3.jpg}}
+\newcommand{\qualimgpng}[3]{\includegraphics[width=0.15\textwidth]{figure/qual/main/#1/#2/#3.png}}
+
+\newcommand{\ablqualrow}[2]{
+\qualimgpng{#1}{#2}{img0} & 
+\rotatebox{90}{Depth} &
+\qualimgpng{#1}{#2}{d_dy} & 
+\qualimgpng{#1}{#2}{d_zm} &
+\qualimgpng{#1}{#2}{d_st} &
+\qualimgpng{#1}{#2}{d_ours} & 
+\qualimgpng{#1}{#2}{d_gt}
+\\[2pt]
+\qualimgpng{#1}{#2}{img1} & 
+\rotatebox{90}{Motion} &
+\qualimgpng{#1}{#2}{m_dy} & 
+\qualimgpng{#1}{#2}{m_zm} &
+\qualimgpng{#1}{#2}{m_st} &
+\qualimgpng{#1}{#2}{m_ours} & 
+\qualimgpng{#1}{#2}{m_gt}
+\\ \noalign{\smallskip}
+}
+\newcommand{\ablqualrowbonn}[2]{
+\qualimgpng{#1}{#2}{img0} & 
+\rotatebox{90}{Depth} &
+\qualimgpng{#1}{#2}{d_dy} & 
+\qualimgpng{#1}{#2}{d_zm} &
+\qualimgpng{#1}{#2}{d_st} &
+\qualimgpng{#1}{#2}{d_ours} &
+\qualimgpng{#1}{#2}{d_gt} 
+\\[2pt]
+\qualimgpng{#1}{#2}{img1} & 
+\rotatebox{90}{Motion} &
+\qualimgpng{#1}{#2}{m_dy} & 
+\qualimgpng{#1}{#2}{m_zm} &
+\qualimgpng{#1}{#2}{m_st} &
+\qualimgpng{#1}{#2}{m_ours} &
+(N/A)
+\\ \noalign{\smallskip}
+}
+\newcommand{\ablqualrowkitti}[2]{
+\qualimgpng{#1}{#2}{img0} & 
+\rotatebox{90}{Depth} &
+\qualimgpng{#1}{#2}{d_dy} & 
+\qualimgpng{#1}{#2}{d_zm} &
+\qualimgpng{#1}{#2}{d_st} &
+\qualimgpng{#1}{#2}{d_ours} & 
+\qualimgpng{#1}{#2}{d_gt} 
+\\[2pt]
+\qualimgpng{#1}{#2}{img1} & 
+\rotatebox{90}{Motion} &
+\qualimgpng{#1}{#2}{m_dy} & 
+\qualimgpng{#1}{#2}{m_zm} &
+\qualimgpng{#1}{#2}{m_st} &
+\qualimgpng{#1}{#2}{m_ours} &
+\qualimgpng{#1}{#2}{m_gt} 
+\\ \noalign{\smallskip}
+}
+
+\newcolumntype{M}{>{\centering\arraybackslash}m{0.155\textwidth}}
+\newcolumntype{N}{>{\centering\arraybackslash}m{0.02\textwidth}}
+
+\begin{tabular}{M @{\hspace{0.8em}} N M M M M M}
+    \ablqualrow{stereo4d}{6nL_ifACgfE-clip0-frame_50_72}
+    \ablqualrowbonn{bonn}{rgbd_bonn_balloon2_1548266532.18884_1548266532.52390}
+    \ablqualrowkitti{kitti}{000188_10}
+    % \ablqualrow{2} \\
+    % \ablqualrow{s4}{85_1} \\
+    Input pair & & \makecell[c]{DynaDUSt3R \\ \cite{Jin:2025:S4D}}& \makecell[c]{ZeroMSF \\ \cite{Liang:2025:ZSM}} & \makecell[c]{St4RTrack \\ \cite{Feng:2025:ST4}} & \textbf{\ourmethod{} (Ours)} & Ground truth 
+\end{tabular}
+\caption{
+\textbf{Qualitative comparison} of depth and projected 2D optical flow on Stereo4D, Bonn, and KITTI.
+For motion on KITTI, it visualizes motion relative to the camera, as GT is defined.
+Unlike DynaDUSt3R, ZeroMSF and St4RTrack, which suffers from residual motions in static region and inaccurate motion on object boundaries, \ourmethod{} exhibits clear motion boundaries and separation between moving objects and background. 
+More qualitative results are in \cref{supp:additional_qualitative}.
+} 
+\label{fig:qualitative_main}
+% \vspace{-0.8em}
+\end{figure*}
+
+
+\begin{table}[t]
+\centering
+\scriptsize
+\setlength\tabcolsep{3pt}
+\caption{\textbf{Pose estimation.}
+We report standard metrics, ATE and RPE translation ($\text{RPE}_\text{trans}$) and rotation ($\text{RPE}_\text{rot}$) for pose estimation on Stereo4D test, Bonn, and Sintel final,
+Our feed-forward approach outperforms methods relying on iterative solvers (\eg MonST3R, St4RTrack) on all metrics.}
+\label{tab:exp:pose}
+\newcolumntype{Y}{S[table-format=2.4, round-mode=places, round-precision=4]}
+\newcolumntype{Z}{S[table-format=2.3, round-mode=places, round-precision=3]}
+\begin{tabularx}{0.9\linewidth}{@{} X @{\hskip 2em} *{3}{Y Y Z} @{}}
+\toprule
+\multirow{2}{*}{Method} & \multicolumn{3}{c}{Stereo4D \citep{Jin:2025:S4D}} & \multicolumn{3}{c}{Bonn~\citep{Palazzolo:2019:RF3}} &
+\multicolumn{3}{c}{Sintel~\citep{Butler:2012:ANO}} \\ \cmidrule(lr){2-4} \cmidrule(lr){5-7} \cmidrule(lr){8-10}
+& {$\text{ATE}$} & {$\text{RPE}_\text{trans}$} & {$\text{RPE}_\text{rot}$} & {$\text{ATE}$} & {$\text{RPE}_\text{trans}$} & {$\text{RPE}_\text{rot}$} & {$\text{ATE}$} & {$\text{RPE}_\text{trans}$} & {$\text{RPE}_\text{rot}$} \\
+\midrule
+MonST3R~\citep{Zhang:2025:MST} & 0.0458 & 0.0647 & 0.8047 & 0.0031 & 0.0043 & 0.5436 & 0.0290 & 0.0410 & 1.0796 \\
+St4RTrack~\citep{Feng:2025:ST4} & 0.0602 & 0.0851 & 0.7289 & 0.0024 & 0.0034 & 0.3997 & 0.0231 & 0.0326 & 0.8835 \\
+\textbf{\ourmethod{} (Ours)} & \bfseries 0.0101 & \bfseries 0.0142 & \bfseries 0.1794 & \bfseries 0.0020 & \bfseries 0.0028 & \bfseries 0.2709 & \bfseries 0.0122 & \bfseries 0.0172 & \bfseries 0.2980 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+
+
+\paragraph{Pose estimation.}
+\Cref{tab:exp:pose} evaluates pose accuracy on Stereo4D test split, Bonn, and Sintel Final.
+Given two-frame inputs, we estimate relative pose and report accuracy using standard metrics, including ATE and RPE (translation and rotation).
+We provide more details on evaluation protocol in Appendix. 
+Our method achieves the best performance across all datasets.
+Unlike MonST3R~\citep{Zhang:2025:MST} and St4RTrack~\cite{Feng:2025:ST4}, which obtain pose via a PnP solver~\citep{Lepetit:2009:PNP} with RANSAC~\citep{Fischler:1981:RSC}, our approach is fully feed-forward. We demonstrate that direct estimation eliminates the need for additional post-processing while simultaneously achieving higher accuracy.
+Further analysis in \cref{sec:supp:pose_pnp} using PnP+RANSAC on our method confirms that our gain originates from both more accurate geometry and the robustness of our feed-forward estimator.
+
+
+\subsection{Analyses}
+\label{sec:analyses}
+
+\paragraph{Opacity as learnable confidence.}
+One notable emergent property of our model is that opacity serves as a learnable confidence metric. 
+Through the defined loss in \cref{eq:loss:total}, our feedforward model learns to predict an opacity value for each Gaussian that properly weight its contribution to the rendered image, points, and motion.
+\Cref{fig:opacity_confidence} visualizes one example where heavy occlusion and disocclusion occurs. 
+The last column visualizes an opacity map for each image, where blue means high opacity and therefore large contributions to rendered outputs.
+We see that not all Gaussians have high opacity: For regions that are visible in both views (\eg background and the person), the model chooses one of the corresponding Gaussians from the two images to compactly represent the scene.
+Regions that are occluded in one view and become visible in the other are also highlighted as high opacity (\eg background being occluded by the person in the second view).
+This emergent property allows the model to autonomously attenuate the influence of less relevant Gaussians for efficient 4D scene representation.
+
+\begin{figure}[t!]
+\centering
+\includegraphics[width=\textwidth]{figure/analyses/opacity.pdf}
+\par\smallskip
+    \scriptsize
+    \newcolumntype{C}{>{\centering\arraybackslash}X}
+    \begin{tabularx}{\textwidth}{ C C C C C C }
+    Input image & 
+    Rendered image & 
+    Rendered depth & 
+    Rendered motion & 
+    Opacity map &
+    Opacity legend \\
+    \end{tabularx}
+    \caption{{\textbf{Opacity as learnable confidence}:}
+    Opacity maps show the model's behavior in a (dis)occlusion scenario. Our model learns to assign high confidence (opacity) to disoccluded regions, and for mutually-visible regions, it selects only one corresponding Gaussian from the two views, enabling an efficient and compact 4D representation.
+    }
+    \label{fig:opacity_confidence}
+% \vspace{-0.8em}
+\end{figure}
+
+
+\paragraph{Loss ablation.}
+In \cref{tab:exp:task_ablation}, we analyze how using 3D Gaussians as a representational bottleneck encourages synergy between tasks during joint training.
+We train the models on the Stereo4D dataset at a $256\times256$ resolution for 40k iterations with a batch size of 12.
+We report image reconstruction (PSNR) and the accuracy of both Gaussian attributes (\ie, center and velocity) and rasterized outputs for points and motion (EPE).
+
+When gradients from the photometric loss to the Gaussian center and velocity are removed ((a) $\rightarrow$ (b)), point and motion accuracy drops significantly, highlighting the importance of our photometric loss (\cref{eq:loss:self}).
+Also, removing the supervision on rasterized points and motion ((a) $\rightarrow$ (c)), results in a substantial accuracy degradation across all tasks.
+Qualitative examples in \cref{fig:qualitative_ablation} visualize these findings.
+The rendering losses for points and motion are crucial for sharp motion boundaries, which tells its significant more than numbers in the table.
+
+A model without any rendering losses (d), \ie, only estimating 3D point and motion of each pixel, performs behind our full model.
+This indicates that even though our network shares its capacity to estimating Gaussian attributes, the supervision enabled by our differentiable 4D rasterizer leads to better point and motion accuracy.
+Further, this approach unlocks novel capabilities, 4D interpolation.
+
+\begin{table}[t]
+\centering
+\scriptsize
+\setlength\tabcolsep{0.7pt}
+\caption{\textbf{Loss ablation.} 
+ We report image reconstruction in PSNR and accuracy of Gaussian center (Point), rasterized point (Point rast.), Gaussian velocity (Motion), and rasterized motion (Motion rast.) in end-point error (EPE). Integrating the photometric loss gradient (\cref{eq:loss:self}) with all heads boosts overall performance. Losses on rendered motion (\cref{eq:loss:supervised:motion}) and point map (\cref{eq:loss:supervised:point}) are crucial for achieving high accuracy.
+}
+\label{tab:exp:task_ablation}
+\begin{tabularx}{\linewidth}{@{}l X @{\hskip 1em} S[table-format=2.3] @{\hskip 1em} S[table-format=1.3] S[table-format=1.3] S[table-format=1.3] S[table-format=1.3] @{}}
+\toprule
+{Alias} & {Configuration} & {Image (PSNR $\uparrow$)} & {Point (EPE $\downarrow$)} & {Point rast.~(EPE $\downarrow$)} & {Motion (EPE $\downarrow$)} & {Motion rast.~(EPE $\downarrow$)} \\
+\midrule
+(a) & Full model & \underline{23.929} & \bfseries 0.827 & \bfseries 0.841 & \bfseries 0.069 & \bfseries 0.064 \\ \midrule
+(b) & W/o image gradient. & \bfseries 24.268 & 0.903 & \underline{0.899} & 0.072 & 0.070 \\
+(c) & W/o motion and point rendering  & 20.675 & 0.911 & 0.943 & \underline{0.071} & \underline{0.069} \\
+(d) & W/o motion, point, and image rendering & {--} & \underline{0.886} & {--} & \underline{0.071} & {--} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+
+\begin{figure*}[t]
+\centering
+\scriptsize
+\setlength\tabcolsep{0.4pt}
+\newcommand{\qualimg}[2]{\includegraphics[width=0.139\textwidth]{figure/qual/abl3_withhighlights/#1_#2.png}}
+
+\newcommand{\ablqualrow}[1]{
+\qualimg{#1}{input} & 
+\qualimg{#1}{depth_full} & 
+\qualimg{#1}{depth_dt} & 
+\qualimg{#1}{depth_nr} & 
+\qualimg{#1}{motion_full} & 
+\qualimg{#1}{motion_dt} & 
+\qualimg{#1}{motion_nr}
+}
+\begin{tabular}{ccccccc}
+    \ablqualrow{1} \\
+    \ablqualrow{2} \\
+    % \ablqualrow{s4}{85_1} \\
+    Input & (a) Full model &  \makecell{(b) W/o image \\ gradient} & \makecell{(c) W/o motion and \\ point rendering}
+    & (a) Full model & \makecell{(b) W/o image \\ gradient}  & \makecell{(c) W/o motion and \\ point rendering} \\
+\end{tabular}
+    \caption{\textbf{Qualitative comparison on loss ablation.} Gradient backpropagation from the image synthesis loss and rendering losses on point and motion helps \ourmethod{} improve motion and point estimates, especially on object and motion boundaries.} 
+    \label{fig:qualitative_ablation}
+\end{figure*}
+
+
+\begin{table}[!t]
+\centering
+\scriptsize
+\setlength\tabcolsep{3pt}
+\caption{
+\textbf{Architecture comparison.} For apples-to-apples comparison, we train other methods with different output representation on our training protocol. Our method achieves the best accuracy except for Bonn on both point and motion end-point errors (lower the better).
+}
+\label{tab:exp:architecture_comparison}
+\begin{tabularx}{\linewidth}{@{}l X *{5}{S[table-format=2.3]} @{}}
+\toprule
+\multirow{2}{*}{Output representation} & \multirow{2}{*}{Equivalent or closest models} & \multicolumn{2}{c}{Stereo4D} & \multicolumn{2}{c}{KITTI} & \multicolumn{1}{c}{Bonn} \\
+\cmidrule(lr){3-4} \cmidrule(lr){5-6} \cmidrule(lr){7-7} 
+& & {Motion EPE} & {Point EPE} & {Motion EPE} & {Point EPE} & {Point EPE} \\
+\midrule
+ Dynamic 3DGS & \textbf{UFO-4D (Ours)} & 0.058 & \bfseries 0.781 & \bfseries 0.244 & \bfseries 3.553 & 0.211 \\
+Per-pixel point and motion & DynaDUSt3R, ZeroMSF & \bfseries 0.057 & 0.809 & 0.283 & 4.567 & \bfseries 0.196 \\
+ Per-pixel point & MonST3R & {--} & 0.804 & {--} & 4.562 & 0.201 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+
+
+
+\paragraph{Architecture comparison.}
+As methods often rely on distinct training recipes, it is crucial to decouple architectural benefits from implementation details.
+To achieve this, we compare our method with other baseline methods trained under our training protocol for apples-to-apples comparison.
+We change output representation to \emph{(i)} per-pixel point and motion estimation (equivalent to DynaDUSt3R~\citep{Jin:2025:S4D} and ZeroMSF~\citep{Liang:2025:ZSM}) and \emph{(ii)} per-pixel point only (equivalent to MonST3R).
+We follow the original training setup except that we use $256{\times}256$ training resolution and train model for 60k iteration steps.
+
+\cref{tab:exp:architecture_comparison} shows that our method outperforms per-pixel representations on Stereo4D and KITTI, with substantial gains on KITTI.
+However, our performance on Bonn is slightly behind.
+We attribute this to the prevalence of textureless regions in Bonn where our model predicts large-scale, overlapping Gaussians (\cref{fig:gaussian_scale}).
+While this ensures spatial continuity, it introduces error-prone spatial dependencies among neighboring pixels unlike per-pixel point representation.
+More discussion is followed in \cref{supp:discussion_bonn}.
+
+
+
+
+\paragraph{4D interpolation.}
+We demonstrates the new capability of our method: 4D interpolation.
+Given an input pair, \cref{fig:4d_intp} shows rendered image, depth, and motion maps at the canonical camera coordinate at interpolated time between the two input frames, via 4D differentiable rasterizer.
+Our method can render those at any time at any camera views. 
+
+
+\begin{figure}[t]
+\centering
+\footnotesize
+\includegraphics[width=\textwidth]{figure/4d_intp/4d_intp.pdf}
+\caption{\textbf{4D interpolation} on DAVIS. Given an input pair on the left, the righthand side shows rasterized images, depth, and motion maps at the canonical camera coordinate at interpolated time between the two input frames. Our method also clearly segments out moving objects.
+}
+\label{fig:4d_intp}
+% \vspace{-0.8em}
+\end{figure}

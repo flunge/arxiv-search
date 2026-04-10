@@ -1,0 +1,89 @@
+\section{Introduction}
+
+
+3D scence reconstruction remains a longstanding challenge in computer vision and graphics. A significant advancement in this domain is the Neural Radiance Field (NeRF) \cite{nerf}, which effectively represents geometry and view-dependent appearance using multi-layer perceptrons (MLPs), demonstrating significant advancements in 3D reconstruction quality.
+
+Recently, 3D Gaussian Splatting (3DGS)~\cite{3dgs} has gained considerable attention as a compelling alternative to MLP-based~\cite{nerf} and feature grid-based representations~\cite{tensorf,plenoxels,Neural,Instant_neural}. 3DGS stands out for its impressive results in 3D scene reconstruction and novel view synthesis while achieving real-time rendering at 1K resolutions. 
+This efficiency and effectiveness, combined with the potential integration into the standard GPU rasterization pipeline, marks a significant step toward the practical adoption of 3D reconstruction methods.
+
+% \begin{figure*}[t]
+%     \centering
+%     \hspace*{-0.2cm} % 核心负向位移指令
+
+%     \includegraphics[width=1.0\linewidth]{top.png}
+    
+%     \caption{{\color{red}This figure illustrates the full-resolution training renderings of the ``bicycle'' scene in the mip-nerf 360 dataset, as well as the average GPU memory consumption and model sizes of 3DGS, Mip-Splatting, and the proposed method. The lower part includes two charts: the left-hand chart compares the model sizes, and the right-hand chart illustrates the GPU memory consumption, showing that Mip-Splatting has the highest usage and Ours has the lowest.}}
+%     \label{fig:top}
+% \end{figure*}
+
+
+
+In particular, 3DGS models complex scenes as a collection of 3D Gaussian distributions, which are projected onto screen space using splatting-based rasterization. The characteristics of each 3D Gaussian, including position, size, orientation, opacity, and color, are optimized using multi-view photometric loss. 
+%Following this, a 2D dilation process is applied in screen space for low-pass filtering.
+Although 3DGS has demonstrated impressive 3D reconstruction results, its application in high-resolution scenarios encounters critical memory scalability limitations. 
+Specifically,when reconstructing outdoor scenes at ultra-high resolutions approaching 5K (e.g.4978\,$\times$\,3300 pixels) in standardized benchmark datasets like Mip-NeRF 360~\cite{Mip-NeRF360}, conventional 3DGS implementations demand excessive VRAM, exceeding the capacity of mainstream GPUs with limited memory, such as the NVIDIA A5000 (24GB VRAM). 
+%This computational bottleneck originates from the inherent parametric scaling characteristics of 3DGS methodology: The technique encodes scene information through a dense population of anisotropic Gaussian primitives, whose cardinality exhibits superlinear growth relative to input resolution. 
+%This computational bottleneck originates from the inherent parametric scaling characteristics of 3DGS, which encodes scene information through a dense set of Gaussian primitives whose number grows superlinearly with the input resolution.
+%High-fidelity scene reconstruction necessitates exponential expansion of Gaussian distributions to capture fine-grained geometric details and complex view-dependent radiance variations, thereby inducing quadratic memory complexity in parameter storage. 
+% \textcolor{red}{
+This computational bottleneck arises from the increasing resolution: higher resolutions demand more GPU memory, as illustrated in Fig.~\ref{fig:top}.
+% }
+Such algorithmic behavior fundamentally conflicts with finite GPU memory resources, resulting in catastrophic memory overflow during optimization phases.
+
+% To overcome these critical memory constraints while preserving reconstruction fidelity for high-resolution rendering, we present XXGaussian (HRGS), a memory-efficient framework with hierarchical block optimization from coarse to fine. 
+To overcome these critical memory constraints while preserving reconstruction fidelity for high-resolution scene reconstruction, we present Hierarchically  Gaussian Splatting (HRGS), a memory-efficient framework with hierarchical block optimization from coarse to fine. 
+Specifically, we first obtain a coarse global Gaussian representation using low-resolution images. 
+Subsequently, to minimize memory usage on a single GPU, we partition the scene into spatially adjacent blocks and parallelly refined. 
+Each block is represented with fewer Gaussians and trained on reduced data, allowing further optimization with high-resolution images. The partitioning strategy operates at two levels: Gaussian primitives and training data.
+To achieve a more balanced partition of Gaussians and avoid blocks with sparse Gaussians, we begin by contracting unbounded Gaussians. In detail, we define a bounded cubic region and use its boundary to normalize the Gaussian positions. Within this region, Gaussians are contracted via a linear mapping, while those outside undergo nonlinear contraction, yielding a more compact Gaussian representation. We then apply a uniform grid subdivision strategy to this contracted space, ensuring an even distribution of computational tasks.
+%For Gaussian partitioning, we contract irregular scenes into normalized bounded cubic shapes and employ uniform grid division to distribute computational tasks evenly among various blocks. 
+%During training data partitioning，为了挑选出与要refine块强相关的数据，我们利用该pose分别利用全局Gaussian和全局gaussian去掉这一block部分的Gaussian渲染出的图片计算SSIM loss，只保留对这块贡献较大的pose
+%During training data partitioning, to select data highly relevant to the block under refinement, we render images for each pose using the full Gaussian representation and again with the block’s Gaussians removed, then compute the SSIM loss~\cite{mss} between the two renders. 
+% During data partitioning for training, we identify data most relevant to the block under refinement by rendering images for each pose both with the complete global Gaussians and with the block’s Gaussians removed, then computing the SSIM loss~\cite{mss} between the two outputs. 
+% A higher SSIM loss indicates that the pose contributes more significantly to the block, so we set a threshold on SSIM loss and retain only those poses whose values exceed it.
+During data partitioning for training, we compute the SSIM loss~\cite{mss} for each observation by comparing two renderings:One rendering is implemented with the complete global Gaussian representation, while the other is executed subsequent to the elimination of Gaussians within the target block. A more pronounced SSIM loss denotes that the observation exerts a more substantial contribution to the target block, so we set a threshold on SSIM loss and retain only observations whose values exceed it.
+%Only those poses that contribute significantly to the block are kept.
+To mitigate artifacts at the block boundaries, we further include observations that fall within the region of the considered block.
+Finally, to prevent overfitting, we employ a binary search algorithm during data partitioning to expand each block until the number of Gaussians it contains exceeds a specified threshold.
+%During training data partitioning, only the poses that reside within their corresponding blocks or significantly contribute to the rendering results are retained.
+This innovative strategy effectively reduces interference from irrelevant data while improving fidelity with decreased memory usage, as demonstrated in Tab.~\ref{tab4}.
+
+After partitioning the Gaussian primitives and data, we initialize each block in the original, uncontracted space using the coarse global Gaussian representation. To accelerate convergence and reduce computational overhead during block-level refinement with high-resolution data, we introduce an Importance-Driven Gaussian Pruning (IDGP) strategy. {Specifically, we evaluate the interaction between each Gaussian and the multi-view training rays within the corresponding block, and discard those with negligible rendering contributions. All blocks are then refined in parallel, and subsequently integrated into a unified, high-resolution global Gaussian representation.}
+%
+% we compute the interaction between each Gaussian and the block’s multi-view training rays, then remove Gaussians with low rendering contributions. 
+% We refine all blocks in parallel and finally assemble them into a global high-resolution Gaussian representation.
+% %
+
+In addition to novel view synthesis, we evaluate our method on another key subtask of 3D reconstruction: 3D surface reconstruction. To further enhance the quality of the reconstructed surfaces, we incorporate the View-Consistent Depth-Normal Regularizer~\cite{vcR}, which is applied both during the initialization of the coarse global Gaussian representation and throughout the subsequent block-level refinement.
+%
+% To further enhance surface reconstruction quality, we employ the View Consistent Depth-Normal Regularizer~\cite{vcR} to obtain the initial coarse global Gaussian representation and during subsequent block refinements.
+%
+
+% After partitioning the Gaussian primitives and data, we initialize each block in the original, uncontracted space using a coarse global Gaussian representation. We then refine each block in parallel with high-resolution data and finally assemble these refined blocks to obtain the global high-resolution Gaussian representation.
+
+%Alignment of trained Gaussians from adjacent blocks is achieved by guiding each block's training with the coarse global Gaussian prior, ensuring seamless fusion. 
+
+% To further enhance the quality of surface reconstruction, we adopt the View Consistent Depth-Normal Regularizer from VCR-GauS~\cite{vcR} to obtain the initial coarse global Gaussian representation and subsequent refinement.
+
+
+
+Finally, our method enables high-quality and high-resolution scene reconstruction even under constrained memory capacities (e.g., NVIDIA A5000 with 24GB VRAM).
+We validate our method on two sub-tasks of 3D reconstruction: high-resolution NVS and surface reconstruction, and demonstrate that it delivers superior high-resolution reconstruction performance. In summary, the main contributions of this paper are:
+
+\begin{itemize}[leftmargin=*]
+    \item We propose HRGS, a memory-efficient coarse to fine framework that leverages low-resolution global Gaussians to guide high-resolution local Gaussians refinement, enabling high-resolution scene reconstruction with limited GPU memory.
+    
+    \item A novel partitioning strategy for Gaussian primitives and data is introduced, optimizing memory usage, reducing irrelevant data interference, and enhancing reconstruction fidelity.
+    
+     \item We propose a novel dynamic pruning strategy, Importance-Driven Gaussian Pruning (IDGP), which evaluates the contribution of each Gaussian primitive during training and selectively removes those with low impact. This approach significantly improves training efficiency and optimizes memory utilization.
+    %
+    % \item {\color{red}A novel data importance assessment-based dynamic pruning strategy, termed Importance-Driven Gaussian Pruning (IDGP), is introduced to remove low-contribution Gaussian primitives during the training process, significantly enhancing training efficiency and memory utilization.}
+    %
+
+    \item Extensive experiments on three public datasets demonstrate that our approach achieves state-of-the-art performance in high-resolution rendering and surface reconstruction.
+\end{itemize}
+
+
+
+
+\input{images/blank}

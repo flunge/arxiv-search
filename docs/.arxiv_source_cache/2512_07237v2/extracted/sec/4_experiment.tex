@@ -1,0 +1,83 @@
+\section{Experiment}
+\label{sec:experiment}
+
+\input{figure/panshot.tex}
+
+\input{figure/re10k.tex}
+
+
+\subsection{Experimental Setup}
+\label{sec:setup}
+
+\noindent\textbf{Datasets.}
+To train and evaluate our method across diverse camera conditions (pose, intrinsics, and distortion) we synthesize a large-scale dataset of $\sim$48k clips from in-the-wild 360° videos~\cite{wallingford2024image} using Unified Camera Model (UCM)~\cite{mei2007single} with randomized $\mathrm{xFoV}$ and distortion $\xi$, covering pinhole, wide-angle, fisheye configurations (see Supplementary~\cref{sec:panshot}).
+For out-of-distribution generalization, we additionally evaluate on 100 randomly selected clips from the RealEstate10K test set~\cite{zhou2018stereo}, using a fixed 100° \(\mathrm{xFoV}\) pinhole camera without any further adaptation or fine-tuning.
+
+\noindent\textbf{Evaluation Metrics.}
+We evaluate generated videos in four aspects (detailed in Supplementary~\cref{sec:eval}):
+\begin{itemize}[leftmargin=0pt, wide=0pt]
+    \item \emph{Video quality:} evaluated using FID~\cite{heusel2017gans}, FVD~\cite{unterthiner2018towards} for dataset-level fidelity, CLIP score~\cite{radford2021learning} for text-video alignment and Q-Align~\cite{wu2024q} for user-centric quality.
+    \item \emph{Relative camera pose control:} each generated frame is rectified to a pinhole view with ground-truth distortion and estimated by ViPE~\cite{huang2025vipe}, reporting translation (TransErr), rotation (RotErr), and motion consistency (CamMC)~\cite{he2024cameractrl, wang2024motionctrl}.
+    \item \emph{Absolute camera orientation:} pitch and roll are estimated via GeoCalib~\cite{veicht2024geocalib} and compared with the ground-truth video estimation to obtain absolute orientation errors.
+    \item \emph{Lens control:} we calibrate FoV and distortion coefficients \(k_1, k_2\) of the radial model~\cite{Brown1966DecenteringDO} with GeoCalib~\cite{veicht2024geocalib} and compute absolute errors against ground-truth calibration.
+\end{itemize}
+
+\subsection{Comparison with Previous Methods}
+\label{sec:cmp}
+
+\noindent\textbf{Baselines.}
+We compare UCPE against several representative camera-conditioning methods:
+\begin{enumerate}[leftmargin=0pt, wide=0pt, label=(\arabic*)]
+    \item \emph{ReCamMaster}~\cite{bai2025recammaster} injects camera extrinsics \(\left[\mathbf{R}, \mathbf{t}\right] \in \mathrm{SE}(3)\) into the diffusion model; we extend it by concatenating normalized \(\mathrm{FoV}\) and distortion \(\xi\) for lens control.
+    \item \emph{Wan CameraCtrl} (Wan2.1-Fun-V1.1-1.3B-Control), a third-party implementation of CameraCtrl~\cite{he2024cameractrl} with Wan~\cite{wan2025wan}, which incorporates Pl\"ucker encoding via a convolutional adapter; we adapt it for text-to-video generation.
+    \item \emph{AC3D}~\cite{bahmani2025ac3d} applies Pl\"ucker encoding through a ControlNet~\cite{zhang2023adding} adapter built on CogVideoX~\cite{yang2025cogvideox}.
+    \item \emph{CameraCtrl}~\cite{he2024cameractrl} integrates Pl\"ucker encoding into U-Net's temporal attention layers of AnimateDiff~\cite{guo2024animatediff}.
+\end{enumerate}
+For both methods (1) and (2), we implement two variants respectively: one following their original design where camera poses are defined relative to the first frame, and another adopting a gravity-aligned coordinate system anchored at the first frame to enable explicit roll and pitch control (denoted as w/ absolute orientation).
+Methods (1) and (2) share the same base model as UCPE and are fine-tuned on our dataset under identical settings for fair comparison, except that (2) uses a smaller learning rate of \(1\mathrm{e}{-5}\) due to full-parameter optimization (see Supplementary~\cref{sec:impl} for details).
+For (3) and (4), we directly evaluate the pretrained models released by the authors, and therefore report results only on their training dataset, RealEstate10K~\cite{zhou2018stereo}.
+
+\input{table/panshot.tex}
+
+\input{table/re10k.tex}
+
+\noindent\textbf{Quantitative Results.}
+We present quantitative comparisons on our synthesized dataset in Table~\ref{tbl:panshot} and on RealEstate10K in Table~\ref{tbl:re10k}.
+On our dataset, we first compare with ReCamMaster and Wan CameraCtrl under their original settings (w/o Absolute Orientation Control), and then under our proposed gravity-aligned coordinate system (w/ Absolute Orientation Control).
+UCPE consistently achieves better performance across both configurations, exhibiting superior camera controllability and video quality while adding only 35.5M or 0.5\% parameters over the 7.3B parameters of the base model, 90\% fewer than ReCamMaster.
+The Lat-Up map also provides appearance cues that improve lens control (UCPE w/ vs. w/o Absolute Orientation).
+
+On RealEstate10K, despite not being fine-tuned on this dataset, UCPE outperforms all baselines in Relative Camera Pose Control, demonstrating strong generalization to unseen trajectories and text prompts.
+Note that UCPE is trained with detailed scene descriptions (see \cref{fig:panshot}) whereas RealEstate10K uses short prompts (see \cref{fig:re10k}).
+Nevertheless, UCPE achieves higher Q-Align scores than CameraCtrl and AC3D, indicating better video quality, and comparable performance to ReCamMaster and Wan CameraCtrl with fewer parameters.
+
+
+\noindent\textbf{Qualitative Results.}
+We visualize generated samples from our synthesized dataset in \cref{fig:panshot} and from RealEstate10K in \cref{fig:re10k}.
+On our dataset, UCPE \textcolor{red}{faithfully follows the specified camera trajectories} and produces \textcolor{cyan}{consistent lens distortion effects} aligned with the target camera parameters visualized in the Lat-Up Map.
+In contrast, Wan CameraCtrl exhibits noticeable \textcolor{orange}{camera motion deviations}, while ReCamMaster \textcolor{ForestGreen}{fails to reproduce the intended lens distortion}.
+On RealEstate10K, UCPE generates sharper and more detailed videos that better adhere to the camera motion, whereas CameraCtrl shows severe artifacts (left) and poor frame composition (right).
+AC3D maintains the overall aesthetic of RealEstate10K due to training on this dataset but suffers from unbalanced framing (left) and low dynamic range (overexposed window, right).
+Although Wan CameraCtrl and ReCamMaster are fine-tuned on the same base model and dataset as ours, they struggle to ensure camera consistency, resulting in reduced camera motion (left) and \textcolor{ForestGreen}{undesired distortion artifacts} (right) under the pinhole setup.
+
+\subsection{Ablation Study}
+
+We conduct ablation experiments on our synthesized dataset to analyze the core designs % choices 
+of UCPE and the Spatial Attention Adapter, with results summarized in %the bottom block of 
+Table~\ref{tbl:panshot} (bottom).
+
+\noindent\textbf{Compression Ratio of Token Projection.}
+As introduced in~\cref{sec:adapter}, we apply a token projection with compression ratio \(1/C\) in the Spatial Attention Adapter to balance efficiency and representation capacity.
+We test four ratios, each corresponding to different per-head dimensions and numbers of attention heads.
+Higher compression ratios improve video quality metrics while maintaining stable camera controllability.
+We adopt \(1/8\) as the default setting, which provides the best trade-off between performance and efficiency.
+
+\noindent\textbf{Injection Position of the Attention Adapter.}
+We compare three configurations within the Diffusion Transformer: insertion before self-attention (Pre-Attn), after self-attention (Post-Attn), and our default parallel design (1/8-dim).
+Both Pre-Attn and Post-Attn variants yield noticeably degraded results in both camera control and video quality, confirming the effectiveness of our parallel architecture.
+
+\noindent\textbf{Comparison with Other Relative Camera Encodings.}
+To assess the contribution of our relative ray encoding, we replace it with prior formulations including PRoPE~\cite{li2025cameras} and GTA~\cite{miyato2023gta}, while retaining the Lat-Up Map for orientation and lens cues.
+Compared to UCPE (1/8-dim), both alternatives lead to weaker camera lens and relative pose control, as well as lower video quality, though they achieve similar absolute orientation performance via the Lat-Up Map.
+We attribute this to their limited capacity to model non-linear lens projections: both methods use a single camera encoding for all tokens, lacking the ability to capture distortion variation.
+This limitation is especially pronounced for PRoPE, which even underperforms GTA on several metrics, highlighting the advantage of UCPE's relative ray encoding as a unified representation across diverse camera lens.

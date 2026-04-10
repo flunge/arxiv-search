@@ -1,0 +1,841 @@
+
+\documentclass{article} % For LaTeX2e
+\usepackage{iclr2026_conference,times}
+
+% Optional math commands from https://github.com/goodfeli/dlbook_notation.
+\input{math_commands.tex}
+
+\usepackage{hyperref}
+\usepackage{url}
+
+
+\title{ConsisDrive: Identity-Preserving Driving World Models for Video Generation by Instance Mask}
+
+% Authors must not appear in the submitted version. They should be hidden
+% as long as the \iclrfinalcopy macro remains commented out below.
+% Non-anonymous submissions will be rejected without review.
+
+\author{Zhuoran Yang, Yanyong Zhang \thanks{ Corresponding Author} \\
+University of Science and Technology of China \\
+\texttt{shanpoyang@mail.ustc.edu.cn, yanyongz@ustc.edu.cn} \\
+% \And
+% Ji Q. Ren \& Yevgeny LeNet \\
+% Department of Computational Neuroscience \\
+% University of the Witwatersrand \\
+% Joburg, South Africa \\
+% \texttt{\{robot,net\}@wits.ac.za} \\
+% \AND
+% Coauthor \\
+% Affiliation \\
+% Address \\
+% \texttt{email}
+}
+
+
+
+
+
+% \author{
+% Zhuoran Yang\hspace{0.8em}
+% Yanyong Zhang\thanks{Corresponding Author}
+% \\
+% {\normalsize  University of Science and Technology of China}   \\
+% {{\tt\small shanpoyang@mail.ustc.edu.cn}, 
+% {\tt\small yanyongz@ustc.edu.cn} \\
+% }
+% }
+
+
+
+
+
+
+% The \author macro works with any number of authors. There are two commands
+% used to separate the names and addresses of multiple authors: \And and \AND.
+%
+% Using \And between authors leaves it to \LaTeX{} to determine where to break
+% the lines. Using \AND forces a linebreak at that point. So, if \LaTeX{}
+% puts 3 of 4 authors names on the first line, and the last on the second
+% line, try using \AND instead of \And before the third author name.
+
+\newcommand{\fix}{\marginpar{FIX}}
+\newcommand{\new}{\marginpar{NEW}}
+
+%%%%%%%%%%%%%%%%%%%%% ADD %%%%%%%%%%%%%%%%%%%%%
+\def\titleDef{\textbf{\textit{ConsisDrive}}}
+\usepackage{graphicx} 
+\usepackage{comment}
+\usepackage{booktabs}
+
+\usepackage{xcolor}      % 
+\usepackage{tocloft}     % 
+
+
+\usepackage{bm}
+\newcommand{\mb}[1]{\mathbf{#1}}
+\usepackage{subcaption}
+\usepackage{pifont}
+\usepackage{multirow}
+\usepackage{amsmath}
+\usepackage{colortbl}
+\usepackage{tcolorbox}
+\usepackage{amssymb} 
+\usepackage{amsfonts}
+
+
+
+\newcommand{\toreviewer}[1]{\vspace{0.0em}\noindent \textcolor{blue}{\textbf{#1 \hspace{0.2em}}}}
+\newcommand{\issue}[1]{\vspace{0.0em}\noindent \textcolor{blue}{\textbf{#1 \hspace{0.2em}}}}
+
+%%%%%%%%%%%%%%%%%%%%% ADD %%%%%%%%%%%%%%%%%%%%%
+
+
+
+
+
+\iclrfinalcopy % Uncomment for camera-ready version, but NOT for submission.
+\begin{document}
+
+
+\maketitle
+
+\begin{abstract}
+Autonomous driving relies on robust models trained on large-scale, high-quality multi-view driving videos. 
+Although world models provide a cost-effective solution for generating realistic driving data, they often suffer from identity drift, where the same object changes its appearance or category across frames due to the absence of instance-level temporal constraints. 
+We introduce \textbf{ConsisDrive}, an identity-preserving driving world model designed to enforce temporal consistency at the instance level. 
+Our framework incorporates two key components: (1) Instance-Masked Attention, which applies instance identity masks and trajectory masks within attention blocks 
+to ensure that visual tokens interact only with their corresponding instance features across spatial and temporal dimensions, 
+thereby preserving object identity consistency; 
+and (2) Instance-Masked Loss, which adaptively emphasizes foreground regions with probabilistic instance masking, reducing background noise while maintaining overall scene fidelity. 
+By integrating these mechanisms, ConsisDrive achieves state-of-the-art driving video generation quality and demonstrates significant improvements in downstream autonomous driving tasks on the nuScenes dataset.
+% \textcolor{red}{Our project page is here\footnote{\url{https://shanpoyang654.github.io/ConsisDrive/page.html}}.}
+Our project page is here\footnote{\url{https://shanpoyang654.github.io/ConsisDrive/page.html}}.
+\end{abstract}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\section{Introduction}
+\label{section:intro}
+
+Autonomous driving has attracted extensive attention from both academia and industry over the past decades \cite{shi2016uniad, zheng2024genad, chen2024end, jiang2023vad}. 
+To achieve reliable performance, autonomous systems rely on high-quality, large-scale multi-view driving videos with precise annotations, which are essential for training perception, tracking, and planning models. 
+However, collecting and labeling such real-world driving data is both costly and labor-intensive. 
+Benefiting from the rapid advancements in generative video models \cite{lei2023pyramidflow, xi2025sparse, zheng2024open, hacohen2024ltx, wang2024qihoo, gao2024ca2, zhou2024allegro, ho2022video, blattmann2023align, hu2024animate, wang2023modelscope, wang2024lavie, bar2024lumiere, gupta2024photorealistic}, driving world models \cite{drivedreamer2, wen2024panacea, jia2023adriver, wang2023drive, gao2024magicdrivedithighresolutionlongvideo} have emerged as a promising alternative. 
+These models can synthesize diverse and realistic driving scenarios at scale, significantly reducing the demand for costly data collection and annotation.
+
+
+
+% importance of Instance identity preserving / consistency
+Instance identity preservation across frames is critical for generating realistic driving videos, 
+as it directly affects video quality \cite{Thomas2018fvd} and determines their applicability in downstream autonomous driving tasks. 
+For example, multi-object tracking \cite{streampetr} and perception tasks \cite{streampetr} require temporally stable instance appearances to ensure reliable temporal context understanding. 
+Similarly, planning \cite{hu2023planningorientedautonomousdriving} relies on temporally coherent trajectories of surrounding agents to support accurate motion forecasting. 
+These requirements necessitate that the world model consistently maintains instance identities---such as category, color, and shape---across consecutive frames, ensuring continuity in both appearance and behavior of dynamic objects. 
+From a broader perspective, the ability to preserve instance identity is essential for world models to effectively capture the underlying dynamics of real-world environments. 
+Technically, enforcing strong temporal consistency improves the reliability of autonomous driving models trained on synthetic data, ultimately enhancing their generalization to real-world scenarios.
+
+
+
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.8\linewidth]{figures/sample2.pdf} 
+\caption{
+\textbf{Limitations of Prior Works in Instance Identity Preservation Across Frames.}
+\textbf{(a)} \textit{Category Shift}: In DriveDreamer2 \cite{drivedreamer2}, the bus gradually turns into a truck, indicating a failure to preserve semantic identity over time. 
+\textbf{(b)} \textit{Color Shift}: In MagicDrive-V2 \cite{gao2024magicdrivedithighresolutionlongvideo}, the car’s color changes inconsistently across frames, violating temporal appearance consistency. 
+\textbf{(b)} \textit{Foreground Dilution}: In MagicDrive-V2 \cite{gao2024magicdrivedithighresolutionlongvideo}, scene-level supervision dilutes supervision over critical foreground regions, breaking temporal identity consistency for small instances like pedestrians. In contrast, our method explicitly enforces instance-level temporal constraints, maintaining consistency across frames and effectively addressing these issues.
+}
+%\vspace{-0.2cm}
+\label{fig:intro}
+\end{figure}
+
+
+
+% challenges, compared with other methods
+However, existing diffusion-based world models frequently suffer from \emph{identity drift}, where the same object changes its appearance or even category across frames (e.g., a red car becoming black, or a bus turning into a truck), as shown in Fig.~\ref{fig:intro}. 
+Such identity inconsistency severely degrades video realism and limits the applicability of generated data for downstream driving tasks. 
+We identify three major root causes of this problem.
+%
+First, the absence of explicit instance identity conditions prevents the model from anchoring consistent identities over long horizons. 
+For example, DriveDreamer2 \cite{drivedreamer2} does not incorporate instance-specific conditions such as category, leading to noticeable semantic shifts, as illustrated in Fig.~\ref{fig:intro}(a). 
+This highlights the necessity of injecting explicit instance identity signals into the generation process.
+%
+Second, the attention mechanism of current diffusion transformers is not instance-aware. 
+For instance, FLUX's MMDiT \cite{flux2024} computes 3D full attention across all visual tokens from different instances. 
+This makes the attention mechanism unreliable and causes information leakage between different instances. 
+Models such as MagicDrive-V2 \cite{gao2024magicdrivedithighresolutionlongvideo} integrate temporal attention layers to enhance inter-frame \textit{global} coherence, 
+they lack fine-grained, instance-aware temporal alignment, suffering from identity inconsistencies such as color shifts, as shown in Fig.~\ref{fig:intro}(b). 
+This underscores the need for instance-aware attention mechanisms.
+%
+Third, existing training objectives \cite{wen2024panacea} apply uniform supervision over the entire frame, forcing the model to reconstruct both background pixels (e.g., sky, buildings) and critical foreground regions with equal importance. 
+Since background pixels dominate the scene, this \textit{supervision dilution} prevents the model from focusing on fine-grained identity-preserving features. 
+Consequently, foreground temporal consistency is easily broken, especially for small objects, as shown in Fig.~\ref{fig:intro}(b) in MagicDrive-V2 \cite{gao2024magicdrivedithighresolutionlongvideo}. 
+This motivates the design of instance-aware training objectives that emphasize foreground regions.
+
+
+To address the above challenges, we propose \textbf{ConsisDrive}, an identity-preserving driving world model specifically designed to enforce instance-level temporal consistency. 
+Our framework incorporates instance awareness into both the attention mechanism and the training objective, guided by carefully constructed instance masks. 
+In particular, we introduce two core components: 
+%
+The \textbf{I}nstance \textbf{M}asked \textbf{A}ttention (\textbf{IMA}) module explicitly guides the model’s attention towards each individual instance, effectively preventing information leakage across multiple instances.
+% It incorporates instance identity conditions, such as category labels, instance size, and TrackingIDs, into the attention process. 
+Specifically, by constructing \textit{instance identity mask}, we restrict visual tokens to attend only to the identity embeddings of their corresponding instances. 
+This preserves the identity of the instance across long sequences, effectively mitigating identity drift (e.g., preventing a bus from gradually being interpreted as a truck). 
+% 
+What's more, by constructing \textit{instance trajectory mask}, we ensure that tokens of the same object across frames exclusively attend to each other, while interactions across different instances are strictly blocked. 
+This design allows the model to reliably propagate appearance features such as color and texture along the trajectory of each object, thereby avoiding cross-instance information leakage and ensuring consistent instance-level visual identity across time. 
+%
+Second, the \textbf{I}nstance \textbf{M}asked \textbf{L}oss (\textbf{IML}) addresses the supervision dilution problem caused by uniform loss computation across entire frames. 
+% Since background pixels dominate the image, gradients from critical foreground regions are often overwhelmed, limiting the model’s ability to learn identity-preserving features. 
+IML employs instance masks to emphasize supervision on foreground regions during training. A probabilistic dynamic masking strategy is further introduced, which adaptively balances between foreground-focused loss and global reconstruction loss. This design ensures that foreground consistency is enforced without sacrificing overall scene fidelity, allowing the model to capture both fine-grained identity details and natural background appearance. 
+
+Through the joint design of Instance Masked Attention module and Instance Masked Loss Supervision, ConsisDrive significantly mitigates identity drift and achieves temporally consistent video generation for driving scenarios.
+% By anchoring semantic conditions, propagating instance-specific features, and enhancing foreground-focused supervision, our framework significantly mitigates identity drift and achieves temporally consistent video generation for driving scenarios.
+% Through this design, ConsisDrive generates driving videos with realistic dynamics and natural backgrounds while maintaining instance-level identity consistency across frames. 
+Our approach achieves state-of-the-art performance in both video generation quality and downstream autonomous driving task validation, outperforming previous works \cite{gao2024magicdrivedithighresolutionlongvideo, drivedreamer2, li2023drivingdiffusionlayoutguidedmultiviewdriving, wen2024panacea}.  
+Our contributions are as follows.
+\begin{itemize}
+
+    \item We propose the Instance-Masked Attention module, which explicitly directs the model’s attention to each individual instance.
+    By incorporating both an instance identity mask and a trajectory mask, the module constrains visual tokens to attend exclusively to tokens of their corresponding instances across spatial and temporal dimensions.
+    This design effectively enforces instance-level temporal consistency while preventing information leakage between different instances.
+    
+    \item We design Instance-Masked Loss Supervision, a probabilistic instance-focused training objective that employs instance masks to emphasize supervision on foreground regions.
+    
+    \item Our model achieves SOTA video generation quality with high FID and FVD on the nuScenes benchmark, surpassing previous methods. For autonomous driving applications, the generated videos are validated on downstream perception, tracking, and planning tasks, with performance competitive to real-world sensor data.
+\end{itemize}
+
+
+
+
+
+
+
+
+\section{Related Works}
+\label{sec:related}
+
+% \noindent \textbf{Controllable Generation.}  
+% The emergence of diffusion models \cite{zhang2024moonshot} has significantly advanced text-to-video generation \cite{an2023latent, blattmann2023align, guo2023animatediff, he2022latent, ho2022imagen, svd, singer2022make, wang2023videofactory, zhou2023magicvideo, cogvideox, guo2024infinitydrive}. Video LDM \cite{blattmann2023align} accelerates generation by denoising in the latent space, but text prompts alone lack precision. Recent methods combine image blocks with text for better control \cite{zhang2024moonshot}. Our work focuses on generating realistic street-view videos, addressing challenges like complex layouts and dynamic vehicles. We enhance control by integrating road maps, 3D bounding boxes, and BEV keyframes.
+
+\noindent \textbf{Street-View Generation.}  
+Street-view generation methods typically use 2D layouts like BEV maps, 2D bounding boxes, and semantic segmentation. BEVGen \cite{swerdlow2023street} encodes semantic data in BEV layouts, while BEVControl \cite{bevcontrol} uses a two-stage pipeline for multi-view urban scenes, ensuring cross-view consistency. However, projecting 3D information into 2D layouts loses geometric details, causing temporal inconsistencies in videos. To address this, we use 3D bounding boxes to maintain geometric fidelity. Unlike DrivingDiffusion \cite{li2023drivingdiffusionlayoutguidedmultiviewdriving}, which relies on a complex multi-stage pipeline, our method simplifies the process with an efficient, end-to-end framework, ensuring temporal coherence and computational efficiency.
+
+% \noindent \textbf{Multi-View Video Generation.}  
+% Multi-view video generation faces challenges in achieving both multi-view and temporal consistency. MVDiffusion \cite{tang2023mvdiffusion} uses a correspondence-aware attention module to align views, while Tseng et al. \cite{poseguideddiffusion} apply epipolar geometry for view-to-view regularization. DriveScape \cite{drivescape}, MagicDrive \cite{gao2023magicdrive}, and MagicDrive V2 \cite{gao2024magicdrivedithighresolutionlongvideo} incorporate advanced control signals, high-definition rendering, and long-duration training but struggle with instance-level temporal consistency and precise positional control.
+
+\noindent \textbf{Simulation-to-Real Visual Translation.}  
+Recent advances in synthetic data for real-world visual tasks have shown significant progress. GAN-based translation \cite{guo2020gan} and domain randomization \cite{tobin2017domain} bridge synthetic and real-world data distributions, while datasets like Synthia \cite{ros2016synthia} and Virtual KITTI \cite{cabon2020virtual} provide scalable benchmarks for semantic segmentation and autonomous driving. Adversarial training \cite{shrivastava2017learning, zhang2018collaborative} reduces distribution gaps, and human motion representation learning \cite{guo2022learning} highlights synthetic data’s utility in video understanding. Unlike these methods, we extract proxy data like 3D bounding boxes and road maps from graphics systems, leveraging these conditions to generate more realistic and diverse videos.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.95\linewidth]{figures/main.pdf} 
+\caption{\textbf{Overview.}
+(a) Instance-Masked Attention, which explicitly directs the model’s attention to each individual instance by incorporating both an instance identity mask and trajectory mask.
+(b) Instance-Masked Loss Supervision, a probabilistic instance-focused training objective that employs instance loss masks to emphasize supervision on foreground regions.
+(c) Instance Mask Construction. Illustration of how the Instance Identity Mask, Instance Trajectory Mask, and Instance Loss Mask are constructed from 3D box projections.
+% By incorporating both an instance identity mask and a trajectory mask, the module constrains visual tokens to attend exclusively to tokens of their corresponding instances across spatial and temporal dimensions.
+}
+\label{fig: main}
+\vspace{-0.5cm}
+\end{figure}
+
+
+
+\section{Method}
+\label{section:method}
+
+
+We introduce \titleDef, an identity-preserving driving world model specifically designed to enforce instance-level temporal consistency. 
+Our framework incorporates instance awareness into both the 3D full attention mechanism (Sec.~\ref{section:attn}) and the training objective (Sec.~\ref{section:loss}), where carefully constructed instance masks serve as structural priors to guide consistency across frames.
+The overall architecture of our model is illustrated in Fig. \ref{fig: main}.
+
+
+
+
+%-------------------------------------------------------------------------
+\subsection{Overview} 
+\label{section:overview}
+Building on OpenSora V2.0 ~\cite{peng2025opensora20trainingcommerciallevel}, we employ a Variational Auto-Encoder (Video DC-AE) for video encoding, T5XXL ~\cite{chung2024scaling} and CLIP-Large ~\cite{Radford2021LearningTV} for text encoding, MMDiT ~\cite{flux2024} as the foundational model for the denoising process.
+
+To achieve fine-grained control, we introduce a comprehensive set of control conditions, including bounding box projection, road maps, and scene descriptions, integrating them into the conditioned video generation process.
+Moreover, we introduce instance category label, instance size, and tracking ID to extract instance identity conditions and incorporate them into the attention process,
+a key mechanism within our proposed Instance-Masked Attention module, detailed in Sec. \ref{section:attn}.
+
+Given the need to handle multiple control elements, we adopt ControlNet~\cite{zhang2023adding} to inject control signals into the video generation process.
+To integrate these control-aware representations, we duplicate the first 19 base blocks of the double-stream MMDiT backbone as dedicated control blocks.
+Each control block fuses condition features with the corresponding outputs of the base blocks, thereby modulating the feature flow and ensuring that control signals are effectively incorporated throughout the generation pipeline.
+ 
+% To guarantee the multi-view consistency during generation, we use a parameter-free view-inflated attention mechanism to replace the commonly used cross-view attention modules~\cite{gao2023magicdrive}.
+% Specifically, we reshape the input from $\mathbb{R}^{v \times t \times h \times w \times c}$ to $\mathbb{R}^{t \times h \times (wv) \times c}$ and treat $wv$ as the frame width.
+% Our proposed approach improves the multi-view coherence without compensating with additional parameters.
+
+
+
+
+
+
+
+%-------------------------------------------------------------------------
+\subsection{Instance-Masked Attention} 
+\label{section:attn}
+
+The Instance-Masked Attention module, as illustrated in Fig.\ref{fig: main} (a), is designed to guide the model’s attention towards each individual instance. 
+By constructing instance masks from the bounding boxes of objects in Fig.\ref{fig: main} (c), we effectively prevent information leakage across multiple instances. 
+We add our proposed learnable Instance-Masked Attention module to handle the per-instance identity conditioning. 
+Instance-Masked Attention module fuses the instance identity conditions with the corresponding outputs of the copy blocks 
+and modulates its features to enable instance-aware attention.
+We now describe the key operations within the Instance-Masked Attention module in detail. 
+
+
+The Instance-Masked Attention module, as illustrated in Fig.~\ref{fig: main}(a), is designed to explicitly guide the model’s attention towards each individual instance.
+Instance masks are constructed from object bounding boxes, as shown in Fig.~\ref{fig: main}(c), to prevent information leakage across instances and ensure instance-level disentanglement.
+We introduce a learnable Instance-Masked Attention mechanism, which injects per-instance identity conditions and fuses them with the corresponding outputs of the copy blocks.
+By modulating these features, the module enables instance-aware attention that preserves instance identity and ensures instance consistency across spatial and temporal dimensions.
+We now describe the key operations of the Instance-Masked Attention module in detail.
+
+
+\subsubsection{Instance Identity Condition}
+For each instance $i$ that appears in the video, we construct a global condition that integrates multiple factors of the instance, including its category, its unique tracking ID, and the size of its bounding box. Together, these attributes provide an informative representation of both semantic identity and geometric configuration, which is crucial for preserving the instance identity consistently across frames.  
+
+Concretely, we first apply a Fourier mapping $\gamma(\cdot)$ to encode the tracking ID $ID_i$ and the bounding box size $s_i=(dx_i,dy_i,dz_i)$. 
+At the same time, we employ the CLIP-Large ~\cite{Radford2021LearningTV} text encoder $\tau_\theta(\cdot)$ to extract a semantic feature from the category label $c_i$. These components are concatenated and passed through a multilayer perceptron (MLP) to produce the instance global identity condition embedding:
+\begin{equation}
+    g_i = \text{MLP}\!\left([\tau_\theta(c_i), \gamma(s_i), \gamma( ID_i)]\right).
+\end{equation}
+The complete set of embeddings for all $n$ instances in the video is then denoted as:
+\[
+    G = \{g_i\}_{i=1}^n.
+\]
+
+
+
+
+\subsubsection{Instance-Masked Attention and Fuse Mechanism}
+We denote the $m = T_{compress} \times H_{compress} \times W_{compress}$ visual tokens extracted from the copy MMDiT block as $V$, and the $n$ instance condition tokens as $G$. We then apply 3D self-attention (SA) over the backbone features and the concatenated instance condition tokens $[V, G]$ in the Instance-Masked Attention module, 
+which can be formulated as:
+\begin{equation}
+    \tilde{V} = \text{SA}_\text{mask}([V, G]).
+\end{equation}  
+We observed that standard self-attention, without masking, leads to information leakage across instances, such as the color of one instance bleeding into another. 
+To address this problem, 
+we construct a mask matrix
+$M \in \mathbb{R}^{(m+n)\times(m+n)}$ to determine the valid connections:
+
+
+\noindent\textbf{Token-to-Instance Indicator Function.}  
+Indicator function $I(v_k)$ denotes the set of instance IDs whose projected bounding boxes cover the spatial region of token $v_k$, as illustrated in Fig.\ref{fig: main} (c). 
+Formally, each instance $i$ is represented by a 3D bounding box with corners $C_i = \{\mathbf{X}_{i,c}\}_{c=1}^{8}$, where $\mathbf{X}_{i,c} \in \mathbb{R}^3$. 
+Given camera parameters $(\mathbf{K}^t,\mathbf{R}^t,\mathbf{T}^t)$ at frame $t$, the corners are projected as
+\begin{equation}
+\tilde{\mathbf{x}}_{i,c}^t = \mathbf{K}^t \left( \mathbf{R}^t \mathbf{X}_{i,c} + \mathbf{T}^t \right), 
+\quad
+\mathbf{x}_{i,c}^t = \Big(\tfrac{\tilde{x}}{\tilde{z}}, \tfrac{\tilde{y}}{\tilde{z}}\Big),
+\end{equation}
+with the convex hull of $\{\mathbf{x}_{i,c}^t\}$ forming the polygon $P_i^t$.  
+Rasterization yields binary masks $BM_i \in \{0,1\}^{T \times H \times W}$. 
+We further apply trilinear interpolation to map these masks into latent space, denoted as $\tilde{BM}_i$.
+For patch tokens $p$ obtained from VAE compression,% covering region $R_p$, 
+we define
+\begin{equation}
+I(v_k) \equiv I(t,p) = \{\, i \mid \exists (x,y),\, \tilde{BM}_i(t,x,y)=1 \,\}, 
+\end{equation}
+where $v_k$ is a flattened visual token corresponding to $(t,p)$.
+
+
+
+\noindent\textbf{Instance Identity Mask.}  
+For each visual token $v_k$ and instance condition token $g_i$, the attention score is masked as
+\[
+    M_{k,m+i} / M_{m+i,k} = -\infty \quad \text{if } i \notin I(v_k),
+\]
+% where $I(v_k)$ represents the set of instance IDs associated with token $v_k$. Specifically, $i \in I(v_k)$ indicates that $v_k$ falls within the bounding region of instance $i$.
+This mask ensures that each visual token can only attend to the identity condition token of the corresponding instance.  
+This mechanism explicitly injects global identity features into the attention process, ensuring that each instance preserves its identity consistently across long temporal sequences.  
+Meanwhile, it strictly suppresses interactions between different instances, thereby preventing identity leakage across objects.  
+
+\noindent\textbf{Instance Trajectory Mask.}  
+For two visual tokens $v_k$ and $v_j$, the attention score is masked as
+\[
+    M_{k,j} = -\infty \quad \text{if } I(v_k) \cap I(v_j) = \emptyset.
+\]
+This mask ensures that tokens of the same instance across frames can attend to one another, while interactions across different instances are strictly prohibited. 
+This design preserves temporal consistency by explicitly enabling the propagation of instance-specific features across their trajectories. 
+
+
+% For two instance identity tokens $g_i$ and $g_l$, the attention score is masked as
+% \[
+%     M_{m+i,m+l} = -\infty \quad \text{if } i \neq l.
+% \]
+
+
+Finally, the output of the Instance-Masked Attention is added back to the backbone representation via gated addition:
+\begin{equation}
+    V = V + \tanh(\omega)\,\tilde{V}[:m],
+\end{equation}
+where $\omega$ is a learnable scalar parameter, initialized to zero, that adaptively controls the contribution of the Instance-Masked Attention module.  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+%-------------------------------------------------------------------------
+\subsection{Instance-Masked Loss} 
+\label{section:loss}
+%To further enhance instance-level temporal consistency, we design an instance-aware training objective that emphasizes foreground regions, illustrated in Fig.\ref{fig: main} (b).
+The goal of \titleDef~ is to ensure that foreground objects in driving scenes remain consistent across all frames in the generated video. 
+However, existing training objectives apply uniform supervision over the entire frame, forcing the model to reconstruct both background pixels (e.g., sky, buildings) and critical foreground regions with equal importance. 
+Since background pixels dominate the scene, this supervision dilution 
+introduces noise that interferes with model training, 
+preventing the model from focusing on fine-grained identity-preserving features.
+Consequently, foreground temporal consistency is easily broken, especially for small objects.
+
+% 
+To resolve this issue, we propose the \emph{Instance-Masked Loss}, which focuses the supervision signal on foreground objects, as illustrated in Fig.\ref{fig: main} (b)(c). 
+Specifically, we construct a binary loss mask $M_\text{Loss} \in \{0,1\}^{T_\text{comp} \times H_\text{comp} \times W_\text{comp}}$ from the Instance-to-Token Indicator function $I(v_k)$.
+For each token $v_k$, the mask is defined as $M_\text{Loss}(v_k) = 1_{\{I(v_k) \neq \varnothing\}},$
+ensuring that only tokens covered by at least one instance are selected.  
+% which has the same resolution as the latent variable $\epsilon$. 
+The masked loss is then computed as: $$L_\text{mask} = M_\text{Loss} \odot L,$$
+where $L$ denotes the original denoising loss and $\odot$ indicates element-wise multiplication.  
+
+However, directly applying this masked loss to all training samples may cause the model to overfit to foreground objects, 
+which in turn harms the generation quality of background regions, such as roads and high-definition maps. 
+To alleviate this problem, we adopt a probabilistic dynamic masking strategy. 
+Specifically, with a probability $p$ of $\alpha$, the masked loss is applied:
+\begin{equation}
+\label{eq: dynamic_mask_loss}
+\mathcal{\tilde{L}}_{\text{mask}} = 
+\begin{cases}
+\mathcal{L}_{\text{mask}}, & \text{if } p < \alpha \\
+\mathcal{L}, & \text{if } p \geq \alpha
+\end{cases}
+\end{equation}
+This stochastic scheme allows the model to concentrate on foreground consistency while still preserving the natural realism of background content.
+
+
+
+
+
+
+
+
+%-------------------------------------------------------------------------
+\section{Experiment}
+\label{section: exp}
+
+
+\subsection{Setups}
+\noindent \textbf{Datasets and Baselines.} 
+We train and evaluate our model on the nuScenes dataset \cite{nuScenes}. To benchmark our approach, we compare it with state-of-the-art driving world models, including BEVControl \cite{bevcontrol}, DriveDiffusion \cite{li2023drivingdiffusionlayoutguidedmultiviewdriving}, DriveDreamer2 \cite{drivedreamer2}, Panacea \cite{wen2024panacea}, and MagicDrive-V2 \cite{gao2024magicdrivedithighresolutionlongvideo}.
+
+
+\noindent \textbf{Metrics.}
+For realism assessment, we use FID \cite{FID} and FVD \cite{Thomas2018fvd} to measure video quality. 
+% attribute binding
+To evaluate the effectiveness of attribute binding and Instace Masked Loss Supervision, we measure the alignment between generated instances and their conditioned categories and sizes, ensuring that both semantic and geometric structures are faithfully preserved. This evaluation is conducted through perception tasks, since accurate category recognition and size localization are fundamental requirements for reliable perception. Hence, perception performance directly reflects the generation accuracy of object categories and spatial extents. Specifically, following Panacea \cite{wen2024panacea}, we adopt the video-based perception model StreamPETR \cite{streampetr} and report metrics such as the nuScenes Detection Score (NDS) and mean Average Precision (mAP). Among them, mAP directly measures the accuracy of object category detection, while NDS integrates category detection with localization, orientation, and other aspects to provide a holistic assessment of perception quality. 
+%
+To further evaluate the propagation of instance-specific features across frames, we assess our model on the multi-object tracking (MOT) task in real-world autonomous driving scenarios. MOT explicitly measures the ability to maintain consistent object identities over time, using metrics like ID switches (IDS). We also adopt the StreamPETR model \cite{streampetr} as the tracker and report standard MOT metrics, including AMOTA, AMOTP, and IDS.
+%
+Although Bevfusion \cite{liu2023bevfusion} has also been employed for perception evaluation \cite{gao2023magicdrive}, it is based on an image model, performs worse than the video-based StreamPETR, and lacks the ability to provide object tracking metrics. For these reasons, we choose StreamPETR as our evaluation model.
+
+%\noindent For metrics and results on the planning task using pretrained UniAD \cite{shi2016uniad} model, please refer to Appendix \ref{app:planning}.
+% StreamPETR and UniAD have been previously trained on the nuScenes dataset, providing a reliable standard for our performance experiments.
+%Appendix.\ref{app:perception} holds additional details.
+
+
+
+\begin{table}[h]
+    \centering
+    \footnotesize
+        \centering
+        \resizebox{0.475\textwidth}{!}{
+        \setlength{\tabcolsep}{8pt}
+        \begin{tabular}{lcccc}
+            \toprule
+            Method     &Multi-View &Multi-Frame  & FVD$\downarrow$ & FID$\downarrow$ \\
+            \hline
+            %BEVGen \cite{swerdlow2023street} \  &$\checkmark$   &  &  & 25.54\\
+            BEVControl \cite{bevcontrol}  &$\checkmark$   &  & - & 24.85 \\
+            %WoVoGen \cite{wovogen} &$\checkmark$ & $\checkmark$ & 417.7 & 27.6 \\
+            %Drive-WM \cite{wang2023drivingfuturemultiviewvisual} &$\checkmark$ & $\checkmark$ & 122.7 & 15.8 \\
+            %DriveDreamer \cite{wang2023drive}   &$\checkmark$ &$\checkmark$  & 452 & 52.6\\
+            DrivingDiffusion \cite{li2023drivingdiffusionlayoutguidedmultiviewdriving}   &$\checkmark$ &$\checkmark$  & 332 & 15.83\\
+            Panacea \cite{wen2024panacea}   & $\checkmark$ &$\checkmark$  & 139 & 16.96\\  
+            MagicDrive-V2 \cite{gao2024magicdrivedithighresolutionlongvideo}   &$\checkmark$ &$\checkmark$  & 94.84 & 20.91\\
+            DriveScape \cite{drivescape}  & 
+            $\checkmark$ &$\checkmark$  & 76.39 & 8.34\\
+            DriveDreamer2 \cite{drivedreamer2}   &$\checkmark$ &$\checkmark$  & 55.7 & 11.2\\
+            DiVE \cite{jiang2024diveditbasedvideogeneration} &$\checkmark$ &$\checkmark$  & 94.6 & -\\
+            DrivingSphere \cite{yan2024drivingspherebuildinghighfidelity4d} &$\checkmark$ &$\checkmark$  & 103.42 & -\\
+            UniScene \cite{li2025unisceneunifiedoccupancycentricdriving} &$\checkmark$ &$\checkmark$  & 70.52 & 6.12\\
+            InstaDrive \cite{yang25instadrive} &$\checkmark$ &$\checkmark$  & 38.06 & 3.96 \\
+            UniMLVG \cite{chen2025unimlvgunifiedframeworkmultiview} &$\checkmark$ &$\checkmark$  & 60.1 & 8.8\\
+            \hline
+            \rowcolor[gray]{.9} 
+            \titleDef~   &$\checkmark$  &$\checkmark$  & \textcolor{blue}{37.23}  & \textcolor{blue}{3.88}  \\
+            \bottomrule
+        \end{tabular}
+        }
+        \caption{Visual and Temporal Fidelity: Comparison with SoTA methods on nuScenes validation set. 
+        %We generate the entire validation set without applying any post-processing strategies to select specific samples.
+        }
+        \label{tab:fvd}
+\end{table}
+
+
+\subsection{Training Details}
+Our method is implemented based on OpenSora V2.0 \cite{peng2025opensora20trainingcommerciallevel}. 
+All training inputs were set to 16x256x448 and conducted on $64$ A100 GPUs.
+Experimental results show that our method can stably generate over 200 frames. %For more implementation details, please refer to Appendix \ref{app: exp}.
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Main Results}
+
+\subsubsection{Quantitative Analysis}
+To verify the fine-grained temporal consistency and high fidelity of our generated videos, we compare our approach with various state-of-the-art driving world models. 
+We generate training and validation data using the nuScenes dataset’s labels as conditions. 
+%For fairness, we generate the entire dataset without applying any post-processing strategies to select specific samples. 
+
+
+\noindent\textbf{Visual Realism and Temporal Fidelity.} 
+Our generated videos achieve superior temporal fidelity, reducing the FVD to $37.23$. This improvement stems from the proposed \textbf{Instance-Masked Attention} module, which preserves instance attributes across frames and thereby enhances instance-level temporal consistency.  
+In terms of visual quality, our method attains an FID of $3.88$, as reported in Tab.~\ref{tab:fvd}, substantially outperforming both video-based approaches (e.g., DriveDreamer2) and image-based solutions (e.g., BEVControl). These demonstrate that our generated images exhibit not only stronger temporal coherence but also significantly higher visual realism.
+
+
+
+
+\begin{table}[htbp]
+    \centering
+    \footnotesize
+    \resizebox{0.475\textwidth}{!}{
+    \setlength{\tabcolsep}{4pt}
+    \begin{tabular}{lcccccc}
+        \toprule
+        Method & Real & Gen. & mAP$\uparrow$ & mAOE$\downarrow$ & mAVE$\downarrow$ & NDS$\uparrow$ \\
+        \hline
+        Oracle & $\checkmark$  & - & 34.5 & 59.4 & 29.1 & 46.9 \\
+        \hline
+        Panacea & - &$\checkmark$  & 22.5 \textcolor{red}{(65.22\%)}  & 72.7 & 46.9 & 36.1 \textcolor{red}{(76.97\%)} \\
+        Panacea & $\checkmark$  & $\checkmark$   & 37.1 \textcolor{blue}{(+2.6\%)} & 54.2 & 27.3 & 49.2 \textcolor{blue}{(+2.3\%)} \\
+        \hline
+        \titleDef~ (Ours) & -  &$\checkmark$  & 31.5 \textcolor{red}{(91.3\%)} & 63.0 & 33.1 & 42.06 \textcolor{red}{(89.68\%)} \\
+        \rowcolor[gray]{.9} 
+        \titleDef~ (Ours) & $\checkmark$  & $\checkmark$   & 43.2 \textcolor{blue}{(+8.7\%)} & 39.8 & 25.2 & 54.6 \textcolor{blue}{(+7.7\%)} \\
+        \bottomrule
+    \end{tabular}
+    }
+    \caption{Comparison on perception tasks with Panacea. Training StreamPETR with synthetic data augmentation leads to significant performance improvements, highlighting the value of generated data for perception.
+    }
+    \label{tab:perception_augment}
+\end{table}
+
+
+\begin{table}[htbp]
+    \centering
+    \footnotesize
+        \centering
+        \resizebox{0.36\textwidth}{!}{
+        \setlength{\tabcolsep}{7pt}
+        \begin{tabular}{cccc}
+            \toprule
+              Method   & Real & Gen. &  NDS$\uparrow$\\
+            \hline
+                Oracle & $\checkmark$ & -  &46.90 \\ 
+                Panacea & - &$\checkmark$ &32.10 (68.00\%) \\
+                % MagicDrive & - &$\checkmark$ &34.20 (72.92\%) \\
+                MagicDrive-V2 & - &$\checkmark$ &36.82 (78.51\%) \\
+               \cellcolor[gray]{.9} \titleDef~     &\cellcolor[gray]{.9} - 
+               &\cellcolor[gray]{.9}  $ \cellcolor[gray]{.9} \checkmark$ 
+               & \cellcolor[gray]{.9} \textcolor{blue}{41.38 (88.23\%) }
+               \\
+            \bottomrule
+        \end{tabular}
+        }
+         \caption{Comparison of perception task performance on generated nuScenes (T+I)2V validation data. Evaluated with pre-trained StreamPETR~\cite{streampetr}, our model outperforms baselines without post-refinement, showing its ability to faithfully capture and bind instance attributes.
+         }
+        \label{tab:perception}
+\end{table}
+
+
+
+
+
+
+
+
+
+
+
+\noindent\textbf{Instance Attribute Binding.}  
+We evaluate instance-level temporal consistency by examining how well global instance attributes are bound to the generated content.  
+In autonomous driving, perception tasks critically depend on precise category recognition and size localization, making them a natural measure of attribute binding quality.  
+To this end, we assess the alignment between generated instances and their conditioned categories and sizes, which directly reflects the fidelity of instance attribute binding.  
+
+\noindent \textit{Data Augmentation Performance on Perception.}  
+As shown in Tab.~\ref{tab:perception_augment}, training StreamPETR exclusively on our generated dataset achieves a mean Average Precision (mAP) of $31.5\%$, which corresponds to $91.3\%$ of the performance obtained by training solely on the real nuScenes dataset.  
+Since mAP directly measures category detection accuracy, this result confirms that global instance attributes are reliably bound through our Instance Identity Mask (Sec.~\ref{section:attn}).  
+Moreover, the generated dataset proves to be not only a viable substitute for real data but also an effective standalone training resource for perception models.  
+When we further re-train StreamPETR by augmenting real data with our generated videos, the perception model achieves a nuScenes Detection Score (NDS) of $54.6$, representing a $7.7$-point improvement over training with real data alone.  
+This demonstrates the substantial benefit of incorporating our generated data into the training pipeline.  
+
+
+\noindent \textit{Validation Performance on Perception.}  
+Additionally, we use the pre-trained StreamPETR model to evaluate the generated validation set of nuScenes.
+As reported in Tab.~\ref{tab:perception}, our model achieves a relative performance of $88.23\%$ on the NDS metric, highlighting strong alignment between generated content and conditioned instance categories and sizes.  
+%Further validation on downstream planning tasks is provided in the Appendix \ref{app:planning}.  
+
+
+
+\begin{table}[t]
+    \centering
+    \footnotesize
+    \resizebox{0.47\textwidth}{!}{
+    \setlength{\tabcolsep}{4pt}
+    \begin{tabular}{lcccccc}
+        \toprule
+        Method & Real & Gen. & AMOTA$\uparrow$ & AMOTP$\downarrow$ & IDS$\downarrow$  \\
+        \hline
+        Oracle & $\checkmark$  & - & 0.289 & 1.419 & 687 \\
+        DriveDreamer2 & $\checkmark$  & $\checkmark$   & 0.313   & 1.387 & 593 (-94)  \\
+        InstaDrive & $\checkmark$  & $\checkmark$   & 0.496   & 1.376 & 532 (-155)  \\
+        \rowcolor[gray]{.9} 
+        \titleDef~ (Ours) & $\checkmark$  & $\checkmark$   & 0.498    & 1.350 & 525 \textcolor{blue}{(-162)}\\
+        \bottomrule
+    \end{tabular}
+    }
+    \caption{Comparison involving data augmentation using synthetic data on multi object tracking.
+    }
+    \label{tab:tracking}
+\end{table}
+
+
+
+
+
+% To further evaluate the propagation of instance-specific features across frames
+\noindent\textbf{Instance Attribute Propagation.}  \textit{Data Augmentation Performance on MOT.} We further evaluate instance-level temporal consistency by measuring how effectively instance attributes are propagated across frames. 
+In autonomous driving, this is naturally reflected by the multi-object tracking (MOT) task, 
+since MOT requires tracking instances according to their consistent attributes over time. 
+This makes MOT a strong indicator of attribute propagation quality.  
+Concretely, we generate videos conditioned on labels from the nuScenes training set and use them to augment the training data and re-train the object tracking model StreamPETR \cite{streampetr}. Then we evaluate the real validation set using the re-trained StreamPETR.
+As shown in Tab.\ref{tab:tracking},
+the MOT model re-trained with our generated data shows significant improvements, achieving a lower number of identity switches (IDS = $525$) compared to the original pre-trained StreamPETR.  
+This demonstrates that the Instance Trajectory Mask in Instance-Masked Attention module effectively propagates and preserves instance attributes, ensuring reliable temporal consistency for downstream perception tasks.  
+
+
+
+
+
+\subsubsection{Qualitative Analysis}
+We qualitatively compare \titleDef~ against state-of-the-art baselines by inspecting generated videos, as illustrated in Fig.~\ref{fig:intro}.  
+Please refer to the project page for additional video result.
+
+\noindent \textbf{Instance Attribute Binding (Category).}  
+As shown in Fig.~\ref{fig:intro}(a), DriveDreamer2 suffers from semantic drift, where the category of a car gradually changes into a truck. 
+% where a traffic cone gradually changes into a crouching pedestrian.
+%  
+In contrast, \titleDef~ preserves the semantic category consistently across all frames, demonstrating stronger instance-level temporal consistency.  
+This improvement arises from the Instance Identity Mask in the Instance Masked Attention Module, which explicitly binds identity features to their corresponding instance identities.  
+
+\noindent \textbf{Instance Attribute Propagation (Color).}  
+In Fig.~\ref{fig:intro}(b), MagicDrive-V2 exhibits color inconsistency, where the color of the same car changes from black to red across frames.  
+Our model maintains stable color and texture attributes throughout the video, indicating superior attribute propagation over time.  
+This is enabled by the Instance Trajectory Mask in the Instance Masked Attention Module, which enforces cross-frame attention only within the same instance trajectory, preventing appearance drift.  
+
+
+
+
+\noindent \textbf{Foreground Emphasis.}  
+As shown in Fig.~\ref{fig:intro}(b), \titleDef~ enhances the fidelity of small and challenging objects (e.g., pedestrians), whereas Panacea produces blurred results for such instances.
+This improvement stems from the Instance Masked Loss Supervision, which prioritizes supervision on foreground regions even when the foreground spatial proportion is very small and background pixels dominate the scene, thereby preventing foreground signals from being diluted by background pixels. 
+
+
+
+
+\begin{table}[htbp]
+    \centering
+    \footnotesize
+        \centering
+        \resizebox{0.475\textwidth}{!}{
+        \setlength{\tabcolsep}{4pt}
+        \begin{tabular}{lcccc}
+            \toprule
+            Settings        & FVD$\downarrow$ & FID$\downarrow$ & NDS$\uparrow$ & IDS$\downarrow$ \\
+            %\hline
+            %Oracle    & - & - & 46.90 & 1037\\ 
+            \hline
+            \rowcolor[gray]{.9} 
+            \titleDef~   & 37.23 & 3.88 & 41.38 & 525\\
+            \hline
+            w/o IMA(Identity) & 40.89 \textcolor{blue}{(+3.66)}& 5.29 \textcolor{blue}{(+1.41)} & 37.55 \textcolor{blue}{(-3.83)} & 735 \textcolor{blue}{(+210)}\\   
+            w/o IMA(Trajectory)    & 53.66 \textcolor{blue}{(+16.43)} & 4.41 \textcolor{blue}{(+0.53)} & 40.40 \textcolor{blue}{(-0.98)} & 1074 \textcolor{blue}{(+549)}\\ 
+            w/o IML & 40.19 \textcolor{blue}{(+2.96)}& 4.24 \textcolor{blue}{(+0.36)} & 36.85 \textcolor{blue}{(-4.53)} & 637 \textcolor{blue}{(+112)}\\ 
+            \bottomrule
+        \end{tabular}
+        }
+        \caption{Ablation study results in (T+I)2V scenarios on the nuScenes validation set.}
+        \label{tab: ablation}
+\end{table}
+
+
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.85\linewidth]{figures/ablation2.pdf} 
+\vspace{-0.3cm}
+\caption{Ablation study of the three key modules. 
+\textbf{(a)} Removing the Identity Mask leads to incorrect instance category rendering, e.g., a traffic cone turns into a crouching pedestrian.  
+\textbf{(b)} Removing the Trajectory Mask results in color shifts of the car.  
+%\textbf{(c)} Removing foreground supervision causes blurred generation of small objects, such as pedestrians.
+}
+\label{fig:ablation_compare}
+\vspace{-0.5cm}
+\end{figure}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\subsection{Ablation Study}
+\label{sec: ablation}
+We validate three key components in \titleDef~ through both qualitative and quantitative analyses, demonstrating their effectiveness and robustness.  
+The qualitative comparison is presented in Fig.~\ref{fig:ablation_compare}, while quantitative results are reported in Tab.~\ref{tab: ablation}.  
+
+\noindent \textbf{Instance Identity Mask.}  
+To assess the impact of the Instance Identity Mask within the Instance Masked Attention module, we conduct an ablation by removing the global instance identity conditioning (i.e., filling the instance identity mask with $-\infty$).  
+As shown in Tab.~\ref{tab: ablation}, the absence of global identity conditioning results in a $3.83$-point drop in NDS for the perception task.  
+This confirms its critical role in binding category and size conditions to their corresponding instances, ensuring faithful instance attribute binding.  
+
+\noindent \textbf{Instance Trajectory Mask.}  
+To evaluate the impact of the Instance Trajectory Mask, we perform an ablation by removing trajectory-based attention (i.e., filling the trajectory mask with $-\infty$).  
+As reported in Tab.~\ref{tab: ablation}, removing this causes a significant increase of $549$ ID switches in the multi-object tracking task and a $16.43$-point drop in FVD.  
+These results underscore its importance in propagating and preserving instance attributes such as color consistently across frames.  
+
+\noindent \textbf{Instance Masked Loss Supervision.}  
+To analyze the effect of Instance Masked Loss Supervision, we remove it and retain only the standard denoising loss.  
+As shown in Tab.~\ref{tab: ablation}, this results in a $4.53$-point degradation in NDS, demonstrating that the module is crucial for emphasizing supervision on foreground regions.  
+By preventing foreground signals from being overwhelmed when their spatial proportion is small, it ensures higher fidelity in generating small and visually challenging objects.  
+
+
+
+
+
+% \noindent Our method can also generate videos without the initial frame as a condition. To evaluate the impact of two key modules in the T2V scenario, please refer to Appendix \ref{app: t2v}.
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Conclusion}
+\label{section: conclusion}
+We propose \titleDef, an identity-preserving driving world model specially designed to enhance instance-level temporal consistency. Our approach introduces two key advancements: 
+the Instance Masked Attention module, which explicitly directs the model’s attention to each individual instance, 
+and the Instance Masked Loss Supervision, which employs instance masks to emphasize supervision on foreground regions. 
+By incorporating these instance-aware mechanisms, \titleDef~achieves SOTA generation quality and significantly improves downstream autonomous driving tasks. 
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\subsubsection*{ACKNOWLEDGMENTS}  
+This work was supported by 
+the Fundamental and Interdisciplinary Disciplines Breakthrough Plan of the Ministry of Education of China (No. JYB2025XDXM113)
+and
+the National Natural Science Foundation of China (No. 62332016).
+
+
+
+\subsubsection*{Ethics Statement}  
+This work focuses on video generation for autonomous driving research.  
+Our model is trained and evaluated on publicly available datasets (e.g., nuScenes) and is intended solely for academic research.  
+We emphasize that the generated data should not be directly deployed in real-world driving systems without careful validation, as safety-critical applications require rigorous testing.  
+
+\subsubsection*{Reproducibility Statement}  
+We provide comprehensive details of the model architecture, training objectives, and evaluation protocols. 
+All datasets used in this work are publicly available, and the implementation details are carefully documented to ensure reproducibility.
+Code and configuration files are included in the supplementary material to facilitate further research and independent verification.  
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\clearpage
+\bibliography{iclr2026_conference}
+\bibliographystyle{iclr2026_conference}
+
+%\maketitlesupplementary
+
+%\appendix
+%\input{iclr2026/sec/rebuttal}
+
+%\clearpage
+% \input{sec/X_suppl}
+%\input{sec/X_suppl_new_after_rebuttal}
+
+
+\end{document}

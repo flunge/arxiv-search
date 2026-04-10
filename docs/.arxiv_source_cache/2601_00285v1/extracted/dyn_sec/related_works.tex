@@ -1,0 +1,47 @@
+\section{Related Work}
+\label{dyn_sec:rel_work}
+
+\begin{figure}[b]
+    \centering
+    %\vspace{-5pt}
+    \includegraphics[width=\columnwidth,trim={5.2cm 5.5cm 6.2cm 5.7cm},clip]{dyn_imgs/related_work.pdf}
+    \caption{Comparison of input configurations across dynamic reconstruction methods. Multi-view and monocular video methods assume small viewpoint changes and dense temporal observations, whereas our method handles sparse temporal observations with large viewpoint variations. Generative methods attempt to synthesize the full motion from a static state.}
+    \label{dyn_img:related_works}
+    % \vspace{-8pt}
+\end{figure}
+
+% \vtxt{Brief intro text. You can also refer to Fig.2 here}
+We review related works on dynamic scene reconstruction and articulated object modeling.
+As most existing methods rely on video inputs (see \figref{dyn_img:related_works}), we also discuss recent generative approaches that are related to our sparse-view setting. We further quantify the difficulty of our setup using the metric from~\cite{gao2022monocular} in the supplementary material.
+
+\textbf{Dynamic scene modeling.}
+% 4D reconstruction of dynamic scene is one of the major research directions in computer vision and computer graphics. 
+Some earlier methods apply explicit mesh representation~\cite{dou2016fusion4d,broxton2020immersive} or implicit neural volumes~\cite{lombardi2019neural} to model dynamic scenes from multi-view videos, leveraging the dense spatial and temporal information. After NeRF~\cite{mildenhall2021nerf} was introduced, the field of novel view synthesis became even more popular. D-NeRF~\cite{pumarola2021d} and many concurrent works extend the static NeRF representation to dynamic scene by optimizing an additional time-dependent deformation field~\cite{li2021neural,park2021nerfies,park2021hypernerf,tretschk2021non, guo2023forward, xian2021space}, or by directly modeling the 4D space~\cite{fridovich2023k,cao2023hexplane, shao2023tensor4d}. 
+
+3D Gaussian Splatting (3DGS)~\cite{kerbl3Dgaussians} is another scene representation that has gained popularity due to its fast rendering speed. Many recent works adapt 3DGS for dynamic scene reconstruction~\cite{luiten2024dynamic,Wu_2024_CVPR,wan2024superpoint,huang2024sc,liu2025modgs,yang2024deformable,kerbl3Dgaussians, kratimenos2024dynmf}. 
+% Dynamic 3D Gaussians~\cite{luiten2024dynamic} leverage multi-vew posed videos to optimize the Gaussian primitives for each time step which enables dense correspondences and tracking.  
+4DGS~\cite{Wu_2024_CVPR} decouples the scene into a static 3DGS and a deformation field represented with multi-resolution hex-planes~\cite{cao2023hexplane}. Recently, a line of work attempts to model the dynamic scene with a more controllable representation by using a sparse set of parameters to represent the dense deformation~\cite{wan2024superpoint, huang2024sc}.
+% reducing the parameters. 
+% For example, SP-GS~\cite{wan2024superpoint} groups the Gaussian primitives with similar motion into superpoints, which result in a more compact and efficient representation. SC-GS~\cite{huang2024sc} learns a set of sparse control points such that the interpolation of these sparse motion yields the motion field of the dense 3DGS.  
+However, most existing methods rely on monocular videos with dense temporal information, which is unavailable in our sparse observation setup (\figref{dyn_img:related_works}). Moreover, without structural constraints, these approaches can produce noisy deformations that fail to preserve the object’s structure under sparse supervision.
+
+\par
+\vspace{6pt}
+\noindent\textbf{Articulated object reconstruction.}
+To model dynamic articulated objects, some methods leverage category-specific priors. For example, SMPL~\cite{SMPL:2015} focuses on human body modeling, and MANO~\cite{romero2017embodied} focuses on human hands. Another line of work tackles the animal category where a kinematic structure is shared among different instances~\cite{zuffi20173d, wu2022casa, yao2022lassie, NEURIPS2023_a99f50fb, wu2023magicpony, lei2024gart}. However, many of these works focus on part discovery from a single image instead of reconstructing the continuous motion for novel view synthesis~\cite{NEURIPS2023_a99f50fb, yao2022lassie,wu2023magicpony}. 
+
+% BANMo~\cite{yang2022banmo}, BAGS~\cite{zhang2024bags}
+
+More general category-agnostic methods have been explored~\cite{noguchi2022watch, yang2022banmo, zhang2024bags, wan2024template, yao2025riggs}. Many of these methods focus on simultaneously modeling the dynamic target and extracting the underlying kinematic structure from video input. 
+SK-GS~\cite{wan2024template} extends SP-GS~\cite{wan2024superpoint} by first grouping the 3DGS with similar motion into superpoints. Then, they extract a skeleton model from the superpoints based on relative motion and proximity.
+Similarly, built upon SC-GS~\cite{huang2024sc}, RigGS~\cite{yao2025riggs} first estimates a set of sparse control points to model the dynamic scene, then the kinematic skeleton is estimated from the motion of these control points. While these methods learn skeleton-driven deformation for 3DGS which is similar to our setup, they take continuous monocular videos as input, and do not perform well when only sparse images are available. Moreover, we show in \secref{dyn_sec:exp_main} that with the same initialization and skeleton input, these methods designed for monocular video fail when only sparse images are available. 
+
+
+\par
+\vspace{6pt}
+\noindent\textbf{Scene reconstruction with generative priors.}
+% Since there is missing information in our sparse view setup, one might be tempted to apply a pre-trained gnerative model to fill in the missing information. 
+A pre-trained generative model can potentially be applied to fill in the missing information from sparse observations.
+Many recent works apply pre-trained diffusion models for static scene reconstruction from one or more images~\cite{liu2023zero, liu2024one, tang2023dreamgaussian, shi2023mvdream}. To extend from static to dynamic scene, a popular approach is to apply the SDS loss~\cite{pooledreamfusion} to guide the motion with a pre-trained video diffusion model~\cite{zhao2023animate124, li2025articulated, xu2024comp4d,bahmani20244d,ling2024align,zeng2024stag4d,zheng2024unified}. However, these methods focus on the generative setup where the generated motion is expected to be smooth and reasonable but does not need to match any ground truth. On the contrary, our problem setup requires us to estimate the ground truth motion from sparse observations. 
+
+%Single image scene editing, given an initial reconstructed scene (3DGS)~\cite{kim2025deformsplat, luo20243d}

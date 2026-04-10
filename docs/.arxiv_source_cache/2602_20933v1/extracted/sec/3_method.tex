@@ -1,0 +1,108 @@
+\begin{figure*}[t]
+\centering
+\includegraphics[width=1. \textwidth]{figs/method.pdf} 
+\caption{\textbf{Overview of \methodname{}}. During the training phase, we randomly select a set of anchor Gaussians and drop these anchors and their surrounding neighbours within a local spatial region, thereby reducing the likelihood of neighboring Gaussians compensating for one another and enhancing the regularization effect. Simultaneously, high-degree SH coefficients are randomly dropped to further strengthen regularization and yield a more compact model representation.}
+\label{fig:method}
+\end{figure*}
+%
+
+\section{Method}
+
+\subsection{Preliminaries}
+3DGS represents a 3D scene using a large number of explicit Gaussians. Each Gaussian $G_i$ is parameterized by: position $\mu_i \in \mathbb{R}^3$, covariance $\Sigma_i \in \mathbb{R}^{3 \times 3}$, color $c_i$ (represented by a set of spherical harmonics coefficients), and opacity $\alpha_i \in [0, 1]$. For efficient optimization, the covariance $\Sigma_i$ is typically factorized into a scaling vector $s_i \in \mathbb{R}^3$ and a rotation quaternion $q_i \in \mathbb{R}^4$.
+%
+Given a camera view defined by a view matrix $W$, the 3D Gaussians are projected onto the 2D image plane. The color $C$ of a pixel is computed using $\alpha$-blending over all $N$ depth-sorted Gaussians:
+
+\begin{equation}
+C = \sum_{i=1}^{N} c_i \alpha_i \prod_{j=1}^{i-1} (1 - \alpha_j).
+\label{eq:gs}
+\end{equation}
+
+
+%
+\subsection{Pilot Study}
+To mitigate overfitting under sparse view settings, prior works propose randomly setting the opacity $\alpha_i$ of Gaussians to zero during training. However, the expressive nature of 3DGS exhibits significant local redundancy. A visible surface is typically represented by hundreds or thousands of overlapping Gaussians. When a single Gaussian is removed, as per Eq.~(\ref{eq:gs}), its contribution to pixel color is compensated by the increased contributions of neighboring Gaussians. Consequently, the change in pixel color $ \Delta C $ is negligible, resulting in weak gradient signals during backpropagation that fail to impose effective regularization on the model’s geometry and appearance learning. 
+
+As illustrated in Figure~\ref{fig:pilot_study}, spatial correlation among Gaussians is inversely related to their distance. Removing a single Gaussian within the view frustum results in minimal performance degradation and weak gradients. In contrast, discarding a cluster of 10 neighboring Gaussians produces significant performance changes and stronger gradient signals. This suggests that Gaussians exhibit strong spatial complementarity. While this facilitates cooperative rendering, it also diminishes the effectiveness of naive Dropout.
+
+Moreover, existing methods focus solely on dropping opacity values, overlooking the regularization potential of other crucial attributes, such as the spherical harmonic coefficients that encode appearance.
+%
+As illustrated in Figure~\ref{fig:pilot_study_sh}, while using high-degree SH improves performance under full-view conditions, it leads to overfitting in sparse-view settings. Appropriately reducing the degree of SH not only enhances 3DGS performance in sparse-view scenarios but also significantly reduces the model size.
+
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=1.\textwidth]{figs/compare_llff.pdf} 
+ \caption{\textbf{Qualitative comparison on the LLFF dataset (3 views).}}
+\label{fig:compare_llff}
+\end{figure*}
+
+
+\begin{table*}[t]
+  \centering
+  \caption{\textbf{Quantitative comparison on the LLFF dataset (3, 6 and 9 views).}}
+  \resizebox{1.\linewidth}{!}{
+    \input{tabs/compare_llff}
+    }
+  \label{tab:compare_llff}%
+\end{table*}
+
+
+
+
+%
+\subsection{Anchor-based Dropout}
+
+To overcome the above limitations, we propose \methodname{} method, as illustrated in Figure~\ref{fig:method}, which drops groups of spatially related Gaussians rather than individual, isolated ones. The core idea is to remove entire regions of information, thereby forcing the model to rely on broader contextual cues for reconstruction and encouraging the learning of non-local, structural scene features. This process is executed during training with the following steps:
+
+\noindent \textit{1. Anchor Selection:} We randomly select a subset of anchor Gaussians $ \mathcal{A} \subset \mathcal{G} $ from the set of all $ N $ Gaussians $ \mathcal{G} = \{G_1, \dots, G_N\} $, based on a sampling ratio $ p_a $. 
+%
+
+\noindent \textit{2. Neighborhood Construction:} For each anchor Gaussian in $\mathcal{A}$, we identify its $k$ nearest neighboring Gaussians in Euclidean space based on the distance between their centers. 
+
+\noindent \textit{3. Structured Dropout:} All Gaussians that belong to any anchor or its neighborhood are collected into a Dropout set $\mathcal{D}$.
+% 
+We then define a binary mask vector $M \in \{0,1\}^N$ for all Gaussians. For each $G_i$, its mask value $m_i$ is:
+\begin{equation}
+    m_i = \begin{cases} 0 & \text{if } G_i \in \mathcal{D} \\ 1 & \text{otherwise} \end{cases}.
+    \label{eq:gs_mask}
+\end{equation}
+%
+During training, the original opacity $\alpha_i$ of each Gaussian is modulated by its mask to obtain the effective opacity $\hat{\alpha}_i$:
+\begin{equation}
+    \hat{\alpha}_i = \alpha_i \cdot m_i.
+    \label{eq:new_opacity}
+\end{equation}
+%
+This modulated opacity $\hat{\alpha}_i$ is then used in the $\alpha$-blending process in Eq.~(\ref{eq:gs}), effectively creating “information voids” in the 3D scene and enforcing stronger regularization.
+
+\subsection{Spherical Harmonics Dropout}
+ Existing Dropout methods focus solely on the presence or absence of Gaussians according to opacity, overlooking the distinct characteristics of other attributes in Dropout. 
+We observe that high-degree SH coefficients are also prone to overfitting. To address this, we propose a Dropout strategy targeting these coefficients.
+%
+Specifically, the color $\mathbf{c}$ of a Gaussian is represented by SH coefficients up to degree $L$:
+\begin{equation}
+\mathbf{c} = [\mathbf{c}^{(0)}, \mathbf{c}^{(1)}, \dots, \mathbf{c}^{(L)}],
+\end{equation}
+where $\mathbf{c}^{(l)}$ denotes the SH coefficients of degree $l$, comprising $ 2l+1 $ values per RGB channel. 
+% 
+During training, we randomly select a subset of Gaussians with probability $ p_{sh} $ and set a maximum retained degree $ l_{\text{max}} $, then discard all SH coefficients of degree higher than $ l_{\text{max}} $.
+
+\begin{equation}
+\tilde{\mathbf{c}} = [\mathbf{c}^{(0)}, \dots, \mathbf{c}^{(l_\text{max})}, \mathbf{0}, \dots, \mathbf{0}].
+\end{equation}
+%
+This Dropout forces the model to prioritize low-degree SH coefficients for basic appearance. As training progresses, $l_\text{max}$ gradually increases to allow more high-frequency detail. After training, higher-degree coefficients become optional, allowing users to discard them to obtain a smaller and faster model without retraining. This enables flexible trade-offs between performance and efficiency.
+
+
+\subsection{Loss Function}
+Our proposed strategies can be seamlessly integrated into the training pipeline of existing 3DGS frameworks without modifying their objective functions. We adopt the standard loss that minimizes the difference between the rendered image $\hat{C}$ and the ground truth $C_{gt}$ using a combination of L1 Norm and SSIM losses~\cite{kerbl2023-3dgs}:
+\begin{equation}
+    \mathcal{L} = \mathcal{L}_{\text{L1}}(\hat{C}, C_{gt}) + \lambda \mathcal{L}_{\text{SSIM}}(\hat{C}, C_{gt}),
+    \label{eq:loss}
+\end{equation}
+%
+where $\lambda$ is a balancing weight that controls the relative contribution of the L1 and SSIM terms.
+
+
+

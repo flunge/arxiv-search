@@ -1,0 +1,471 @@
+\usepackage[rebuttal]{iccv}
+
+% Include other packages here, before hyperref.
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{booktabs}
+\usepackage{mathtools}
+
+
+%%%%%%%%%%%%%%%%% ADD %%%%%%%%%%%%%%
+\usepackage{multirow}
+\usepackage{colortbl}
+\usepackage{tcolorbox}
+\usepackage{caption} %
+\usepackage{array}
+
+
+\setlength{\abovedisplayskip}{1pt}
+\setlength{\belowdisplayskip}{-5pt}
+
+
+
+%%%%%%%%%%%%%%%%% ADD %%%%%%%%%%%%%%
+
+
+
+
+
+
+
+% Import additional packages in the preamble file, before hyperref
+\input{preamble}
+
+% If you comment hyperref and then uncomment it, you should delete
+% egpaper.aux before re-running latex.  (Or just hit 'q' on the first latex
+% run, let it finish, and you should be clear).
+\definecolor{iccvblue}{rgb}{0.21,0.49,0.74}
+\usepackage[pagebackref,breaklinks,colorlinks,allcolors=iccvblue]{hyperref}
+
+
+
+\newcommand{\toreviewer}[1]{\vspace{0.0em}\noindent \textcolor{blue}{\textbf{#1 \hspace{0.2em}}}}
+\newcommand{\issue}[1]{\vspace{0.0em}\noindent \textcolor{blue}{\textbf{#1 \hspace{0.2em}}}}
+
+
+
+
+% If you wish to avoid re-using figure, table, and equation numbers from
+% the main paper, please uncomment the following and change the numbers
+% appropriately.
+\setcounter{figure}{6}
+\setcounter{table}{5}
+\setcounter{equation}{9}
+
+% If you wish to avoid re-using reference numbers from the main paper,
+% please uncomment the following and change the counter value to the
+% number of references you have in the main paper (here, 100).
+%\makeatletter
+%\apptocmd{\thebibliography}{\global\c@NAT@ctr 100\relax}{}{}
+%\makeatother
+
+%%%%%%%%% PAPER ID  - PLEASE UPDATE
+\def\paperID{13198} % *** Enter the Paper ID here
+\def\confName{ICCV}
+\def\confYear{2025}
+
+\begin{document}
+
+%%%%%%%%% TITLE - PLEASE UPDATE
+\title{InstaDrive: Instance-Aware Driving World Models for Realistic and Consistent Video Generation}  % **** Enter the paper title here
+
+\maketitle
+\thispagestyle{empty}
+\appendix
+
+%%%%%%%%% BODY TEXT - ENTER YOUR RESPONSE BELOW
+
+
+% green R1
+% red R2
+% orange R3
+%----------------------------------------
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.6\linewidth]{ICCV2025-Author-Kit/rebuttal/re.pdf}
+  \captionsetup{skip=2pt}
+\caption{Results with re-calibrated Carla inputs. (a) shows correct lane alignment; (b) shows smooth box transition without splitting.}
+  \vspace{-2em}
+  \label{fig:carla}
+\end{figure}
+
+
+\vspace{-3.5ex}
+We thank Reviewer b62X (\textcolor{green}{$@$R1}), kHKM (\textcolor{red}{$@$R2}), and esSC (\textcolor{orange}{$@$R3}) for constructive feedback and appreciation. % of \textit{instance-level temporal consistency} (\textcolor{green}{$@$R1}\textcolor{red}{$@$R2}\textcolor{orange}{$@$R3}) and \textit{experimental validation} (\textcolor{red}{$@$R2}\textcolor{orange}{$@$R3}).%, and \textit{novelty} (\textcolor{green}{$@$R1}\textcolor{orange}{$@$R3}).
+
+% We thank all reviewers for the constructive feedback and appreciation of our \textit{instance-level temporal consistency} (\textcolor{green}{$@$R1}\textcolor{red}{$@$R2}\textcolor{orange}{$@$R3}), 
+% \textit{experimental validation} (\textcolor{red}{$@$R2}\textcolor{orange}{$@$R3}), and \textit{novelty} (\textcolor{green}{$@$R1}\textcolor{orange}{$@$R3}). 
+%We'll open the code for transparency.
+
+
+% \begin{table}[tb]
+%     \centering
+%     \footnotesize
+%     \resizebox{0.35\textwidth}{!}{
+%     \setlength{\tabcolsep}{4pt}
+%     \begin{tabular}{lcc}
+%         \toprule
+%         Method & Model Size & Inference Speed\\
+%         \hline
+%         Panacea & $\checkmark$  & -  \\
+%         %DiVE & $\checkmark$  & -  \\
+%         MagicDriveV2 & $\checkmark$  & $\checkmark$  \\
+%         \rowcolor[gray]{.9} 
+%         InstaDrive (Ours) & $\checkmark$  & $\checkmark$  \\
+%         \bottomrule
+%     \end{tabular}
+%     }
+%     \captionsetup{skip=2pt}
+%     \caption{Comparison on Computational Efficiency.
+%     % Our Method Shows High Computational Efficiency.
+%     }
+%     \label{tab:efficiency}
+%     \vspace{-1.5em}
+% \end{table}
+
+
+
+
+%----------------------------------------
+% R1 minor weakness
+
+
+
+\issue{Clarification on Cut-in Video\textcolor{green}{$@$R1}}
+The lane inconsistency in \textit{cut-in.mp4} was due to missing drivable area in CARLA-generated HDMap conditions, causing model to misinterpret lanes as treelawn and sidewalks. 
+It is resolved after providing complete control signals in \cref{fig:carla}(a).
+%After the CARLA generator provided complete control signals, this issue was resolved in \cref{fig:lane}.
+
+
+%----------------------------------------
+% R1 major weakness
+\issue{Efficiency Comparison\textcolor{green}{$@$R1}}  
+It depends on factors like resolution and sampling steps. As most works lack such reports, we benchmarked under a unified setting.
+Panacea, MagicDriveV2, and InstaDrive require 11.24s, \textbf{8.21s} and 10.12s per frame (1.5B, 1.8B and \textbf{1.3B} parameters). MagicDriveV2’s temporal VAE compression enables speed gains; adopting similar techniques could accelerate ours by 2-3×.
+
+
+
+
+%----------------------------------------
+
+\issue{IFG for Non-Continuous Trajectory\textcolor{red}{$@$R2}} 
+IFG maintains instance consistency even when objects become occluded and reappear. 
+Though Eq.1–3 assume continuity, our implementation handles non-continuous cases.
+To clarify, we introduce \textbf{visibility} $v_i^t \in \{0,1\}$ and \textbf{last visible frame} $\tau(i,t)$:
+\vspace{-2ex}
+\begin{equation*}
+v_i^t = 
+\begin{cases}
+    1 & \text{if instance } i \text{ is visible at frame } t \\
+    0 & \text{(occluded or out-of-view)} 
+\end{cases}
+\end{equation*}
+\vspace{-3ex}
+\begin{equation*}
+\tau(i,t) = \max\{t' \mid t' < t, v_i^{t'} = 1\}
+\end{equation*}
+
+\vspace{-1.5ex}
+\noindent If $i$ has no prior visible frame, $\tau(i,t)$ is undefined. Refined offset becomes as below. Motion map $h^t$ (Eq.4) propagates features from $\tau(i,t)$ to $t$ to reconnect post-occlusion states.
+
+\vspace{-4.5ex}
+\begin{equation*}
+F_{i_{\text{offset}}}^t = 
+\begin{cases}
+    \begin{aligned}
+    &(x_i^t - x_i^{\tau(i,t)},\ y_i^t - y_i^{\tau(i,t)},\ z_i^t - z_i^{\tau(i,t)}), 
+    \end{aligned} \\
+    \quad \quad \text{if } v_i^t = 1 \text{ and } \tau(i,t) \text{ exists} \\
+    0,  \quad \text{otherwise}
+\end{cases}
+\end{equation*}
+
+% The offset $ F_{i_{\text{offset}}}^t $ is defined as the 3D coordinate difference between $(x_i^t, y_i^t, z_i^t)$ and $(x_i^{\tau(i,t)}, y_i^{\tau(i,t)}, z_i^{\tau(i,t)})$ \textbf{only if} the object $i$ is valid at time $t$ ($v_i^t = 1$) and the timestamp $\tau(i,t)$ exists. Otherwise, $F_{i_{\text{offset}}}^t$ is set to zero.
+
+
+
+
+%
+
+
+
+%----------------------------------------
+\vspace{-2ex}
+\issue{Occlusion in Dense Scenes\textcolor{red}{$@$R2}}
+We handle occlusion even in dense scenes like crowded pedestrians (Sec.~3.1(a)) and traffic congestion (Sec.~3.2(b)) in supplemental videos.
+
+
+
+
+
+
+
+%----------------------------------------
+
+% \issue{Condition and Dataset Bias in FVD/FID Comparison\textcolor{red}{$@$R2}}
+% All methods in Tab. 1 adopt the same basic conditions: boxes, map, and scene descriptions. Our injection of instance flow is not an extra input but derived from boxes, enriching semantics. Thus, the comparison is fair.
+% Our conditions are commonly available across driving datasets and require no external model or proprietary annotations. Our strong results on Argoverse 2 in \cref{fig:Argoverse} further support the generality of our approach and alleviate concerns about dataset-specific bias.
+
+
+
+% \issue{Dataset Bias in Comparison\textcolor{red}{$@$R2}}
+% All Tab.1 methods use same conditions: boxes, map, and scene text. Our instance flow is derived from boxes—not extra input—but provides more semantics, making comparison fair.
+% These conditions are commonly available across driving datasets.
+% InstaDrive also performs well after training on other datasets (Sec. 1.3 in supplemental videos), showing generality and reducing dataset bias concerns.
+
+\issue{Dataset Bias\textcolor{red}{$@$R2}}
+All Tab.1 methods use same conditions: box, map, and scene text. Our instance flow is derived from box (not extra input). These conditions are commonly available across driving datasets. We also performs well when trained on other datasets (Sec.~1.3 in supplemental videos), showing generality and mitigating dataset bias concerns.
+
+
+
+
+
+
+%----------------------------------------
+
+\issue{MOT Baseline\textcolor{red}{$@$R2}} 
+% Thank you for pointing this out. The Oracle result in Tab.~2 was mistakenly copied from StreamPETR on the nuScenes test set, while our evaluation is on the validation set. We have corrected this in Tab.~\ref{tab:tracking} using the Oracle result in DriveDreamer2 under the validation set.
+% In our setting, StreamPETR is re-trained with both real and generated data, leading to improved tracking and fewer ID switches (687 $\rightarrow$ 532).
+% The MagicDriveV2 result is based on the pretrained StreamPETR. For fair comparison, we include DriveDreamer2, which uses the same training setup as ours.
+Tab.~2 (Oracle) had a result mistakenly copied from StreamPETR (NuScenes test set); corrected in Tab.~\ref{tab:tracking} (validation set). Retraining StreamPETR with real+gen data reduced ID switches (687→532).  
+%For fairness, we replace baseline MagicDriveV2 (use pretrained StreamPETR ) with DriveDreamer2 (use retrained StreamPETR).
+
+
+
+
+
+
+
+
+%----------------------------------------
+\issue{More Baselines on Perception Task\textcolor{red}{$@$R2}}  
+We add more baseline results to Tab. 3: InstaDrive achieves 40.51 NDS (86.38\%), outperforming MagicDrive (34.20, 72.92\%) and MagicDriveV2 (36.82, 78.51\%) on generated data.
+
+
+
+\begin{table}[tb]
+    \centering
+    \footnotesize
+    \resizebox{0.475\textwidth}{!}{
+    \setlength{\tabcolsep}{4pt}
+    \begin{tabular}{lcccccc}
+        \toprule
+        Method & Real & Generated & AMOTA$\uparrow$ & AMOTP$\downarrow$ & IDS$\downarrow$  \\
+        \hline
+        Oracle & $\checkmark$  & - & 0.289 & 1.419 & 687 \\
+        DriveDreamer2 & $\checkmark$  & $\checkmark$   & 0.313   & 1.387 & 593 \textcolor{blue}{(-94)} \\
+        \rowcolor[gray]{.9} 
+        InstaDrive (Ours) & $\checkmark$  & $\checkmark$   & 0.496     & 1.376 & 532 \textcolor{blue}{(-155)}\\
+        \bottomrule
+    \end{tabular}
+    }
+    \captionsetup{skip=2pt}
+    \caption{Clarification on MOT Baseline Results.
+    }
+    \label{tab:tracking}
+    \vspace{-2.5em}
+\end{table}
+%\vspace{-2.5em}
+
+
+
+% \issue{More Baseline Comparisons on Perception Task\textcolor{red}{$@$R2}}
+% We add comparisons with additional baselines (e.g., MagicDrive, MagicDriveV2) in Tab. \ref{tab:perception_more} to provide a more comprehensive evaluation.
+
+% \vspace{-0.8em}
+% \begin{table}[htbp]
+%     \centering
+%     \footnotesize
+%         \centering
+%         \resizebox{0.45\textwidth}{!}{
+%         \setlength{\tabcolsep}{7pt}
+%         \begin{tabular}{cccc}
+%             \toprule
+%               Method   & Real & Generated &  NDS$\uparrow$\\
+%             \hline
+%                 MagicDrive & - &$\checkmark$  &34.20 \textcolor{blue}{(72.92\%)} \\ 
+%                 MagicDriveV2 & - &$\checkmark$ &36.82 \textcolor{blue}{(78.51\%) }
+%                \\
+%                \cellcolor[gray]{.9} InstaDrive (Ours)    &\cellcolor[gray]{.9} - 
+%                &\cellcolor[gray]{.9}  $\cellcolor[gray]{.9} \checkmark$ 
+%                &\cellcolor[gray]{.9} 40.51\textcolor{blue}{ (86.38\%) }
+%                \\
+%             \bottomrule
+%         \end{tabular}
+%         }
+%          \captionsetup{skip=2pt}
+%          \caption{
+%          More Baseline Comparisons on Perception Task.
+%          }
+%         \label{tab:perception_more}
+%         \vspace{-1.5em}
+% \end{table}
+
+
+%----------------------------------------
+
+
+\begin{comment}
+% 
+\end{comment}
+
+
+\issue{Clarification on Carla-Based Results\textcolor{red}{$@$R2}}These artifacts stem from layout domain gaps between Nuscenes and Carla: (1) uncertain ego-vehicle origin in NuScenes (inferred from vehicle dimensions) (2) inaccuracies from Carla’s FOV-based, non-matrix intrinsics; and (3) mismatched lane and 3D box classes. We address these via \textit{ego-frame calibration, class alignment, and improved intrinsic control}. \cref{fig:carla} shows the resolved vehicle-splitting artifact. These are Carla-specific engineering fixes—our model, as shown on NuScenes layout results, is unaffected. Full video results will be updated later due to space limits.
+%These artifacts arise from layout domain gaps caused by: (1) the unclear definition of the ego-vehicle origin in NuScenes (approximated via vehicle dimensions); (2) inaccuracies from Carla’s FOV-based intrinsics instead of precise matrix calibration; and (3) mismatched class definitions between lanes and 3D boxes. We mitigate these issues by calibrating the ego coordinate, unifying class labels, and refining intrinsic parameter control. Figure 7 shows that the vehicle-splitting artifact has been resolved. These are engineering optimizations specific to the Carla data generation system—our model, as demonstrated on the provided NuScenes results, does not suffer from such issues. Full video results will be updated later due to space limitations.
+ 
+ 
+ 
+%Artifacts of videos generated by Carla layout in the webpage are due to \textbf{layout domain gaps} which are caused by unclear ego-vehicle coordinate between Nuscenes and Carla.
+
+%\noindent \textbf{Sec.~2} shows artifact-free results on NuScenes domain. Fig.~\ref{fig:carla} shows results using \textbf{re-calibrated} Carla conditions.
+%, aligned with NuScenes configurations.
+%We'll provide video results 
+
+%\noindent \textbf{Sec.~1.1(a), 1.2:}Carla uses FOV-based intrinsics instead of a matrix, causing box condition splits/merges across views and thus in generated vehicles
+
+%Carla uses FOV-based intrinsics rather than matrix, causing box condition splitting/merging across view, resulting in splitting/merging in generated cars.
+
+%\noindent \textbf{Sec.~1.2: }Carla layouts differ from NuScenes in lane geometry and object definition. InstaDrive struggles with such unseen setups, causing phantom or morphing objects.
+
+
+
+
+
+\noindent \textbf{Relighting:}
+Flow is injected separately from others; IFG doesn't impact relighting. 
+Text prompts (e.g., daytime) guide lighting sufficiently. 1.1(b) in webpage shows shadows and reflections. Finer relighting control is left in future.
+%Flow rendering is separate from 3D box inputs, so IFG doesn't affect relighting. 
+%Text prompts (e.g., daytime, night) guide lighting, which suffices in practice. Sec.~1.1(b) in webpage shows shadows and surface reflections.
+
+
+
+
+%----------------------------------------
+
+% R2 minor
+
+
+
+\issue{Modality Limitation\textcolor{red}{$@$R2}}
+Most works only use camera modality conditions. Extending to LiDAR/RADAR conditions for better geometry control is a key future direction.
+
+
+
+
+
+%----------------------------------------
+
+
+
+\issue{Model Design\textcolor{orange}{$@$R3}}
+Thanks for the insightful questions! %Clarifications below:
+
+\noindent \textbf{ControlNet vs. Cross Attention:} 
+Cross Attention primarily handles \textit{non-spatial} conditions (e.g., text) to guide global semantics, while ControlNet specializes in \textit{spatially} structured inputs (e.g., edges) to enforce geometric alignment. The layout and flow we use belong to the latter.
+%ControlNet enables finer pixel-level control in handling spatial layout.
+
+
+\noindent \textbf{Overlapping Boxes in Instance Flow Rendering:}
+We use depth order to prioritize the rendering of closer objects.
+
+
+\noindent \textbf{Flow Map:} 
+We convert flow to RGB to unify its representation with other image-like conditions, then reuse the pretrained VAE to accelerate convergence. 
+%Raw flow can't align with 
+%pixel-level 
+%box projections.
+%Separate VAE to encode flow map slows convergence.
+
+\noindent \textbf{Backward Flow:} 
+Backward flow increases computation and may introduce redundancy; it can be explored in future.
+
+
+
+\noindent \textbf{Pseudo-Label Noise:}
+We simulate noisy bounding boxes during training via random perturbations (jitter, missing boxes) to enhance robustness to pseudo-label noise.
+
+
+\noindent \textbf{Depth Encoding:} We use cross-attention to fuse depth with box projections, as it models 
+%object interactions and 
+pairwise depth relationships.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+%----------------------------------------
+
+\issue{Baseline Gap in Tab.4\textcolor{orange}{$@$R3}}
+StreamPETR was re-implemented from official config due to resolution differences in Panacea. Stronger baselines are harder to surpass, further highlighting our data’s effectiveness.
+% since training details for StreamPETR in Panacea are not publicly available.
+
+
+\issue{SGA  Ablations\textcolor{orange}{$@$R3}}
+In Tab. \ref{tab:ablation}, we isolate \textit{box} and \textit{depth}.
+
+
+\vspace{-0.8em}
+\begin{table}[htbp]
+    \centering
+    \footnotesize
+        \centering
+        \resizebox{0.48\textwidth}{!}{
+        \setlength{\tabcolsep}{4pt}
+        \begin{tabular}{lcccc}
+            \toprule
+            Settings        & FVD$\downarrow$ & FID$\downarrow$ & NDS$\uparrow$ & IDS$\downarrow$ \\
+            \hline 
+            w/o SGA(Box) & 39.27 \textcolor{blue}{(+1.21)}& 4.07 \textcolor{blue}{(+0.11)} & 38.22 \textcolor{blue}{(-2.29)} & 628 \textcolor{blue}{(+92)}\\ 
+            w/o SGA(Depth)   & 40.46 \textcolor{blue}{(+2.40)} & 4.15 \textcolor{blue}{(+0.19)} & 39.13 \textcolor{blue}{(-1.38)} & 669 \textcolor{blue}{(+133)}\\
+            \bottomrule
+        \end{tabular}
+        }
+        \captionsetup{skip=2pt}
+        \caption{SGA ablation: isolate \textit{box projection} / \textit{depth injection}.}
+        \label{tab:ablation}
+        \vspace{-1.5em}
+\end{table}
+
+
+
+
+
+
+
+%----------------------------------------
+% minor weakness for R1R2R3
+
+
+\vspace{-0.3em}
+\issue{Typo Errors\textcolor{green}{$@$R1}\textcolor{red}{$@$R2}\textcolor{orange}{$@$R3}}
+Thanks for the valuable feedback. We'll correct errors in the camera-ready version.
+%Thanks! We'll correct in camera-ready version.
+
+
+
+%----------------------------------------
+
+%%%%%%%%% REFERENCES
+
+
+% {
+%     \small
+%     \bibliographystyle{ieeenat_fullname}
+%     \bibliography{main}
+% }
+
+
+%----------------------------------------
+
+\end{document}

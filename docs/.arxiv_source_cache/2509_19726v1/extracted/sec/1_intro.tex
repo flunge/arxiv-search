@@ -1,0 +1,43 @@
+\blfootnote{$^{*}$ Corresponding authors.}
+%\blfootnote{Project page: \href{https://yu-fei-han.github.io/polgs-project-page/}{https://yu-fei-han.github.io/polgs-project-page/}}
+\section{Introduction}
+
+% what is the problem
+Fast and accurate reconstruction of reflective surfaces is essential for applications like real-time 
+virtual reality and inverse rendering. Reflective surfaces meet unique challenges in 3D reconstruction 
+as their specular properties require precise handling of light interactions to capture realistic surface 
+details. It is desired to develop a fast and accurate reconstruction method for reflective surfaces.
+
+% why do we care
+For reflective surface reconstruction, most existing methods rely on implicit neural representations~\cite{mildenhall2020nerf}, 
+such as Ref-NeRF~\cite{verbin2022ref} and NeRO~\cite{liu2023nero}, which model complex surface details effectively but suffer from slow 
+processing times due to their implicit neural network structure. While the signed distance function (SDF) offers a better geometry representation, the MLP network incurs significant time costs. In contrast, the recent 3D Gaussian Splatting (3DGS)~\cite{kerbl20233d} 
+technique offers a promising approach for fast novel view rendering through explicit surface 
+representation. However, this representation lacks the same level of detail as implicit methods due to 
+limitations in representing fine geometry and surface normals. Additionally, 3DGS-based reconstruction 
+methods primarily focus on diffuse surfaces, leaving reflective surfaces under-explored and resulting in lower quality reconstructions for these challenging materials.
+
+
+To address the challenge of reflective surface reconstruction, polarized images are often utilized to enhance shape representation~\cite{dave2022pandora,han2024nersp,cao2023multi,li2024neisf}. By decomposing the diffuse and specular components according to the polarimetric bidirectional reflectance distribution function (pBRDF) model~\cite{baek2018simultaneous}, the surface normal can be effectively constrained. However, existing polarization-based methods rely on implicit neural representations, which significantly slow down the reconstruction process.
+
+To achieve high efficiency in reflective surface reconstruction, we propose PolGS, a novel method that integrates polarimetric information into the 3DGS architecture for the first time. Unlike previous approaches, the explicit surface representation and splatting  rendering in 3DGS present unique challenges for directly applying polarimetric constraints. To overcome this, we adopt an enhanced 3DGS-based method, \gs, as our baseline, which offers better surface representation capabilities. To ensure that each Gaussian kernel retains a view-independent diffuse color, we modify the spherical harmonics (SH) coefficients to zero-order. 
+Next, we introduce a Cubemap Encoder module, inspired by \dr, to extract the specular component. 
+Finally, we use the polarimetric constraint during the separation of diffuse and specular components ~\cite{baek2018simultaneous}. This approach resolves shape ambiguities that arise when relying solely on RGB inputs, enabling more accurate reconstruction of \textbf{\emph{reflective}} surfaces, especially for \textbf{\emph{texture-less}} object.
+
+
+As shown in the teaser~\fref{fig.teaser} and \Tref{table:comparison}, PolGS achieves reconstruction quality comparable with SDF-based methods but 
+with over 80-times speed improvement (compared to the fastest and best neural-based reconstruction work in our experiment using RGB input~\cite{liu2023nero}),
+ making it highly suitable for virtual reality applications and real-time inverse rendering.
+
+In summary, we advance the reflective surface reconstruction by proposing:
+\begin{itemize}
+\item PolGS, the first method to incorporate polarimetric information into 3DGS, 
+accelerating the progress of surface reconstruction.
+
+\item A pBRDF module integrated into 3DGS, which effectively constrains the diffuse and specular components of reflective surfaces, 
+enhancing the accuracy of surface reconstruction.
+
+\item Our method achieves reconstruction quality comparable with SDF-based approaches while significantly 
+improving reconstruction time within 10 min. Compared to existing 3DGS methods, PolGS delivers enhancements in 
+reconstruction quality.
+\end{itemize}

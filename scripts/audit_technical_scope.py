@@ -147,6 +147,22 @@ def _find_blog_equations(section_html: str) -> List[str]:
     return hits
 
 
+def _equations_piled_at_tail(section_html: str) -> bool:
+    equation_positions = [
+        match.start()
+        for match in re.finditer(r"<p[^>]*>\s*\$\$.*?\$\$\s*</p>", section_html, flags=re.IGNORECASE | re.DOTALL)
+    ]
+    heading_positions = [
+        match.start()
+        for match in re.finditer(r"<h[3-4][^>]*>.*?</h[3-4]>", section_html, flags=re.IGNORECASE | re.DOTALL)
+    ]
+    if len(equation_positions) < 8 or len(heading_positions) < 4:
+        return False
+    last_heading = heading_positions[-1]
+    tail_equations = [pos for pos in equation_positions if pos > last_heading]
+    return len(tail_equations) >= 8 and len(tail_equations) / len(equation_positions) >= 0.8
+
+
 def _heading_aliases(heading: str) -> List[str]:
     low = heading.lower()
     aliases = [heading, low]
@@ -310,6 +326,8 @@ def _analyze_post(post_path: Path, reader: PdfReaderTool, docs_dir: Path) -> Opt
         issues.append(
             f"技术细节公式覆盖不足：source 范围 {source_scope_equation_count} 条，blog 仅 {len(blog_equations)} 条"
         )
+    if _equations_piled_at_tail(technical_html):
+        issues.append("技术细节公式集中堆在章节尾部，未回到对应 source 小节")
     if "Background" in scope_headings and "Background" in blog_eq_owner_counter and "Background" in missing_headings:
         issues.append("原文 Background 公式进入 blog 技术细节，但 blog 未显式展开背景部分")
     known_blog_eq_owners = [owner for owner in blog_eq_owners if owner != "UNKNOWN"]

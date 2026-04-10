@@ -1,0 +1,139 @@
+
+\vspace{-1mm}
+\section{Method}
+\vspace{-1mm}
+
+We introduce \ourmethod, a method for the feedforward prediction of 3D Gaussians from multiple images. Our approach supports a wide range of scene scales and can optionally utilize available ground truth camera poses and intrinsics.
+
+\boldparagraph{Problem Formulation}
+Given $V$ \textit{unposed} images $(\boldsymbol{I}^v)_{v=1}^V$ as input, where $\boldsymbol{I}^v \in \mathbb{R}^{3 \times H \times W}$, our objective is to learn a feedforward network $\boldsymbol{\theta}$ that predicts 3D Gaussians representing the underlying scene. By learning geometric and appearance priors from the training data, our method directly reconstructs new scenes without the need for time-consuming optimization.
+\ourmethod~ do this by first predicting per-view local 3D Gaussians that can be transformed into a global scene representation using the \textit{given} or \textit{predicted} camera poses $\boldsymbol{p}^v$. Specifically, the camera pose parameters are defined as $\boldsymbol{p}^v = [\boldsymbol{R}^v, \boldsymbol{t}^v]$, where $\boldsymbol{R}^v \in \mathbb{R}^{3\times3}$ denotes the rotation matrix, $\boldsymbol{t}^v \in \mathbb{R}^3$ represents the translation vector, and $[\cdot]$ indicates the concatenation operation. Furthermore, as described in Sec.~\ref{sec:network}, our network also predicts the camera intrinsics $\boldsymbol{k}^v$, thus can also eliminate the requirement of camera calibration.
+Formally, we aim to learn the following mapping:
+\begin{equation}
+    f_{\boldsymbol{\theta}}:\left\{\left(\boldsymbol{I}^v\right)\right\}_{v=1}^V \mapsto\left\{ \cup   \left(\boldsymbol{\mu}_j^v, \alpha_j^v, \boldsymbol{r}_j^v, \boldsymbol{s}_j^v, \boldsymbol{c}_j^v\right) , \boldsymbol{k}^v, \boldsymbol{p}^v\right\}_{j=1,\dots,H \times W}^{v=1,\dots,V}.
+\label{eq:mapping}
+\end{equation}
+Here, $\left(\boldsymbol{\mu}_j, \alpha_j, \boldsymbol{r}_j, \boldsymbol{s}_j, \boldsymbol{c}_j\right)$ denote Gaussian parameters~\citep{3dgs}, representing the center position, opacity, rotation, scale, and color, respectively. All parameters are initially predicted in the local input camera views and can subsequently be transformed into a global representation using either predicted or given camera poses.
+
+\begin{figure}[t]
+    \vspace{-5mm}
+    \centering
+    \includegraphics[width=0.95\linewidth, trim={0mm 0cm 0 0cm},clip]{images/pipeline.pdf}
+    \vspace{-2mm}
+    \caption{\textbf{Overview of \ourmethod}. (a) Features are extracted with a DINOv2 encoder, followed by local-global attention across images, and finally used to predict camera poses and local 3D Gaussians.  
+    (b) The Intrinsic Condition Embedding (ICE) module predicts intrinsic parameters (\ie, focal length), which are then converted into camera rays and re-encoded as conditioning for Gaussian prediction, thereby resolving scale ambiguity. } 
+    
+    \label{fig:pipeline}
+    \vspace{-5mm}
+\end{figure}
+
+\vspace{-1mm}
+\subsection{Analysis of the Gaussian Output Space and Training Strategy}\label{sec:design}
+\vspace{-2mm}
+
+\boldparagraph{Output Space: Local vs. Canonical Prediction}
+A fundamental design choice for a feedforward reconstruction model is its output space. Existing methods fall into two main categories. Pose-free models such as NoPoSplat~\citep{noposplat} and Flare~\cite{flare} predict Gaussians directly in a unified \textit{canonical space}, which naturally aligns the outputs from all views into a shared coordinate system. In contrast, pose-dependent methods like pixelSplat~\citep{pixelsplat} and MVSplat~\citep{mvsplat} predict Gaussians in a \textit{local}, per-view space and rely on ground-truth camera poses to transform them into the global world frame.
+
+While canonical-space prediction is effective for a small number of views, its performance degrades as the view count increases (see Tab.~\ref{tab:ablation_gaussain}), an observation consistent with findings in related feedforward point-cloud prediction models~\citep{vggt}. To ensure scalability and versatility, YoNoSplat adopts a local prediction paradigm. We architect our model to predict per-view local Gaussians alongside their corresponding camera poses. This design enables our primary goal of pose-free reconstruction by using the predicted poses for aggregation, yet it also retains full compatibility with pose-dependent workflows where ground-truth poses can be supplied. This flexibility is critical for real-world applications, such as map reconstruction, where alignment with a pre-existing, accurate pose distribution is required.
+
+\boldparagraph{Training Strategy: Mitigating Pose Entanglement}
+Jointly predicting 3D Gaussians and camera parameters is challenging, as errors in one corrupt the other. Using only predicted poses for aggregation (\textit{self-forcing}~\cite{self-forcing}) tightly couples the tasks, leading to unstable training and degraded performance (Fig.~\ref{fig:pose_source}, Tab.~\ref{tab:ablation_pose_source}). Using only ground-truth poses (\textit{teacher-forcing}~\citep{teacher-forcing}) provides a stable signal but causes \textit{exposure bias}~\cite{exposure-bias}, since the model never trains on its own imperfect predictions.  
+To resolve this dilemma, we introduce a novel \textit{mix-forcing} training strategy that combines the benefits of both approaches. Our training curriculum begins by exclusively using ground-truth poses (teacher-forcing) to allow the model to learn a stable geometric foundation. After a predefined number of steps, $t_{\text{start}}$, the probability of using the model's predicted poses for aggregation is linearly increased, eventually reaching a final mixing ratio $r$ at step $t_{\text{end}}$. This strategy effectively mitigates entanglement by first establishing a strong prior for the 3D structure and then gradually adapting the model to both its own predicted distribution and the ground-truth pose distribution, thereby preventing training instability and exposure bias.
+
+
+
+\vspace{-1mm}
+\subsection{Model Architecture}\label{sec:network}
+\vspace{-2mm}
+The overall architecture of \ourmethod{} is shown in Fig.~\ref{fig:pipeline}. We build upon a Vision Transformer (ViT) backbone~\citep{vit} and employ a local-global attention mechanism as in VGGT~\citep{vggt} for robust multi-view feature fusion, which scales more effectively with a large number of input frames than the cross-attention used in prior works~\citep{noposplat}.
+
+\boldparagraph{Backbone Network} 
+Input images $(\boldsymbol{I}^v)_{v=1}^V$ are divided into patches and flattened into tokens. These image tokens are concatenated with a learnable camera intrinsic token and processed by a ViT encoder with a DINOv2 architecture~\citep{dinov2}. The encoded features then pass through a decoder consisting of $N$ alternating attention blocks~\citep{vggt, pi3}. Each block contains a per-frame self-attention layer for local feature refinement and a global concatenated self-attention layer where tokens from all views are combined to facilitate cross-frame information flow.
+
+\boldparagraph{Gaussian Heads}
+Following~\citep{noposplat}, we use two separate heads to predict the Gaussian centers and all other parameters. Each head consists of $M$ self-attention layers and a final linear layer. To capture fine-grained detail, we upsample the backbone features by a factor of two before feeding them to the heads and add a skip connection from the input image to combat information loss from the ViT's downsampling.
+
+\boldparagraph{Pose Head}
+As discussed in Sec.~\ref{sec:design}, \ourmethod{} first predicts local Gaussian parameters and then uses either the given or predicted camera poses to transform them into a unified global coordinate system. The camera head consists of an MLP layer, followed by average pooling and another MLP, to predict a 12D camera vector following~\citep{reloc3r, pi3}. This output vector includes the camera translation $\boldsymbol{t}^v$ and a 9D rotation representation~\citep{levinson2020analysis}, which is converted into $\boldsymbol{R}^v$ using SVD orthogonalization. During training, we follow $\pi^3$~\cite{pi3} and supervise the camera pose with a pairwise relative transformation loss (see Sec.~\ref{sec:train}), ensuring that our model remains invariant to the order of input images.
+
+\boldparagraph{Intrinsic Head}
+Predicting camera poses requires cross-frame information and is thus performed during the decoder stage. In contrast, predicting camera intrinsics can be inferred from individual images.
+Therefore, we perform intrinsic prediction during the encoder stage. Additionally, conditioning on camera intrinsics helps resolve the scale ambiguity problem, as detailed in Sec.~\ref{sec:scale}.
+Specifically, we concatenate an intrinsic token with the input image tokens, which are then processed by the encoder network, allowing the intrinsic token to aggregate image information. This token is subsequently passed through an MLP layer to predict the camera intrinsics.
+
+\vspace{-1mm}
+\subsection{Resolving Scale Ambiguity} \label{sec:scale}
+\vspace{-3mm}
+
+Learning to predict Gaussians from video data encounters a scale ambiguity problem, arising from two main factors:
+(1) training datasets often provide SfM-derived camera poses that are only defined up to an arbitrary scale, and (2) jointly learning camera intrinsics and extrinsics is an ill-posed problem. We address both factors.
+
+\boldparagraph{Scene Normalization}
+The ground-truth poses in our training datasets~\cite{re10k, dl3dv} are obtained using SfM methods~\cite{colmap}, which are only defined up to scale. To avoid scale ambiguity that could hinder learning, it is therefore necessary to normalize the scene during training. Some point-cloud prediction methods~\cite{dust3r, vggt} normalize scenes using ground-truth depth, but this is not feasible for datasets without depth annotations.
+
+To address this, we propose and evaluate three normalization strategies:
+\begin{enumerate}[leftmargin=*, itemsep=0pt, topsep=0pt, parsep=0pt, partopsep=0pt]  
+    \item \textbf{Max pairwise distance:} given camera centers $\{c_i\}_{i=1}^N$, compute $d_{ij}=\|c_i-c_j\|_2$, and set $s=\max_{i,j} d_{ij}$, then normalize $\hat{c}_i=c_i/s$.  
+    \item \textbf{Mean pairwise distance:} use $s=\tfrac{1}{N(N-1)}\sum_{i \neq j}\|c_i-c_j\|_2$ and normalize as $\hat{c}_i=c_i/s$.  
+    \item \textbf{Max translation:} set $s=\max_i \|c_i\|_2$ and normalize $\hat{c}_i=c_i/s$.  
+\end{enumerate}  
+
+As shown in Tab.~\ref{tab:ablation_norm}, max pairwise distance normalization performs best and is critical to the model’s success. Since we employ relative camera poses, normalizing by the maximum pairwise distance ensures a consistent scale for camera translations during training.
+
+\boldparagraph{Intrinsic Condition Embedding (ICE)}
+As demonstrated in~\citep{noposplat}, camera intrinsic information is crucial for resolving scale ambiguity. However, prior work required ground-truth intrinsics at inference time. 
+To remove this dependency, we introduce our Intrinsic Condition Embedding (ICE) module (Fig.~\ref{fig:pipeline}b).
+Specifically, intrinsic parameters are first predicted after the encoder stage using the initial intrinsic token, as detailed in Sec.\ref{sec:network}. 
+Subsequently, to implement intrinsic conditioning, the predicted parameters are transformed into camera rays~\citep{noposplat}, passed through a linear layer to obtain embedding features, and then added to the original image features.
+When ground-truth intrinsics are available, we use them directly to provide more accurate conditioning and thus achieve better performance. In their absence, we instead use the predicted intrinsics for network conditioning. Notably, during training, we condition the network on ground-truth intrinsics rather than the predicted ones. We also experimented with conditioning the decoder on intrinsics predicted by the encoder, but this led to training instability and eventual failure.
+
+\begin{figure}[t]
+    \vspace{-3mm}
+    \centering
+    \includegraphics[width=0.9\linewidth, trim={0mm 0cm 0 0cm},clip]{images/nvs_dl3dv.pdf}
+    \vspace{-2mm}
+    \caption{\textbf{Qualitative comparison on DL3DV~\citep{dl3dv}}. Here we present our results in the \textit{pose-free, calibration-free} setting, which still produce higher-quality novel view renderings compared to the pose-dependent method DepthSplat~\citep{depthsplat}.}
+    \vspace{-4mm}
+    \label{fig:nvs_dl3dv}
+\end{figure}
+
+\vspace{-1mm}
+\subsection{Model Training} \label{sec:train}
+\vspace{-2mm}
+
+Our models are trained with a multi-task loss as follows:
+\begin{equation}
+    \mathcal{L} = \mathcal{L}_{\text{image}} + \lambda_{\text{intrin}}\mathcal{L}_{\text{intrin}} +  \lambda_{\text{pose}}\mathcal{L}_{\text{pose}} + \lambda_{\text{opacity}}\mathcal{L}_{\text{opacity}}.
+\end{equation}
+
+\boldparagraph{Rendering Loss}
+Following previous works~\citep{mvsplat, noposplat}, the rendering loss $\mathcal{L}_{\text{image}}$ is set as a linear combination of Mean Squared Error (MSE) and LPIPS~\citep{lpips} loss, which is employed to optimize the Gaussians. 
+During training, we randomly sample 4 target views and render the corresponding images using their ground truth camera poses, and then the rendered images are compared against the ground truth image.
+
+ \boldparagraph{Intrinsic Loss}
+The intrinsic loss $\mathcal{L}_{\text{intrin}}$ is used to train the intrinsic prediction head, which is the $l_2$ distance between the predicted focal length with the ground truth.
+
+\boldparagraph{Pose Loss}
+Following~\citep{pi3}, we supervise the pose prediction head with relative pose loss. Specifically, for each pair of input views $(i, j)$ and their predicted pose $(\hat{\mathbf{p}}_{i}, \hat{\mathbf{p}}_{j})$, we first calculate their relative pose $\hat{\mathbf{p}}_{i \leftarrow j} = \hat{\mathbf{p}}_{i}^{-1} \hat{\mathbf{p}}_{j}$.
+The loss is then calculated as $\mathcal{L}_{\text{pose}}=\frac{1}{N(N-1)} \sum_{i \neq j} \left(\mathcal{L}_{\text{R}}(i, j) + \lambda_{\text{t}} \mathcal{L}_{\text{t}}(i, j)\right)$, where $N$ is the number of input views. Following~\citep{reloc3r, pi3}, the rotation $\mathcal{L}_{\text{R}}$ and translation losses $\mathcal{L}_{\text{t}}$ are calculated as:
+\begin{equation}
+    \mathcal{L}_{\text{R}}(i, j) = \arccos((\operatorname{tr}\left((\mathbf{R}_{i \leftarrow j})^\top \hat{\mathbf{R}}_{i \leftarrow j}\right) - 1) / 2),
+    \mathcal{L}_{\text{t}}(i, j) = \mathcal{H}_{\delta}(\hat{\mathbf{t}}_{i \leftarrow j} - \mathbf{t}_{i \leftarrow j}).
+\end{equation}
+Here, $\operatorname{tr(\cdot)}$ denotes the trace of a matrix, and $ \mathcal{H}_{\delta}(\cdot)$ calculate the Huber loss.
+
+\boldparagraph{Opacity Loss}
+Since a Gaussian is predicted per pixel, the total number of Gaussians grows rapidly as the number of views increases. To mitigate this issue, we apply an opacity regularization loss following~\citep{llrm} to promote sparsity. Specifically, $\mathcal{L}_{\text{opacity}} = \frac{1}{M} \sum_{i=1}^{M} |o_i|$, where $M$ is the total number of Gaussians. We then prune those with $o_i < 0.005$. We observed that this removes around $20\% - 70\%$ of the Gaussians, depending on the number of images and their overlap.
+
+
+\vspace{-1mm}
+\subsection{Evaluation} \label{sec:eval}
+\vspace{-3mm}
+
+For evaluation in the pose-dependent setting, we render the target view using the corresponding ground-truth camera poses.
+In contrast, under the pose-free setting, the predicted camera space may differ from the ground-truth poses obtained via SfM methods.
+To faithfully assess the quality of Gaussian reconstruction, we follow prior pose-free approaches~\citep{noposplat, nerfmm, instantsplat}, which first predict the target camera poses and then render the images using these predicted poses for evaluation.
+The prediction of target camera poses follows~\citep{noposplat}, which optimizes the poses through a photometric loss based on the predicted 3D Gaussians.
+
+\boldparagraph{Optional Post-Optimization}
+After YoNoSplat predicts 3D Gaussians and pose parameters, we optionally perform a fast post-optimization. Specifically, we optimize the predicted camera poses along with the Gaussian centers and colors, while keeping all other parameters fixed (see the appendix for details). The results in Tab.~\ref{tab:nvs_dl3dv} show that this optional optimization can further improve performance with a reasonable time cost.

@@ -1,0 +1,44 @@
+\section{Introduction}
+\label{introduction}
+In recent years, autonomous systems have attracted increasing attention in both academia and industry. 
+Light Detection and Ranging (LiDAR) is one of the key sensors in various autonomous systems. 
+It provides precise and rich geometric information about the surrounding environment \cite{li2024di, li2023lwsis, SECOND, cheng2023language, yin2024fusion} and has been widely applied across a range of fields \cite{shi2020pv, shi2019pointrcnn,malavazi2018lidar, weiss2011plant, resop2019drone, zhang2014loam}.
+Unlike the extensively studied image modality, research on LiDAR is still limited.
+Existing studies have focused on two main directions: one is generating high-quality LiDAR data \cite{LiDARGen2022, xiong2023ultralidar, nakashima2024lidar} to reduce the high cost of real-world acquisition \cite{meng2020weakly, wu2020deep}, and the other is predicting LiDAR data \cite{weng2021inverting, weng2022s2net, khurana2023point} to support decision-making in autonomous systems.
+
+However, these research directions encounter substantial limitations in practical applications.
+Existing works on LiDAR generation predominantly focus on learning the data distribution within a dataset, enabling them to synthesize only non-sequential, single LiDAR point clouds. 
+In contrast, the autonomous driving field often requires temporally continuous LiDAR scene segments \cite{Geiger2013IJRR, caesar2020nuscenes}.
+For LiDAR prediction tasks, with the rise of end-to-end autonomous driving (E2E-AD) \cite{hu2023planning, jiang2023vad, weng2024drive}, current methods are confronted with the following fundamental challenges:
+\begin{enumerate}[label=\arabic*), leftmargin=*, align=left]
+\item Prediction requires multiple frames of historical scene data; however, in closed-loop simulation \cite{chitta2022transfuser, dosovitskiy2017carla, jia2024bench2drive, prakash2021multi}, only the initial frame is available;
+\item These methods are limited to predicting LiDAR scenes along a fixed trajectory, while the ego-vehicle may generate diverse trajectories based on different decisions;
+\item They cannot accurately predicte LiDAR data over long temporal horizons, due to their inability to utilize diverse scene condition information in real time.
+\end{enumerate} 
+
+To address these challenges, we explore LiDAR-based generative world models and propose LaGen. 
+LaGen is an autoregressive LiDAR point cloud generation framework capable of producing high-fidelity, long-horizon LiDAR scenes on a frame-by-frame basis.
+Specifically, we first utilize spherical projection to convert the three-dimensional LiDAR data into a more compact form: a range image.
+This representation not only improves computational efficiency but also better accommodates advanced diffusion models.
+Next, we construct a high-fidelity LiDAR data generator based on the Latent Diffusion Model (LDM) \cite{rombach2022high}, and guide the diffusion process using multiple control conditions.
+
+To further enhance the spatiotemporal consistency of the entire generative framework, we also introduce the following carefully designed strategies:
+To improve the spatial consistency of generated results, we introduce a Scene Decoupling Estimation (SDE) module. 
+It can provide the model with real-time object-level estimations of current scene, thereby enhancing the model's interactive generation capability.
+To enhance the temporal consistency of generated results, we introduce a Noise Modulation (NM) module designed to alleviate error accumulation. 
+This is because the autoregressive paradigm suffers from a train-inference mismatch; during inference, errors in the generated samples accumulate over longer temporal horizons.
+The proposed module injects noise into the conditional features containing information from the previous frame, thereby reducing the model's over-reliance on prior frames and enabling it to better adapt to imperfect conditions.
+
+We compare LaGen’s generator with several state-of-the-art LiDAR generation models on the nuScenes dataset. 
+Experimental results demonstrate that our method achieves superior performance in generating high-fidelity LiDAR point clouds.
+%In addition, we construct a protocol based on the nuScenes dataset for evaluating long-horizon LiDAR scene generation tasks.
+In addition, we establish an evaluation protocol based on the nuScenes dataset for long-horizon LiDAR scene generation tasks.
+Experimental results indicate that LaGen can accurately generate long-horizon LiDAR scenes using only a single-frame historical input.
+It is noteworthy that our autoregressive framework further enables autonomous systems to incorporate decisions made at each time step into the generation of future predictions, thereby naturally supporting interactive world simulation.
+
+In summary, our contributions are as follows:
+\begin{itemize}[leftmargin=*]
+\item We propose LaGen, which to the best of our knowledge is the first interactive framework capable of autoregressively generating high-fidelity, long-horizon LiDAR scenes;
+\item We design a scene decoupling estimation module and a noise modulation module, which effectively enhance the model's performance in interactive scene-detail generation and long-horizon autoregressive generation;
+\item We comprehensively evaluate the performance of the LaGen generator on the nuScenes dataset and establish a nuScenes-based benchmark for long-horizon generation tasks to demonstrate the superiority of our approach.
+\end{itemize}

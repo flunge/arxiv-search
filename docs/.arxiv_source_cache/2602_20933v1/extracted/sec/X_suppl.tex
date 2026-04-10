@@ -1,0 +1,75 @@
+
+\clearpage
+\setcounter{page}{1}
+\maketitlesupplementary
+
+We present additional experiments and analyses to further validate the effectiveness and robustness of our proposed \methodname{}. Specifically, we include: (1) extended ablation studies on the spherical harmonics (SH) dropout strategy, (2) visualizations of reconstructed 3D Gaussian scenes, (3) detailed quantitative comparisons on the Mip-NeRF 360 and Blender datasets, and (4) a discussion of potential directions for future work.
+
+
+\section{Additional Experimental Results}
+
+
+% 
+\begin{table}[ht]
+  \centering
+  \caption{Effect of with and without Drop SH strategy on the Blender dataset (8 views). The Drop SH strategy encourages the effective parameters to concentrate in lower-degree SH coefficients, thereby mitigating the performance degradation caused by direct SH truncation.}
+  \resizebox{0.7\linewidth}{!}{
+    \input{tabs/ablation_sh}
+    }
+\label{tab:ablation_sh}
+\vspace{3mm}
+\end{table}
+
+\noindent\textbf{Additional Ablation Study.} We further evaluate the impact of the Drop SH strategy on model performance under different levels of SH truncation. On the Blender dataset with 8 input views, we train two sets of models, with and without the Drop SH strategy, and truncate their SH coefficients to varying degrees during inference. The average performance metrics are summarized in Table~\ref{tab:ablation_sh}. As shown, directly truncating high-degree SH coefficients significantly degrades performance when Drop SH is not applied. In contrast, models trained with Drop SH exhibit much smaller performance drops, indicating that, beyond mitigating overfitting, Drop SH effectively concentrates information in lower-degree SH components. This enables users to reduce model size via SH truncation while maintaining high rendering quality.
+
+\vspace{1mm}
+\noindent\textbf{Visualization of the Entire Reconstruction Scene.} 
+In Figure~\ref{fig:vis_3d}, we present the reconstructed entire scenes. It can be observed that our method produces results that are more complete and natural.
+%
+Our method fundamentally mitigates the neighbor compensation effect by randomly selecting a set of “anchors” and simultaneously dropping their spatial neighbors, thereby creating larger information voids. This design encourages remaining Gaussian to rely on a more comprehensive scene context, serving as an effective form of regularization that alleviates overfitting. 
+%
+As a result, even when trained under sparse-view conditions, our model develops a more complete and global understanding of the scene’s geometric structure. When rendering from novel views, it can thus reconstruct more coherent and natural structures. 
+%
+In contrast, baseline methods tend to over-rely on local information, an approach that may work under dense-view settings but easily leads to overfitting and local artifacts when visual information is limited.
+
+
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.9\textwidth]{figs/compare_3d_Supp.pdf} 
+ \caption{\textbf{Visualization of the entire reconstruction scene.} Our method produces results that are more complete and natural.}
+\label{fig:vis_3d}
+\end{figure*}
+
+
+
+\vspace{1mm}
+\noindent\textbf{Additional Comparison Results.}
+In Tables~\ref{tab:compare_mip} and~\ref{tab:compare_blender}, we present supplementary quantitative results that complement those in Table~\ref{tab:compare_mip_blender} of the main text. These results consistently demonstrate that our method significantly outperforms existing 3DGS variants tailored for sparse-view settings, delivering both higher rendering quality and more compact model representations.
+
+
+\section{Discussion on Future Work}
+The anchor selection mechanism in our \methodname{} is based on uniform random sampling. However, since the distribution of Gaussians is often non-uniform and their importance can vary across different parts of a 3D scene, exploring more sophisticated anchor selection mechanisms is a valuable direction. For instance, strategies based on gradient magnitude or opacity could be more effective, as these properties often highlight regions that are more critical during optimization. 
+% 
+Furthermore, \methodname{} selects neighbors for an anchor Gaussian based solely on the Euclidean distance between their positions. This simple spatial proximity metric, however, may not be optimal. Due to the anisotropic nature of Gaussians and the local differences of 3D scenes, physically adjacent Gaussians are not always the most functionally complementary. Therefore, designing more sophisticated neighbor selection schemes presents a promising avenue for future research. Such strategies could incorporate other factors, such as intrinsic Gaussian attributes, local scene characteristics, or even view-dependent information to better identify and regularize clusters of functionally redundant Gaussians.
+
+
+\begin{table}[t]
+  \centering
+  \caption{\textbf{Quantitative comparison on the MipNeRF-360 dataset (12 views)}. SH\textsubscript{\textit{n}} denotes retaining only the first \textit{n} degrees of SH coefficients during inference.}
+  \resizebox{1.\linewidth}{!}{
+    \input{tabs/compare_mip}
+    }
+\label{tab:compare_mip}%
+\end{table}
+
+\begin{table}[t]
+  \centering
+   \caption{\textbf{Quantitative comparison on the Blender dataset (8 views)}. SH\textsubscript{\textit{n}} denotes retaining only the first \textit{n} degrees of SH coefficients during inference.}
+  \resizebox{1.\linewidth}{!}{
+    \input{tabs/compare_blender}
+    }
+\label{tab:compare_blender}%
+\end{table}
+
+

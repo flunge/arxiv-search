@@ -1,0 +1,366 @@
+
+\documentclass{article} % For LaTeX2e
+\usepackage{iclr2025_conference,times}
+
+% Optional math commands from https://github.com/goodfeli/dlbook_notation.
+\input{math_commands.tex}
+
+
+\usepackage{epsfig}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{caption}
+\usepackage{multirow}
+\usepackage{url}
+\usepackage[table]{xcolor}
+\usepackage{booktabs}
+\usepackage{tabularx}
+
+\usepackage[pagebackref=true,breaklinks=true,colorlinks,bookmarks=false]{hyperref}
+
+% define logo
+\newcommand{\logo}{%
+\raisebox{-.075\height}
+{\includegraphics[height=2\fontcharht\font`\B,trim={0.0cm 1.1cm 0cm 0.5cm},clip]{figures/studentsplat_logo_v2.pdf}\hspace*{-0.4cm}}
+%
+}
+
+\definecolor{Gray}{gray}{0.94}
+\newlength\savewidth\newcommand\shline{\noalign{\global\savewidth\arrayrulewidth
+  \global\arrayrulewidth 1pt}\hline\noalign{\global\arrayrulewidth\savewidth}}
+
+\title{studentSplat :Your Student Model Learns Single-view 3D Gaussian Splatting}
+
+% Authors must not appear in the submitted version. They should be hidden
+% as long as the \iclrfinalcopy macro remains commented out below.
+% Non-anonymous submissions will be rejected without review.
+
+\author{Yimu Pan\thanks{ Work done during an internship at Amazon.} \\
+The Pennsylvania State University \\
+\texttt{ymp5078@psu.edu} \\
+\And
+Hongda Mao, Qingshuang Chen, Yelin Kim\\
+Amazon\\
+\texttt{\{hongdam,cicichen,kimyelin\}@amazon.com} \\
+}
+
+% hongdam@amazon.com>, "Chen, Cici" <cicichen@amazon.com>, "Pan, Yimu" <ymp5078@psu.edu><kimyelin@amazon.com>
+% The \author macro works with any number of authors. There are two commands
+% used to separate the names and addresses of multiple authors: \And and \AND.
+%
+% Using \And between authors leaves it to \LaTeX{} to determine where to break
+% the lines. Using \AND forces a linebreak at that point. So, if \LaTeX{}
+% puts 3 of 4 authors names on the first line, and the last on the second
+% line, try using \AND instead of \And before the third author name.
+
+\newcommand{\fix}{\marginpar{FIX}}
+\newcommand{\new}{\marginpar{NEW}}
+
+\iclrfinalcopy % Uncomment for camera-ready version, but NOT for submission.
+\begin{document}
+\maketitle
+\begin{figure}[ht!]
+    \centering
+    \includegraphics[width=0.9\textwidth]{figures/demo.pdf}
+    \caption{What can you do with \textbf{studentSplat}? All the results are generated using our studentSplat with teacher refine (detailed in the Appendix~\ref{sec:teacher_refine}) with only one input image. The input to our studentSplat is highlighted in green. studentSplat directly takes the generated image from Stable Diffusion~\citep{rombach2022high} in text-to-3D application.}
+    \label{fig:demo}
+\end{figure}
+
+\begin{abstract}
+Recent advance in feed-forward 3D Gaussian splatting has enable remarkable multi-view 3D scene reconstruction or single-view 3D object reconstruction but single-view 3D scene reconstruction remain under-explored due to inherited ambiguity in single-view. We present \textbf{studentSplat}, a single-view 3D Gaussian splatting method for scene reconstruction. To overcome the scale ambiguity and extrapolation problems inherent in novel-view supervision from a single input, we introduce two techniques: 1) a teacher-student architecture where a multi-view teacher model provides geometric supervision to the single-view student during training, addressing scale ambiguity and encourage geometric validity; and 2) an extrapolation network that completes missing scene context, enabling high-quality extrapolation. Extensive experiments show studentSplat achieves state-of-the-art single-view novel-view reconstruction quality and comparable performance to multi-view methods at the scene level. Furthermore, studentSplat demonstrates competitive performance as a self-supervised single-view depth estimation method, highlighting its potential for general single-view 3D understanding tasks.
+\end{abstract}
+
+\section{Introduction} 3D reconstruction is an essential task in robotics~\citep{yandun2020visual,han2022scene}, navigation~\citep{davison2003real,kazerouni2022survey}, virtual reality~\citep{bruno20103d}, and content creation~\citep{jun2023shap,tang2023dreamgaussian}. Advances in deep learning have enabled remarkable progress in 3D reconstruction~\citep{sitzmann2019scene,mildenhall2021nerf,truong2023sparf,kerbl20233d} through per-scene optimization using a large number of views. Recently, efficient feed-forward methods~\citep{yu2021pixelnerf,charatan2024pixelsplat} have been proposed to take a sparse set of input views and construct the 3D reconstruction, greatly improving efficiency. However, these methods require not only multi-view input but also the corresponding camera poses. Obtaining accurate camera poses usually involves a time and computation-intensive pipeline~\citep{ullman1979interpretation} and a large number of camera views or additional specialized networks~\citep{kendall2015posenet,yin2018geonet,peng2019pvnet}, which hinders the efficiency of feed-forward sparse-view 3D reconstruction. Single-view 3D reconstruction relaxes the requirements on both multi-view input and camera poses, serving as a more generalized alternative. Due to the inherent ambiguity in single-view input, current single-view 3D reconstruction works~\citep{yu2021pixelnerf,szymanowicz2024splatter} only operate at the object level.
+
+In this work, we aim to expand single-view 3D object reconstruction to the scene level and propose a model capable of performing single-view 3D scene reconstruction using only multi-view supervision (i.e., no ground truth 3D annotations). In addition to the generalizability improvements from this extension, single-view 3D scene reconstruction holds the potential to perform self-supervised single-view vision tasks such as single-view depth estimation~\citep{li2018megadepth} and aid semantic segmentation~\citep{zhang2010semantic,schon2023impact}. Finally, a single-view 3D scene reconstruction model can be applied to the results from a text-to-image generation model~\citep{rombach2022high} to achieve text-to-3D scene generation without separate training.
+
+To enable single-view 3D reconstruction, we adopt the 3D Gaussian splatter (3DGS)~\citep{kerbl20233d} representation. We identify and address two main problems in single-view 3DGS: scale ambiguity and extrapolation. We tackle these problems by proposing \textbf{studentSplat}, a single-view 3DGS model at the scene level. Since the unknown scale can be inferred when at least two input views are provided but is impossible using one input view~\citep{charatan2024pixelsplat,chen2024mvsplat}, our core design is to use a multi-view teacher model to estimate the 3D structure up to a scale and supervise the single-view student model using the teacher's estimation. Moreover, unlike a multi-view model that can bound the novel views by the input view frustums, a single-view model is required to extrapolate due to occlusion and camera view changes, which can lead to distortion of the 3DGS. We propose an extrapolator to complete the missing context in renderings before computing the novel-view reconstruction loss, both performing extrapolation and minimizing distortion. Extensive experiments show that our method can achieve good 3DGS on different benchmarks. Additionally, our method has the potential to connect 3DGS to self-supervised single-view vision tasks by demonstrating comparable performance to a self-supervised single-view depth estimation method.
+
+Our contributions are summarized as follows: \begin{itemize} 
+\item Propose the a single-view 3D scene Gaussian splatting model that does not require relative camera poses during inference. 
+\item Address the extrapolation problem in single-view 3D scene reconstruction, which reduces distortion and produces out-of-context regions. 
+\item Bridge the gap between multi-view 3D Gaussian splatting and self-supervised single-view depth estimation, expanding the applications of 3D Gaussian splatting models. 
+% \item Enable text-to-3D scene generation, which is challenging for current methods. 
+\end{itemize}
+
+\section{Related Work}
+\subsection{3D Representation}
+Numerous 3D representations have been proposed to accommodate different applications. Point clouds are used in many applications~\citep{ullman1979interpretation,schoenberger2016sfm,nichol2022point} where the geometric shape is important. Recently, Neural Radiance Field (NeRF)~\citep{mildenhall2021nerf} is proposed to learn a view-based rendering function from multi-view supervision, but this learned function does not directly represent the geometric shape. 3DGS~\citep{kerbl20233d} is an efficient alternative representation similar to point clouds. Additionally, the efficient differentiable rendering implementation of 3DGS enables direct optimization of point clouds (3D Gaussians). This representation allows us to connect novel-view reconstruction to geometric reconstruction in an end-to-end manner.
+
+\subsection{Feed-forward Multi-view 3D Reconstruction}
+NeRF~\citep{mildenhall2021nerf} is one of the most popular representations for multi-view 3D reconstruction. PixelNeRF~\citep{yu2021pixelnerf} and GRF~\citep{trevithick2021grf} were among the earlier works that used a feed-forward network to produce radiance fields. Subsequent approaches improved rendering performance by incorporating cross-view feature matching~\citep{chen2021mvsnerf,chen2023explicit,du2023learning}, geometric encoding~\citep{miyato2023gta}, or target view information~\citep{xu2024murf}. Different from the predefined NeRF function, SRT~\citep{sajjadi2022scene} used a transformer to represent the rendering function. Another line of work closely related to ours was initiated by pixelSplat~\citep{charatan2024pixelsplat}, which directly predicted 3D Gaussians from multi-view images. latentSplat~\citep{wewer2024latentsplat} improved rendering performance by operating in the latent space, while MVSplat~\citep{chen2024mvsplat} incorporated cost-volume to improve both efficiency and performance. In contrast to previous approaches, our method requires only one input view, greatly improving the generalizability and versatility of the 3DGS model. Additionally, our method connects multi-view 3DGS to single-view vision tasks by learning one model that works on both tasks.
+
+\subsection{Feed-forward Single-view 3D Reconstruction}
+Single-view 3D reconstruction usually works at the object level. Unlike their multi-view counterparts, single-view 3D reconstruction requires extrapolation. Therefore, generative methods like diffusion models~\citep{rombach2022high,liu2023zero,tang2023dreamgaussian,liu2023syncdreamer} are used to complete the reconstruction. Similar to multi-view 3D reconstruction, radiance fields are popular among the rendering methods~\citep{liu2023zero,qian2023magic123,xu2023neurallift,tang2023make,melas2023realfusion,liu2024one}. TARS~\citep{duggal2022topologically} learns the deformation between 2D images and 3D objects. Recently, more approaches~\citep{szymanowicz2024splatter,tang2023dreamgaussian} have started using 3DGS for 3D reconstruction. Many other approaches~\citep{nichol2022point,jun2023shap} directly supervise the network using 3D object annotations. Additionally, some methods use learns directly from ground truth 3D annotation~\citep{yin2021learning,piccinelli2024unidepth}.
+All existing work in single-view 3D reconstruction either requires 3D supervision or only works at the object level. In contrast, our method not only works at the scene level without 3D annotations but also has the potential to aid single-view vision tasks. 
+
+\section{Our Approach}
+\begin{figure}[ht!]
+    \centering
+    \includegraphics[width=0.85\textwidth]{figures/main_v2.pdf}
+    \caption{\textbf{The training pipeline of studentSplat.} The multi-view teacher network is used during training to produce 3D Gaussians centers (up-to an unknown scale) for geometric supervision. The input to student model is highlighted in green. The rendered student output is processed through the Extrapolator before performing novel-view supervision.}
+    \label{fig:main}
+\end{figure}
+The overall pipeline is shown in Figure~\ref{fig:main}. We employ a multi-view 3DGS teacher network to provide geometric supervision, novel views to provide photometric supervision, and an extrapolator network to complete the missing context.
+
+% \subsection{Preliminary}
+% This section is about the problem (scale ambiguity) in single-view 3D reconstruction and how the problem has not been addressed in single-view but has solution in multi-view: 
+% given the one camera view, we need at least one additional types of information from depth or scale to reconstruct the scene. Depth can be obtained using epipolar features if another view is provided. 
+
+\subsection{Feed-forward 3D Gaussian Splatting}
+
+In the multi-view 3DGS, we have $K$ sparse-view images $\mathcal{I}=\{{\bm I}^{i}\}_{i=1}^K$, (${\bm I}^i \in \mathbb{R}^{H \times W \times 3}$) and their corresponding camera projection matrices $\mathcal{P}=\{{\bm P}^i \}_{i=1}^K$, ${\bm P}^i=\mathbf{K}^i[\mathbf{R}^i|\mathbf{t}^i]$ where $\mathbf{K}^i$, $\mathbf{R}^i$ and $\mathbf{t}^i$ are the intrinsic, rotation, and translation matrices.
+A multi-view 3DGS model $f^{K}_{\bm \theta}$, where $K$ is the number of views, maps images to 3D Gaussian parameters using
+\begin{equation}
+    f^{K}_{\bm \theta}: \{ ({\bm I}^{i}, {\bm P}^i) \}_{i=1}^K \mapsto \{(\bm{\mu}^j, \alpha^j, \bm{\Sigma}^j, \bm{c}^j )\}^{H \times W \times K}_{j=1}.
+\end{equation}
+On the other hand, the relaxed version, the single-view 3DGS model $f^1_{\bm \theta}$, performs the following: 
+\begin{equation}
+    f^1_{\bm \theta}: {\bm I^i} \mapsto \{(\bm{\mu}^j, \alpha^j, \bm{\Sigma}^j, \bm{c}^j )\}^{H \times W \times 1}_{j=1}.
+\end{equation}
+
+Unlike the multi-view 3DGS model, the single-view 3DGS model $f^1_{\bm \theta}$ is more prone to scale ambiguity and extrapolation issues. To train our studentSplat, we use both geometric and photometric supervisions: 
+\begin{equation}
+\mathcal{L}_{studentSplat}=\underbrace{\mathcal{L}_{geo}+\mathcal{L}_{grad}}_{\text{Teacher supervision}}+\underbrace{\mathcal{L}_{photo}}_{\text{Novel-view supervision}}.
+\end{equation}
+The following sections will explain how we address these issues and design each loss function.
+
+\subsection{Teacher-student Model}
+
+The aim of the teacher-student model is to solve the scale ambiguity problem during training time to enable single-view 3DGS for the student model with valid 3D geometric structure. Unlike their multi-view counterparts, a single-view model only accepts one view, making it difficult for the model itself to estimate the correct relative scale without cross-view feature matching and triangulation. 
+% Taking inspiration from single-view depth estimation, we can train the student model to perform depth estimation and use the depth information to estimate the Gaussian centers.
+
+
+\textbf{Using the teacher model geometric supervision.} Unlike previous approaches~\citep{nichol2022point,piccinelli2024unidepth}, we do not have access to ground truth 3D annotations. Despite the lack of 3D annotations, during training time, multiple views are provided, and cross-view feature matching can be performed to estimate the Gaussian center for each pixel in the context view with an implicit relative scale~\citep{charatan2024pixelsplat}. Thus, using the teacher model $f^{K}_{\bm \theta}$, we can convert the dateset from $\{ ({\bm I}^{i}, {\bm P}^i) \}_{i=1}^N$ to $\{ ({\bm I}^{i}, {\bm P}^i, {\bm{\mu}_t}^i) \}_{i=1}^N$. Then, in addition to the photometric loss computed from the target view $\{ ({\bm I}^{j}, {\bm P}^j) \}_{j=1}^K$, we supervise the student model's Gaussian center predictions $\bm{\mu}_s^i$ using the teacher's Gaussian centers $ \bm{\mu}_t^i$: $\mathcal{L}_{geo}=\lambda_{geo}\|\bm{\mu}_t^i-\bm{\mu}_s^i\|$, where $\|\cdot\|$ is the L1 loss.
+
+\textbf{Regularizing local structure consistency.} The L1 loss used in $\mathcal{L}{geo}$ lacks consideration of the local structure which is prone to distortions in the less confident region such as the boundaries between the in- and out-of context region. To construct good 3D Gaussians and minimize distortions, we also need to encourage consistency in the local structure. Following previous work~\citep{li2018megadepth} that matches the depth map gradients to the ground truth depth map, we match the gradients of the teacher and student Gaussian centers using $\mathcal{L}_{grad}=\lambda_{grad}\|\nabla_{3D}\bm{\mu}_t^i-\nabla_{3D}\bm{\mu}_s^i\|$. Unlike previous work \citep{li2018megadepth} that defines the depth difference between nearby pixels as the gradient map (i.e., only the $z$ value is used for gradient computation), we propose a new definition of gradient $\nabla_{3D}$ that uses the 3D Euclidean distance (i.e., all $x$, $y$, and $z$ values are used for gradient computation) between nearby pixels as the gradient to accommodate 3D structure. This new definition is better aligned with 3D gradient matching.
+
+\textbf{Discussion.}
+The teacher model estimates only the relative scale, and consequently, the student model operates on the same relative scale. The teacher model will not be used at inference time. Therefore, we only require one input view, in other words, we relax the requirement for multiple input views and their corresponding camera poses, to perform the 3D reconstruction, which greatly improves the generalizability. More importantly, the resulting model naturally works as a single-view depth estimation model, connecting the 3D reconstruction task to single-view vision tasks, which goes beyond the capabilities of the teacher model.
+
+\subsection{Extrapolation} 
+Unlike multi-view scenarios where the photometric novel view reconstruction loss can be formulated using interpolation only (i.e., enclosing the novel camera view inside the context camera view frustums), single-view 3D reconstruction inevitably needs to extrapolate when computing the novel view reconstruction loss. This extrapolation can lead to distortion in the extrapolating region as there is no direct visual information. In the case of 3DGS, some 3D Gaussians will be forced to cover the extrapolation region to minimize the photometric loss, which compromises the geometric validity.
+
+\textbf{Extrapolating the missing context.}
+Although the teacher supervision will encourage the Gaussian centers to represent valid geometric shapes, the missing region will create a large photometric loss, which encourages spurious relationships. To minimize this unnecessary photometric loss, we need to either mask out the missing context during loss computation or fill the extrapolating region with additional pixels to avoid noisy gradient flow. We select the latter approach to achieve two functionalities: 1) guide the photometric loss to the correct Gaussians to minimize spurious relationships, and 2) perform extrapolation on the missing context to improve the novel-view reconstruction. We repurpose techniques from~\citep{luo2018single,ruckert2022adop} to achieve these functionalities. Instead of directly supervising the rasterized novel view $\hat{\bm{I}}^j=\mathrm{Rastrizer}(\mathbf{P}^j|\bm{\mu}^i, \alpha^i, \bm{\Sigma}^i, \bm{c}^i)$ , we further process the novel-view reconstructions through a network $g^{1}_{\bm \theta}$ and supervise the output $g^{1}_{\bm \theta}(\hat{\bm{I}}^j)$ using the photometric loss $\mathcal{L}_{photo}=\lambda_{l2}\|g^{1}_{\bm \theta}(\hat{\bm{I}}^j)-\bm I^j\|_2+\lambda_{lpips}\mathrm{LPIPS}(g^{1}_{\bm \theta}(\hat{\bm{I}}^j),\bm I^j)$, where $\|\cdot\|_2$ is the L2 loss and $\mathrm{LPIPS}$ is the Learned Perceptual Image Patch Similarity~\citep{zhang2018unreasonable} computed using VGG~\citep{simonyan2014very} features.
+
+\textbf{Using composition to guide gradient flows.}
+Directly applying $g^{1}_{\bm \theta}$ will prevent the rasterizer from getting direct supervision, which can harm the reconstruction quality. The ideal situation is to separate the missing context and the visible context using a confidence weight matrix $\bm W$ and treat their losses differently, but this separation is unknown before obtaining the 3D reconstruction. However, we can estimate the missing context using alpha compositing of the 3DGS. More specifically, we construct $\bm W$ by composing the $\alpha^i$. Intuitively, the missing context is less visible and has lower $\alpha^i$ whereas the visible context should have $\alpha^i=1$. We compose the novel view as $\hat{\bm{I}}^j_c=g^{1}_{\bm \theta}(\hat{\bm{I}}^j) \odot (\bm 1 - \bm W^j) + \hat{\bm{I}}^j \odot \bm W^j$, where $\bm W^j=\mathrm{Rastrizer}(\mathbf{P}^j|\bm{\mu}^i, \alpha^i, \bm{\Sigma}^i, \bm{1})$. Then, we can guide the gradients computed from $\mathcal{L}_{photo}=\lambda_{l2}\|\hat{\bm{I}}^j_c-\bm I^j\|_2+\lambda_{lpips}\mathrm{LPIPS}(\hat{\bm{I}}^j_c,\bm I^j)$ for the missing context to the extrapolation network, but the gradients for the context to the rasterizer, and the rasterizer always gets direct supervision from the reconstruction loss.  Additionally, the existence of $\bm W$ allows the student model to balance between the completeness and the confidence of the reconstruction by generating lower opacity for the regions with less confidence, since $g^{1}{\bm \theta}$ can still fill the less opaque area to minimize the loss. On the other hand, $\bm W$ cannot collapse to zero, as $g^{1}{\bm \theta}$ will not be able to fill anything without context. Finally, the learned $\bm W$ can be used during inference to identify the missing context.
+
+\textbf{Discussion.}
+Better extrapolation networks, such as diffusion-based methods~\citep{lkwq007_stablediffusion-infinity}, can be applied to achieve better novel-view reconstruction quality, but they make the training pipeline more complicated. We choose a feed-forward network (i.e., a pre-trained GAN network) to match the base training pipeline and preserve efficiency. The main goal of the extrapolator here is to direct the gradient flow to minimize artifacts. The ability to learn $\bm W$ is more important than generating the best extrapolation result; as long as some level of extrapolation can be achieved and the learned context mask $\bm W$ is accurate, we can apply more elaborate extrapolation methods, such as differential diffusion~\citep{levin2023differential}, during inference using the generated context mask. We visualize $\bm W$ in the Appendix~\ref{sec:add_results}. Because of the introduction of the extrapolator, we can use the student network to produce additional views by providing fake camera poses. This way, assuming the teacher model performs better than the student model, we can use the teacher model to process the student model's output views to further improve the reconstruction result. This setting is detailed in the Appendix~\ref{sec:teacher_refine}.
+% ~\footnote{https://huggingface.co/blog/OzzyGT/outpainting-differential-diffusion}
+
+
+
+
+
+
+
+
+
+\section{Experiments}
+\subsection{Settings}
+\textbf{Datasets.} To evaluate the novel-view reconstruction performance, we follow previous multi-view approaches~\citep{charatan2024pixelsplat,chen2024mvsplat} by using RealEstate10k (RE10k)~\citep{zhou2018stereo} and ACID~\citep{liu2021infinite}. These two datasets contain multiple views and the corresponding camera poses generated using a Structure from motion algorithm~\citep{schoenberger2016sfm} for different indoor and outdoor scenes. To evaluate the geometric quality and the potential to serve as a self-supervised depth estimation method, we use the indoor and outdoor annotations from DA-2K~\citep{yang2024depth} and DIODE~\citep{vasiljevic2019diode}.
+
+\textbf{Metrics.} The novel-view reconstruction performance is evaluated using photometric metrics, including pixel-level Peak Signal-To-Noise Ratio (PSNR), patch-level Structural Similarity Index Measure (SSIM)~\citep{wang2004image}, and feature-level Learned Perceptual Image Patch Similarity 
+ (LPIPS)~\citep{zhang2018unreasonable}. The depth estimation metrics follow standard practice by using Absolute Relative Error (AbsRel), $\delta_1$, and accuracy on the corresponding datasets. All experiments are performed using $256\times 256\times K$, where $K$ is the number of views. Thus, single-view methods have lower resolution. The evaluation settings are detailed in the Appendix~\ref{sec:add_eval_setting}.
+
+\textbf{Implementation Details.} Since our goal is to design a new proof-of-concept approach instead of improving current ones, we aim for a balance between performance and efficiency rather than absolute performance. We expect larger models to produce better results. We use an efficient method, MVSplat~\citep{chen2024mvsplat}, as the teacher model. For the student model, we combine the DINOv2~\citep{oquab2023dinov2} pre-trained ViT-S backbone with the DPT~\citep{ranftl2021vision} head as the architecture, as it has been shown to perform well in single-view depth estimation. Following MVSplat, we use a shallow ResNet~\citep{he2016deep} encoded features and the original images to refine the output depth map. For the extrapolator, we use the efficient MI-GAN~\citep{sargsyan2023mi} inpainter. Additional details and results from different encoders are provided in the Appendix~\ref{sec:add_results}.
+
+
+\subsection{Quantitative Comparisons}
+
+\input{tables/main_novel_views}
+
+\textbf{Novel-view reconstruction performance.} To perform a quantitative comparison with the current state-of-the-art (SOTA) methods on 3D scene reconstruction performance without 3D annotations, we follow previous work to evaluate the novel-view reconstruction. Additionally, we aim to evaluate the extrapolation capability. Therefore, unlike previous work that only bounded the novel views by the context view frustums, we also evaluate the reconstruction performance using views both inside and outside the context view frustums. As suggested by previous work~\citep{charatan2024pixelsplat} that current scene-level 3DGS methods cannot perform extrapolation, we can see from Table~\ref{tab:sota_compare} that the performance of a SOTA multi-view 3DGS method drops when performing extrapolation. Additionally, a single-view 3DGS method, SplatterImage~\citep{szymanowicz2024splatter}, outperforms the SOTA multi-view 3DGS method when only one view is provided, which suggests that multi-view 3DGS methods cannot be directly applied to the single-view setting despite their promising performance in the multi-view setting; directly training the single-view method will result in better reconstruction performance. This result supports the necessity of training a single-view 3DGS method. Furthermore, our studentSplat achieves the best single-view 3DGS performance and is on par with the multi-view models despite using only one input view, which demonstrates the effectiveness of the teacher-student architecture and extrapolation capability. However, we acknowledge that our SSIM score is still behind the multi-view methods. The inferior performance can be partially attributed to the resolution difference. All the methods generate one 3D Gaussian for each image pixel; the methods using two input views have twice the number of 3D Gaussians to render from, thus resulting in a sharper image, which in turn results in a higher SSIM score.
+
+\input{tables/cross_novel_views}
+\textbf{Novel-view reconstruction generalizability.} We follow MVSplat~\citep{chen2024mvsplat} to evaluate the cross-dataset novel-view reconstruction performance. As shown in Table~\ref{tab:generalization}, MVSplat again does not work in the single-view setting. On the other hand, our studentSplat achieved the best single-view performance and is on par with multi-view pixelSplat, depending on the dataset. This result further supports the effectiveness of our method and shows the potential for our method to act as a generalizable single-view vision encoder.
+
+\input{tables/cross_depth}
+\textbf{Self-supervised single-view depth estimation performance.} We evaluate the single-view depth estimation performance of our method against a SOTA self-supervised single-view depth estimation method, GasMono~\citep{zhao2023gasmono}, and a SOTA single-view object 3DGS model, SplatterImage~\citep{szymanowicz2024splatter}. Note that the evaluation datasets are unseen by any of the models. From Table~\ref{tab:mono_depth}, we see that our method achieved much better performance than SplatterImage and on-par performance with GasMono. This result further supports the generalizability of our method and the potential to serve as a self-supervised single-view depth estimation method.
+
+
+\subsection{Qulitative Comparisons}
+\begin{figure}[ht!]
+    \centering
+    \includegraphics[width=0.9\textwidth]{figures/re10k_acid_qulitatives.pdf}
+    \caption{The qualitative comparison between representative methods in the extrapolation setting. Top two rows are from RE10K and the bottom two rows are from ACID The multi-view method use both of the context views whereas the single-view method only use the context view highlighted in green. Additional examples are in the Appendix~\ref{sec:add_results}.}
+    \label{fig:re10k_acid_qualitative}
+\end{figure}
+In this section, we aim to visualize the proposed studentSplat in terms of extrapolation performance, distortion, and reconstruction quality. The qualitative comparisons for depth estimation and integration with Stable Diffusion~\citep{rombach2022high} for text-to-3D generation are in the Appendix~\ref{sec:add_results}.
+
+\textbf{Better extrapolation performance.} Thanks to our extrapolator, our studentSplat is able to fill the missing context, as shown in Figure~\ref{fig:re10k_acid_qualitative}, whereas previous methods leave the region blank or stretch the border Gaussians to fill the region.
+
+\textbf{Less distortion compared to current single-view methods.} From the last two columns of Figure~\ref{fig:re10k_acid_qualitative}, we see that SplatterImage tends to create a jelly effect around the border of the context, which is the distortion we aim to minimize, and our method does not have such distortion.
+
+\textbf{Similar reconstruction quality with less resolution.} Since our studentSplat uses one input view instead of two views, we generate half the number of 3D Gaussians (i.e., half the resolution). Despite the lower resolution and sharpness, our studentSplat still generates overall comparable reconstructions to the multi-view (higher resolution) methods, as shown in Figure~\ref{fig:re10k_acid_qualitative}.
+
+\textbf{Generalizable reconstruction quality.} The advantage of studentSplat generalizes to unseen domains. As shown in Figure~\ref{fig:cross_qualitative}, our method is able to complete the missing region with low distortion. However, due to the lower resolution (i.e., fewer 3D Gaussians), our results are less sharp.
+
+\begin{figure}[ht!]
+    \centering
+    \includegraphics[width=0.9\textwidth]{figures/cross_qualitative.pdf}
+    \caption{The qualitative comparison between representative methods in the single-view cross-dataset generalization setting. The context view is highlighted in green.}
+    \label{fig:cross_qualitative}
+\end{figure}
+
+
+
+\subsection{Ablation Study}
+In this ablation study, we aim to evaluate how each of the proposed modules contributes to the model's performance by iteratively removing the proposed modules.
+
+\textbf{Ablation on the extrapolator.} From Table~\ref{tab:ablation}, we observe that removing composition results in a slight performance drop across metrics. If we additionally remove the extrapolator, we have a large performance drop, which demonstrates the necessity of the extrapolator.
+
+\textbf{Ablation on the teacher geometric supervision.} The quantitative measurements alone will be misleading for ablating the geometric supervision, as photometric measurements do not consider geometric validity. Therefore, we evaluate the modules both quantitatively and qualitatively. We see from Table~\ref{tab:ablation} that removing gradient matching improves PSNR but reduces LPIPS. This only makes sense when considering Figure~\ref{fig:ablation}, where removing gradient matching results in a large number of Gaussians being misplaced in the missing region. Although this misplacement improves the PSNR score, it lowers the structure validity which we aim to preserve. If we additionally remove the entire teacher geometric supervision, we observe that the reconstruction performance improves, which seems counterintuitive. However, we can see from Figure~\ref{fig:ablation} that the improvements again come with sacrificing the geometric validity; the jelly distortion similar to SplatterImage appears, which even affects the in-context region. Additional ablations in depth estimation performance are in the Appendix~\ref{sec:add_results}. These results demonstrate the effectiveness of the proposed modules.
+\input{tables/ablations}
+
+\begin{figure}[ht!]
+    \centering
+    \includegraphics[width=0.9\textwidth]{figures/ablation.pdf}
+    \caption{\textbf{The qualitative ablation results.} The input view is highlighted in green. The ground truth target view is below the input view. We zoomed in some areas for better comparison.}
+    \label{fig:ablation}
+\end{figure}
+
+\subsection{Discussion and Conclusion}
+We demonstrate, using studentSplat, the possibility of single-view 3DGS at scene level, bridging the gap between 3DGS and single-view depth estimation. With its modular design, studentSplat allows for versatile applications (see Appendix~\ref{sec:add_results} and ~\ref{sec:teacher_refine}) and easy incorporation of better modules.
+
+\textbf{Limitations and future direction.} Our method relies on the teacher model, thus inheriting the limitations of the teacher model. It would be interesting to eliminate the need for the teacher model to further improve the capability of single-view scene-level 3DGS. Additionally, training a single-view 3DGS model is still more difficult than training its multi-view counterparts, so our method cannot outperform the multi-view method in its current stage. Large-scale training is an interesting direction to explore the capability of single-view 3DGS for both novel-view reconstruction and depth estimation tasks. Furthermore, we expect our method to also aid other vision tasks like semantic segmentation, which can be another direction to explore. Finally, as a proof-of-concept approach, many design aspects, such as model architecture and loss function design, can be optimized.
+
+
+
+% \subsubsection*{Author Contributions}
+% If you'd like to, you may include  a section for author contributions as is done
+% in many journals. This is optional and at the discretion of the authors.
+
+% \subsubsection*{Acknowledgments}
+% Use unnumbered third level headings for the acknowledgments. All
+% acknowledgments, including those to funding agencies, go at the end of the paper.
+
+% \section{Reproducibility Statement}
+% It is important that the work published in ICLR is reproducible. Authors are strongly encouraged to include a paragraph-long Reproducibility Statement at the end of the main text (before references) to discuss the efforts that have been made to ensure reproducibility. This paragraph should not itself describe details needed for reproducing the results, but rather reference the parts of the main paper, appendix, and supplemental materials that will help with reproducibility. For example, for novel models or algorithms, a link to a anonymous downloadable source code can be submitted as supplementary materials; for theoretical results, clear explanations of any assumptions and a complete proof of the claims can be included in the appendix; for any datasets used in the experiments, a complete description of the data processing steps can be provided in the supplementary materials. Each of the above are examples of things that can be referenced in the reproducibility statement. This optional reproducibility statement will not count toward the page limit, but should not be more than 1 page.
+
+\bibliography{iclr2025_conference}
+\bibliographystyle{iclr2025_conference}
+
+\clearpage
+\appendix
+\section{Additional Implementation Details}
+\label{sec:add_implement}
+\textbf{Student Architecture.} The student network architecture is shown in Figure~\ref{fig:student_arch}. It only requires the images as input (i.e., without camera pose requirements). It comprises a backbone branch and a refine branch, similar to previous work~\citep{charatan2024pixelsplat,chen2024mvsplat}. The backbone branch localizes the Gaussian centers along the $z$-axis, whereas the refine branch uses CNN features and input images to refine the backbone prediction and predict other Gaussian parameters.
+\begin{figure}[ht!]
+    \centering
+    \includegraphics[width=\textwidth]{figures/student_arch.pdf}
+    \caption{\textbf{Student network architecture.} The shallow CNN is the same as previous work~\citep{chen2024mvsplat} but randomly initialized. The MLP conposes of a 3x3 Conv, a GeLU~\citep{hendrycks2016gaussian} activation, and a 1x1 Conv. }
+    \label{fig:student_arch}
+\end{figure}
+
+\textbf{Novel-view reconstruction.} To generate a novel-view, our studentSplat first generates the novel views directly using the rendering function from 3DGS. Additionally, we use the rendering function to generate the opacity map. The novel-view renderings and the opacity map are processed by the extrapolator to generate the complete novel views.
+
+\textbf{Depth normalization.} To learn a generalizable depth map, we use the provided camera intrinsics, near plane, and far plane to scale, shift, and clip the predicted depth map, respectively, using: $\mathrm{depth\_scaled}=\mathrm{Max}(\mathrm{focal\_length}*\mathrm{depth}+\mathrm{near},\mathrm{far})$
+
+\textbf{More training details.} All our models are trained on two A10G GPUs with a total batch size of 2 for 300,000 iterations with the Adam~\citep{kingma2014adam} optimizer. Each batch contains one training scene (i.e., two input views and four target views).  For all experiments, we use an initial learning rate of 2e-4 and a cosine learning rate scheduler with 2000 warm-up iterations. All the models are trained for 300,000 iterations. Same as MVSplat~\citep{chen2024mvsplat}, the frame distance between two input views is gradually increased as the training progresses. For both RE10K~\citep{zhou2018stereo} and ACID~\citep{liu2021infinite}, we follow previous works~\citep{charatan2024pixelsplat,chen2024mvsplat} to set the near and far depth planes to 1 and 100, respectively. For DTU~\citep{aanaes2016large}, we use the provided near and far depth planes of 2.125 and 4.525, respectively.
+
+\section{Evaluation Settings}
+\label{sec:add_eval_setting}
+
+\textbf{Novel-view reconstruction.} For the interpolation setting, we use the reported numbers from previous work for reference. Those evaluations are done using 3 novel views inside the context frustums. In our extrapolation setting, we use 2 novel views outside and one novel view inside the context frustums. All the multi-view methods use all the context views to produce the 3D Gaussians. Comparing single-view methods to multi-view methods is inherently unfair since single-view methods have less information and lower resolutions (i.e., fewer 3D Gaussians). Although we cannot avoid this unfairness, to better compare multi-view and single-view methods, we use the context view that produces the best SSIM score for each target view as the input for the single-view method. It is not intuitive to apply the multi-view methods (i.e., pixelSplat~\citep{charatan2024pixelsplat} and MVSplat~\citep{chen2024mvsplat}) in the single-view setting. To adapt them, we simply repeat the input view to create another view, since the training data already contains views that are very close to each other. We noticed in the GitHub issue \url{https://github.com/donydchen/mvsplat/issues/37} that we may warp the input view to create a fake view. However, this is impossible without the scale or depth information.
+
+\textbf{Depth estimation.} DA2K~\citep{yang2024depth} is annotated by human on depth relationship between two pixels (i.e., which pixel is closer). To make sure both pixels are on the same image and to keep the aspect ratio, we pad the shorter edge of the image to the longer edge size and resize to $256 \times 256$. DIODE\citep{vasiljevic2019diode} dataset has the ground truth depth map with mask, we first extract two square crops from each image with maximum coverage and resize each crop to $256 \times 256$. Next, we perform median scaling to both the predicted depth map and the ground truth depth map. Then, we apply the mask on both the predicted depth map and the ground truth depth map before computing the metrics. Finally, we average the metrics over all the crops.
+
+\textbf{Depth estimation metric.}
+The metrics are defined following previous work~\citep{eigen2014depth}. More specifically, the AbsRel, the absolute value of the difference between predicted depth and ground truth depth relative to the ground truth depth, and $\delta_1$, the percentage of pixel with predicted depth close enough to the ground truth depth, are defined as:
+
+\begin{equation}
+    \mathrm{AbsRel}(\hat{\bm D},\bm D)=\frac{1}{\|\bm D\|}\sum_{\hat{d},d\in \hat{\bm D},\bm D}|\hat{d}-d|/d,\; 
+\end{equation}
+\begin{equation}
+    \delta_1(\hat{\bm D},\bm D) = \frac{1}{\|\bm D\|}\|\{\hat{d},d\in \hat{\bm D},\bm D |\mathrm{Max}(\frac{\hat{d}}{d},\frac{d}{\hat{d}}) < 1.25\}\|,
+\end{equation}
+where $|\cdot|$ is the absolute value, $\|\cdot\|$ is the size of a matrix of the cardinality of a set, $\bm D$ is the ground truth depth map, $\hat{\bm D}$ is the predicted depth map, and $\hat{d},d\in \hat{\bm D},\bm D$ represents taking the depth values $\hat{d},d$ from each matrix at the corresponding pixels.
+
+\section{More Results}
+\label{sec:add_results}
+\textbf{Encoder without large-scale pre-training.} We also trained our model on RE10K dataset using DINO~\citep{caron2021emerging} with ImageNet~\citep{russakovsky2015imagenet} pre-trained weights (i.e., one tenth of the training data compare to DINOv2~\citep{oquab2023dinov2}) to evaluate how much the pre-trained encoder contributes to our model performance. From Table~\ref{tab:dinov1}, we observe a performance drop without using large-scale pre-trained weights which is expected. However, the performance drop is much smaller compare to model trained without the proposed modules. Therefore, the proposed modules are the main contributor to studentSplat's performance.
+\input{tables/less_pretrain}
+
+\textbf{Student model with ground truth depth pre-training.} We also trained our model on the RE10K dataset using pre-trained weights from Depth Anything V2~\citep{yang2024depth} (i.e., the training data contains ground truth depth labels) to evaluate if we can enhance the reconstruction quality when the student model has prior depth knowledge. From Table~\ref{tab:depth_anything}, we observe a performance improvement using Depth Anything V2 weights, which suggests that the performance of our studentSplat can be further improved if we employ a depth estimation model as the student model. This result further reinforces the connection between depth estimation and 3DGS.
+\input{tables/gt_depth}
+
+
+\textbf{Depth estimation and teacher supervision.} In addition to the ablation results in the main text, we validate the effectiveness of teacher supervision on geometric validity by performing depth estimation. As shown in Table~\ref{tab:mono_depth_teacher_sup_ablation}, the method without gradient matching performs worse, and the model without teacher supervision suffers a significant performance drop. These results further validate the effectiveness of the proposed teacher supervision.
+
+\input{tables/cross_depth_ablation}
+
+
+\textbf{Qualitative results.} Additional novel-view reconstructions are shown in Figure~\ref{fig:add_re10k_acid_qualitative}. The extrapolating region have lower quality and different content compare to the ground truth. Single-view results can be slightly less sharp. Qualitative results of self-supervised single-view depth estimation are visualized in Figures~\ref{fig:da2k_qualitative}, \ref{fig:add_diode_indoor_qualitative}, and \ref{fig:add_diode_outdoor_qualitative} for the DA2K~\citep{yang2024depth}, DIODE indoor~\citep{vasiljevic2019diode}, and DIODE outdoor~\citep{vasiljevic2019diode} datasets, respectively. Our studentSplat produces less noise compared to SplatterImage~\citep{szymanowicz2024splatter} and is comparable to GasMono~\citep{zhao2023gasmono}. The context confidence weight matrix $\bm W$ is visualized in Figure~\ref{fig:confidence_weight_mat}. The darker regions are less confident, while the brighter regions are more confident. We also show the thresholded $\bm W$ at 0.5 for better visualization. Note that the model is less confident at regions with missing information and object boundaries, where missing context from occlusion tends to happen. This confidence weight guides the extrapolator in our studentSplat model.
+\begin{figure}[t!]
+    \centering
+    \includegraphics[width=\textwidth]{figures/context_mask.pdf}
+    \caption{Visualization of the context confidence weight $\bm {W}$ on RE10K dataset. Our studentSplat is more confident at the brighter regions and less confident at the darker regions. The less confident regions of the rendered target are complete by the extrapolator.}
+    \label{fig:confidence_weight_mat}
+\end{figure}
+
+\textbf{Scene-level text-to-3D generation pipeline.} Generating new 3D views is helpful for 3D design and content creation. Current methods on text-to-3D scene generation require per-scene optimization~\citep{zhang2024text2nerf}, multiple iterations and depth refinement~\citep{ouyang2023text2immersion,fridman2024scenescape,zhang20243d}, or are constrained by predefined objects~\citep{chang2014learning}. By combining studentSplat with Stable Diffusion~\citep{rombach2022high}, we can produce a scene-level text-to-3DGS method that generates diverse 3D scenes without depth guidance. More importantly, we can obtain a text-to-3D scene pipeline without training a 3D generative model. The results are shown in Figure~\ref{fig:text_to_3d}. We apply a fake forward camera shift of 0.2 and use the intrinsics from the training data.
+
+
+
+\begin{figure}[t!]
+    \centering
+    \includegraphics[width=\textwidth]{figures/additional_qulitative_edited.pdf}
+    \caption{Additional qualitative comparison between representative methods in the extrapolation setting. The top four rows are from RE10K, and the bottom four rows are from ACID. The multi-view method uses both context views, whereas the single-view method only uses the context view highlighted in green.}
+    \label{fig:add_re10k_acid_qualitative}
+\end{figure}
+
+\begin{figure}[t!]
+    \centering
+    \includegraphics[width=0.9\textwidth]{figures/da2k_qualitative.pdf}
+    \caption{Additional qualitative comparison between representative methods for self-supervised single-view depth estimation performance on the DA2K dataset. Line segments in the original images represent the predicted depth difference (red: incorrect, green: correct).}
+    \label{fig:da2k_qualitative}
+\end{figure}
+
+\begin{figure}[t!]
+    \centering
+    \includegraphics[width=0.9\textwidth]{figures/diode_indoor.pdf}
+    \caption{Additional qualitative comparison between representative methods for self-supervised single-view depth estimation performance on the DIODE indoor dataset.}
+    \label{fig:add_diode_indoor_qualitative}
+\end{figure}
+
+\begin{figure}[t!]
+    \centering
+    \includegraphics[width=0.9\textwidth]{figures/diode_outdoor.pdf}
+    \caption{Additional qualitative comparison between representative methods for self-supervised single-view depth estimation performance on the DIODE outdoor dataset.}
+    \label{fig:add_diode_outdoor_qualitative}
+\end{figure}
+
+\begin{figure}[t!]
+    \centering
+    \includegraphics[width=0.9\textwidth]{figures/text_to_3d.pdf}
+    \caption{Visualization of the text-to-3D generation result using studentSplat with teacher refine detailed in Section~\ref{sec:teacher_refine} on the Stable Diffusion output. The input is highlighted in green.}
+    \label{fig:text_to_3d}
+\end{figure}
+
+\clearpage
+\section{Refining Student Output with Teacher Model} 
+\label{sec:teacher_refine}
+\subsection{Method}
+The single-view studentSplat generally produces better quality novel-view reconstructions and extrapolation when the camera view change is small. More importantly, the multi-view teacher model still performs better in 3D reconstruction than the student model. These properties lead us to another design that further improves the 3D reconstruction performance. Specifically, we use studentSplat to generate good quality novel views using one input view and fake camera poses with small shifts. Then, the input view and generated novel views with the fake camera poses are used as the context for the teacher input. The advantage of this pipeline is that we preserve the single-view nature of our studentSplat and only trade off the inference speed for performance improvements. The overall pipeline is shown in Figure~\ref{fig:student_teacher_refine}.
+\begin{figure}[ht!]
+    \centering
+    \includegraphics[width=\textwidth]{figures/student_teacher_refine.pdf}
+    \caption{\textbf{The pipeline to refine the student output with the teacher model.} The student model generates additional viewpoints using user-specified virtual camera poses. The teacher model utilizes these generated viewpoints and the corresponding virtual camera poses to refine the camera pose estimates.}
+    \label{fig:student_teacher_refine}
+\end{figure}
+\subsection{Results}
+Using the teacher refinement, we can improve the quality of the generated 3D structure. We show the improvements using the single-view depth estimation task. We use a forward ($z$-axis) shift of 0.5 to produce the relative camera poses. All the camera intrinsics, near plane, and far plane are directly taken from the training dataset RE10K~\citep{zhou2018stereo}. Only one image is provided to the pipeline to predict the depth. As shown in Table~\ref{tab:mono_depth_teacher_refine}, the additional use of teacher refinement results in noticeable performance improvements. We can also see from Figure~\ref{fig:teacher_refine_qualitative} that the refined depth maps are much sharper.
+\input{tables/cross_depth_teacher_refine}
+\begin{figure}[ht!]
+    \centering
+    \includegraphics[width=0.8\textwidth]{figures/teacher_refine_qualitative.pdf}
+    \caption{The qualitative comparison between the studentSplat with and without teacher refinement.}
+    \label{fig:teacher_refine_qualitative}
+\end{figure}
+
+\end{document}

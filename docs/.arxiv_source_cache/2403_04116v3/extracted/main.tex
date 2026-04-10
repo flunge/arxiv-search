@@ -1,0 +1,604 @@
+\documentclass[runningheads]{llncs}
+
+\usepackage{eccv}
+
+\usepackage{graphicx}
+\usepackage{multirow}
+\usepackage{tikz}
+\usepackage{comment}
+\usepackage{amsmath,amssymb}
+\usepackage{color,xcolor,colortbl}
+
+\usepackage{caption}
+\usepackage{wrapfig}
+\usepackage{booktabs}
+\usepackage{eccvabbrv}
+
+\usepackage{graphicx}
+\usepackage{booktabs}
+
+
+\usepackage[accsupp]{axessibility}
+
+\usepackage[pagebackref,breaklinks,colorlinks,citecolor=eccvblue]{hyperref}
+
+\usepackage{bm}
+\newcommand{\ul}[1]{\underline{\smash{#1}}}
+\definecolor{lightgray}{gray}{0.95}
+\definecolor{color3}{gray}{0.95}
+\definecolor{rouse}{rgb}{0.981,0.961,0.941}
+
+
+\begin{document}
+
+\title{Radiative Gaussian Splatting \\ for Efficient X-ray Novel View Synthesis} 
+
+
+\author{Yuanhao Cai $^{1}$, Yixun Liang $^{2}$, Jiahao Wang $^{1}$, Angtian Wang $^{1}$, \\  Yulun Zhang $^{3,\dagger}$, Xiaokang Yang $^3$, Zongwei Zhou $^{1,\dagger}$, and Alan Yuille $^{1}$ \\
+}
+%
+\authorrunning{Yuanhao Cai \emph{et al.}}
+\vspace{-2mm}
+\institute{$^{1}$ Johns Hopkins University, $^2$ HKUST(GZ), $^3$ Shanghai Jiao Tong University
+}
+
+\maketitle
+
+\vspace{-4mm}
+\begin{abstract}
+X-ray is widely applied for transmission imaging due to its stronger penetration than natural light. When rendering novel view X-ray projections, existing methods mainly based on NeRF suffer from long training time and slow inference speed. In this paper, we propose a 3D Gaussian splatting-based framework, namely X-Gaussian, for X-ray novel view synthesis. Firstly, we redesign a radiative Gaussian point cloud model inspired by the isotropic nature of X-ray imaging. Our model excludes the influence of view direction when learning to predict the radiation intensity of 3D points. Based on this model, we develop a Differentiable Radiative Rasterization (DRR) with CUDA implementation. Secondly, we customize an Angle-pose Cuboid Uniform Initialization (ACUI) strategy that directly uses the parameters of the X-ray scanner to compute the camera information and then uniformly samples point positions within a cuboid enclosing the scanned object. Experiments show that our X-Gaussian outperforms state-of-the-art methods by \textbf{6.5 dB} while enjoying less than \textbf{15\%} training time and over \textbf{73$\bf \times$} inference speed. The application on sparse-view CT reconstruction also reveals the practical values of our method. \url{https://github.com/caiyuanhao1998/X-Gaussian}
+	
+\end{abstract}
+
+\vspace{-1mm}
+\let\thefootnote\relax\footnotetext{$\dagger =$ corresponding authors.}
+
+\vspace{-7mm}
+\section{Introduction}
+\vspace{-2mm}
+\begin{wrapfigure}{r}{0.39\textwidth}
+	\vspace{-13mm} 
+	\begin{center}\hspace{-2mm}
+		\includegraphics[width=0.39\textwidth]{figures/teaser_v6.pdf}
+	\end{center}
+	\vspace{-6mm}
+	\caption{\small  PSNR-minute-fps comparison. The radius of circle represents the training time (minutes). Our method is the most efficient.}
+	\vspace{-5mm}
+	\label{fig:teaser}
+\end{wrapfigure} 
+X-ray novel view synthesis (NVS) aims to create X-ray projections of an object from new viewpoints that are not originally captured, using only existing projections scanned from different view directions. As we know, X-ray has stronger penetrating power to capture internal structures of imaged objects and is thus widely applied in medical imaging~\cite{x_ray_1,x_ray_2,x_ray_3,x_ray_4,cbct_3,iterative_1}. Yet, X-ray is harmful to human body due to its powerful ionizing radiation, especially when the dose of X-ray increases. Improving NVS techniques can help reduce the exposure to X-rays and provide comprehensive viewpoints of imaged parts for doctors and downstream tasks such as CT reconstruction. Thus, X-ray NVS is very important and valuable. We study this task in the circular cone beam X-ray scanning scenario~\cite{cbct,mv_x_2,mv_x_1,mv_x_3,analytical_2,vw_art,iterative_2,iterative_3}. 
+
+\begin{figure*}[t]
+	\begin{center}
+		\begin{tabular}[t]{c}  \hspace{-3.8mm}
+			\includegraphics[width=1.00\textwidth]{figures/visual_analysis_v7.pdf}
+		\end{tabular}
+	\end{center}
+	\vspace{-6mm}
+	\caption{\small Point cloud visualization of the original 3DGS~\cite{3dgs} (top) and our X-Gaussian (bottom). We visualize the positions and opacities of the Gaussian point clouds at different training iterations. We also visualize the volume of foot as a reference. Note that the volume is not the ground truth of point clouds. Our X-Gaussian can better represent the detailed structures than 3DGS, showing faster and better convergence. }
+	\label{fig:analysis_3dgs}
+	\vspace{-5mm}
+\end{figure*}
+
+Existing methods are mainly based on neural radiance fields (NeRF)~\cite{nerf}. They usually employ a multi-layer perceptron (MLP) to learn the mapping from the point position to the radiodensity and then create projections by volume rendering along rays. This ray tracing scheme is time-consuming because it needs to sample many 3D points and then compute them for every single ray, slowing down the training and inference processes. Even the recent most efficient NeRF-based method~\cite{naf} still requires over an hour for training and yields suboptimal results at a slow inference speed of 2 fps, as shown in Fig.~\ref{fig:teaser}. This increases the waiting time of patients and doctors, leading to low diagnostic efficiency.
+
+Recently, 3D Gaussian splatting (3DGS)~\cite{3dgs} has demonstrated promising reconstruction quality while enjoying much faster inference speed than NeRF-based algorithms in RGB domain, which motivates us to follow this technical route. However, due to the fundamental differences between X-ray and natural light imaging, directly applying the original 3DGS to X-ray NVS may encounter two issues. \textbf{Firstly}, the spherical harmonics (SH) in RGB 3DGS is not suitable for modeling the X-ray radiation intensity of 3D points. Specifically, natural light imaging relies on the reflection off the surface. The color of a 3D point is anisotropic and view-dependent. Based on this nature, the original Gaussian point cloud model uses SH to fit the illumination distribution.  In contrast, X-rays penetrate the object and attenuate, thereby forming an image. Given specific X-rays, the radiation intensity of a 3D point depends on its radiodensity and is independent to the view direction, which means the point radiation intensity is isotropic. \textbf{Secondly}, the original point cloud initilization algorithm, structure-from-motion (SfM)~\cite{sfm}, is also not suitable for X-ray imaging. Compared to RGB images, X-ray images are grayscale and their contrast is lower. Additionally, different layers of an object may overlap on the same position of the projection due to the transmission imaging nature of X-rays. These two problems degrade the accuracy of feature detection and matching in SfM. Meanwhile, running SfM is time-consuming, which prolongs the training process of Gaussian point clouds.
+
+
+To address the above issues, we propose a novel 3DGS-based method, X-Gaussian, for X-ray NVS. Our X-Gaussian composes two key techniques. \textbf{Firstly}, we redesign a radiative Gaussian point cloud model inspired by the isotropic property of X-ray imaging. We present a Radiation Intensity Response Function (RIRF) to replace the SH function of the original 3DGS. Different from SH, our RIRF excludes the influence of view direction. To this end, it adopts the inner product between a learnable vector representing the inherent point features and a set of basis weights to fit the radiation intensity of a 3D point. Based on this point cloud model, we further develop a Differentiable Radiative Rasterization (DRR) with a CUDA implementation to render novel projections. \textbf{Secondly}, we customize an Angle-pose Cuboid Uniform Initialization (ACUI) strategy for camera calibration parameters and Gaussian point clouds. Our ACUI first exploits the parameters of the X-ray scanner to compute the intrinsic and extrinsic matrices. Then we set up a cuboid that can completely enclose the scanned object. Within this cuboid, we uniformly sample 3D points at intervals to initialize the center positions of the Gaussian point clouds. Free from running the  SfM algorithm, our ACUI significantly reduces the training time. Equipped with the two proposed techniques, our X-Gaussian enjoys faster convergence, better performance, and shorter running time than state-of-the-art (SOTA) algorithms, as shown in Figs.~\ref{fig:teaser} and \ref{fig:analysis_3dgs}. Surprisingly, X-Gaussian outperforms SOTA methods by \textbf{6.5 dB} while enjoying \textbf{73$\times$} inference speed and \textbf{7$\times$} training speed.
+
+
+
+The main contributions of this work can be summarized as follows:
+\begin{itemize}
+	\vspace{-1.5mm}
+	\item We propose a novel 3D Gaussian splatting-based framework, X-Gaussian, for X-ray novel view synthesis. To our knowledge, this is the first attempt to explore the potential of Gaussian splatting in X-ray neural rendering.
+	\vspace{1mm}
+	\item We design a radiative Gaussian point cloud model with a differentiable radiative rasterization based on the isotropic nature of X-ray imaging.
+	\vspace{1mm}
+	\item We present an angle-pose cuboid uniform initialization strategy for Gaussian point clouds and camera calibration in circular cone beam X-ray scanning.
+	%\vspace{-1.25mm}
+	\vspace{1mm}
+	\item Our X-Gaussian significantly outperforms SOTA NeRF-based methods with much faster speed. Experiments also show that our method can improve the performance of sparse-view CT reconstruction, showing its practical values.
+\end{itemize}
+
+\vspace{-4mm}
+\section{Related Work}
+\vspace{-1.5mm}
+
+\subsection{Neural Radiance Field}
+\vspace{-0.5mm}
+
+NeRF~\cite{nerf} learns an implicit neural scene representation of color and volume density, given the position of a 3D point and view direction. It has achieved great success in NVS and inspired an explosion of follow-up papers to improve its quality~\cite{mip_nerf,mipnerf360,refnerf,trimiprf,zipnerf} and speed~\cite{instant_ngp,merf,tensorf,nerfacc,bakedsdf,mobilenerf,EfficientNeRF}.  For example, Instant-NGP~\cite{instant_ngp} adopts hash tables as the encoder to allow small MLP for fast training and inference. Some later works extend the application domain of NeRF from natural light to X-rays~\cite{intratomo,naf,mednerf,cai2023structure}. For instance, 
+NAF~\cite{naf} follows the settings of Instant-NGP to learn the implicit mapping from 3D position to attenuation. Yet, the ray tracing and volume rendering schemes are time-consuming, which limits the training and inference speed of NeRF-based X-ray NVS algorithms.
+
+
+\vspace{-3mm}
+\subsection{Gaussian Splatting}
+\vspace{0mm}
+3DGS~\cite{3dgs} represents scenes using millions of 3D Gaussian point clouds. This approach is fundamentally different from NeRF-based algorithms by employing an explicit representation coupled with highly parallelized rasterization workflows. These features enable more efficient computation and rendering processes. Hence, 3DGS has achieved great success in several fields, including 3D  Generation~\cite{dreamgaussian,gaussiandreamer,luciddreamer,hugs,gauhuman}, Dynamic Scene Modeling~\cite{dynamic1,dynamic2,dynamic3}, SLAM~\cite{slam1,slam2,slam3,slam4}, Inverse Rendering~\cite{InverseRendering1,InverseRendering2,InverseRendering3}, \emph{etc.} However, most applications of 3DGS are focused on natural scenes with RGB colors. The potential of 3DGS in X-ray imaging still remains under-explored. Our goal is to fill this research gap.
+
+
+\begin{figure*}[t]
+	\begin{center}
+		\begin{tabular}[t]{c} \hspace{-3.3mm}	\includegraphics[width=1.02\textwidth]{figures/pipeline_v4.pdf}
+		\end{tabular}
+	\end{center}
+	\vspace*{-7mm}
+	\caption{\small Pipeline of our method. (a) Angle-pose Cuboid Uniform Initialization (ACUI) strategy uses the parameters of X-ray scanner to compute intrinsic and extrinsic matrices, and samples center points for 3D Gaussians. (b) Our radiative Gaussian point cloud model learns to predict the radiation intensity of 3D points. (c) Based on our Gaussian model, we develop a GPU-friendly Differentiable Radiative Rasterization (DRR).}
+	\label{fig:pipeline}
+	\vspace{-3mm}
+\end{figure*}
+
+\vspace{-2mm}
+\section{Method}
+\vspace{-2mm}
+The pipeline of our X-Gaussian is shown in Fig.~\ref{fig:pipeline}. Firstly, we design an Angle-pose Cuboid Uniform Initialization (ACUI) to compute the intrinsic and extrinsic matrices from the parameters of X-ray scanner, as illustrated in Fig.~\ref{fig:pipeline} (a). Then ACUI uniformly samples 3D points within a cuboid that can completely enclose the scanned object to initialize the center positions of our radiative Gaussian point clouds in Fig.~\ref{fig:pipeline} (b). Given a view direction, the 3D point clouds undergo our Differentiable Radiative Rasterization (DRR) to derive the rendered image, as depicted in Fig.~\ref{fig:pipeline} (c). In this section, we will introduce our radiative Gaussian point cloud model and DRR processing first and then the ACUI strategy.
+
+
+\vspace{-3mm}
+\subsection{Radiative Gaussian Point Cloud Model}
+\vspace{-1mm}
+\label{sec:pc_model}
+
+An object can be represented by a set of basic Gaussian point clouds $\mathcal{G}$ as
+\begin{equation}
+    \mathcal{G} = \{G_i(\bm{\mu}_i, \mathbf{\Sigma}_i, \alpha_i)~|~i = 1, 2, \dots, N_p\},
+\end{equation}
+where $G_i$ refers to the $i$-th Gaussian point cloud. Its center position, covariance, and opacity are defined as $\bm{\mu}_i \in \mathbb{R}^3$, $\mathbf{\Sigma}_i \in \mathbb{R}^{3\times3}$, and $\alpha_i \in \mathbb{R}$. 
+$\mathrm{\bf \Sigma}_i$ is represented by a rotation matrix $\mathbf{R}_i \in \mathbb{R}^3$ and a scaling matrix $\mathbf{S}_i \in \mathbb{R}^3$ as $\mathrm{\bf \Sigma}_i = \mathbf{R}_i \mathbf{S}_i \mathbf{S}_i^\top \mathbf{R}_i^\top$. $\bm{\mu}_i$, $\mathbf{\Sigma}_i$, $\alpha_i$, $\mathbf{R}_i$, and $\mathbf{S}_i$ are learnable parameters. Besides these basic attributes, each Gaussian point cloud also employs additional learnable parameters to fit different imaging scenarios, \emph{e.g.}, natural light imaging and X-ray imaging.
+
+We first review the original RGB Gaussian point cloud model~\cite{3dgs} in natural light imaging.  As shown in Fig.~\ref{fig:pc_model} (a),  the color of a 3D point is represented by spherical harmonics (SH). The point color is anisotropic and changes with the view direction. Each Gaussian point cloud learns to predict the SH coefficients $\mathbf{k} = \{k_l^m | 0 \leq l \leq L, -l \leq m \leq l\} \in \mathbb{R}^{(L+1)^2\times 3}$, where each $k_l^m \in \mathbb{R}^{3}$ is a set of 3 coefficients corresponding to the RGB components. $L$ is the degree of SH. Then the point color $\mathbf{c} \in \mathbb{R}^{3}$ at the view direction $\mathbf{d} = (\theta, \phi)$ is derived by
+\vspace{-1.6mm}
+\begin{equation}
+	\small
+	\mathbf{c}(\mathbf{d}, \mathbf{k}) = \sum_{l  = 0}^{L} \sum_{m = -l}^{l} k_l^m~Y_l^m(\theta, \phi),
+	\label{eq:original_pc_model}
+\vspace{-1.4mm}
+\end{equation}
+where  $Y_l^m: \mathbb{S}^2 \rightarrow \mathbb{R}$ is the SH function that maps points on the sphere to real numbers. Please refer to the supplementary for its detailed formulation.
+
+
+\begin{figure*}[t]
+	\begin{center}
+		\begin{tabular}[t]{c} \hspace{-3.3mm}	\includegraphics[width=1.01\textwidth]{figures/pc_model_v5.pdf}
+		\end{tabular}
+	\end{center}
+	\vspace*{-7mm}
+	\caption{\small Comparison between the Gaussian point cloud models of the original 3DGS and our X-Gaussian. (a) The original RGB Gaussian point cloud model uses spherical harmonics (SH) to simulate the anisotropic natural light distribution and view-dependent color. (b) Our radiative Gaussian point cloud model employs the weighted sum of point features to fit the isotropic X-ray penetration and view-independent radiation intensity.}
+	\label{fig:pc_model}
+	\vspace{-3.5mm}
+\end{figure*}
+
+Although 3DGS~\cite{3dgs} achieves fast inference speed and good performance in natural light imaging, the RGB Gaussian point cloud model is not suitable for X-ray scenarios due to the fundamental differences between natural light imaging and X-ray imaging. Natural light imaging relies on the reflection off the surface of object. The anisotropic color modeled by SH is view-dependent. \emph{e.g.}, in Fig.~\ref{fig:pc_model} (a), the point color is blue from the left viewpoint and green from the right viewpoint. In contrast, X-ray imaging is based on the attenuation when penetrating the object. The degree of attenuation depends on the isotropic radiodensity property. Thus, the radiation intensity of a 3D point is view-independent. 
+
+In light of the above analysis, we redesign our radiative Gaussian point cloud model. Different from the original 3DGS that uses SH to fit the color information for each point,  our model introduces a Radiation Intensity Response Function (RIRF) to predict the radiation intensity of the 3D point. As illustrated in Fig.~\ref{fig:pc_model} (b), each Gaussian point cloud learns a feature vector $\mathbf{f} \in \mathbb{R}^{N_f}$ to represent its inherent radiative properties. Subsequently, the radiation intensity $\mathbf{i} \in \mathbb{R}$ of the center point of a 3D Gaussian at any view direction is modeled by RIRF as
+\vspace{-1.3mm}
+\begin{equation}
+	\small
+	\mathbf{i}(\mathbf{f}) = \text{RIRF}(\mathbf{f}) = \text{Sigmoid}(\bm{\lambda} \odot \mathbf{f}),
+	\label{eq:xray_pc_model}
+\vspace{-1.7mm}
+\end{equation}
+where the Sigmoid function activates and normalizes the radiation intensity. $\bm{\lambda} \in \mathbb{R}^{N_f}$ is a set of constant weights controlling the importance of each component of $\mathbf{f}$. Then the set of our radiative Gaussian point clouds $\mathcal{G}_x$ is formulated as
+\vspace{-0.9mm}
+\begin{equation}
+\small
+    \mathcal{G}_x = \{G_i(\bm{\mu}_i, \mathbf{\Sigma}_i, \alpha_i, \mathbf{f}_i)~|~i = 1, 2, \dots, N_p\},
+\vspace{-1.1mm}
+\end{equation}
+where $\mathbf{f}_i \in \mathbb{R}^{N_f}$ denotes the feature vector of the $i$-th Gaussian point cloud. Please note that Eq.~\eqref{eq:xray_pc_model} excludes the influence of the view direction $\mathbf{d} = (\theta, \phi)$, which matches the isotropic nature of X-ray imaging. Meanwhile, Eq.~\eqref{eq:xray_pc_model} is free from the complex computation of SH function.
+Hence, the forward and backward processes of our X-Gaussian are much faster than those of the original 3DGS. 
+
+\vspace{-3mm}
+\subsection{Differentiable Radiative Rasterization}
+\vspace{-1mm}
+Based on our radiative Gaussian point cloud, we develop a Differentiable Radiative Rasterization (DRR), as shown in Fig.~\ref{fig:pipeline} (c). We first summarize the overall DRR processing $F_{\text{DRR}}$ and then describe its details. DRR is represented as
+\vspace{-0.3mm}
+\begin{equation}
+\small
+\mathbf{I} = F_{\text{DRR}}(\mathbf{M}_{ext}, \mathbf{M}_{int}, \{G_i(\bm{\mu}_i, \mathbf{\Sigma}_i, \alpha_i, \mathbf{f}_i)~|~{i = 1, 2, \dots, N_p}\}),
+ \label{eq:drr}
+\vspace{-0.4mm}
+\end{equation}
+where $\mathbf{I} \in \mathbb{R}^{H\times W}$ denotes the rendered image, $\mathbf{M}_{ext} \in \mathbb{R}^{4\times 4}$ represents the extrinsic matrix, and $\mathbf{M}_{int} \in \mathbb{R}^{4\times 3}$ refers to the intrinsic matrix. Subsequently, we introduce the details of $F_{\text{DRR}}$. To begin with, the possibility value of the $i$-th Gaussian distribution at the 3D point position $\mathbf{x} \in \mathbb{R}^3$ is formulated as
+\vspace{-0.7mm}
+\begin{equation}
+	\small
+	P(\mathbf{x}|\mathrm{\bm{\mu}}_i, \mathrm{\bf \Sigma}_i) = \text{exp}\big(-\frac{1}{2}(\mathbf{x} - \bm{\mu}_i)^\top \mathrm{\bf \Sigma}_i^{-1} (\mathbf{x} - \bm{\mu}_i)\big).
+ \vspace{-0.7mm}
+\end{equation}
+Then we project the 3D Gaussians to the 2D detector plane for subsequent rendering.  $\bm{\mu}_i$ is firstly transferred from the world coordinate system to the camera coordinate system and then projected to the image coordinate system as
+\vspace{-0.6mm}
+\begin{equation}
+	\small
+	\widetilde{\mathbf{t}}_i = 
+	\begin{bmatrix}
+		\mathbf{t}_{i}\\
+		1
+	\end{bmatrix} = \mathbf{M}_{ext}~ \widetilde{\bm{\mu}}_i = \mathbf{M}_{ext}~
+	\begin{bmatrix}
+		\bm{\mu}_{i}\\
+		1
+	\end{bmatrix}, ~~~~
+    \widetilde{\mathbf{u}}_i = 
+	\begin{bmatrix}
+		\mathbf{u}_{i}\\
+		1
+	\end{bmatrix} = \mathbf{M}_{int}~ \widetilde{\mathbf{t}}_i = \mathbf{M}_{int}~
+	\begin{bmatrix}
+		\mathbf{t}_{i}\\
+		1
+	\end{bmatrix},
+ \vspace{-1mm}
+\end{equation}
+where $\mathbf{t}_{i} = ({t}_{x}, {t}_{y}, {t}_{z}) \in \mathbb{R}^3$  is the camera coordinate of $\bm{\mu}_{i}$ and $\mathbf{u}_i \in \mathbb{R}^{2}$ is the image coordinate of $\bm{\mu}_i$. $\widetilde{\mathbf{u}}_i$, $\widetilde{\mathbf{t}}_i$, and $ \widetilde{\bm{\mu}}_i$ are the homogeneous coordinates of $\mathbf{u}_i$, $\mathbf{t}_{i}$, and $\bm{\mu}_{i}$, respectively. Subsequently, we transfer the 3D covariance matrix $\mathrm{\bf \Sigma}_i$ to its counterpart $\mathrm{\bf \Sigma}_i^{'} \in \mathbb{R}^{3\times 3}$ in the camera coordinate system as
+\vspace{-1mm}
+\begin{equation}
+	\small
+	\mathrm{\bf \Sigma}_i^{'} = \mathbf{J}_i \mathbf{W}_i \mathrm{\bf \Sigma}_i \mathbf{W}_i^\top \mathbf{J}_i^\top, 
+ \vspace{-1mm}
+\end{equation}
+where $\mathbf{J}_i \in \mathbb{R}^{3\times 3}$ is the Jacobian of the affine approximation of the projective transformation. $\mathbf{W}_i \in \mathbb{R}^{3\times 3}$ is the viewing transformation. We derive them by
+% \vspace{0.5mm}
+\vspace{-0.3mm}
+\begin{equation}
+	\small
+	\mathbf{J}_i = 
+	\begin{bmatrix}
+		\frac{L_{SD}}{t_z} &0 &-\frac{L_{SD}~t_x}{t_z^2}\\
+		0 & \frac{L_{SD}}{t_z} &-\frac{L_{SD}~t_y}{t_z^2} \\
+		0 & 0 & 0
+	\end{bmatrix},~~~~~~
+	\mathbf{W}_{i} =
+	\begin{bmatrix}
+		-\sin\phi & \cos\phi & 0 \\
+		0 & 0 & -1 \\
+		-\cos\phi & -\sin\phi & 0  \\
+	\end{bmatrix},
+	% \vspace{0.5mm}
+ \vspace{-1mm}
+\end{equation}
+where $L_{SD}$ represents the distance between the X-ray source and detector. $\phi$ refers to the azimuth angle of the source. Following ~\cite{ewa,kopanas2021point,3dgs}, we obtain the 2D covariance matrix $\mathrm{\bf \Sigma}_i^{''} \in \mathbb{R}^{2\times2}$ by skipping the third row and column of $\mathrm{\bf \Sigma}_i^{'}$. Then the 2D projection is partitioned into non-overlapping tiles. The 3D Gaussians ($\bm{\mu}_i$,$\bm{\mathbf{\Sigma}}_i$) are assigned to different tiles according to their 2D projections ($\bm{u}_i$,$\bm{\mathbf{\Sigma}}^{''}_i$), as shown in the left image of Fig.~\ref{fig:pipeline} (c). These 3D Gaussians are sorted by the distances to the 2D detector. Then the intensity $\mathbf{I}(p) \in \mathbb{R}$ at pixel $p$ is obtained by blending $\mathcal{N}$ ordered points overlapping the pixel in the corresponding tile as
+\vspace{-1.2mm}
+\begin{equation}
+	\small
+	\mathbf{I}(p) = \sum_{j \in \mathcal{N}} \mathbf{i}_j~\sigma_j  \prod_{k=1}^{j-1}(1-\sigma_k),~~~~\sigma_j = \alpha_j P(\mathbf{x}_j | \bm{\mu}_j, \mathrm{\bf \Sigma}_j),
+	\vspace{-0.8mm}
+\end{equation}
+where $\mathbf{x}_j$ is the $j$-th intersection 3D point of the X-ray landing on pixel $p$ and the Gaussian point clouds in 3D space. $\mathbf{i}_j$ is the radiation intensity of $\mathbf{x}_j$.
+
+\vspace{1mm}
+\noindent\textbf{Optimization.} Eventually, the  training objective $\mathcal{L}$ is the weighted sum of $\mathcal{L}_1$ loss and SSIM loss between the rendered and ground-truth projection images as
+\vspace{-2.5mm}
+\begin{equation}
+	\small
+	\mathcal{L} = (1 - \gamma) \mathcal{L}_1 + \gamma \mathcal{L}_{\text{SSIM}},
+ \vspace{0.5mm}
+\label{eq:loss}
+\end{equation}
+where $\gamma$ is a hyperparameter balancing the importances of the two loss terms. By minimizing Eq.~\eqref{eq:loss}, we can optimize the attributes of 3D Gaussians, \emph{i.e.}, $\bm{\mu}_i, \mathbf{\Sigma}_i, \alpha_i, \text{and} ~\mathbf{f}_i$ in Eq.~\eqref{eq:drr}. $N_p$ is adjusted by the adaptive control~\cite{3dgs}. The optimization process is visualized in Fig.~\ref{fig:analysis_3dgs} and the video file in supplementary.
+
+Compared to the RGB rasterization in 3DGS~\cite{3dgs}, our DRR avoids the complex computations related to the view direction in the forward and backward processes, thereby enjoying cheaper training costs and faster inference speed.
+
+\vspace{-3mm}
+\subsection{Angle-pose Cuboid Uniform Initialization}
+\vspace{-0.5mm}
+At the beginning of training, we need to initialize the parameters in Eq.~\eqref{eq:drr} for rasterization. Specifically, $\mathbf{\Sigma}_i$, $\alpha_i$, and $\mathbf{f}_i$ are randomly initialized. In natural light imaging, the original 3DGS~\cite{3dgs} adopts the SfM~\cite{sfm} algorithm to compute the initial $\bm{\mu}_i$, $N_p$, $\mathbf{M}_{ext}$, and $\mathbf{M}_{int}$. SfM detects and matches features from multi-view images. It is not suitable for X-ray imaging due to two reasons. Firstly, X-ray images are grayscale and low-contrast. Secondly, different layers of an object may overlap on the same positions of the projection. These two problems degrade the accuracy of feature detection and matching in SfM. Besides, running the SfM algorithm usually requires a long time, which prolongs the training process.
+
+To address these issues, we customize an Angle-pose Cuboid Uniform Initialization (ACUI) strategy for circular cone beam X-ray scanning scenario where a scanner emits cone-shaped X-ray beams and captures projections at equal angular intervals. As shown in Fig.~\ref{fig:pipeline} (a), ACUI uses the parameters of X-ray scanner  to compute the extrinsic matrix $\mathbf{M}_{ext}$ and intrinsic matrix $\mathbf{M}_{int}$ as
+\vspace{0.1mm}
+\begin{equation}
+    \small
+        \mathbf{M}_{ext} = 
+        \begin{bmatrix}
+            -\sin\phi & \cos\phi & 0 & 0 \\
+            0 & 0 & -1 & 0 \\
+            -\cos\phi & -\sin\phi & 0 & L_{SO} \\
+            0 & 0 & 0 & 1
+        \end{bmatrix}, ~~~~
+        \mathbf{M}_{int} = 
+        \begin{bmatrix}
+            L_{SD} & 0 & {W} / {2} &~~0~~ \\
+            0 & L_{SD} & {H} / {2} &~~0~~ \\
+            0 & 0 & 1 &~~0~~
+        \end{bmatrix},
+    \vspace{0.2mm}
+\end{equation}
+where $L_{SO}$ represents the distance between the X-ray source and the scanned object. The elevation angle of the X-ray source is set to zero and remains unchanged.
+The next step of ACUI is to initialize the center positions of 3D Gaussians. Although the precise shape of the scanned object is not given at the beginning, the scanning space can be approximated. We set up a cuboid with size $S_1\times S_2 \times S_3$ (mm)  that can completely enclose the object. The center of this cuboid is also the center of the object and the origin of the world coordinate system. We divide this cuboid by a grid with size $M_1\times M_2\times M_3$ (voxel). Then we uniformly sample points within the grid at interval $d \in \mathbb{R}$ as
+\begin{equation}
+	\small
+	\mathcal{P} = \Big\{\big(\frac{n_1 S_1 d}{M_1}, \frac{n_2 S_2 d}{M_2}, \frac{n_3 S_3 d}{M_3}\big)~\big|~-\big[\frac{M_i}{2d}\big]-1 \leq n_i \leq \big[\frac{M_i}{2d}\big]+1, ~i = 1, 2, 3\Big\},
+	\label{eq:sampling}
+\end{equation}
+where $n_i \in \mathbb{Z}$. Then we use the size and elements of $\mathcal{P}$ to initialize $N_p$ and $\bm{\mu}_i$. Avoiding running SfM, ACUI allows X-Gaussian to enjoy a faster training speed.
+
+
+\begin{table*}[t]
+	\renewcommand{\arraystretch}{1.0}
+	\vspace{2mm}
+	\newcommand{\tabincell}[2]{\begin{tabular}{@{}#1@{}}#2\end{tabular}}
+	\centering
+	\renewcommand{\arraystretch}{1.43}
+	\resizebox{\textwidth}{!}
+	{
+		\centering
+		\begin{tabular}{lccccccccccccc}
+			% 
+			\toprule[0.2em]
+			\rowcolor{lightgray}
+			Method~~ & ~~Infer Speed~~ & ~~Train Time~~ & ~~~~Chest~~~~ & ~~~~Foot~~~~ & ~~~~Head~~~~ & ~~Abdomen~~ &~~Pancreas~~ & ~~Average~~ \\ \midrule[0.1em]
+			InTomo~\cite{intratomo} & 0.62 fps & 125 min & \tabincell{c}{28.948\\0.9915} & \tabincell{c}{39.482\\0.9979} &\tabincell{c}{34.832\\0.9977}  & \tabincell{c}{27.641\\0.9646} &\tabincell{c}{20.031\\0.8537} &\tabincell{c}{30.187\\0.9611}  \\
+			\midrule[0.1em]
+			NeRF~\cite{nerf} & 0.14 fps & 313 min & \tabincell{c}{36.157\\0.9988} & \tabincell{c}{{41.053}\\{0.9989}} & \tabincell{c}{29.760\\0.9991}
+			& \tabincell{c}{24.620\\0.9559} &\tabincell{c}{19.853\\0.8560} &\tabincell{c}{30.289\\0.9617} \\
+			\midrule[0.1em]
+			TensoRF~\cite{tensorf}  & 0.77 fps & 178 min & \tabincell{c}{23.609\\0.9402} & \tabincell{c}{37.728\\0.9929} &\tabincell{c}{34.429\\0.9879}  & \tabincell{c}{27.382\\0.8730} &\tabincell{c}{29.235\\0.8031}  &\tabincell{c}{30.477\\0.9194} \\
+			\midrule[0.1em]
+			NeAT~\cite{neat} & 1.78 fps & 69 min & \tabincell{c}{40.765\\0.9990} & \tabincell{c}{38.236\\0.9963} &\tabincell{c}{27.738\\0.9295}  & \tabincell{c}{26.741\\0.8563} &\tabincell{c}{37.526\\0.9017} &\tabincell{c}{34.201\\0.9366} \\
+			\midrule[0.1em]
+			NAF~\cite{naf}  & {2.01 fps} & {63 min} & \tabincell{c}{{42.366}\\{0.9993}} & \tabincell{c}{38.353\\0.9913} & \tabincell{c}{30.174\\0.9531} &\tabincell{c}{{37.590}\\{0.9855}} &\tabincell{c}{36.228\\0.8844} &\tabincell{c}{36.942\\0.9627} \\
+			\midrule[0.1em]
+			\rowcolor{rouse}
+			X-Gaussian & \bf 148 fps & \bf 9 min & \tabincell{c}{\bf 43.887\\ \bf 0.9998} & \tabincell{c}{\bf 42.153 \\ \bf 0.9997} & \tabincell{c}{\bf 41.579 \\ \bf 0.9997} & \tabincell{c}{\bf 45.762 \\ \bf 0.9999} & \tabincell{c}{\bf 43.640 \\ \bf 0.9976} & \tabincell{c}{\bf 43.404 \\ \bf 0.9993}\\
+			\bottomrule[0.2em]
+		\end{tabular}
+	}
+	\vspace{2mm}
+	\caption{Quantitative results on the novel view synthesis task. The average inference speed and training time of all scenes evaluated on an RTX 8000 GPU are reported. In the cell of the results of each scene, PSNR (upper) and SSIM (lower) are listed.}
+	\label{tab:proj_compare}
+	\vspace{-7mm}
+\end{table*}
+
+
+
+\vspace{-3mm}
+\section{Experiments}
+\vspace{-2mm}
+
+\subsection{Experimental Settings}
+\vspace{-1mm}
+
+\subsubsection{Dataset.} Following NAF~\cite{naf}, we adopt the public datasets of human organ CTs, \emph{i.e.}, LIDC-IDRI~\cite{LIDC-IDRI} and the open scientific visualization dataset~\cite{osvd}, to evaluate our method. The test scenes include chest, foot, head, abdomen, and pancreas. We adopt the open-source tomographic toolbox TIGRE~\cite{tigre} to capture 100 projections with 3\% noise in the range of 0 $\sim$ 180$^\circ$. In the NVS task, 50 projections are used for training and the other 50 projections are used for testing. The CT volumes are used for testing in the sparse-view CT reconstruction task.
+
+\begin{figure*}[t]
+	\begin{center}
+		\begin{tabular}[t]{c} \hspace{-1.6mm}
+	\includegraphics[width=1\textwidth]{figures/proj_compare_v5_1.pdf}
+		\end{tabular}
+	\end{center}
+	\vspace*{-6.5mm}
+	\caption{\small Qualitative results of novel view synthesis on the scenes of pancreas (top) and chest (bottom). Our X-Gaussian yields clearer results. Please zoom in for a better view.}
+	\label{fig:proj_compare_1}
+	\vspace{-3.5mm}
+\end{figure*}
+
+\vspace{-5mm}
+\subsubsection{Implementation Details.} Our X-Gaussian is implemented by PyTorch~\cite{pytorch} and CUDA~\cite{cuda}. The model is trained with the Adam optimizer~\cite{adam} ($\beta_1$ = 0.9, $\beta_2$ = 0.999, and $\epsilon$ = 1$\times$10$^{-15}$) for 2$\times$10$^{4}$ iterations. The learning rate for point cloud position is initially set to 1.9$\times$10$^{-4}$ and exponentially decays to 1.9$\times$10$^{-6}$. The learning rates for point feature, opacity, scaling, and rotation are set to 2$\times$10$^{-3}$, 8$\times$10$^{-3}$, 5$\times$10$^{-3}$, and 1$\times$10$^{-3}$.   $\gamma$ in Eq.~\eqref{eq:loss} is set to 0.2. 
+We adopt peak signal-to-noise ratio (PSNR) and structural similarity index measure (SSIM)~\cite{ssim} to evaluate the performance.  Frames per second (fps) is used to measure the inference speed. Experiments are conducted on an RTX 8000 GPU.
+
+\vspace{-2.5mm}
+\subsection{Novel View Synthesis}
+\vspace{-0.5mm}
+\subsubsection{Quantitative Results.} Tab.~\ref{tab:proj_compare} shows the quantitative comparisons between our X-Gaussian and five SOTA NeRF-based algorithms, including InTomo~\cite{intratomo}, NeRF~\cite{nerf}, TensoRF~\cite{tensorf}, NeAT~\cite{neat}, and NAF~\cite{naf} on the NVS task.
+
+We report the average inference speed and training time of different methods on all scenes. In the cell of the results of each scene, PSNR (upper entry in the cell) and SSIM (lower entry in the cell) are listed.  As can be observed that our X-Gaussian not only surpasses SOTA methods by large margins in performance but also enjoys much faster inference speed and cheaper training costs. More specifically, compared with the recent best X-ray NeRF-based method NAF,  our X-Gaussian outperforms it by 6.5 dB on average and is 73$\times$ faster in inference while requiring less than 15\% training time. When compared with the SOTA RGB NeRF-based method TensoRF, our X-Gaussian is 12.93 dB higher while enjoying 192$\times$ inference speed and 20$\times$ training speed.
+
+
+
+To intuitively demonstrate the superiority of our method, we plot the PSNR-minute-fps comparison of different algorithms in Fig.~\ref{fig:teaser}. The vertical axis represents the performance in PSNR (dB). The horizontal axis indicates the inference speed in fps. The radius of the circle refers to the training time in minutes. It can be seen that X-Gaussian completely takes up the upper-right corner with the shortest training time, showing its extreme advantages in model efficiency.
+
+\vspace{-4mm}
+\subsubsection{Qualitative Results.} 
+Figs.~\ref{fig:proj_compare_1} and \ref{fig:proj_compare_2} depict the qualitative comparisons of NVS on the scenes of pancreas, chest, foot, and head. It can be observed from the zoomed-in patches that previous NeRF-based algorithms fail to render clear novel views. They either introduce undesired artifacts or produce blurry textures such as the toe bones of the foot. In contrast, our method yields visually realistic images by rendering more fine-grained details and clearer structural contents. 
+
+\begin{figure*}[t]
+	\begin{center}
+		\begin{tabular}[t]{c} \hspace{-2mm}
+			\includegraphics[width=1\textwidth]{figures/proj_compare_v4_2.pdf}
+		\end{tabular}
+	\end{center}
+	\vspace*{-6mm}
+	\caption{\small Qualitative results of novel view synthesis on foot (top) and head (bottom). Our method reconstructs more fine-grained details. Please zoom in for a better view.}
+	\label{fig:proj_compare_2}
+	\vspace{-4mm}
+\end{figure*}
+
+
+\vspace{-3mm}
+\subsection{Sparse-View CT Reconstruction}
+\vspace{-1mm}
+
+We compare our method with SOTA NeRF-based algorithms on sparse-view CT reconstruction. Since the Gaussian point clouds cannot directly infer the radiodensities of the CT volume, we evaluate different NeRF-based methods and our X-Gaussian by using them to create novel-view projections for three learning-free CT reconstruction methods, including an analytical method (FDK~\cite{fdk}) and two iterative methods (SART~\cite{sart} and ASD-POCS~\cite{asd_pocs}). Specifically, these three methods reconstruct the CTs from 5 original projections and 95 novel-view projections rendered by different NVS algorithms. The quantitative results are listed in Tab.~\ref{tab:ct}. When only using 5 original views (+ None), FDK, SART, and ASD-POCS achieve 7.41, 17.24, and 17.03 dB in PSNR, respectively. They fail to reconstruct the CT volumes. When employing our X-Gaussin to create novel X-ray projections for FDK, SART, and ASD-POCS, they yield the most significant improvements of 15.19, 13.01, and 13.53 dB in PSNR. These improvements are 1.32, 2.41, and 2.65 dB higher than the improvements of using NAF.
+
+Figs.~\ref{fig:ct_compare_sart} and \ref{fig:ct_compare_asd_pocs} show the qualitative results of sparse-view CT reconstruction on the scenes of foot, chest, abdomen, and head. Without using rendered novel-view projections, SART and ASD-POCS fail in reconstructing the CT slices. When using SOTA X-ray NeRF-based methods to create novel views, SART and ASD-POCS produce over-smooth CT slices with blurry structural contents. On the contrary, when using our X-Gaussian to assist SART and ASD-POCS, they can reconstruct much clearer CT slices with more high-frequency textures and fine-grained structural details, such as the vessels in the chest (Fig.~\ref{fig:ct_compare_sart}) and the spine in the head (Fig.~\ref{fig:ct_compare_asd_pocs}). These results clearly demonstrate the potential practical values of our method on the sparse-view CT reconstruction task.
+
+\begin{table*}[t]
+	\centering
+	\renewcommand{\arraystretch}{1.6}
+	\resizebox{1\textwidth}{!}{\hspace{-4mm}
+		\setlength{\tabcolsep}{0.7mm}
+		\centering
+		\begin{tabular}{c|cccccccccccc|cc} 
+			\toprule[0.15em]
+			Method & \multicolumn{2}{c}{+ None~~} & \multicolumn{2}{c}{+ InTomo~\cite{intratomo}~~~} & \multicolumn{2}{c}{+ NeRF~\cite{nerf}~~~} & \multicolumn{2}{c}{+ TensoRF~\cite{tensorf}~~~} 
+			& \multicolumn{2}{c}{+ NeAT~\cite{neat}~~~}  &\multicolumn{2}{c|}{+ NAF~\cite{naf}~~~} &\multicolumn{2}{c}{+ X-Gaussian~}  \\
+			Metric~&~PSNR~ & ~SSIM~ & ~PSNR~ & ~SSIM~ & ~PSNR~ & ~SSIM~ & ~PSNR~ & ~SSIM~ & ~PSNR~ & ~SSIM~ & ~PSNR~ & ~SSIM~ & ~~PSNR~~ & ~~SSIM~~ \\
+			\midrule[0.15em]
+			~~~FDK~  & 7.41 & 0.093 & 20.31 & 0.498 & 20.57 & 0.502 &20.61  &0.501  & 20.94 & 0.511 &21.28 &0.523 &\bf 22.60 & \bf 0.584 \\
+			$\Delta$ FDK~  & 0 & 0  &12.90  &0.405  &13.16  &0.409  &13.20  &0.408  &13.52  &0.418   &13.87  &0.430   &\bf 15.19   &\bf 0.491  \\
+			\midrule[0.15em]
+			~~~SART~  &17.24  &0.528  & 26.28   &0.859  &26.78  &0.853  &27.06  &0.867 &27.31 &0.869 &27.84 &0.879 &\bf 30.25 &\bf 0.907 \\
+			$\Delta$ SART~ &0  &0  &9.04 &0.331  &9.54  &0.325  &9.82  &0.339 &10.07 &0.341 &10.60 &0.351 &\bf 13.01 &\bf 0.379 \\
+			\midrule
+			~~~ASD-POCS~  &17.03  &0.525  &25.44  &0.847  &26.58  &0.857  &26.93  &0.868 &26.95  &0.865  &27.91 &0.880  &\bf 30.56  &\bf 0.926  \\
+			$\Delta$ ASD-POCS~  &0  &0  &8.41  &0.322  &9.55  &0.332  &9.90  &0.343 &9.92  &0.340  &10.88 &0.355  &\bf 13.53  &\bf 0.401  \\
+			\bottomrule[0.15em]
+	\end{tabular}}
+	\vspace{1.5mm}
+	\caption{\small Results on sparse-view CT reconstruction. NeRF-based methods and our X-Gaussian are used to create novel views for FDK~\cite{fdk}, SART~\cite{sart}, and ASD-POCS~\cite{asd_pocs}.}\label{tab:ct}
+	\vspace{-5.5mm}
+\end{table*}
+
+\begin{figure*}[t]
+	\begin{center}
+		\begin{tabular}[t]{c} \hspace{-2.4mm}
+			\includegraphics[width=0.99\textwidth]{figures/CT_compare_v5_sart.pdf}
+		\end{tabular}
+	\end{center}
+	\vspace{-7.5mm}
+	\caption{\small Visual results of sparse-view CT reconstruction on the scenes of foot and chest. NeRF-based methods and our X-Gaussian are used to create novel views for SART~\cite{sart}.}
+	\label{fig:ct_compare_sart}
+	\vspace{-5mm}
+\end{figure*}
+
+
+
+\vspace{-4mm}
+\subsection{Ablation Study}
+\vspace{-1mm}
+
+\subsubsection{Break-down Ablation.} 
+We first conduct a break-down ablation experiment to study the effect of each proposed technique towards higher performance and faster speed. We adopt the original 3DGS~\cite{3dgs} as the baseline model and naively average the RGB channels to represent the value of radiation intensity. The results are listed in Tab.~\ref{tab:breakdown}. The baseline model yields 37.21 dB PSNR in performance. Its average training time and inference speed are 31 min 38 s and 64 fps, respectively. We can observe from Tab.~\ref{tab:breakdown} : \textbf{(i)} When using ACUI to replace the time-consuming SfM~\cite{sfm} algorithm for initialization, the training time is significantly reduced by 34\% while the performance yields an improvement of 1.66 dB. This evidence suggests that our ACUI strategy is much faster than the SfM~\cite{sfm} algorithm used in the original 3DGS and can compute more accurate camera calibration parameters for 3D Gaussians and subsequent rendering. \textbf{(ii)} Then we apply our radiative Gaussian point cloud model equipped with the proposed Differentiable Radiative Rasterization (DRR)  to replace the original RGB Gaussian point cloud model and its RGB rasterization. As analyzed in Sec.~\ref{sec:pc_model} and compared in Fig.~\ref{fig:pc_model}, the anisotropic spherical harmonics (SH) are not suitable for X-ray imaging because X-ray imaging based on penetration is isotropic. In contrast, our radiative Gaussian point cloud model can better fit the view-independent radiation intensity in 3D space. Therefore, the performance is significantly improved by 4.53 dB in PSNR. Besides, removing the computation related to the view direction from the forward and backward processes of rasterization can further accelerate the training and inference speed. Thus, the training time is reduced by 54.10\% and the inference speed is 2.1$\times$ faster.
+
+\begin{figure*}[t]
+	\begin{center}
+		\begin{tabular}[t]{c} \hspace{-2.8mm}
+			\includegraphics[width=1.0\textwidth]{figures/CT_compare_v5_asd_pocs.pdf}
+		\end{tabular}
+	\end{center}
+	\vspace{-6mm}
+	\caption{\small Visual results of sparse-view CT reconstruction on abdomen and head. NeRF-based methods and X-Gaussian are used to create novel views for ASD-POCS~\cite{asd_pocs}.}
+	\label{fig:ct_compare_asd_pocs}
+	\vspace{-3mm}
+\end{figure*}
+
+\vspace{-4mm}
+\subsubsection{Initialization of Point Position.} 
+We compare different initialization strategies for the center positions of Gaussian point clouds including random, spherical, FDK~\cite{fdk}, and cubic initialization. To be specific, Random initialization means randomly sampling points within the scanned area in 3D space. Spherical initialization uniformly samples point positions within a sphere that can completely enclose the scanned object. FDK~\cite{fdk} initialization adopts the FDK algorithm to back-project the given projections into 3D point positions. Cuboid initialization is our ACUI. Please note that we keep the computed intrinsic and extrinsic matrices the same for fair comparison between different strategies. The results are reported in Tab.~\ref{tab:init}. FDK initialization slightly outperforms our ACUI by 0.066 dB but its training time is 2.59$\times$ longer and its inference speed is 55 fps slower than ACUI. This is because the back-projection in FDK is time-consuming and initializes redundant points. The random and spherical initialization strategies yield lower PSNR and slower speed than cubic initialization.  To achieve a better trade-off, we adopt the cubic initialization, \emph{i.e.}, ACUI, which enjoys good performance, the cheapest training cost, and the fastest inference speed.
+
+
+
+\begin{table*}[t]
+	\vspace{0.5mm} \hspace{-2mm}
+	% subfloat a
+	\subfloat[Break-down ablation study \label{tab:breakdown}]{ 
+		\scalebox{0.63}{
+			\begin{tabular}{l  c c c}
+				\toprule
+				\rowcolor{color3} Method &~~~~3DGS~\cite{3dgs}~~ &~~~+ ACUI~~~ &~~~+ DRR~~~  \\
+				\midrule
+				PSNR &37.213 &38.872 &\bf 43.404 \\
+				SSIM &0.9813 &0.9871 &\bf 0.9993 \\
+				Train time (s) &1898 &1172 &\bf 538  \\
+				Infer speed (fps) &64 &72 &\bf 148 \\
+				\bottomrule
+	\end{tabular}}} \vspace{-1mm}
+	% subfloat b
+	\subfloat[Ablation of point position initialization \label{tab:init}]{ 
+		\scalebox{0.63}{
+			\begin{tabular}{l  c c c c}
+				\toprule
+				\rowcolor{color3} Method &~~~Random~~~  &~~~Spherical~~~ &~~~~FDK~\cite{fdk}~~ &~~~Cubic~~~  \\
+				\midrule
+				PSNR &41.329 &42.837 &\bf 43.470 &43.404 \\
+				SSIM &0.9942 &0.9988 &\bf 0.9993 &\bf 0.9993\\
+				Train time (s) &601 &575 &1394 &\bf 538 \\
+				Infer speed (fps) &112 &136 &93 &\bf 148  \\
+				\bottomrule
+	\end{tabular}}} \vspace{-1mm}	
+	% subfloat c
+	\hspace{-2mm}
+	\subfloat[Analysis of the number of features $N_f$ \label{tab:fea_num}]{
+		\scalebox{0.64}{
+			\begin{tabular}{l  c c c c c c}
+				\toprule
+				\rowcolor{color3} Number  &~~~~1~~~~  &~~~~2~~~~ &~~~~4~~~~ &~~~~8~~~~ &~~~~16~~~~ &~~~~32~~~~    \\
+				\midrule
+				PSNR &38.818 &40.205 &42.130 &42.868 &43.404 &\bf 43.417\\
+				SSIM  &0.9840 &0.9931 &0.9983 &0.9991 &\bf 0.9993 &\bf 0.9993\\
+				Train time (s) &\bf 511 &525 &521 &553 &538 &752\\
+				Speed (fps) &153 &152 &\bf 158 &127 &148 &101\\
+				\bottomrule
+	\end{tabular}}}
+	% subfloat d
+	\subfloat[Analysis of the initialized interval $d$ \label{tab:interval}]{
+		\scalebox{0.64}{
+			\begin{tabular}{l  c c c c c c}
+				\toprule
+				\rowcolor{color3} Interval  &~~~~1~~~~  &~~~~2~~~~ &~~~~4~~~~ &~~~~8~~~~ &~~~~16~~~~ &~~~~32~~~~    \\
+				\midrule
+				PSNR &42.853 &42.979 &43.215 &\bf 43.404 &43.311 &43.294\\
+				SSIM  &0.9989 &0.9990 &0.9992 &\bf 0.9993 &0.9992 &0.9992\\
+				Train time (s) &785 &593 &545 &538 &\bf 534 &566\\
+				Speed (fps) &86 &94 &114 &\bf 148 &135 &97\\
+				\bottomrule
+	\end{tabular}}}
+        \vspace{-1mm}
+	\caption{Ablation study. PSNR, SSIM, training time, and inference speed are reported.}
+	\label{tab:ablations}
+	\vspace{-7mm}
+\end{table*}
+
+
+
+\vspace{-4mm}
+\subsubsection{Parameter Analysis.} 
+We conduct parameter analysis of the number of features $N_f$ and the sampling interval $d$. The results are shown in Tab.~\ref{tab:fea_num} and Tab.~\ref{tab:interval}. 
+
+In Tab.~\ref{tab:fea_num}, \textbf{(i)} When increasing $N_f$, the performance gradually improves but the magnitude of the improvement decreases. In particular, $N_f = 32$ achieves the best results of 43.42 dB in PSNR. $N_f = 16$ achieves on-par results with $N_f = 32$, only 0.013 dB lower. \textbf{(ii)} We notice that the training time and inference speed do not change monotonically. This is because the Gaussian point clouds with various feature dimensions have different representing ability and computational complexity. The number of final 3D Gaussians after training also varies substantially. When $N_f = 16$, the training time reaches a local minimum and the inference speed is at its local maximum. Hence, we eventually adopt $N_f = 16$ to reach a more optimal balance between performance and speed. 
+
+In Tab.~\ref{tab:interval}, the best performance, the cheapest memory cost, and the fastest inference speed are achieved at $d = 8$. The training time (538 s) at $d = 8$ is almost the same as the shortest one (534 s) at $d = 16$. Thus, we set $d$ to 8.
+
+\vspace{-4.5mm}
+\subsubsection{Convergence Analysis.} 
+We conduct two visual analyses to compare the convergence between our X-Gaussian and original 3DGS~\cite{3dgs} in Fig.~\ref{fig:analysis_3dgs}, and between X-Gaussian and the SOTA X-ray NeRF-based method NAF~\cite{naf} in Fig.~\ref{fig:visual_analysis_proj}.
+
+
+Specifically, we adopt the same ACUI strategy for the original 3DGS to focus on comparing the Gaussian point cloud model and the rasterization. For fairness, we train 3DGS and our X-Gaussian on the scene of foot with the same settings and visualize the positions and opacities of Gaussian point clouds at the 100-$th$, 1000-$th$, 5000-$th$, 10000-$th$, and 20000-$th$ iterations of the training process in Fig.~\ref{fig:analysis_3dgs}. We also visualize the CT volume of foot as a reference. Please note that the CT volume is not the ground truth of point clouds. As can be seen that the original 3DGS with RGB rasterization converges slowly and suffers from more noisy point clouds. Plus, the final trained model of 3DGS at the 20000-$th$ iteration contains more redundant Gaussians that are unnecessary to represent the 3D structure of the foot, which reduces the model's inference speed. In contrast, our X-Gaussian equipped with the proposed DRR shows faster and better convergence. In particular, as early as the 1000-$th$ iteration, our radiative Gaussian point clouds have essentially formed the basic shape of the foot. Besides, the final trained X-Gaussian at the 20000-$th$ iteration can better represent the 3D geometry and more accurate structural contents than the original 3DGS.
+
+\begin{figure}[t] 
+		\begin{minipage}[t]{0.545\textwidth}%
+			\noindent \begin{center}
+				\vspace{-2mm}
+				\includegraphics[width=1.0\columnwidth]{figures/vis.pdf} \vspace{-4mm}
+				\caption{\small Convergence analysis of NAF~\cite{naf} \emph{vs.} our X-Gaussian. We visualize the rendered projections at 20s, 60s, and 180s of training. Our X-Gaussian shows faster and better convergence.}
+				\label{fig:visual_analysis_proj} 
+				\par\end{center}%
+		\end{minipage}\vspace{-1.5mm}
+            \hspace{0.3mm}
+		\begin{minipage}[t]{0.435\textwidth}%
+			\noindent \begin{center}
+				\vspace{-2mm}
+				\includegraphics[width=1.0\columnwidth]{figures/covar.pdf} \vspace{-6.1mm}
+				\caption{\small Analysis of covariance. The mean covariance of 3D Gaussians on different scenes decreases when the number of training views increases.}
+				\label{fig:covariance} 
+				\par\end{center}%
+		\end{minipage}\vspace{-1.5mm}
+	\end{figure}
+
+
+
+Additionally, in Fig.~\ref{fig:visual_analysis_proj}, we visualize the rendered novel projections with the same angle $\phi$ of NAF and our X-Gaussian at 20s, 60s, and 180s of the training process on the scene of chest. NAF produces blurry images with severe noises on the background regions within the first three minutes of the training. In contrast, our X-Gaussian can reconstruct clearer structural details like the ribs and blood vessels with cleaner background of the chest at the first minute of the training. 
+
+The two visual analyses show the convergence advantages of our X-Gaussian.
+
+\vspace{-4mm}
+\subsubsection{Analysis of Covariance.} We study how the shape of the 3D Gaussian point cloud changes with the number of training views in Fig.~\ref{fig:covariance}. As the number of training views increases, the mean covariance of 3D Gaussians that control the size of Gaussian point clouds decreases. This indicates that the 3D Gaussian point clouds gradually change from coarse to fine, thereby being more capable of representing fine-grained structures, such as a small tumor in the abdomen.
+
+\vspace{-3mm}
+\section{Limitation}
+\vspace{-2mm}
+Compared with NeRF-based methods, our X-Gaussian is more complex and harder to follow because it requires more foundational background knowledge in computer graphics and 3D vision. Many technical details of our X-Gaussian are implemented by CUDA instead of Pytorch. CUDA based on C++ is more difficult to debug and less interpretable than Pytorch which relies on Python.
+
+\vspace{-3mm}
+\section{Conclusion}
+\vspace{-2mm}
+In this paper, we propose the first 3DGS-based framework, X-Gaussian, for X-ray novel view synthesis. Firstly, we design a radiative Gaussian point cloud model based on X-ray imaging properties. This model excludes the influence of view direction when fitting radiation intensity. For this model, we develop a GPU-friendly differentiable radiative rasterization CUDA kernel that renders projections at a faster speed than RGB rasterization. Secondly, we customize an initialization strategy, ACUI, that does not need to execute the SfM algorithm. Instead, ACUI uses the parameters of X-ray scanner to compute the extrinsic and intrinsic matrices, and then uniformly samples center points for 3D Gaussians within a cuboid enclosing the scanned object. Experiments demonstrate that our X-Gaussian significantly outperforms SOTA methods by over 6.5 dB while enjoying  73$\times$ faster inference speed and only requiring 15\% of training time.
+
+\subsubsection{Acknowledgements:} This work was supported by the Lustgarten Foundation for Pancreatic Cancer Research and the Patrick J. McGovern Foundation Award.
+
+\bibliographystyle{splncs04}
+\bibliography{reference}
+\end{document}

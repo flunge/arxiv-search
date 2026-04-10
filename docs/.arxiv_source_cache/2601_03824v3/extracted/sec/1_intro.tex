@@ -1,0 +1,98 @@
+\section{Introduction}
+\label{sec:intro}
+
+Single-scene 3D Gaussian Splatting (3DGS) benefits from a rasterization-friendly pipeline, making it well-suited for real-time scene reconstruction~\cite{kerbl20233d, yu2024mip}, but it suffers from limited generalization capabilities.
+%
+Generalizable 3DGS~\cite{charatan2024pixelsplat, chen2024mvsplat, liu2024mvsgaussian, xu2025depthsplat, zhang2024gaussian} addresses this shortcoming by using a feed-forward network to directly predict all Gaussian parameters, enabling it to handle unseen scenes.
+%
+Among all the Gaussian sphere parameters, the Gaussian mean is crucial but difficult to predict directly due to the local support nature of Gaussian gradients~\cite{charatan2024pixelsplat}, which significantly affects the optimization of the overall parameters.
+% 
+% 
+Existing methods~\cite{chen2024mvsplat, liu2025monosplat, zhang2025transplat, xu2025depthsplat} commonly require first estimating the pixel-wise depth map and then unprojecting it to obtain the centers of the Gaussian spheres.
+% 
+% This design reduces the difficulty of the network optimization process while increasing the reliance on accurate depth estimation.
+%
+This design reduces the difficulty of the network optimization process by decoupling the prediction of Gaussian mean parameters, while increasing the reliance on accurate depth estimation.
+
+
+Efforts have been made to obtain accurate and refined depth estimation.
+%
+Early methods~\cite{charatan2024pixelsplat, szymanowicz2024splatter} directly use differentiable operations to predict the depth probability distribution from image features.
+%
+Although these methods can predict the depth map for scene reconstruction in a generalizable way, their ability to exploit multi-view feature similarity is limited, which restricts their performance.
+%
+Subsequent approaches~\cite{chen2024mvsplat, liu2024mvsgaussian} introduce cost volumes that use warp operations to establish feature similarity across views, which provide valuable geometric cues for depth estimation and simplify the network learning process.
+%
+However, these methods rely solely on a single warp to model feature similarity, which prevents them from fully exploiting the rich geometric information, leading to unreliable and coarse depth maps.
+% 
+% Therefore, how to incorporate multiple warps to mine rich geometric information for cross-view similarity calculations, in order to produce refined and reliable depth maps for accurate Gaussian means, remains a key challenge.
+%
+% Therefore, how to incorporate multiple warps to gradually leverage rich cross-view details, thereby producing refined and reliable depth maps, remains a key challenge.
+%
+%
+Therefore, how to incorporate multiple warps to gradually leverage rich cross-view geometric details, producing refined and reliable depth maps for accurate Gaussian mean prediction, remains a key challenge.
+%
+% Therefore, how to incorporate multiple warps to gradually leverage rich cross-view geometric details in a memory-efficient manner, thereby producing refined and reliable depth maps for accurate Gaussian mean prediction, remains a key challenge.
+
+
+%
+In this paper, we propose IDESplat, which iteratively performs warps to refine depth maps for accurate Gaussian means prediction.
+%
+By integrating cascade warp results, we can progressively boost the feature similarity measure to identify high-likelihood surface points and suppress low-probability depth candidates.
+%
+The iterative warp framework of our IDESplat is shown in Fig.~\ref{fig:intro}.
+%
+%Firstly, to eliminate the unreliability of a single warp, we introduce a Depth Probability Boosting Unit (DPBU) to fuse multi-level epipolar attention maps for reliable depth map estimation.
+%
+Firstly, to eliminate the unreliability of a single warp, we introduce a Depth Probability Boosting Unit (DPBU) to fuse multiple epipolar attention maps in a multiplicative manner for a reliable depth map.
+%
+Next, we gradually update the depth search range while increasing the feature resolution, enabling warp and correlation calculations at a finer scale.
+%
+Feature matching becomes easier and more precise as the depth search range is re-centered and image features are enhanced in this process.
+%
+Finally, for other Gaussian parameters, we propose a Gaussian Focused Module that determines the most relevant Gaussian tokens to compute attention weights for feature interaction.
+%
+The experimental results on RealEstate10K show that IDESplat outperforms DepthSplat by \textbf{0.33 dB} in PSNR with only \textbf{10.7\%} of the parameters and \textbf{70\%} of the memory. 
+%
+% Compared to MonoSplat, IDESplat achieves a \textbf{1.12 dB} improvement in PSNR with a slight increase in parameters.
+%
+Moreover, IDESplat shows outstanding cross-dataset generalization, achieving 28.79 dB on ACID when transferred from RE10K, outperforming methods trained directly on ACID. It also improves PSNR by \textbf{2.95 dB} over DepthSplat on the DTU dataset in cross-dataset experiments.
+% %
+In summary, the main contributions of this paper are as follows:
+%
+% 待修改
+\begin{itemize}
+\item We propose IDESplat, a generalizable feedforward 3DGS model, which iteratively performs warps to progressively boost the feature similarity measure and refine depth maps for accurate Gaussian mean prediction.
+%
+\item To eliminate the inherent unreliability of a single warp, we introduce a Depth Probability Boosting Unit that multiplicatively integrates multiple epipolar attention maps for reliable and refined depth map estimation.
+%
+\item We design a Gaussian Focused Module to identify the most relevant Gaussian tokens for computing attention scores and reweight enhanced features.
+%
+\item Experiments on RealEstate10K ACID, and DL3DV show that our IDESplat significantly improves reconstruction quality and generalization capability while maintaining real-time inference efficiency.
+\end{itemize}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,54 @@
+\section{Experiments}\label{sec:experiments}
+
+\subsection{Implementation Details}\label{subsec:details}Our method is implemented in PyTorch, with intersection distance computations accelerated using custom CUDA kernels. All experiments are conducted on a single NVIDIA A100 GPU with 80 GB VRAM. The RGB loss for training is a linear combination of MSE and LPIPS, weighted 1 and 0.05, respectively, and the hyperparameters $\lambda_1$, $\lambda_2$, and $\lambda_3$ are empirically set to 1, 0.1, and 0.01.
+
+\subsection{Datasets and Metrics}\label{subsec:datasets}We evaluate our model on two panoramic datasets, HM3D~\cite{hm3d} and Replica~\cite{replica}, which contain diverse indoor scenes. For quantitative comparison, we compare our method with several state-of-the-art 360 approaches, including Splatter-360 and PanSplat. Additionally, MVSplat is retrained on the 360 datasets and included as another baseline. We evaluate the performance of all methods on novel view synthesis using standard metrics, including PSNR, SSIM, and LPIPS, and on depth prediction using Abs Diff, Abs Rel, RMSE, and $\delta < 1.25$. Moreover, geometric reconstruction is assessed on HM3D using Accuracy, Completeness, and Chamfer Distance.
+
+\renewcommand{\arraystretch}{0.70}
+\begin{table*}[htbp]
+  \centering  
+  \scriptsize
+    \caption{Quantitative results of the ablation study. ``w/o'' indicates ``without''. Best in each column is bolded. }
+  \label{tab:ablation_full}
+  \setlength{\tabcolsep}{3pt}
+  \begin{tabular}{lccc|ccccccc}
+    \toprule
+    Method & PSNR$\uparrow$ & SSIM$\uparrow$ & LPIPS$\downarrow$ & 
+    Abs Diff$\downarrow$ & Abs Rel$\downarrow$ & RMSE$\downarrow$ & $\delta<1.25\uparrow$ &
+    Acc(m)$\downarrow$ & Comp(m)$\downarrow$ & Chamfer(m)$\downarrow$ \\
+    \midrule
+    w/o D-N & 29.078 & 0.887 & 0.161 & 0.086 & \textbf{0.068} & 0.177 & 94.878 & 0.054 & 0.715 & 0.769 \\
+    w/o D-N+Scales & 28.189 & 0.868 & 0.158 & 0.111 & 0.102 & 0.205 & 93.715 & 0.059 & 0.731 & 0.790 \\
+    w/o D-N+Scales+Fusion & 27.713 & 0.841 & 0.176 & 0.120 & 0.108 & 0.228 & 93.430 & 0.061 & 0.742 & 0.802 \\
+    Full & \textbf{31.043} & \textbf{0.920} & \textbf{0.098} & \textbf{0.053} & 0.069 & \textbf{0.141} & \textbf{96.423} & \textbf{0.049} & \textbf{0.691} & \textbf{0.740} \\
+    \bottomrule
+  \end{tabular}
+\end{table*}
+
+\renewcommand{\arraystretch}{0.70}
+\setlength{\tabcolsep}{10pt}
+\begin{table}[!t]
+  \centering
+  \scriptsize  \captionsetup{justification=raggedright,singlelinecheck=false}
+    \caption{Quantitative comparison of 3D reconstruction metrics on the HM3D dataset. Best in each column is bolded.}
+  \label{tab:reconstruction}  
+  \begin{tabular}{lccc}
+    \toprule
+    Method & Acc(m)$\downarrow$ & Comp(m)$\downarrow$ & Chamfer(m)$\downarrow$ \\
+    \midrule
+    MVSplat$^\dagger$  & 0.076 & 0.862 & 0.938 \\
+    Splatter-360  & 0.062 & 0.719 & 0.780 \\
+     Ours & \textbf{0.049} & \textbf{0.691} & \textbf{0.740} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Qualitative Results}\label{subsec:qualitative}Qualitative comparisons are presented in Fig.~\ref{fig:GS}, Fig.~\ref{fig:figure_placement}, and Fig.~\ref{fig:depth}. As Fig.~\ref{fig:figure_placement} illustrates, state-of-the-art methods achieve visually similar results for novel view synthesis, with our method and Splatter-360 producing slightly better appearance in the right-side sample. In Fig.~\ref{fig:depth}, MVSplat exhibits notable depth errors, such as the left edge of the door in Sample 2, while Splatter-360 improves overall reconstruction but still shows limited surface depth consistency in Samples 2 and 4. In contrast, our method generates depth predictions with stronger geometric consistency and higher accuracy. The predicted 3DGS point clouds in Fig.~\ref{fig:GS} further highlight this improvement, demonstrating that our approach produces 3DGS points with clearly enhanced surface.
+
+\subsection{Quantitative Results}\label{subsec:quantitative}
+
+Tables~\ref{tab:depth},~\ref{tab:render}, and~\ref{tab:reconstruction} summarize the quantitative performance of our method compared with MVSplat, Splatter-360, and PanSplat on the HM3D and Replica datasets. As shown in Tables~\ref{tab:depth} and~\ref{tab:reconstruction}, our approach outperforms Splatter-360 in geometric reconstruction and depth estimation metrics, indicating that the predicted 3DGS points exhibit stronger geometric consistency and better alignment with object surfaces. Table~\ref{tab:render} reports novel view synthesis metrics, where our method achieves rendering quality comparable to the current state-of-the-art, with minor differences across multiple metrics. Overall, these results demonstrate that our feed-forward 3DGS framework achieves high-fidelity geometric reconstruction while maintaining competitive rendering performance.
+
+\subsection{Ablation Results}\label{subsec:ablation}
+We conduct an ablation study to evaluate the contributions of D-Normal (D-N), scale flattening (Scales), and multi-scale feature fusion (Fusion). As shown in Table~\ref{tab:ablation_full}, the full model consistently outperforms the ablated variants across rendering, depth, and geometric reconstruction metrics. Removing D-N or scale flattening degrades depth accuracy and geometric consistency, while omitting multi-scale fusion reduces rendering quality. These results indicate that each component contributes complementarily, with the integrated model producing the most accurate and geometrically consistent 3DGS predictions.
+

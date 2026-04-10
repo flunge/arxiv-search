@@ -1,0 +1,235 @@
+
+\begin{figure*}
+    \centering
+    \includegraphics[width=\linewidth]{images/framework.pdf}
+    \vspace{-0.25in}
+    \caption{{\bf The overview framework of GA-Drive.} Pseudo views are created by casting rays from novel poses into 3D space with rendered depth maps to generate a 3D point cloud, which is then projected onto recorded views to sample color information. These pseudo views are subsequently transformed into photorealistic frames using our trained video diffusion model (referred to as Generation). The black curved line indicates the recorded camera trajectory. By iteratively applying the video diffusion model to each segment, our method can generate photorealistic novel views of unlimited length. }
+    \label{fig:framework}
+    \vspace{-0.2in}
+\end{figure*}
+
+
+\section{Method}
+% \noindent \textbf{Framework Overview} 
+% Our method is a novel photorealistic driving simulator via Geometry-Appearance Decoupling and a Diffusion-Based Generation. 
+% The overview framework is shown in the Fig.~\ref{fig:framework}. The geometry module is detailed in ~\cref{sec:geometry}. The Geometry-Guided Pseudo-View Synthesis is elaborated in \cref{sec:Pseudo}. Our Video Diffusion Model is elaborated in ~\cref{sec:Diffusion}. And the Pseudo-view Simulation Pipeline is elaborated in ~\cref{sec:Training}. 
+Fig.\ref{fig:framework} shows the overview of our framework. The geometry module is presented in~\cref{sec:geometry}. We then describe the Geometry-Guided Pseudo-View Synthesis in~\cref{sec:Pseudo} and the Video Diffusion Model in~\cref{sec:Diffusion}. Finally, the Pseudo-View Simulation Pipeline for training is detailed in~\cref{sec:Training}.
+
+\subsection{4D Geometry Reconstruction}\label{sec:geometry}
+% We adopt OmniRe~\cite{chen2025omnire}, a Gaussian scene graph representation, as our 4D reconstruction framework. 
+% % OmniRe represents the background, vehicles, humans, and other deformable objects as distinct scene assets, which are then converted into Gaussian representations in world space to reconstruct the entire scene. 
+% However, in the real world, geometry and appearance usually conflict with each other to some degree due to sensor noise and distortion.
+% Thus, during reconstruction, OmniRe must sacrifice geometric quality to ensure visual rendering quality.
+% Instead, since we decouple the geometry and appearances, our interest lies solely in the geometric structure of the driving scene.
+% Thus, we apply the following two techniques to further improve geometric accuracy.
+
+
+We adopt OmniRe~\cite{chen2025omnire}, a Gaussian scene graph representation, as our 4D reconstruction framework. In real‑world captures, limited viewpoints and sensor imperfections mean colors alone cannot uniquely determine 3D geometry.
+This ambiguity often causes Gaussian-splatting reconstructions to exhibit geometric distortions, such as floating Gaussians, when fitting to observed colors.
+Since we decouple the geometry and appearances, our interest lies solely in the geometric structure of the driving scene.
+Thus, we apply the following two techniques to improve geometric accuracy.
+
+\noindent \textbf{Dense depth supervision} 
+The original LiDAR-based depth supervision in OmniRe is inherently sparse and limited to the bottom half of the view due to sensor constraints. To address this limitation, we introduce a dense depth supervision loss $\mathcal{L}_{d\_esti}$ that provides geometric guidance in regions lacking LiDAR observations. This dense supervision is particularly critical in scenarios with limited viewpoint variation, where greater geometric ambiguity makes reliable 3D geometry reconstruction challenging. Our approach leverages Marigold~\cite{ke2025marigold} to estimate relative depth maps for each input image. We then align these estimates to absolute scale by projecting LiDAR point clouds onto the image plane, obtaining sparse yet accurate depth values at the projected pixels. A linear transformation (scale and shift) is estimated to minimize the mean squared error between the relative depth and absolute LiDAR depth at overlapping locations. The loss $\mathcal{L}_{d\_esti}$ measures the L1 distance between the aligned depth estimates and the rendered depth from gaussian field. This dense supervision provides geometric constraints across the entire image, significantly improving reconstruction quality where direct LiDAR coverage is unavailable. Further implementation details are provided in the supplementary materials.
+
+
+% This alignment ensures that the estimated depth maps after transformation are consistent with the real-world scale and temporally and spatially consistent across frames.
+
+\noindent \textbf{Depth distortion regularization} 
+% 3DGS’s volume rendering does not account for the distances between intersected Gaussian primitives. As a result, both Gaussians that are dispersed in space and those clustered near the actual surface can produce similar color and depth renderings. However, when rendering depth from a novel viewpoint, dispersed Gaussians may introduce significant depth distortions. 
+% To address this issue, 
+We further incorporate the depth distortion loss proposed by Mip-nerf 360~\cite{barron2022mip}, which encourages the weight distribution along each ray to be more concentrated by minimizing the distances between ray-splat intersections. With this loss, the Gaussians are encouraged to cluster more closely around the scene surface, avoiding the formation of floating Gaussians.
+Please refer to the supplementary materials for an explanation of how we implement depth distortion regularization into the OmniRe backbone without modifying the original OmniRe CUDA code.
+% \begin{equation}
+% \mathcal{L}_d = \sum_{i,j} \omega_i \omega_j \left| z_i - z_j \right|
+% \end{equation}
+
+% where\quad
+% $\omega_i = \alpha_i \, \hat{\mathcal{G}}_i(\mathbf{u}(\mathbf{x})) \prod_{j=1}^{i-1} \left( 1 - \alpha_j \, \hat{\mathcal{G}}_j(\mathbf{u}(\mathbf{x})) \right)$
+% \quad is the blending weight of the $i$-th intersection, and $z_i$ is the depth of the intersection points. 
+
+
+
+%Our focus is on accurate geometry reconstruction rather than rendered visual quality. We enlarge ${\lambda}_{d\_lidar}$ and 
+
+% \subsection{Calculate pseudo images}
+
+\subsection{Geometry-Guided Pseudo-View Synthesis} \label{sec:Pseudo}
+Given a 4D reconstruction of the driving scene, we cast a ray from each pixel into 3D space based on the pixel's depth, which is derived from the 4D reconstruction. 
+At a particular timestamp, assume we have access to $N$ recorded images 
+%(for example, the Waymo dataset provides 3 images per timestamp, so $N=3$)
+, along with their corresponding camera poses and depth maps rendered from the Gaussian field. Given a target camera pose along a novel trajectory, our objective is to synthesize a pseudo-view by leveraging these $N$ source images.
+
+\noindent\textbf{Problem Setup} \quad Given $N$ source views $\{( \mathbf{I}_i, \mathbf{K}_i, \mathbf{T}_i,  \mathbf{D}_i)\}_{i=1}^N$, where $I_i$ is the known RGB image, $\mathbf{K}_i \in \mathbf{R}^{3 \times 3}$ is the camera intrinsic matrix, $\mathbf{T}_i \in SE(3)$ is the camera-to-world transformation, $\mathbf{D}_i \in \mathbf{R}^{H \times W}$ is the depth map rendered from the gaussian field, and a target camera defined by $(\mathbf{K}_t, \mathbf{T}_t, \mathbf{D}_t)$. Our goal is to synthesize a pseudo-view $I_t^{\text{pseudo}}$ that approximates the appearance of the scene from the target viewpoint.
+ 
+% \noindent\textbf{Method}
+
+\paragraph{Step 1: Unproject target view depth to 3D world coordinates.}
+
+For each pixel $(u, v)$ in the target image with depth $D_t(u, v)$, we compute the corresponding 3D point $\mathbf{x}_w$ in world space
+
+% \begin{equation}
+% \mathbf{p}_{uv} = \begin{bmatrix} u \\ v \\ 1 \end{bmatrix}, \quad
+% \mathbf{x}_c = D_t(u, v)\, \mathbf{K}_t^{-1} \mathbf{p}_{uv}, \quad
+% \mathbf{x}_w = \mathbf{T}_t \begin{bmatrix} \mathbf{x}_c \\ 1 \end{bmatrix}.
+% \end{equation}
+\vspace{-0.25in}
+\begin{equation}
+\mathbf{x}_w = \mathbf{T}_t \begin{bmatrix} \mathbf{D}_t(u, v)\, \mathbf{K}_t^{-1} \mathbf{p}_{uv} \\ 1 \end{bmatrix}, \quad \mathbf{p}_{uv} = \begin{bmatrix} u \\ v \\ 1 \end{bmatrix}
+\end{equation}
+
+%\vspace{-0.in}
+
+Repeat for all pixels to obtain a set of 3D points $\mathcal{X} = \{\mathbf{x}_w^j\}_{j=1}^{H \cdot W}$. We denote the color of a 3D point $\mathbf{x}_w$ as $c_{\mathbf{x}_w}$. Initially, each point is colored black; we will assign them specific colors later. 
+
+\paragraph{Step 2: Project 3D points into source views.}
+
+Each point $\mathbf{x}_w$ is projected to each source view $i$:
+% \vspace{-0.1in}
+\begin{equation}
+\label{eq:projection}
+\begin{split}
+    \mathbf{x}_c^{(i)} &= \mathbf{T}_i^{-1} \begin{bmatrix} \mathbf{x}_w \\ 1 \end{bmatrix}, \\
+    \mathbf{p}^{(i)} = \mathbf{K}_i \cdot \mathbf{x}_c^{(i)}[:3], &\quad \mathbf{u}^{(i)} = \left( \frac{p_x^{(i)}}{p_z^{(i)}}, \frac{p_y^{(i)}}{p_z^{(i)}} \right).
+\end{split}
+\end{equation}
+
+
+Only points with $p_z^{(i)} > 0$ that fall within the height (H) and width (W) bounds of source view $i$ are considered.
+
+\vspace{-0.1in}
+\paragraph{Step 3: Sample colors from recorded views and check visibility.}
+We determine the visibility of a point and sample its corresponding color using the following equation. 
+
+\vspace{-0.2in}
+\begin{equation}
+    c_{\mathbf{x}_w} = \begin{cases}I_i(\mathbf{u}^{(i)}) &  \mbox{if}  \left| \mathbf{D}_i(\mathbf{u}^{(i)}) - \mathbf{x}_c^{(i)}[2] \right| < \delta. \\
+    \mathbf{0} & \mbox{otherwise} \end{cases}
+    \label{eq:sample_color}
+\end{equation}
+
+where $\mathbf{D}_i(\mathbf{u}^{(i)})$ is the depth rendered from the gaussian field. $\mathbf{x}_c^{(i)}[2]$ is the depth of the 3D points in the camera coordinate. If  $\mathbf{x}_c^{(i)}[2] > \mathbf{D}_i(\mathbf{u}^{(i)})$, the point lies behind the surface and is considered occluded. In this case, the point should not be assigned a color and remains black. We introduce a tolerance parameter $\delta$ to account for potential inaccuracies in the geometry. A 2D illustration of this occlusion handling is shown in Fig.~\ref{fig:visibility_check} for clarity. Fig.~\ref{fig:visibility_check}(b) displays a pseudo-view without visibility checks, while Fig.~\ref{fig:visibility_check}(c) includes visibility check.
+
+
+\paragraph{Step 4: Color Aggregation.} 
+We execute Equation~\ref{eq:sample_color} for all recorded views in descending order of their distance to the target camera. For each 3D point $\mathbf{x}_w \in \mathcal{X}$, if it is visible in multiple views,  we assign its color from the nearest valid source view. 
+After assigning colors to all 3D points in $\mathcal{X}$, we project each point back to the target view to form the pseudo view $I_t^{\text{pseudo}}$. 
+
+% After assigning color to all 3D points in $\mathcal{X}$, 
+% we have the pseudo view by the corresponding relationship between each pixel of $I_t^{\text{pseudo}}$ and $\mathcal{X}$. thereby constructing the pseudo view $I_t^{\text{pseudo}}$ from the target pose.
+
+
+% we project each point back to the target view to form the pseudo view $I_t^{\text{pseudo}}$ by the projection equations ~\cref{eq:color_aggregation} but to the target camera pose. 
+
+% \vspace{-0.4em}
+% \begin{equation}
+% \mathbf{x}_c^{(t)} = \mathbf{T}_t^{-1} \begin{bmatrix} \mathbf{x}_w \\ 1 \end{bmatrix}, \quad
+% \mathbf{p}^{(t)} = \mathbf{K}_t \cdot \mathbf{x}_c^{(t)}[:3], \quad
+% \mathbf{u}^{(t)} = \left( \frac{p_x^{(t)}}{p_z^{(t)}}, \frac{p_y^{(t)}}{p_z^{(t)}} \right), \quad
+% I_t^{\text{pseudo}}(\mathbf{u}^{(t)}) = c_{\mathbf{x}_w}
+% \label{eq:color_aggregation}
+% \end{equation}
+% \vspace{-0.4em}
+
+% Only points with $p_z^{(t)} > 0$ and $\mathbf{u}^{(t)}$ inside the image bounds are rasterized into $I_t^{\text{pseudo}}$. If multiple 3D points project to the same pixel, we assign the color of the front-most point (i.e., with smallest $p_z^{(t)}$).
+
+% \paragraph{Step 5: Aggregate Pixel Colors.}
+
+
+% We aggregate all valid colors for a target pixel $(u, v)$ using averaging or z-buffering. For averaging:
+
+% \begin{align}
+% \mathbf{c}_t(u, v) = \frac{1}{N} \sum_{i=1}^{N} \mathbf{c}_i,
+% \end{align}
+
+% or using z-buffering, we select the color with the smallest target depth.
+% \vspace{-0.1in}
+\begin{figure}
+    \centering
+    \includegraphics[width=\linewidth]{images/visibility_check.pdf}
+    \vspace{-0.25in}
+    \caption{(a) illustrates the 2D version of the visibility check. Since the rendered depth $<$ the point depth, the point is occluded by a surface and should be masked. (b) shows an incorrect pseudo view without applying the visibility check, while (c) presents the correct result with visibility properly handled. }
+    \vspace{-0.2in}
+    \label{fig:visibility_check}
+\end{figure}
+
+
+% \vspace{-0.2in}
+\subsection{Segment-wise Video Diffusion Model} \label{sec:Diffusion}
+% After getting the pseudo trajectory views with some missing and blocked regions, a video diffusion model synthesizes the photorealistic views conditioned on that. Our video diffusion model is based on the I2V model of CogVideox[]. To inject the pseudo trajectory views' information, we concatenated the encoded feature of the pseudo trajectory views by 3D VAE with the noise along the channel dimension. Assume the shape of pseudo trajectory views is $T \times H \times W \times 3$, where the T represent the number of frames, H, W represent the hight and width of each frame, 3 represents the RGB channels, here is 3. We adope the same 3D VAE as CogvideoX to encode the pseudo trajectory into $T/q, H/p, W/p, 16$, where q and p are the temporal and spatial compression factors, respectively. 16 is the number of channels in the latent space. The encoded pseudo trajectory views is concatenated with a noise of shape $T/q, H/p, W/p, 16$ sampled from Gaussian distribution into shape $T/q, H/p, W/p, 16 \times2 $, which is the input of the denoiser of Cogvideox. We adopt the same model structure as the CogVideoX except the input is 32 not 16. We finetune our model with the same DDPM [xxx] formulation as Cogvideox.
+We generate photorealistic novel views from novel pseudo-views that may contain missing or occluded regions by leveraging a video diffusion model. To generate long video trajectories, we employ a segment-wise approach where each video segment is conditioned on a sequence of frames: the first conditioning frame is set to the last generated frame from the previous segment to ensure temporal consistency, while the remaining conditioning frames are the corresponding pseudo-views along the trajectory. The overall architecture is illustrated in Fig.\ref{fig:diffusion_model}.
+
+
+\begin{figure}
+    \centering
+    \includegraphics[width=\linewidth]{images/fig5.pdf}
+    \vspace{-0.25in}
+    \caption{{\bf The architecture of our video diffusion model.} Our segment-wise video diffusion model generates videos conditioned on the novel pseudo-views.}
+    \label{fig:diffusion_model}
+    \vspace{-0.2in}
+\end{figure}
+
+ 
+Our video diffusion model builds upon the I2V architecture from CogVideoX~\cite{yang2024cogvideox}.
+To incorporate conditioning frames in the video diffusion model, we encode them using the same 3D variational autoencoder (VAE) as CogVideoX. The resulting latent features are then concatenated with Gaussian noise along the channel dimension. 
+A segment of conditioning frames is represented as a tensor of shape $T \times H \times W \times 3$, where $T$ is the number of frames, $H$ and $W$ are the height and width, and $3$ denotes RGB channels. The 3D VAE encodes this to a latent tensor of size $\frac{T}{q} \times \frac{H}{p} \times \frac{W}{p} \times 16$, with $q$ and $p$ as temporal and spatial downsampling factors and $16$ latent channels. We sample a gaussian noise tensor of the same shape, concatenate it with the encoded features along the channel dimension, yielding a combined tensor of shape $\frac{T}{q} \times \frac{H}{p} \times \frac{W}{p} \times 32$, which is input to the diffusion model’s denoising network. Model fine-tuning follows the DDPM framework~\cite{ho2020denoising}, as in CogVideoX. In our setup, $T=16$, $H=640$, $W=960$, and the text prompt is fixed as ``A realistic autonomous driving scene.''
+
+% This approach is widely used in conditional video generation methods such as VACE~\cite{vace}, GS-DiT~\cite{bian2025gs}, and ViewCrafter~\cite{yu2024viewcrafter}.
+% Let a segment of novel pseudo-views be a tensor of shape $T \times H \times W \times 3$, with $T$ representing the number of frames, $H$ and $W$ denoting height and width, and $3$ corresponding to RGB channels. The 3D VAE encodes these views to a latent tensor of shape $\frac{T}{q} \times \frac{H}{p} \times \frac{W}{p} \times 16$, where $q$ and $p$ are temporal and spatial downsampling factors, and $16$ is the number of latent channels. We then sample a noise tensor from a standard Gaussian distribution with the same shape, concatenate it with the encoded features along the channel dimension, and obtain a combined input tensor of shape $\frac{T}{q} \times \frac{H}{p} \times \frac{W}{p} \times 32$. This tensor is fed into the denoising network of our diffusion model. We fine-tune the model using the same Denoising Diffusion Probabilistic Model (DDPM) formulation~\cite{ho2020denoising} as CogVideoX. In our experiments, $T$ is set to 16, $H$ to 640, and $W$ to 960, with the text prompt fixed as ``A realistic autonomous driving scene.''
+
+The generation of novel trajectory views begins from a camera pose with a known image (recorded or generated). For each segment, the first conditioning frame is this known image, which ensures temporal consistency, while the remaining conditioning frames are the corresponding pseudo-views that provide geometric and appearance guidance for the target viewpoints. Once a segment is completed, its final generated frame becomes the first conditioning frame for the next segment, and the process repeats.
+% During training, we use the original ground-truth frame as the first conditioning frame, enabling the model to learn seamless generation conditioned on this initial frame, with subsequent conditioning frames being the corresponding simulated pseudo-views. Please see the supplementary materials for more training details.
+During training, the first conditioning frame is the ground-truth frame from the recorded trajectory, while the remaining conditioning frames are simulated pseudo-views synthesized via the pipeline in~\cref{sec:Training}. Please see the supplementary materials for more details.
+
+
+% During training, we modify the data augmentation pipeline by skipping the occlusion or blocking step for the first frame of each training video. This allows the model to learn to generate future frames conditionally, based on an unoccluded initial pseudo view.
+
+
+% After obtaining the pseudo trajectory views, which may contain missing or occluded regions, we synthesize photorealistic video frames conditioned on these views using a video diffusion model. Our model is built upon the I2V architecture proposed in CogVideoX~\cite{yang2024cogvideox}. To incorporate the pseudo-trajectory information into the diffusion process, we encode the pseudo-trajectory views using the same 3D variational autoencoder (VAE) as CogVideoX, and concatenate the resulting latent features with Gaussian noise along the channel dimension. Specifically, let the pseudo-trajectory views be a tensor of shape $T \times H \times W \times 3$, where $T$ denotes the number of frames, $H$ and $W$ are the height and width of each frame, and $3$ corresponds to the RGB channels. We use the 3D VAE to encode the pseudo-trajectory views into a latent representation of shape $\frac{T}{q} \times \frac{H}{p} \times \frac{W}{p} \times 16$, where $q$ and $p$ are the temporal and spatial downsampling factors, respectively, and $16$ is the number of latent channels. We then sample a noise tensor from a standard Gaussian distribution with the same shape as the latent representation, i.e., $\frac{T}{q} \times \frac{H}{p} \times \frac{W}{p} \times 16$. This noise is concatenated with the encoded latent features along the channel dimension, resulting in a combined input tensor of shape $\frac{T}{q} \times \frac{H}{p} \times \frac{W}{p} \times 32$, which is used as input to the denoising network of our diffusion model. Our model architecture is identical to that of CogVideoX, except for the modified input dimensionality (32 channels instead of 16). We fine-tune the model using the same Denoising Diffusion Probabilistic Model (DDPM) formulation~\cite{ho2020denoising} as employed in CogVideoX. In our case, we set the number of frames $T$ to be 16, and the hight $H$ and width $W$ to 640 and 960, respectively. And the text input is fixed to the ``A realistic autonomous driving scene''.
+
+
+% To generate arbitrarily long novel trajectories, we propose a \textbf{Head-to-Tail Trajectory Expansion Module}. In this method, each trajectory segment is initialized from a camera pose with a known image to ensure that the first pseudo view contains no occluded or blocked regions. The first pseudo view serves as a reference for the model, which then inpaints any blocked region of the rest of the pseudo views, maintaining visual consistency and coherence throughout the sequence—while preserving the original first frame unchanged. Once a segment is generated, the final frame is treated as a new known camera pose, and it serves as the first pseudo view for the next segment. By repeating this process iteratively, we can construct arbitrarily long video sequences composed of seamlessly connected trajectory segments. To train such a model, we modify the augmentation pipeline by omitting step (4) for the first frame of each training video. This allows the model to learn how to conditionally generate future frames based on the first pseudo frame.
+
+% Furthermore, to support large trajectory deviations—such as shifting the camera path laterally by 3 meters, we implement a \textbf{Progressive Trajectory Shifting Module}. The trajectory is gradually adjusted in small steps toward the desired path. After each small shift, pseudo frames are generated and then refined using the diffusion model. These refined views are added to the known view set, enriching the visual context for subsequent steps. Through this iterative refinement process, GA-Drive is able to handle large viewpoint changes while preserving high visual quality and temporal consistency.
+
+
+
+\begin{figure}
+    \centering
+    \includegraphics[width=\linewidth]{images/simulation_pipeline.pdf}
+    \vspace{-0.25in}
+    \caption{{\bf The pseudo-view simulation pipeline.} We design this pseudo-view simulation pipeline to simulate the characteristic patterns of the novel pseudo-views.}
+    \label{fig:pipeline}
+    \vspace{-0.1in}
+\end{figure}
+
+
+\subsection{Pseudo-view Simulation Pipeline} \label{sec:Training}
+
+% We need to train the video diffusion model with diverse weather conditions to facilitate the editing. However, the current driving dataset only contain few videos under extreme weather like snowy, foggy conditions. We develop a video augmentation pipeline that can mimic the pattern of the pseudo images. As shown in the figure  XXX. The pseudo images have the following patterns: 1. random mask, which is because after unprojecting and projecting, the unprotected point of that pixel may not be projected into its original place. because there are some errors of the float number operation.  Thus, there are some random mask. 2. During the inaccurate depth, pixel may sample the near pixels of its true corresponding pixel on the source view. 3. There are some missing regions because of the blocking.  To mimic this pattern, 1. add gaussian filter to remove high frequency noise. 2. Randomly blend with a near pixel to mimic the pattern 2. 3. Randomly add some masks to mimic pattern 2. 3 We can mimic the pattern 3 by masking the left or right edge of the object according to their depth which can be estimated by monocular depth estimation method Marigold[XXX].    
+
+% To enable robust video editing under diverse weather conditions, it is critical to train the video diffusion model on a wide range of environmental scenarios. However, existing driving video datasets such as Waymo~\cite{waymo}, nuScenes~\cite{nuscenes}, and others contain only a limited number of samples captured under extreme weather conditions, such as snow or fog. A common strategy for generating training pairs involves 4D reconstruction, where a subset of images is used to reconstruct the 4D scene, and the remaining images serve as ground truth for the pseudo-images rendered from the partial reconstruction. This approach is adopted in methods like FreeSim~\cite{freesim}. However, the effectiveness of such training is inherently constrained by the diversity of the underlying dataset. Since extreme-weather scenes are underrepresented, the resulting pseudo-images also lack such diversity, limiting the model’s ability to generalize to those conditions.
+
+
+
+% To address the limitation that 
+% existing driving datasets such as Waymo~\cite{Sun_2020_CVPR} and nuScenes~\cite{caesar2020nuscenes} contain only a limited number of samples captured under extreme weather conditions, and that 4D reconstruction is expensive, 
+
+% A common strategy for generating training pairs for diffusion models relies on 4D reconstruction: a subset of images is used to reconstruct the 4D scene, while the remaining images serve as ground truth for pseudo views rendered from this partial reconstruction, as seen in works like Freesim~\cite{fan2024freesim} and ReconDreamer~\cite{Ni2024ReconDreamerCW}. However, 4D reconstruction is computationally expensive and often requires hours to process a single scene. This high cost poses a significant barrier to scaling up to larger and more diverse datasets. 
+% To address this limitation,
+
+% Public driving datasets typically offer only a single trajectory per scene, since the vehicle cannot drive along multiple paths simultaneously. As a result, the views from that trajectory are committed as ground-truth targets, and there is no second trajectory to serve as sources for synthesizing pseudo-views of the recorded path. This limits our to synthesize novel pseudo-views while preserving ground-truth supervision.
+
+We propose a pseudo-view simulation pipeline that simulates the characteristic patterns observed in novel pseudo-views, enabling us to train our segment-wise video diffusion model directly on single-trajectory datasets. This eliminates the need for multi-trajectory recordings, which are unavailable in public driving datasets since a vehicle cannot traverse multiple paths simultaneously.
+
+\paragraph{The characteristic patterns of the novel pseudo-views. } As shown in Fig.~\ref{fig:pipeline}, the novel pseudo-views exhibit several characteristic patterns: (1) Random masks, which arise due to numerical inaccuracies during the unprojection and reprojection steps. Because floating-point operations are not perfectly precise, some pixels may not be projected back to their original locations, resulting in empty (black) pixels; (2) Local blending artifacts, where inaccurate depth estimation may cause a pixel to be sampled from a nearby, but incorrect, location in the source view; and (3) Occulded regions, typically caused by occlusions or blocked areas detected by visibility check. 
+
+\paragraph{The pipeline to simulate characteristic patterns. }  Our pseudo-view simulation pipeline shown in Fig.~\ref{fig:pipeline} includes the following steps: (1) A Gaussian filter is applied to reduce high-frequency noise and simulate the blurring introduced by projection artifacts; (2) For each pixel, we randomly blend it with a nearby pixel to reproduce the local blending behavior described in pattern (2); (3) We randomly mask some pixels to simulate the random masks observed in pattern (1); and (4) to simulate pattern (3), we mask the regions where the estimated depth increase/decrease sharply. The estimated depth is obtained via a monocular depth estimation model, Marigold~\cite{ke2025marigold}. This simulation pipeline enables the video diffusion model to be trained on single-trajectory datasets.
+
+Extensive experiments demonstrate that there is no noticeable gap between novel pseudo-views and simulated novel pseudo-views. We train the diffusion model on the Waymo training dataset~\cite{Sun_2020_CVPR} along with 700 videos featuring diverse weather conditions selected from OpenDV~\cite{gao2024vista}—a large-scale dataset of driving videos collected from YouTube. Our efficient simulation pipeline, which processes each frame in just three seconds on an A100 GPU, makes such large-scale training feasible.
+
+ 
+
+% \subsection{Trajectory Expansion Strategy} \label{sec:Expansion}
+
+% Since we aim to establish a close-loop driving simulator which requires a infinite-long novel trajectory can be rendered. To overcome the limitation of video diffusion models that only limited lengths of video can be generated, we propose a Head-to-tail trajectory Expansion. In this method, we deviate the trajectory from a camera pose with known images, such that the pseudo image of the first frame has no blocked regions. The model can take the first frame as a reference to generate the blocking regions for the rest of the frames to ensure the rest of the frame is coherent and consistent with the first frame and do nothing to the first frame. After generate this segment, the last frame can be regarded as a camera pose with known images and serve the first frame of next segment and continue this process. But such way, these segment can be connected seemlessly. To train such a model that can take the first frame as inference to generate the rest of the frame, we just don't do the step (4) of the video augmentation pipeline for the first frame. \quad Additionally, if we want to shift the trajectory a lot, i.e. shift the trajctory to the left by 3 meter. instead of jumping directly to distant target views, we incrementally shift the camera trajectory toward the desired path in small steps. After each step, we generate pseudo views and refine them using the diffusion model. The new trajectory segment is then added to the known view set, so that subsequent steps benefit from increasingly rich visual context. Through this iterative process, GA-Drive can handle large viewpoint changes while maintaining high visual quality and consistency.

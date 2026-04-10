@@ -1,0 +1,202 @@
+\section{More Quantitative Results}
+
+
+
+\subsection{Evaluation on Planning Task.} 
+% planning
+\label{app:planning}
+We also assess our model in the planning task in autonomous driving.
+A high-quality planning system not only perceives the current environment but also maintains stable temporal understanding of dynamic objects (e.g., pedestrians, vehicles) to generate smooth and safe trajectories. 
+Therefore, planning task performance serves as a comprehensive measure of both instance-level temporal consistency and spatial geometric fidelity. 
+
+To validate our approach, we evaluate the generated nuScenes validation data using pretrained planning model UniAD \cite{shi2016uniad} in Tab.~\ref{tab:planning}.
+The L2 loss and collision rates closely match the performance of the original data, demonstrating clear benefits from improved temporal consistency and spatial fidelity.
+
+
+
+
+
+
+\begin{table}[tb]
+    \centering
+    \footnotesize
+    \resizebox{0.475\textwidth}{!}{
+        \setlength{\tabcolsep}{4pt}
+        \begin{tabular}{c |c c c c |c c c c }
+            \toprule
+            \multirow{2}{*}{Eval Data} & \multicolumn{4}{c|}{L2(m)$\downarrow$} & \multicolumn{4}{c}{Col. Rate$\downarrow$} \\
+            & 1s & 2s & 3s & Avg. & 1s & 2s & 3s & Avg. \\
+            \hline
+            Oracle & 0.48 & 0.96 & 1.65 & 1.03 & 0.0005 & 0.0017 & 0.0071 & 0.0031 \\
+            \titleDef~ & 0.67 & 1.54 & 2.69 & 1.63 & 0.0033 & 0.0095 & 0.0189 & 0.0105 \\ 
+            \bottomrule
+        \end{tabular}
+    }
+    \caption{Comparison on planning task using the pre-trained planning model UniAD \cite{shi2016uniad}.
+    We resize all generated images to 900×1600 to ensure a unified evaluation standard. The L2 loss and collision rates closely match the performance of the original data, highlighting the benefits of enhanced temporal consistency and spatial fidelity.
+    }
+    \label{tab:planning}
+\end{table}
+
+
+\subsection{Ablation Study for SGA}
+%In Tab. \ref{tab:ablation_sga}, we isolate the impact of \textit{box projection} and \textit{depth injection} in the Spatial Geometric Aligner module.
+We conduct ablation on the SGA module by gradually removing its two components: depth injection and box projection.
+As shown in Tab.~\ref{tab: ablation}, removing both causes a large drop of 3.20 in NDS and a big increase of 187 in IDS, confirming the importance of SGA module.
+Individually, removing box projection leads to a larger NDS drop, while removing depth injection results in more ID switches, indicating their respective contributions to spatial localization and temporal consistency.
+
+
+
+% \vspace{-0.8em}
+% \begin{table}[htbp]
+%     \centering
+%     \footnotesize
+%         \centering
+%         \resizebox{0.48\textwidth}{!}{
+%         \setlength{\tabcolsep}{4pt}
+%         \begin{tabular}{lcccc}
+%             \toprule
+%             Settings        & FVD$\downarrow$ & FID$\downarrow$ & NDS$\uparrow$ & IDS$\downarrow$ \\
+%             \hline 
+%             w/o SGA(Box) & 39.27 \textcolor{blue}{(+1.21)}& 4.07 \textcolor{blue}{(+0.11)} & 38.22 \textcolor{blue}{(-2.29)} & 628 \textcolor{blue}{(+92)}\\ 
+%             w/o SGA(Depth)   & 40.46 \textcolor{blue}{(+2.40)} & 4.15 \textcolor{blue}{(+0.19)} & 39.13 \textcolor{blue}{(-1.38)} & 669 \textcolor{blue}{(+133)}\\
+%             \bottomrule
+%         \end{tabular}
+%         }
+%         \captionsetup{skip=2pt}
+%         \caption{SGA ablation: isolate \textit{box projection} / \textit{depth injection}.}
+%         \label{tab:ablation_sga}
+%         \vspace{-1.5em}
+% \end{table}
+
+
+
+
+
+
+\subsection{Ablation Study in T2V Scenario}
+\label{app: t2v}
+We also conduct an ablation study in the T2V scenario to evaluate the effectiveness of two key modules—the Instance Flow Guider (IFG) module and the Spatial Geometric Aligner (SGA) module. The results are presented in Tab.\ref{tab: ablation2}.
+
+\noindent \textbf{Instance Flow Guider.}
+To assess the impact of the IFG module, we eliminate the instance flow injection. In the T2V mode, where no guidance is provided from the first frame, the IFG module plays a more critical role compared to its role in the (T+I)2V mode. As shown in Tab.\ref{tab: ablation2}, removing the instance flow injection leads to a significant degradation, with the FVD score increasing by $46.81$. This highlights the module’s importance in ensuring smooth and coherent video generation.
+
+\noindent \textbf{Spatial Geometric Aligner.}
+To evaluate the influence of the SGA module, we remove the injection of depth order and replace the box projection with box coordinates as the control signal. 
+This ablation significantly impacts the model’s ability to accurately localize objects and understand spatial relationships. As demonstrated in Tab.\ref{tab: ablation2}, the absence of the SGA module results in a notable performance drop, further emphasizing its essential role in achieving high spatial fidelity.
+
+
+
+
+
+\begin{table}[tb]
+    \centering
+    \footnotesize
+        \centering
+        \resizebox{0.475\textwidth}{!}{
+        \setlength{\tabcolsep}{23pt}
+        \begin{tabular}{lcc}
+            \toprule
+            Settings        & FVD$\downarrow$ & FID$\downarrow$  \\
+            \hline
+            \rowcolor[gray]{.9} 
+            \titleDef~   & 107.50 & 12.91 \\
+            \hline
+            w/o Instance Flow Guider  & 154.31 \textcolor{blue}{(+46.81)} &  16.73 \textcolor{blue}{(+3.82)}\\ 
+            w/o Spatial Geometric Aligner & 117.25 \textcolor{blue}{(+9.75)}& 14.52 \textcolor{blue}{(+1.61)}\\           
+            \bottomrule
+        \end{tabular}
+        }
+        \caption{Ablation study results in T2V scenarios on the generated nuScenes validation set.}
+        \label{tab: ablation2}
+\end{table}
+
+
+
+
+
+
+
+
+\input{figures/appendix/control}
+
+
+
+\input{figures/appendix/noise1}
+
+\section{More Visualization Results}
+Here, we provide additional visualization results to showcase our model's strong ability to generate high-fidelity, realistic, and diverse multi-view driving videos. 
+We sample 8 frames from each generated video as a demo to save space in the paper. Our model is capable of generating high-quality, long-duration driving videos through iterative processing. 
+We provide a web page in the supplementary materials for additional results. Please refer to the webpage in the supplementary materials for visualization results.
+
+
+
+
+
+\subsection{Prompt Edit}
+\label{app:edit}
+\titleDef~ enables video editing by modifying only the text prompt condition while keeping all other conditions fixed.  
+In Fig.4 in main text, we demonstrate the model's editing capability by altering the weather and time of day in the text prompt. Specifically, we add "Sunny," "Rainy," and "Night" to the original text prompt, while maintaining other conditions such as camera pose, 3D bounding box coordinates, 3D bounding box projections, road map projections, and instance flow unchanged. The generated videos showcase high quality and effective editing:  
+\begin{itemize}
+    \item \textbf{Sunny}: Displays clear skies with sunlight shining on the scene, reflecting bright and vivid environmental details.  
+    \item \textbf{Rainy}: Captures wet road surfaces and blurred camera views caused by raindrops, adding realistic weather dynamics.  
+    \item \textbf{Night}: Depicts dimly lit scenes with streetlights and reduced visibility, accurately simulating nighttime driving conditions.  
+\end{itemize}
+These results emphasize the strong editing capability of \titleDef~, producing diverse and realistic driving videos with minimal changes to the input conditions.
+
+
+
+\subsection{Control Precision}
+\label{app:control}
+\titleDef~ excels at generating videos that adhere closely to various control conditions, including 3D bounding box projections, road map projections, depth order, and instance flow.  
+In Fig.~\ref{fig:control}, we overlay the 3D bounding box projections onto the generated videos to illustrate the precision of our control mechanisms.  The precision of control is reflected in:  
+\begin{itemize}
+    \item \textbf{Object alignment with bounding box projections}: Objects in the scene are accurately placed and sized to align with their projected bounding boxes, as shown in  Fig.~\ref{fig:control} (a)(b).  
+    \item \textbf{Road and pedestrian area fidelity}: Drivable areas, sidewalks, and zebra crossings are faithfully generated following the road map projections, as shown in  Fig.~\ref{fig:control} (a)(b).  
+    \item \textbf{Precision in dense and small objects}: Small and densely packed objects are precisely rendered at their correct locations, as shown in  Fig.~\ref{fig:control} (b).  
+    \item \textbf{Temporal consistency through instance flow}: Objects track their previous attributes as dictated by the \textit{instance flow}, enabling consistent temporal consistency across frames, as shown in  Fig.~\ref{fig:control} (a).  
+\end{itemize}
+These results highlight the superior control and fidelity of \titleDef~ in generating realistic and controllable driving videos.
+
+
+
+
+
+
+\subsection{Carla-Generated Layout Control}  
+\label{app:carla}
+\titleDef~ demonstrates the ability to generate high-quality driving videos based on layout conditions provided by the Carla simulator \cite{Dosovitskiy17}, which include 3D bounding box projections, lane line projections, and scene description text prompts. 
+The use of Carla-generated layouts addresses a critical limitation in real-world driving video datasets: the lack of diversity in scene types, especially for rare but critical events like lane cutting and sudden braking. 
+By leveraging Carla's highly configurable simulation environment, we can create synthetic layouts that represent complex and diverse driving scenarios, such as multi-vehicle intersections, narrow streets, or sudden obstacles, which are difficult to capture in real-world data.  
+
+In Fig.5 in main text, we showcase our model's ability to generate rare videos corresponding to these layouts.   
+The generated videos highlight \titleDef's capacity to faithfully adhere to the control signals while producing realistic outputs. 
+Moreover, by effectively handling corner cases, our approach bridges the gap in scene diversity, making it a valuable tool for training and validating driving models under challenging scenarios. 
+The results demonstrate that \titleDef~ can not only replicate realistic conditions but also adapt seamlessly to a wide range of complex layouts generated by Carla, further enhancing its applicability in autonomous driving research. 
+
+
+\subsection{Diversity with Varying Noise}
+\label{app:noise}
+
+\titleDef~ demonstrates the ability to generate diverse driving videos from identical control conditions with varying noise inputs, as illustrated in Fig.~\ref{fig:noise}. By introducing stochastic noise while maintaining consistent control signals—such as 3D bounding box coordinates, lane line projections, and instance flow—our model produces a variety of plausible video outputs that adhere to the defined constraints.
+
+
+
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.8\linewidth]{figures/pap.pdf} 
+\caption{Results on private dataset.}
+\label{fig:private}
+\end{figure*}
+
+
+\subsection{Results on our private dataset}
+\label{app:private data}
+In addition to public datasets, we trained on a 200 hour private dataset. The results, as shown in the Fig. \ref{fig:private}, demonstrate that we achieved similar generation quality and control performance as on nuScenes, highlighting the generalization capability of our method.
+
+
+
+
+
+

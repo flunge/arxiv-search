@@ -1,0 +1,145 @@
+
+\begin{figure*}[t!]
+    \centering
+    %\vspace{-5pt}
+    \includegraphics[width=2\columnwidth,trim={1.0cm 7.5cm 1.0cm 5.35cm},clip]{dyn_imgs/method.pdf}
+    \caption{Given canonical 3D Gaussians and an input skeleton, \ourmethod{}  first predicts time-dependent joint poses, regularized with $\mathcal{L}_{motion}$ for temporal smoothness. With the predicted skeleton poses, the canonical Gaussians are then transformed via Linear Blend Skinning using learnable per-bone radii and a skinning correction field. Finally, a detail deformation field refines the transformed Gaussians. All parameters are optimized by minimizing the perceptual loss between the rendered and observed images. }
+    \label{dyn_img:method}
+    \vspace{-4pt}
+\end{figure*}
+
+
+\section{Method}
+\label{dyn_sec:method}
+
+Our goal is to reconstruct an articulated dynamic target from sparse temporal observations $\myset{I} = \{I_t\}_{t\in[0,1]}$, where each time step consists of only a single posed image captured from an arbitrary viewpoint. We present \ourmethod{}, which assumes access to a skeleton structure $\myset{F}$ as input.  The skeleton specifies the 3D locations of $J$ nodes and their parent–child connectivity, which can be obtained through human annotation or estimated using an off-the-shelf method~\cite{liu2025riganything, RigNet}.
+As illustrated in \figref{dyn_img:method}, \ourmethod{} starts from building an initial static 3D reconstruction of the target. Then we learn a skeleton-driven deformation field that models continuous articulation and motion over time, under sparse temporal supervision. 
+
+\subsection{Scene representation}
+
+\par
+\noindent\textbf{Initial Static 3D Gaussians.} We adopt 3D Gaussian Splatting (3DGS)~\cite{kerbl3Dgaussians} as our scene representation for its fast optimization speed and explicit, physically interpretable parameterization. 3DGS represents a scene with a collection of Gaussian primitives $\myset{G} = \{ g_i \}_{i \in 1,...,N}$, where each Gaussian $g_i$ is defined by a center $\mu_i$, a rotation matrix represented with quaternion $q_i$, a scaling vector $s_i$, an opacity value $\sigma_i$, and a set of spherical harmonics coefficients $sh_i$ determining the view-dependent color. Given a camera pose, we can render an image from $\myset{G}$, where the pixel color is determined by $\alpha$-blending along the ray direction:
+
+\begin{equation}
+color = \sum_k c_k \alpha_k \prod_{j=1}^{k-1} (1 - \alpha_j)
+\end{equation}
+where k is the index of the Gaussians sorted by depth along the viewing direction, and $c_k$ is the view-dependent color evaluated from the spherical harmonics coefficients.
+% \vtxt{check the notation. $C_ki (in the above paragraph) vs c_k$}
+The $\alpha$ value is the opacity $\sigma$ weighted by the projected 2D Gaussian distribution from the 3D space onto the 2D plane. 
+
+In this paper, we assume the initial static 3DGS can be obtained  either from multi-view images or potentially from a pre-trained image-to-3D diffusion model. In the multi-view setup, we follow the standard pipeline~\cite{kerbl3Dgaussians} to optimize the Gaussian parameters by minimizing the perceptual loss between the rendered images and the ground truth images. % at the initial static state. 
+We further showcase in \secref{dyn_sec:diffusion} that the multi-view initialization can potentially be replaced with a pre-trained generative model. More details can be found in \secref{dyn_sec:diffusion} and the supplementary material.
+
+
+\par 
+\vspace{6pt}
+\noindent\textbf{Skeleton-Driven Deformation.}
+Given the initial static 3DGS $\myset{G}$ and an annotated skeleton graph $\myset{F}$, our goal is to learn a deformation field that transforms the initial $\myset{G}$ to match the observed images at the corresponding sparse time steps. Furthermore, the learned deformation enables continuous motion synthesis for intermediate time steps without direct observations.
+Note that the input skeleton graph can be noisy and contains only the 3D positions of the nodes and their connectivity, without point-to-part associations or joint parameters.
+
+To derive a deformation that is constrained by the input skeleton  while also remaining flexible to match the sparse observations, we draw inspiration from learnable Linear Blend Skinning (LBS) techniques~\cite{magnenat1989joint,yang2022banmo,yao2025riggs,li2025articulated}. 
+Specifically, we adopt an MLP to model the time-dependent local rotation $q^t_j $ (represented using quaternions) for each joint $j$ in the skeleton, along with a local translation $p^t \in \mathbb{R}^3$ only for the root joint. 
+
+\begin{equation}
+q^t, p^t = MLP_{\Theta}(\gamma(t))
+\end{equation}
+where $\gamma(\cdot)$ denotes the positional encoding~\cite{mildenhall2021nerf}. 
+The local rotations are defined for each joint in the local frame, therefore, given the parent–child hierarchy in the skeleton graph $\myset{F}$, we compute the global transformation of each joint using forward kinematics~\cite{denavit1955kinematic}
+
+\begin{equation}
+\hat{\mymat{R}^t}, \hat{T^t} = fk(\myset{F}, q^t, p^t)
+\end{equation}
+where $\hat{\mymat{R}^t_j}$ and $\hat{T^t_j}$ denote the global rotation (represented as $3\times3$ matrix) and translation of joint $j$ at time $t$ respectively. $fk(\cdot)$ is the forward kinematics operation that propagates the local transformation of each joint to all child joints. 
+
+Next, to guide the Gaussian primitives with the estimated joint poses, we derive a fine-grained motion field based on a learnable LBS deformation. We first construct $B$ bones, where each bone $b_j$ corresponds to the edge connecting joint $j$ and it's parent~\cite{yao2025riggs,uzolas2023template}. 
+Each Gaussian center $\mu_i$ in the canonical static state is transformed to time $t$ as:
+\begin{equation}
+\mu_i^t = \sum_{j=1}^B w_{i,j}(\hat{\mymat{R}^t_j} \mu_i + \hat{T^t_j})
+\end{equation}
+where $w_{i,j}$ is the learnable skinning weight satisfying $\Sigma_j w_{i,j} = 1$. The rotation part of the Gaussian primitive is similarly approximated by the weighted sum: $\sum_{j=1}^B w_{i,j}\hat{\mymat{R}^t_j}\mymat{R}_i$. 
+
+\par 
+\vspace{6pt}
+\noindent\textbf{Learnable Skinning Weights.}
+%Next we describe how the learnable skinning weight $w_{i,j}$ is designed. 
+Since the input skeleton can be noisy and lacks skinning and deformation information, we model the skinning effect of each bone as a Radial Basis Function (RBF) kernel in the canonical (static) state. Moreover, to account for the noise in the input skeleton, we learn a position-dependent correction field $MLP_{\Phi}$ also in the canonical state. 
+Formally, we compute normalized weights as:
+\begin{equation}
+w_{i,j} = \frac{\hat{w_{i,j}}}{ \sum_{j=1}^B \hat{w_{i,j}}},
+\end{equation}
+% To be more specific, $w_{i,j}$ is calculated as: $w_{i,j} = \hat{w_{i,j}} / \sum_{j=1}^B \hat{w_{i,j}}$, and  
+where
+\begin{equation}
+\hat{w_{i,j}} = \Delta w_{i,j} \ exp\left(- \frac{d_{i,j}^2}{2r_j^2}\right)
+\end{equation}
+Here $d_{i,j}$ denotes the the distance between the Gaussian center $\mu_i$ and bone $b_j$ in the canonical frame, and $r_j$ is the learnable influence radius for each bone $j$. Moreover, the correction field $\Delta w_{i,j}$ is parameterized with a MLP:
+
+\begin{equation}
+\Delta w_{i,j} = MLP_{\Phi}(\gamma(\mu_i))
+\end{equation}
+where $\gamma(\cdot)$ again denotes the positional encoding~\cite{mildenhall2021nerf} for the Gaussian center $\mu_i$.
+
+
+\par 
+\vspace{6pt}
+\noindent\textbf{Detail Deformation.}
+The above skeleton-driven deformation captures coarse articulated motion by propagating the joint transformations to the Gaussian primitives. However, the skeleton is sparse by nature and cannot account for fine-grained non-rigid deformations. Inspired by~\cite{yao2025riggs}, we include an additional pose-dependent detail deformation field $MLP_\Psi$ to refine the local details. For each Gaussian, we predict a small offset by considering the Gaussian center in the canonical frame and the predicted joint poses at that time step. Therefore, the final Gaussian center at time $t$ is:
+
+\begin{equation}
+\hat{\mu_i^t } = \mu_i^t  + MLP_\Psi(\gamma(\mu_i), \mymat{R}^t)
+\end{equation}
+
+\begin{figure*}[!htb]
+    \centering
+    %\vspace{-5pt}
+    \includegraphics[width=2\columnwidth,trim={2.6cm 5.8cm 2.9cm 4.75cm},clip]{dyn_imgs/dnerf.pdf}
+    \caption{Qualitative results on the D-NeRF dataset~\cite{pumarola2021d} downsampled at 0.1 intervals, yielding 11 frames per motion sequence (up to $20\times$ fewer than the original). 
+    We compare our method with SOTA methods including 4DGS~\cite{Wu_2024_CVPR}, SK-GS~\cite{wan2024template}, and RigGS~\cite{yao2025riggs}. Additionally, we modify RigGS~\cite{yao2025riggs} to take in the same skeleton input as ours. 
+    Despite all methods being initialized with the same multi-view images at $t=0$, existing methods produce noisy deformations and fail to preserve object structure given only sparse temporal observations. }
+    \label{dyn_img:dnerf}
+    \vspace{-4pt}
+\end{figure*}
+
+\subsection{Optimization}
+\label{dyn_sec:optimization}
+
+The trainable parameters of our deformation field include the joint local pose predictor $MLP_\Theta$, the bone influence radii $r_j$, the skinning correction field $MLP_\Phi$, and the detail deformation field $MLP_\Psi$. During training the deformation parameters, we keep the parameters of the static canonical Gaussians $\myset{G}$ fixed. All deformation parameters are jointly optimized by minimizing the following loss:
+
+\begin{equation} \label{dyn_eq:loss_func}
+\mathcal{L} = \lambda_{1}\mathcal{L}_{perceptual} + \lambda_{2}\mathcal{L}_{motion} + \lambda_{3}\mathcal{L}_{detail}
+\end{equation}
+
+
+
+The main objective is to enforce the deformed Gaussians to match the observed images when rendered from the corresponding viewpoints. We follow the perceptual loss used in 3DGS~\cite{kerbl3Dgaussians}, where $\mathcal{L}_{perceptual}$ is a combination of $\mathcal{L}_{1}$ loss and D-SSIM loss. 
+
+However, since only one image observation is available at each sparse time step, regions without direct supervision may undergo unstable or noisy deformation. To address this, we introduce two regularization terms that constrain the skeleton motion and the detail deformation field.
+
+\par 
+\vspace{6pt}
+\noindent\textbf{Motion Regularization.} 
+Since the joint poses are defined in their respective local frames, we can directly enforce temporal smoothness by minimizing the Laplacian of the predicted values with respect to time:
+
+\begin{equation}
+\mathcal{L}_{motion} = \frac{1}{T J}\sum_t^T \sum_j^J \left| q_j^{t-1} - 2q_j^t + q_j^{t+1} \right |
+\end{equation}
+where $T$ is uniformly sampled between $[0,1]$. 
+This regularization helps mitigate the ambiguity caused by self-occlusions under single-view supervision at each time step, preventing $MLP_\Theta$ from producing abrupt pose changes and encouraging temporally coherent motion.
+% To account for the ambiguity caused by self-occlusions from the single observation at each time step, this loss prevents $MLP_{\Theta}$ from generating sudden changes in joint poses across consecutive time steps, and encourages gradual motion. 
+
+\par 
+\vspace{6pt}
+\noindent\textbf{Detail Deformation Regularization.} The detail deformation field $MLP_\Psi$ is defined in the canonical frame to model small offsets for each Gaussian primitive such that the rendered images reflect finer motion details. Since this field is not intended to cause large displacements, we apply an $\mathcal{L}_2$ regularization term on the predicted offsets:
+
+\begin{equation}
+\mathcal{L}_{detail} = \frac{1}{N}\sum_i^N \left\| MLP_\Psi(\gamma(\mu_i), \mymat{R}^t) \right\|^2_2
+\end{equation}
+
+
+
+
+\subsection{Inference}
+
+Our ultimate goal is to reconstruct a continuous motion sequence from sparse observations. Since the model is only supervised at a few discrete time steps, the learned $MLP$ may produce temporally inconsistent or jittery motions when queried at unseen time steps. To mitigate this issue, we design the deformation field such that only the local pose prediction $MLP_\Theta$ depends explicitly on time. This allows us to effectively perform interpolation for the joint poses at unseen intermediate time steps while preserving the effect of the skinning correction field and detail deformation field. We show in the supplementary video that our method generates smooth and coherent motion even under sparse temporal supervision.
+
+

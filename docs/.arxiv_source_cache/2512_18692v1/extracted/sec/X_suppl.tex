@@ -1,0 +1,111 @@
+\clearpage
+\setcounter{page}{1}
+\maketitlesupplementary
+
+\appendix
+
+\section{Additional Experimental Results}
+ 
+\subsection{Efficiency Comparisons}
+In Table~\ref{table:latency}, we present a detailed efficiency comparison of all feed-forward 3DGS methods evaluated in Table~\ref{table:re10k_multi_view}. The reported metrics include `Recon. Latency (s)', `Render FPS', `\# GS', and `Storage (MB)', which respectively correspond to the time required to generate 3D Gaussians from input views, the rendering speed obtained from rasterizing the predicted 3D Gaussians, the number of output 3D Gaussians, and their memory footprint.
+As shown, EcoSplat substantially improves both rendering FPS and storage efficiency by predicting far fewer Gaussians. Moreover, EcoSplat achieves the fastest reconstruction time among all feed-forward methods. Although NoPoSplat~\cite{ye2024no} uses a similar MASt3R~\cite{mast3r_eccv24} backbone, its architecture requires performing cross-attention between the first input view and each remaining view independently, resulting in substantial computational overhead. Following SPFSplat~\cite{huang2025no}, EcoSplat adopts a global attention mechanism that aggregates feature information from all views. Furthermore, whereas SPFSplat predicts Gaussian parameters sequentially across views, EcoSplat predicts all per-view Gaussian primitives in parallel. This parallel implementation significantly reduces reconstruction latency, making EcoSplat the most efficient method overall.
+\vspace{-0.2cm}
+
+\subsection{Additional NVS Results under Controlled Number of Primitives} 
+We further evaluate all methods under a more challenging test setup. Instead of randomly sampling input and target views, we require each target view to be at least 20 frames away from its nearest input view, which forces the models to synthesize substantially more extreme novel viewpoints.
+We additionally include per-scene optimization methods that support controllable primitive counts, such as 3DGS-MCMC~\cite{kheradmand20243d}, PUP 3D-GS~\cite{HansonTuPUP3DGS}, and Lightgaussian~\cite{fan2023lightgaussian}, to compare them with feed-forward approaches.
+For 3DGS-MCMC~\cite{kheradmand20243d}, we train the model for 30K iterations.
+For PUP 3D-GS~\cite{HansonTuPUP3DGS} and Lightgaussian~\cite{fan2023lightgaussian}, we first optimize the 3DGS representation for 10K iterations, prune the primitives using their respective strategies, and then resume training for an additional 10K iterations.
+These per-scene optimization methods require approximately 10 minutes of reconstruction time.
+Moreover, we finetune the 3D Gaussian parameters predicted by the cascaded baselines that combine SPFSplat~\cite{huang2025no} with post-pruning methods~\cite{fan2023lightgaussian, HansonTuPUP3DGS}, and report results after 1K and 10K finetuning iterations, respectively.
+The results demonstrate that our feed-forward EcoSplat significantly outperforms all competing methods, including per-scene optimization approaches, by large margins. EcoSplat exhibits significantly less overfitting to the input views and demonstrates greater robustness under large viewpoint shifts than the per-scene optimization approaches~\cite{kheradmand20243d, HansonTuPUP3DGS, fan2023lightgaussian}. Although the cascade baselines (SPFSplat~\cite{huang2025no} + Lightgaussian~\cite{fan2023lightgaussian}, SPFSplat~\cite{huang2025no} + PUP 3D-GS~\cite{HansonTuPUP3DGS}) show improvements after per-scene post-optimization, they still fall behind our EcoSplat without any further Gaussian finetuning. Note that per-scene post-optimization for these cascade baselines requires up to 1 minute of finetuning, adding substantial overhead to the feed-forward pipeline.
+
+\input{table/table_latency}
+
+\input{table/table_compare_finetune}
+
+\subsection{Ablation Study on Architectural Design}
+In Table~\ref{tab:ablation_architecture}, we ablate the injection strategies of our learnable importance embedding $\bm{R}_i$ in Eq.~\ref{eq:stage2_GS_params}, with the corresponding designs illustrated in Fig.~\ref{fig:ablation_architecture}-(a).
+In the `Cross-attention' variant, each $\bm{R}_i$ interacts with its corresponding $\bm{Z}_i^{(\ell)}$ through cross-attention.
+The `Deep Add' variant replaces this cross-attention operation with a simple additive fusion of $\bm{R}_i$ and $\bm{Z}_i^{(\ell)}$.
+The fused features are then passed to a residual convolutional refinement block.
+Our final design, the `Shallow Add' variant, fuses $\bm{R}_i$ with the output of the residual convolutional refinement block applied to $\{\bm{Z}_i^{(\ell)}\}_{\ell=1}^{m}$ by simple addition.
+This refinement block's architecture is shown in Fig.~\ref{fig:ablation_architecture}-(b).
+Among all variants, the `Shallow Add' variant achieves the best balance of effectiveness and stability.
+
+\input{table/table_architecture}
+
+\begin{figure*}[ht]
+    \centering    \includegraphics[scale=0.12]{figure/architecture_ablation.png}
+    \vspace{-0.5cm}
+    \caption{\textbf{Importance embedding injection strategies.}}
+    \label{fig:ablation_architecture}
+\end{figure*}
+
+\subsection{Additional Cross-Dataset Generalization NVS}
+We provide extended quantitative results for the 16-view and 20-view settings in Table~\ref{table:acid_multi_view_16_20}, complementing the evaluations reported in Table~\ref{table:acid_multi_view}.
+\input{table/table_acid_multi_view_16_20}
+
+
+\subsection{Long-LRM Results}
+% We acknowledge the concurrent work Long-LRM~\cite{ziwen2025long}, as discussed in Related Works (Sec.~\ref{sec:related_work}). However, until 20 November 2025, no official configuration for the RE10K dataset has been released. Consequently, we were unable to successfully train Long-LRM and could not obtain reasonable results using the available checkpoint.
+We acknowledge the concurrent work Long-LRM~\cite{ziwen2025long}, as discussed in the Related Works section (Sec.~\ref{sec:related_work}). Despite our extensive efforts to include this model in our comparison, as of 20 November 2025, no official training configuration or released code for the RE10K dataset has been made publicly available. We attempted to train Long-LRM by reproducing all available details and using the checkpoint provided by the authors. However, the absence of an official RE10K configuration and incomplete training specifications led to repeated training failures, and the resulting outputs were not reliable enough for a fair comparison. Therefore, although we made every reasonable effort to reproduce Long-LRM with the currently available public resources, we were unable to obtain valid experimental results. Once the official configuration becomes available, we will gladly include a full experimental comparison.
+
+\section{Limitation and Future Work}
+Similar to prior feed-forward 3DGS frameworks~\cite{xu2025depthsplat, chen2024mvsplat, charatan2024pixelsplat, ye2024no, huang2025no, jiang2025anysplat, liu2025worldmirror}, EcoSplat is currently designed for NVS of \textit{static} scenes from multi-view images. Therefore, our model does not yet handle object deformation or dynamic scene reconstruction. Nevertheless, recent progress in \textit{feed-forward} dynamic scene reconstruction~\cite{xiao2025spatialtrackerv2, wang20254realvideov2fusedviewtimeattention} have proposed a promising extension that finetunes the global cross-attention layers to learn temporal consistency in dynamic scenes. Inspired by this, our framework could be extended to handle dynamic scenes and jointly predict global static primitives and per-frame dynamic primitives.
+
+% \paragraph{Depth $\to$ Normal with intrinsics.}
+% Let the pinhole intrinsics be
+% $K=\begin{bmatrix} f_x & 0 & c_x \\ 0 & f_y & c_y \\ 0 & 0 & 1 \end{bmatrix}$ (in pixels),
+% and let $z(u,v)$ denote the depth at pixel $(u,v)$.
+
+% \textbf{Unprojection to camera coordinates}
+% \[
+% \bm{p}(u,v)=
+% \begin{bmatrix}
+% x\\y\\z
+% \end{bmatrix}
+% =
+% \begin{bmatrix}
+% \frac{u-c_x}{f_x}\,z(u,v)\\[4pt]
+% \frac{v-c_y}{f_y}\,z(u,v)\\[4pt]
+% z(u,v)
+% \end{bmatrix}.
+% \]
+
+% \textbf{Tangents (continuous form)}
+% \[
+% \bm{p}_u=\frac{\partial \bm{p}}{\partial u}=
+% \begin{bmatrix}
+% \frac{z}{f_x}+\frac{u-c_x}{f_x}\,z_u\\[4pt]
+% \frac{v-c_y}{f_y}\,z_u\\[4pt]
+% z_u
+% \end{bmatrix},\qquad
+% \bm{p}_v=\frac{\partial \bm{p}}{\partial v}=
+% \begin{bmatrix}
+% \frac{u-c_x}{f_x}\,z_v\\[4pt]
+% \frac{z}{f_y}+\frac{v-c_y}{f_y}\,z_v\\[4pt]
+% z_v
+% \end{bmatrix},
+% \]
+% where $z_u=\partial z/\partial u$, $z_v=\partial z/\partial v$.
+
+% \textbf{Normal and normalization}
+% \[
+% \tilde{\bm{n}}(u,v)=\bm{p}_u\times\bm{p}_v,\qquad
+% \bm{n}(u,v)=\frac{\tilde{\bm{n}}(u,v)}{\lVert \tilde{\bm{n}}(u,v)\rVert_2}.
+% \]
+
+% \textbf{Discrete (central-difference) approximation}
+% \[
+% \bm{d}_x=\bm{p}(u{+}1,v)-\bm{p}(u{-}1,v),\qquad
+% \bm{d}_y=\bm{p}(u,v{+}1)-\bm{p}(u,v{-}1),
+% \]
+% \[
+% \tilde{\bm{n}}=\bm{d}_x\times\bm{d}_y,\qquad
+% \bm{n}=\frac{\tilde{\bm{n}}}{\lVert \tilde{\bm{n}}\rVert_2}.
+% \]
+
+% \textit{Note.} Intrinsics are required to map pixel steps $(\Delta u,\Delta v)$ to true
+% 3D tangents under the pinhole model; using only depth gradients corresponds to an
+% orthographic approximation.

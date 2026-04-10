@@ -1,0 +1,210 @@
+\section{Proposed Method: EcoSplat}
+\label{sec:proposed_method}
+
+\subsection{Overview of EcoSplat}
+Given $N$ multi-view images $\{\bm{I}_i\}_{i=1}^{N}$ for a scene and a target number of Gaussians $K$, we aim to predict, in a feed-forward manner, a set $\mathcal{G}=\{\bm{G}_k\}_{k=1}^{K}$ of 3D Gaussian primitives~\cite{kerbl20233d} that maximizes the rendering quality.
+Our proposed {EcoSplat} controls the per-view number of predicted 3D Gaussian primitives by ranking and selecting the most informative primitives in each view, ensuring that the set of selected primitives meets the target primitive number $K$.
+
+To accomplish this, we adopt a two-stage optimization process: (i) The first stage is Pixel-aligned Gaussian Training (PGT) (Sec.~\ref{sec:architecture}) where we train our model to predict pixel-aligned Gaussians, similar to prior works~\cite{charatan2024pixelsplat, chen2024mvsplat}; (ii) The second stage is Importance-aware Gaussian Finetuning (IGF) (Sec.~\ref{sec:IGF}) where our model is further trained to predict the Gaussian parameters (opacities, 3D covariances, and colors) adaptively based on the target primitive number $K$, enabling effective ranking and selection of important Gaussians.
+Specifically, we inject $K$ as a conditioning signal into our model. Adaptive to $K$, EcoSplat suppresses the opacities of less important Gaussians in the pixel-aligned set, allowing the most informative ones to be retained. This process ensures the final output can be obtained by directly preserving the Gaussian primitives with the $K$-highest opacity scores, which are called `top-$K$ Gaussians'. For inference (Sec.~\ref{sec:inference}), we describe our procedure, which satisfies the target primitive number $K$ by allocating per-view Gaussian counts based on the importance of each view to maximize the rendering quality.
+
+
+
+
+
+
+% the model learns to appropriately predict Gaussian opacity adaptively based on the preservation ratio.
+
+% From each $\{\bm{I}_i\}$, our EcoSplat first predicts the pixe`l-aligned Gaussian $\{G_{i,j}\}_{j=1}^{HW}$ and make a importance mask based on the preservation ratio from the pixel-aligned Gaussians. Then, we refine the opacity of each pixel-aligned Gaussians
+
+
+% \jm{Prior works~\cite{ye2024no, huang2025no, xu2025depthsplat} typically generate \textit{pixel-aligned} primitives, where each pixel in $\bm{I}_i$ corresponds to a single Gaussian primitive. These methods define the set of Gaussian primitives as:
+% \begin{equation}
+%     \mathcal{G} = \bigcup_{i=1}^{N} \{G_{i,j}\}^{H\times W}_{j=1},
+% \end{equation}
+% where each Gaussian primitive is represented as $G_{i,j} = (\bm{\mu}_{i,j}, \alpha_{i,j}, \bm{\Sigma}_{i,j}, \bm{c}_{i,j})$. Here, $\bm{\mu}_{i,j}$ denotes the 3D position, $\alpha_{i,j}$ is the opacity, $\bm{\Sigma}_{i,j}$ is the covariance, and $\bm{c}_{i,j}$ represents the color of the $j$-th primitive in the $i$-th image.
+% In contrast, our proposed \textbf{EcoSplat} introduces a \textit{pixel-unaligned} representation, enabling an \textit{efficient} and \textit{controllable} number of primitives, dynamically adjusted based on target computational resources. Specifically, prior methods' pixel-aligned Gaussian primitives $\mathcal{G}$ can be regarded as an \textit{importance-agnostic primitive set}, where all elements share similar importance across $\mathcal{G}$. Due to this \textit{importance-unaware property}, direct subsampling from $\mathcal{G}$ becomes infeasible when a sample-size constraint is imposed. As illustrated in Fig.~\ref{fig:figure_page1}, naively removing low-opacity primitives may lead to excluding important primitives from transparent surfaces, which are critical for rendering quality. 
+% To address this issue, our proposed \textbf{EcoSplat} introduces an \textit{importance reweighter}, which learns to adjust the importance of each primitive in $\mathcal{G}$, conditioned on the target subset size. As shown in Fig.~\ref{fig:overall_architecture}, \textbf{EcoSplat} takes an additional preservation ratio input $r$, representing the desired degree of compression for $\mathcal{G}$, and transforms $\mathcal{G}$ into an \textit{importance-aware set} $\mathcal{G}^*$. From $\mathcal{G}^*$, we can subsample the final compact and optimal pixel-unaligned primitive set $\mathcal{G}^*_r$ by simply selecting the top-most important primitives according to their learned importance scores.}
+
+
+\subsection{Pixel-aligned Gaussian Training (PGT)}
+\label{sec:architecture}
+In the PGT stage, we train a pixel-aligned feed-forward 3DGS model whose architecture is built on the recent methods~\cite{ye2024no,huang2025no}.
+Each view image $\bm{I}_i$ is tokenized into $P$ tokens. These tokens are then processed independently by a shared ViT~\cite{dosovitskiy2020image} encoder to produce encoded tokens. The encoded tokens from all views are then fed jointly to a ViT decoder composed of $m$ decoder blocks. This decoder applies cross-attention to aggregate multi-view information into a unified scene representation.
+The output of the decoder for the $i$-th view consists of multiple decoded tokens $\{\bm{Z}_i^{(\ell)}\}_{\ell=1}^{m}$, where each
+$\bm{Z}_i^{(\ell)} \in \mathbb{R}^{P \times C_\ell}$, with $C_\ell$ denoting the per-token channel dimension, is extracted from the $\ell$-th decoder block. These decoded tokens are fed into a Gaussian center head $F_\mu$ and a Gaussian parameter head $F_\nu$, which predict the 3D centers and all remaining parameters of the pixel-aligned Gaussians for the $i$-th view, respectively, as:
+\begin{equation}
+\begin{aligned}
+        &\{\bm{\mu}_{i,j}\}_{j=1}^{H W} = F_\mu(\{\bm{Z}_i^{(\ell)}\}_{\ell=1}^{m}), \\
+        &\{[\alpha_{i,j} ;\bm{\Sigma}_{i,j} ;\bm{c}_{i,j}]\}_{j=1}^{HW}  =F_\nu(\{\bm{Z}_i^{(\ell)}\}_{\ell=1}^{m},\psi(\bm{I}_i)),
+    \label{eq:stage1_GS_params}
+\end{aligned}
+\end{equation}
+where $\bm{\mu}_{i,j}$, $\alpha_{i,j}$, $\bm{\Sigma}_{i,j}$, and $\bm{c}_{i,j}$ represent the 3D center, opacity, 3D covariance, and color, respectively, of the 3D Gaussian $\bm{G}_{i,j}$ corresponding to the $j$-th pixel in the $i$-th view. $\psi(\bm{I}_i)$ denotes a feature map extracted from the input image $\bm{I}_i$ via a shallow CNN layer $\psi$ that acts as a low-level feature encoder. Using the predicted pixel-aligned Gaussians, derived from all $N$ input images, we render a target novel view image $\hat{\bm{I}}^\text{tgt}$ via rasterization with its corresponding camera. To train our model, we compute the rendering loss as the sum of the MSE and LPIPS~\cite{zhang2018perceptual} losses, averaged across all $N^\text{tgt}$ target novel views as:
+\begin{equation}
+\scalebox{0.9}{$
+\mathcal{L}_\text{render} = \frac{1}{N^\text{tgt}} \sum\limits_{p=1}^{N^\text{tgt}} \mathcal{L}_\text{MSE}(\bm{I}^\text{tgt}_p, \hat{\bm{I}}^\text{tgt}_p) + 0.05 \cdot\mathcal{L}_\text{LPIPS}(\bm{I}^\text{tgt}_p, \hat{\bm{I}}^\text{tgt}_p).
+$}
+\label{eq:stage1_loss}
+\end{equation}
+
+% where $F_\mu$ is a hierarchical feature aggregator composed of multi-layer CNN blocks, yielding an output $F_\mu(\{\bm{Z}_i^{(\ell)}\}_{\ell=1}^{m}) \in \mathbb{R}^{H\times W \times C}$. It operates on the decoded tokens $\{\bm{Z}_i^{(\ell)}\}_{\ell=1}^m$ after spatially rearranging them into 2D feature maps.
+
+% where $F_\nu$ has the same architecture as $F_\mu$, $\phi_\nu$ is a shallow CNN layer, and $[\cdot;\cdot]$ denotes channel-wise concatenation. To preserve fine spatial details, we use a skip connection to fuse features extracted from the input image $\bm{I}_i$ by a CNN layer $\psi$, which produces an output $\psi(\bm{I}_i) \in \mathbb{R}^{H\times W \times C}$.
+
+% We reshape each decoded token sequence $\bm{T}_{\mathrm{dec},i}^{(\ell)}$ into a spatial feature map, obtaining $\tilde{\bm{T}}_{\mathrm{dec},i}^{(\ell)} \in \mathbb{R}^{C_\ell \times P_H \times P_W}$, where $P_H$ and $P_W$ denote the numbers of patches along height and width, so that $P=P_HP_W$. We then refine and fuse the decoder feature maps $\{\tilde{\bm{T}}_{\mathrm{dec},i}^{(\ell)}\}_{\ell=1}^{4}$,
+% obtaining the final per-view feature $\bm{F}_i \in \mathbb{R}^{C'\times H \times W}$. Then, two DPT-style heads~\cite{ranftl2021vision} take the per-view feature $\bm{F}_i$ as input and respectively predict the Gaussian means $\{\bm{\mu}_i\}$ and the remaining parameters $\{\bm{\Sigma}_i, \bm{c}_i, \alpha_i\}$.
+
+% \jm{To estimate the optimal $\mathcal{G}^*_r$, in the training stage, we estimate both importance-agnostic $\mathcal{G}$ and importance-aware $\mathcal{G}^*$ for later self-distillation learning in Section~\ref{sec:distill}. For the primitives' 3D positions, we let $\{\mu_{i,j}\}$ of $G_{i,j}$ in $\mathcal{G}$ be same as $\{\mu^*_{i,j}\}$ of $G^*_{i,j}$ in $\mathcal{G}^*$. Hence, there is a single head primitive mean estimation $F_{\bm{\mu}}$.}
+
+% \jm{The remaining  Gaussian parameters of $G_{i,j}$ and $G^*_{i,j}$ are separately estimated.  $F_{\text{attr}}$ predicts the parameters pixel-wise map $\{(\alpha_{i,j}, \bm{\Sigma}_{i,j}, \bm{c}_{i,j})\}^{H\times W}_{j=1}$ of all primitives of view i-th $\{G_{i,j}\}^{H\times W}_{j=1}$ from the spatial feature map as:
+% \begin{equation}
+% \scalebox{0.95}{$
+%     \{(\alpha_{i,j}, \bm{\Sigma}_{i,j}, \bm{c}_{i,j})\}^{H\times W}_{j=1} = F_{\text{attr}}(\tilde{\bm{T}}_{\mathrm{dec},i}^{(\ell)} )$}.
+% \end{equation}
+% While the other $F^*_{\text{attr}}$ fuses the addtional condition $r$ into $\tilde{\bm{T}}_{\mathrm{dec},i}^{(\ell)}$ to predict the parameters of $G^*_{i,j}$ in $\mathcal{G}^*$ as: 
+% \begin{equation}
+% \scalebox{0.95}{$
+%     \{(\alpha^*_{i,j}, \bm{\Sigma}^*_{i,j}, \bm{c}^*_{i,j}, q^*_{i,j})\}^{H\times W}_{j=1} = F^*_{\text{attr}}(\tilde{\bm{T}}_{\mathrm{dec},i}^{(\ell)}, r )$}, 
+% \end{equation}
+% where $q^*_{i,j}$ is the importance score of $G^*_{i,j}$.}
+
+
+\subsection{Importance-aware Gaussian Finetuning (IGF)}
+\label{sec:IGF}
+Our EcoSplat mitigates the redundancy of pixel-aligned prediction, where the total number of generated primitives grows linearly with both the number of input views and the image resolution, leading to inefficient rendering. In the IGF stage, we aim to make our model aware of the target primitive number $K$, enabling it to adaptively predict the parameters of the pixel-aligned 3D Gaussians. For this, we finetune the Gaussian parameter head $F_\nu$ to adaptively suppress the opacities $\{\alpha_{i,j}\}$ of less important primitives, while simultaneously optimizing $\{\bm{\Sigma}_{i,j}\}$ and $\{\bm{c}_{i,j}\}$ to maximize rendering quality. We inject a learnable importance embedding $\bm{R}_i \in \mathbb{R}^{H \times W \times C}$, which is derived from the target primitive number $K$, into the intermediate feature of $F_\nu$. Then, $F_\nu$ predicts the adjusted per-view pixel-aligned 3D Gaussian parameters as:
+\begin{equation}
+\scalebox{0.95}{$
+\{[\tilde{\alpha}_{i,j} ; \tilde{\bm{\Sigma}}_{i,j} ; \tilde{\bm{c}}_{i,j}]\}_{j=1}^{HW} 
+= F_\nu(\{\bm{Z}_i^{(\ell)}\}_{\ell=1}^{m}, \psi(\bm{I}_i), \bm{R}_i ),
+$}
+\label{eq:stage2_GS_params}
+\end{equation}
+where $\tilde{(\cdot)}$ denotes the adjusted Gaussian parameters. To predict $\bm{R}_i$, we compute the preservation ratio $\rho_i$ from $K$ as $\rho_i = \frac{K}{NHW}$ and broadcast $\rho_i$ to an $H\times W$ tensor, and feed it into a shallow CNN layer. Note that $\rho_i$ is set to a uniform value for all $N$ views during training, while it is computed individually for each view during inference to maximize the rendering quality (Sec.~\ref{sec:inference}). In the IGF stage, the ViT encoders/decoders and the Gaussian center head $F_\mu$ are kept frozen as shown in Fig.~\ref{fig:overall_architecture}.  
+
+\noindent \textbf{Importance Mask Generation.}
+To adaptively finetune $F_\nu$ with respect to $K$, we aim to generate a pseudo ground truth (pseudo-GT) 2D importance mask $\Omega_i$ for each view. This $\Omega_i$ can be inferred from the set $\mathcal{G}_i^\Omega$ of important 3D Gaussians that should be retained. The importance mask generation process is divided into three steps, as follows:
+
+\noindent \textit{1) Binary Variation Map Generation}:
+First, we compute a variation map $\bm{g}_i \in \mathbb{R}^{H \times W}$ for $\bm{I}_i$ that captures both photometric and geometric complexities at each pixel. The photometric variation map $\bm{g}_{\text{photo},i} \in \mathbb{R}^{H \times W}$ is computed as the gradient magnitude of $\bm{I}_i$:
+\begin{equation}
+    \bm{g}_{\text{photo},i} = \sqrt{\|\nabla_x \bm{I}_i\|_2^2 + \|\nabla_y \bm{I}_i\|_2^2},
+\label{eq:photometric_variation}
+\end{equation}
+where $\|\cdot\|_2$ denotes the L2-norm. To compute the geometric variation map $\bm{g}_{\text{geo},i} \in \mathbb{R}^{H \times W}$, we obtain a depth map from the predicted means $\{\bm{\mu}_{i,j}\}_{j=1}^{H W}$ of the pixel-aligned 3D Gaussians and  compute its corresponding normal map $\bm{n}_i$. Then, $\bm{g}_{\text{geo},i}$ is computed from $\bm{n}_i$ as:
+\begin{equation}
+\bm{g}_{\text{geo},i} = \sqrt{\|\nabla_x \bm{n}_i\|_2^2 + \|\nabla_y \bm{n}_i\|_2^2}.
+\end{equation}
+The final variation map $\bm{g}_i$ is the average of the two variation maps, $\bm{g}_i = (\bm{g}_{\text{photo},i} + \bm{g}_{\text{geo},i})/2$. We then binarize $\bm{g}_i$, where $\bm{g}_{i,j}$ is the variation value at the $j$-th pixel location, to obtain a binary variation map $\bm{g}'_i$ as:
+\begin{equation}
+\scalebox{0.9}{$
+\bm{g}'_{i,j} =
+\begin{cases}
+1, & \text{if} \; \bm{g}_{i,j} > \epsilon_i, \\
+0, & \text{otherwise},
+\end{cases}
+\quad \text{where} \quad
+\epsilon_i = Q_{\rho_i}(\{\bm{g}_{i,j}\}_{j=1}^{HW}),
+$}
+\end{equation}
+where $Q_{\rho_i}(\cdot)$ denotes the $\rho_i$-th quantile. Here, $\bm{g}'_{i,j}=1$ indicates high-variation pixels and $0$ othewise.
+
+\noindent \textit{2) Important Gaussians Collection}: Using the obtained binary variation map $\bm{g}'_i$, we select the set $\mathcal{G}_i^\Omega$ of important 3D Gaussians. We partition the predicted pixel-aligned 3D Gaussians from $\bm{I}_i$ using $\bm{g}'_{i}$ into two sets of 3D Gaussians:
+\begin{equation}
+\scalebox{0.90}{$
+\mathcal{G}^{\text{high}}_i = \{\bm{G}_{i,j} \mid \bm{g}'_{i,j}=1\}, \quad
+\mathcal{G}^{\text{low}}_i = \{\bm{G}_{i,j} \mid \bm{g}'_{i,j}=0\}.
+$}
+\end{equation}
+Intuitively, high-variation pixels should be represented by individual primitives to preserve fine reconstruction details. Therefore, we fully include $\mathcal{G}^{\text{high}}_i$ within the set of important 3D Gaussians $\mathcal{G}^{\Omega}_i$, as $\mathcal{G}^{\Omega}_i \supseteq \mathcal{G}^{\text{high}}_i$. Next, we reduce the redundancy in the low-variation set $\mathcal{G}^{\text{low}}_i$ by merging its Gaussians using single-step K-means clustering. We first partition the input image $\bm{I}_i$ into non-overlapping $4\times4$ patches. Within the low-variation set $\mathcal{G}^{\text{low}}_i$, we designate the Gaussian associated with the first (top-left) pixel of each patch as a \emph{key} Gaussian. The centers of these key Gaussians serve as cluster centroids. We then run single-step K-means clustering over $\mathcal{G}^{\text{low}}_i$ to compute the final compact set $\mathcal{G}^{\text{c}}_i$. This procedure reduces redundancy while preserving local structure, yielding a smaller, faithful set of Gaussians for subsequent processing. The final set $\mathcal{G}_i^{\Omega}$ is computed as:
+\begin{equation}
+\mathcal{G}_i^{\Omega} \triangleq \mathcal{G}_i^{\text{high}} \cup \mathcal{G}_i^{\text{c}}.
+\end{equation}
+
+
+
+% since the low-variation pixels can be merged without a significant loss of details, we can reduce $\mathcal{G}^{\text{low}}_i$ to a much smaller representative set.
+% To achieve this, we employ the \textit{k}-means algorithm to calculate new centroids, which will serve as the anchors for the reduced set $\mathcal{G}^{\text{c}}_i$ of 3D Gaussians derived from $\mathcal{G}^{\text{low}}_i$. The detailed procedure is as follows: (i) we first partition $\bm{I}_i$ into non-overlapping $4 \times 4$ patches; (ii) an anchor pixel $j_\text{anc}$ \jm{is simply selected as the first pixel of current patch}, skipping any patch whose anchor belongs to the high-variation pixels ($\bm{g}'_{i, j_\text{anc}}$ should be 0); (iii) we then run \textit{one} Lloyd's algorithm iteration for \textit{k}-means over the Gaussian centers of the $\mathcal{G}^{\text{low}}_i$ set, with the initial seeds are $\bm{\mu}_{i,j_\text{anc}}$ corresponding to the selected anchor pixels; (iv) \jm{we obtain the resulting cluster centroids set that provides the centers for a compact representative set} $\mathcal{G}^{\text{c}}_i$ of Gaussians.
+% The final set $\mathcal{G}_i^{\Omega}$ is computed as:
+% \begin{equation}
+% \mathcal{G}_i^{\Omega} \triangleq \mathcal{G}_i^{\text{high}} \cup \mathcal{G}_i^{\text{c}}.
+% \end{equation}
+
+\noindent \textit{3) Important Gaussians Projection}:
+The per-view importance mask $\Omega_i$ is generated by projecting the 3D centers of all Gaussians in $\mathcal{G}^{\Omega}_i$ onto the $i$-th image plane. This results in a binary mask where pixels intersected by any projected center are set to 1, and all other pixels are set to 0.
+
+\noindent \textbf{Loss Function.} The model needs to learn suppressing the opacity of less important Gaussians while retaining those of more important Gaussians. For this, we introduce an importance-aware opacity loss $\mathcal{L}_{\text{io}}$ that encourages $\{\tilde{\alpha}_{i,j}\}_{j=1}^{HW}$ to match the importance mask $\Omega_i$ using a binary cross-entropy (BCE) loss as:
+\begin{equation}
+    \mathcal{L}_{\text{io}}
+    = \lambda_{\text{io}} \cdot \frac{1}{NHW}
+      \sum_{i=1}^{N} \sum_{j=1}^{HW}
+      \mathcal{L}_{\text{BCE}}\!\big(\Omega_{i,j},\, \tilde{\alpha}_{i,j}\big).
+\end{equation}
+% However, applying $\mathcal{L}_{\text{io}}$ alone can introduce holes in the rendered image (\jm{Fig.~XX}).
+% To mitigate this, we add an alpha completion loss ($\mathcal{L}_{ac}$) that encourages the rendered alpha map $\bm{A}_i$ to be fully opaque (i.e., equal to 1) as
+% \begin{equation}
+% \mathcal{L}_{ac} = \lambda_{ac} \cdot \frac{1}{NHW} \sum_{i=1}^N \sum_{j=1}^{HW} -\log(\bm{A}_{i,j}),
+% \end{equation}
+% where $\bm{A}_{i}$ is the rendered alpha map for the $i$-th view. Since $\bm{A}_{i}$ is computed from both opacity and covariance, \jm{this loss implicitly encourages the model to enlarge the covariance of the remaining important Gaussians to cover the incomplete regions.}
+Finally, unlike the PGT stage, we only use the top-$K$ Gaussians to render a target novel view image $\tilde{\bm{I}}^\text{tgt}$ via rasterization. The rendering loss is then computed as (similar to Eq.~\ref{eq:stage1_loss}):
+\begin{equation}
+\scalebox{0.84}{$
+    \mathcal{L}_{K\text{-render}} = \frac{1}{N^\text{tgt}} \sum\limits_{p=1}^{N^\text{tgt}} \mathcal{L}_\text{MSE}(\bm{I}^\text{tgt}_p, \tilde{\bm{I}}^\text{tgt}_p)  + 0.05 \cdot\mathcal{L}_\text{LPIPS}(\bm{I}^\text{tgt}_p, \tilde{\bm{I}}^\text{tgt}_p).
+$}
+\label{eq:stage2_loss}
+\end{equation}
+The total loss is computed as $\mathcal{L} = \mathcal{L}_\text{io} + \mathcal{L}_{K\text{-render}}$. Based on this total loss, our model is trained to predict an optimal set of primitives that maximizes rendering quality while adhering to the target primitive number $K$.
+
+\noindent \textbf{Progressive Learning on Gaussian Compaction (PLGC).} It is important to stably train our model such that it can be robust to meet a wide range of target primitive numbers $K$. A naive approach for this is to randomly select $K$ values over the entire training process. However, we found that this can lead to unstable training. To mitigate this, we propose a progressive learning strategy that expands the sampling range of $K$ depending on the current training iteration. Specifically, we define the sampling interval as $[K_{\text{min}}, K_{\text{max}}]$, where the upper bound is fixed to $K_{\text{max}} = 0.95 \cdot NHW$. $K_{\text{min}}$ is gradually annealed from $0.85 \cdot NHW$ down to $0.05 \cdot NHW$ according to:
+\begin{equation}
+    K_{\text{min}} = \max\big(0.85 - \lambda_\text{decay} \lfloor t / S \rfloor, \, 0.05\big) \cdot NHW,
+\end{equation}
+where $t$ denotes the current iteration, $S$ is the decay interval, and $\lambda_\text{decay}$ is the decay rate. At each iteration, $K$ is randomly sampled from the interval $[K_{\text{min}}, K_{\text{max}}]$. This sampling strategy allows the model to gradually adapt to more aggressive pruning, ensuring both stability and effectiveness across a wide range of target primitive numbers.
+
+
+% Using the importance mask $\bm{M}_i$, we further compute a compression guide mask $\Omega_i$ that directly supervises the opacity of the Gaussians adaptively based on the preservation ratio.
+% We partition the image into non-overlapping $s \times s$ patches. Within each patch, we designate the top-left pixel as the destination pixel and the remaining pixels as source pixels. For each pixel, we concatenate the predicted mean $\bm{\mu}_i$ and a normalized pixel coordinate and apply L2 normalization to make a 3D-2D position vector $\bm{\varphi}_i$.
+
+% The importance mask $\bm{M}_i$ is then applied, excluding any pixel corresponding to a 1 value in $\bm{M}_i$ from the subsequent merging process.
+
+
+
+% \noindent \textbf{Aggregate Feature Generation.}
+% For each view, we concatenate the $\bm{\mu}_i' \in \mathbb{R}^{HW\times3}$ and normalized pixel coordinate $\bm{p}' \in \mathbb{R}^{HW\times2}$ to obtain a merge feature $\varphi \in \mathbb{R}^{HW\times5}$. To use this feature for robust similarity comparison, we then apply L2 normalization to each 5-dimensional vector in $\varphi$. This normalization converts each feature into a unit vector $\hat{\varphi}$, ensuring that subsequent dot products compute the cosine similarity, thereby focusing purely on feature direction rather than magnitude.
+
+% \noindent \textbf{Bipartite Soft Matching.}
+% We partition the image into non-overlapping $s \times s$ patches. Within each patch, we designate the top-left pixel as the destination pixel and the remaining 15 pixels as source pixels. A binary merge mask $\dot{\bm{M}}_i$ is then applied to the image, excluding any pixel corresponding to a 0 in the mask $\dot{\bm{M}}_i$ from the subsequent merging process.
+% Accordingly, we partition the normalized feature tensor $\hat{\varphi}$ into three disjoint sets based on these pixel roles: $\hat{\varphi}_\text{src}$ (for source pixels), $\hat{\varphi}_\text{dst}$ (for destination pixels), and $\hat{\varphi}_\text{protected}$ (for pixels excluded by the merge mask). For each source feature vector $\hat{\varphi}_\text{src}^{(n)}$, we compute its L2 distance to every destination feature vector $\hat{\varphi}_\text{dst}^{(m)}$. The source pixel $n$ is then mapped to the destination pixel $m$ that yields the minimum distance, determining it as the merge target.
+
+% \noindent \textbf{Token merge}
+% We merge the Gaussians to obtain $K$ merged means $\tilde{\bm{\mu}}_i\in\mathbb{R}^{K\times 3}$ for view $i$.
+% These 3D points are then projected onto the image plane of the corresponding camera and rasterized into a per-view alpha mask $\Omega_i\in\{0,1\}^{H\times W}$, where $\Omega_i(u,v)=1$ if any merged mean projects to pixel $(u,v)$, and $0$ otherwise.
+
+
+% \subsection{Optimization}
+% \label{sec:optimization}
+% We propose progressive win and the total loss is
+
+% To compute the compression rate $r$, we set the maximum to 0.95 and the minimum to $\max(0.85 - \lambda\,\lfloor \tfrac{t}{S}\rfloor,\; 0.05)$, where $t$ is the iteration step and $S$ denotes the decay interval, and $\lambda$ the decay rate. We then randomly sample a compression rate $r$ from this interval and construct a rate tensor $\bm{R} \in \mathbb{R}^{N\times3\times H \times W}$ by filling all entries with $r$.
+
+\subsection{Inference}
+\label{sec:inference}
+During inference, to predict the target $K$ Gaussians, we allocate different numbers of primitives to each view, as some views contain more informative Gaussians than others. As the images with large portions of complex details tend to contain more informative primitives for scene details, more primitives are necessitated for such images. In this regard, we incorporate a view importance factor $\kappa_i$ as the proportion of high-frequency components to indicate the amount of scene details in the $i$-th view.
+Thus, the view-specific preservation ratio $\rho_i$ can be adaptively determined based on the view importance factor $\kappa_i$ as $\rho_i = \kappa_i \rho$, where $\rho = \frac{K}{NHW}$.
+This adaptive allocation allows our EcoSplat to focus resources on the views that are more critical for reconstruction quality, while reducing redundancy in less informative views.
+Following MoBGS~\cite{bui2025mobgsmotiondeblurringdynamic}, we quantify the high-frequency components of each image $\bm{I}_i$ by defining a high-frequency score $\eta_i$ as the ratio of spectral magnitude in the high-frequency region to the total spectral magnitude of the $i$-th image.
+We apply a 2D Discrete Fourier Transform (DFT) to $\bm{I}_i$ and shift the resulting spectrum to center the low-frequency components, yielding the shifted DFT $\tilde{\mathcal{F}}(\bm{I}_i)$.
+The high-frequency score $\eta_i$ is then computed as:
+\begin{equation}
+    \eta_i = 1 - \frac{\sum_{\bm{\xi} \in \Lambda} E_i(\bm{\xi})}{\sum_{\bm{\xi}} E_i(\bm{\xi})},
+    \quad \text{where} \;\; E_i = |\tilde{\mathcal{F}}(\bm{I}_i)|,
+\label{eq:high_frequency_score}
+\end{equation}
+where $\bm{\xi} = (w_x,w_y)$ denotes a 2D frequency index vector with horizontal and vertical frequencies of $w_x$ and $w_y$, and $\Lambda$ is the centered square region of side length $s$ that captures the low-frequency portion of $\tilde{\mathcal{F}}(\bm{I}_i)$.
+Then, we compute the view-wise importance factor as:
+\begin{equation}
+    \kappa_i = N\cdot\Psi_i, \quad \text{where}  \;\; \Psi_i = \frac{e^{\eta_i / T}}{\sum_{q=1}^{N} e^{\eta_q / T}}.
+\label{eq:view_wise_impotance_factor}
+\end{equation}
+With temperature $T$, this softmax formulation amplifies differences among the high-frequency scores $\eta_i$ across views.
+We then set $\rho_i = \kappa_i\,\rho$, thereby ensuring that the average preservation ratio over all input images is equal to $\rho$.

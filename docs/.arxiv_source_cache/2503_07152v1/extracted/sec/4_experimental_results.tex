@@ -1,0 +1,112 @@
+\section{Experimental Results}
+\label{sec:experimental_results}
+
+\subsection{Data Preparation}
+Due to the lack of paired scene graph data for existing 3D outdoor LiDAR scenes, we generate scene graph data from each scene in the CarlaSC~\cite{carlasc} dataset, creating a new dataset termed \textit{CarlaSG}.
+%
+Based on the scene graph formulation discussed in Sec~\ref{sec:sg_formulation}, we extract a 3D scene graph from each 3D semantic map in CarlaSC and project it onto 2D.
+%
+Figure~\ref{fig:teaser} provides an example of a 3D outdoor scene alongside its scene graph. 
+%
+Notably, as the spatial distribution of sidewalks and ground closely aligns with the road layout, we merge the \textit{Ground} and \textit{Sidewalk} classes in the original CarlaSC dataset with the \textit{Road} class and mark them as \textit{Road}. 
+%
+We further categorize the roads into five types: \textit{Straight Road}, \textit{T-Junction}, \textit{Crossroad}, \textit{Bend Road}, and \textit{Others}. Additional details of processing techniques are available in the supplementary materials.
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width = 1\textwidth]
+  {./fig/different_architecture_2.pdf}
+    \vspace{-2em}
+    \caption{\textbf{Impact of Different Training Strategies.} Models trained with the second and last strategies exhibit issues such as vehicles positioned on sidewalks, overlapping objects, and inconsistencies in capturing object quantities. The third strategy generates semantically reasonable scenes but struggles with accurately matching object quantities and road types to the scene graph. In contrast, the first strategy produces high-quality scenes with good alignment to the input scene graph, thus we choose the first strategy to train our networks.}
+    \label{fig:different_architecture}
+    \vspace{-1em}
+\end{figure*}
+
+
+
+
+\subsection{Evaluation Protocols}
+We evaluate our approach from two aspects: assessing the quality of generated scenes and measuring the alignment between the generated scenes and their corresponding scene graphs. 
+%
+Additionally, we conduct a user study to perceptually 
+%
+evaluate the scene graphs' alignment of the generated scenes. 
+%
+%
+All experiments are performed on a testing set with \textit{1k} randomly selected scene graphs. Details on the evaluation metrics and examples of the user study can be found in the supplementary materials.
+%
+
+\noindent \textbf{Scene Quality Evaluation.} 
+%
+We follow the evaluation protocols from~\cite{pdd} to assess scene quality. We use mean Intersection over Union (mIoU) and mean Accuracy (MA) to evaluate semantic plausibility. Additionally, we measure feature similarity with Fréchet 3D Distance (F3D)~\cite{pdd}, which computes the Fréchet distance between generated and real scenes in a pre-trained 3D CNN-based autoencoder's feature space.
+
+
+\noindent \textbf{Control Capacity.} 
+%
+We evaluate the alignment between generated object counts and scene graph node counts using Mean Absolute Error (MAE) and the Jaccard index. MAE quantifies numerical discrepancies, while the Jaccard index measures the overlap in object types, reflecting how closely the generated scenes match the scene graph structure.
+
+\noindent \textbf{User Study.} We use the Differential Mean Opinion Score (DMOS)~\cite{762345}, a subjective rating method, to evaluate the alignment of generated scenes with input scene graphs, considering object quantity, positioning, and road type.
+
+\subsection{Experimental Settings}
+\noindent \textbf{Training and Inference Settings.} 
+%
+During joint training of the 2D diffusion model and the GNN, we apply data augmentation and include 10\% unconditional data for the diffusion model, along with a 30\% feature mask on the GNN input to simulate scenarios where some users may not provide positional information for certain nodes. During inference, we set the Gumbel temperature $\tau$ in the allocation module to 2.0 to introduce randomness in generated scenes.
+%
+Further details on learning rates, batch size, and other training parameters are in the supplementary material.
+
+\noindent \textbf{Network Architecture.} We employ a diffusion model and GNN in a joint training setup. The 2D/3D diffusion models use 3D-UNet~\cite{3dunet} as the backbone which is often used in outdoor understanding~\cite{li2020campus3d}, while the GNN consists of a two-layer GAT encoder~\cite{gat}. 
+
+\noindent \textbf{Comparison Baselines.} 
+%
+As discussed in Sec.~\ref{sec:related_work} and the supplementary material, adapting indoor scene generation methods to outdoor environments is non-trivial due to fundamental differences. Moreover, such adaptations would significantly alter their original pipeline, making direct comparisons less meaningful. Therefore, we consider three baselines: (1) A large language model (LLM)~\cite{ye2024language, zhao2023graphtext} extracts embeddings from the graph's textual description, followed by a 2D deconvolution to align with the downstream 2D diffusion model. Details of the operations are provided in the supplementary materials; (2) Scene Graph to Image (SG2Im)~\cite{johnson2018image}, a GAN-based method for generating images from scene graphs, which we adapt to produce the BEM from scene graphs; and (3) an unconditional generation (Uncon-Gen)~\cite{pdd} model without scene graph conditioning.
+
+
+
+\subsection{Main Results}
+
+\textbf{Qualitative Results.} Figure~\ref{fig:main_comparison} shows the 3D outdoor scenes generated separately using our method and baseline methods~\cite{ye2024language, zhao2023graphtext}, based on three different scene graphs.
+%
+The results demonstrate that our method effectively captures the object quantities specified in the scene graph and the road type information. In contrast, the scenes generated by the LLM and SG2Im methods show significant discrepancies in object counts across most categories, and the generated road types differ substantially from the intended configurations. 
+%
+
+\noindent \textbf{Quantitative Results.}
+Table~\ref{tab:main_results} compares our method with baselines. In Scene Quality, Uncon-Gen, LLM, and our method perform comparably, while SG2Im lags behind. Meanwhile, in Control Capacity, our method outperforms all baselines across metrics, achieving low MAE values below 1.0, demonstrating precise control over object quantities. In contrast, SG2Im has a higher MAE (0.97), and the LLM baseline yields 1.44, over twice our method’s 0.63, indicating a significant accuracy gap. Additionally, our method achieves a higher Jaccard Index, reflecting its effectiveness in capturing object categories from scene graphs across diverse scenes.
+
+\noindent \textbf{Generation Diversity.} To validate that our method produces diverse outputs rather than strictly memorizing scenes 
+%
+based on the scene graph, we generate scenes three times using the same scene graph. The results are shown in Figure~\ref{fig:diversity}. The outcomes demonstrate that our method can generate varied scenes even when conditioned on the same scene graph, yet each generated scene remains consistent with the structural and categorical information provided in the scene graph. This confirms that our method introduces randomness in the generation process while maintaining alignment with the input scene graph.
+
+\subsection{Ablation Experiments and User Studies}
+\noindent \textbf{Unconditional Proportion.} We examine the effect of the unconditional proportion in diffusion training, as shown in Figure~\ref{fig:LineChart}. Results indicate that scene quality (mIoU and MA) improves as the unconditional proportion increases, with a noticeable bottleneck at 0.1. While further increases lead to marginal improvements in scene quality, they come at the cost of reduced control capacity, as reflected by worsening Jaccard Index and MAE. To balance scene quality and control capacity, we set the unconditional proportion to 0.1 in our experiments.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width = 1.0\linewidth]
+    {./fig/LineChart.pdf}
+    \vspace{-2em}
+    \caption{\textbf{Unconditional Proportion \textit{v.s.} Generation Quality and Control.} Evaluation mIoU, MA, Jaccard Index, and MAE as the unconditional proportion varies during diffusion training. Considering the trade-off between scene quality and control, we choose 0.1 as the balance point.}
+    \label{fig:LineChart}
+\end{figure}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width = 0.9\linewidth]
+    {./fig/iccv_box_plot_2.pdf}
+    \vspace{-0.5em}
+    \caption{\textbf{User Study: DMOS Comparison of Scene Generation Methods.} Our method aligns well with scene graph specifications.}
+    \label{fig:box_plot}
+    \vspace{-1em}
+\end{figure}
+% \vspace{-0.5em}
+
+\noindent \textbf{Effect of Auxiliary Tasks.} We evaluate the impact of adding edge reconstruction and node classification as auxiliary tasks to the GNN during joint training with the diffusion model. 
+%
+As shown in Table~\ref{tab:different_tasks}, both tasks yield the best performance, with a low MAE of 0.63 and a high Jaccard Index of 0.93. Removing either task leads to notable drops in performance, particularly in the Jaccard Index. Omitting both results in further declines. This shows that both tasks contribute to improved alignment in scene generation.
+
+\noindent \textbf{Different Training Strategies.} We explore alternative training strategies for our method: (a) pre-train the diffusion model, GNN, and localization head (LOC), then freeze GNN and LOC while fine-tuning the diffusion model; (b) end-to-end training of all components from scratch; (c) pre-train GNN and LOC, freeze their parameters, and train the diffusion model from scratch; and (d) jointly train the diffusion model and GNN from scratch, then freeze GNN and post-train LOC. As shown in Table~\ref{tab:different_stratigies} and Figure~\ref{fig:different_architecture}, strategy (d) achieves the best performance. Strategies (a) and (c) show semantic inconsistencies, while (b) generates scenes of reasonable quality but struggles with object quantity and road type alignment. Joint training of the diffusion model and GNN (d) allows the diffusion model to learn scene structure in sync with encoded features, while post-training LOC assigns precise object positions without disrupting learned structural relationships, achieving a balance between semantic coherence and quantity control.
+
+\noindent \textbf{User Study.} We generate 100 pairs of scenes and conduct user studies with 20 subjects. 
+Each user scores paired scenes based on object quantity, positioning, and road type accuracy relative to their scene graphs. The resulting Differential Mean Opinion Score (DMOS), shown in Figure~\ref{fig:box_plot}, indicates that our method outperforms the baselines. 
+%
+Additionally, we conduct a one-tailed paired t-test on the MOS score difference among three methods. In this test, the null hypothesis is that our generation method does not possess a higher score than baseline methods.
+The results support the rejection of the null hypothesis at a significance level of $p < 10^{-3}$, indicating that our method statistically performs better than both baselines with high confidence.

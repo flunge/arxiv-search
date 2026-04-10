@@ -1,0 +1,24 @@
+\section{Training Procedure}
+\label{section:training-procedure}
+This section describes the training procedures for both components of GAIA-2: the video tokenizer and the world model. Each component is trained independently using large-scale compute infrastructure and tailored loss configurations to optimize their respective objectives.
+
+\paragraph{Video Tokenizer.} The video tokenizer was trained for $300{\scriptstyle,}000$ steps with a batch size of $128$ using 128 H100 GPUs. Input sequences consisted of $T_v=24$ video frames sampled at their native capture frequencies (20, 25, or 30 Hz). Random spatial crops of size $448 \times 960$ were extracted from the frames. For each training sample, a camera view was randomly selected from the available $N = 5$ perspectives. Notably, each camera stream was encoded independently.
+
+The tokenizer performs $8\times$ temporal and $32\times$ spatial downsampling, yielding a compressed representation with latent dimension $L = 64$, and an effective total compression rate of approximately 400 ($\frac{24 \times 448 \times 960 \times 3}{3 \times 14 \times 30 \times 64} \simeq 400$).
+
+The tokenizer’s loss function is composed of a combination of image reconstruction, perceptual, and semantic alignment terms: (1) DINO v2 (Large)~\cite{oquab2023dinov2} distillation in the latent space with a weight of $0.1$. (2) KL divergence~\cite{kingma14} between the latent distribution and a unit Gaussian, with a low weight of $1\mathrm{e}{-6}$ to encourage smoothness. (3) Pixel-level losses: $L_1$ loss (weight $0.2$), $L_2$ loss (weight $2.0$), and LPIPS perceptual loss~\cite{zhang2018unreasonable} (weight $0.1$).
+
+An exponential moving average (EMA) of the tokenizer parameters $\phi$ was maintained throughout training, with a decay factor of $0.9999$ and updates at every training step. The EMA weights were used at inference.
+
+Training was optimized using AdamW with: $2{\scriptstyle,}500$ warm-up steps to the base learning rate of $1\mathrm{e}{-4}$, and $5{\scriptstyle,}000$ cooldown steps to a final learning rate of $1\mathrm{e}{-5}$; Adam betas $[0.9, 0.95]$, weight decay $0.1$, and gradient clipping at $1.0$. After initial training, the tokenizer decoder was fine-tuned for an additional $20{\scriptstyle,}000$ steps using a GAN loss (weight $0.1$) in combination with the previous reconstruction losses. The discriminator was optimized with a learning rate of $1\mathrm{e}{-5}$.
+
+
+\paragraph{World Model.} The latent world model was trained for $460{\scriptstyle,}000$ steps with a batch size of $256$ on 256 H100 GPUs. Inputs consisted of $48$ video frames at native capture frequencies (20, 25, or 30 Hz), spatial resolution $448 \times 960$ and across $N=5$ cameras. After encoding these videos to the latent space, this corresponds to $T\times N \times H \times W = 6 \times 5 \times 14 \times 30 = 12{\scriptstyle,}600$ input tokens.
+
+To encourage generalization, we sampled different training tasks as follows:
+70\% from-scratch generation, 20\% contextual prediction, and 10\% spatial inpainting. To regularize the model and enable classifier-free guidance, conditioning variables were randomly dropped. Each individual conditioning variable was independently dropped with 80\% probability, and all of them were simultaneously dropped with 10\% probability. 
+
+Input camera views were randomly dropped with 10\% probability to enhance robustness to partial observability.
+Latent tokens were normalized using a fixed mean of $\mu_x = 0.0$ and standard deviation $\sigma_x = 0.32$, as empirically determined during tokenizer training.
+
+As with the tokenizer, we maintained an EMA of the world model parameters $\theta$ with a decay factor of $0.9999$ and updates at every training step. EMA weights were used for inference. The optimizer was AdamW with: $2{\scriptstyle,}500$ warm-up steps to an initial learning rate of $5\mathrm{e}{-5}$ and cosine decay over the full training duration to a final learning rate of $6.5\mathrm{e}{-6}$; Adam betas $[0.9, 0.99]$, weight decay $0.1$, and gradient clipping $1.0$.

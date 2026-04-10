@@ -1,0 +1,185 @@
+\section{Method}
+\label{sec:method}
+
+\subsection{Preliminaries}
+\label{sec:prelim}
+
+\noindent\textbf{Camera as Ray Mapping.}
+All camera models, regardless of their projection types, can be represented under a unified formulation that maps image coordinates to three-dimensional rays in space. 
+Rather than assuming a specific projection model, a camera is defined by a ray-mapping function
+\({\Phi}_{\psi}: ({u},{v}) \mapsto (\mathbf{o}_{{u},{v}}^{\textrm{cam}}, \mathbf{d}_{{u},{v}}^\textrm{cam})\),
+which produces, for every pixel \(({u},{v})\), a ray origin \(\mathbf{o}_{{u},{v}}^{\textrm{cam}} \in \mathbb{R}^3\) and a unit direction \(\mathbf{d}_{{u},{v}}^{\textrm{cam}} \in \mathbb{S}^2\) in the camera coordinate system.
+The mapping is parameterized by a model-specific set \(\psi\), \eg, focal length and distortion coefficients, depending on the chosen projection model.
+For \emph{central} cameras, all rays share a common origin (\(\mathbf{o}_{{u},{v}}^{\textrm{cam}} = \mathbf{0}\)),
+whereas \emph{non-central} cameras, such as catadioptric or panoramic systems, assign pixel-dependent origins. 
+Unless otherwise stated, subsequent derivations assume a central camera model for notational simplicity.
+We take the Unified Camera Model (UCM)~\cite{mei2007single} as a representative example (details in Supplementary~\cref{sec:syn_video}).
+
+Let \(\mathbf{T}^{\textrm{wc}} = \left[\begin{smallmatrix} \mathbf{R} & \bm{t} \\ \bm{0}^\top & 1 \end{smallmatrix}\right] \in \mathrm{SE}(3)\) denote the camera pose from the camera to the world frame.
+Applying this transformation yields the world-space ray representation:
+\begin{equation}
+\bm{d}_{{u},{v}} = \mathbf{R} \bm{d}_{{u},{v}}^{\textrm{cam}},
+\qquad
+\bm{o}_{{u},{v}} = \bm{t}.
+\label{eq:ray_mapping}
+\end{equation}
+This %formulation 
+provides a common geometric basis for reasoning about cameras with diverse projection characteristics.
+
+\noindent\textbf{Absolute Camera Encodings}
+{explicitly encode per-camera parameters or per-pixel rays in the world coordinate system.}
+The most direct approach encodes raw camera parameters as numerical feature vectors~\cite{wang2024motionctrl,bai2025recammaster}, as shown in~\cref{fig:rays}a.
+A more physically grounded alternative is the \emph{Pl\"ucker encoding}~\cite{bahmani2025ac3d,he2024cameractrl} (\cref{fig:rays}b), which reformulates each ray as a six-dimensional vector
+\((\,\bm{d}_{{u},{v}},\, \bm{m}_{{u},{v}}\,) \in \mathbb{R}^6\),
+where \(\bm{m}_{{u},{v}} = \bm{o}_{{u},{v}} \times \bm{d}_{{u},{v}}\) denotes the ray moment.
+This representation provides a compact and numerically stable description of each pixel's ray, encoding both camera pose and lens in a physically interpretable form.
+However, as an absolute encoding, it %the \emph{Pl\"ucker encoding} 
+inherently remains sensitive to the chosen coordinate frame, which limits its generalizability across different scenes and viewpoints.
+
+\noindent\textbf{Relative Camera Encodings.}
+Recent work introduces relative encodings to model pairwise camera relationships directly within the attention mechanism of Transformers, making them invariant to global coordinate choices.
+For each token \({t} \in \{1, \ldots, T\}\) with its corresponding camera index \({i}({t}) \in \{1, \ldots, N\}\),
+a transformation matrix \(\mathbf{D}_{t}\) is derived from the world-to-camera transformation \(\mathbf{T}_{i({t})}^{\textrm{cw}} = (\mathbf{T}_{{i}({t})}^{\textrm{wc}})^{-1}\) as:
+\begin{equation}
+\mathbf{D}_{t} = \mathbf{I}_{{d}/4} \otimes \mathbf{T}_{{i}({t})}^{\textrm{cw}},
+\label{eq:D_construct}
+\end{equation}
+where \(\mathbf{I}\) is the identity matrix, \({d}\) denotes the feature dimension, and \(\otimes\) is the Kronecker product that replicates the 3D transformation across feature subspaces.
+The resulting block-diagonal matrix
+\(\mathbf{D} = \operatorname{blkdiag}(\mathbf{D}_1,\ldots,\mathbf{D}_{T})\)
+encodes per-token camera pose, which is applied to token features via token-wise matrix-vector multiplication \(\odot\),
+\eg, \(\mathbf{D}\odot {Q} = \operatorname{blkdiag}(\mathbf{D}_1 {Q}_1, \ldots, \mathbf{D}_{T} {Q}_{T})\).
+
+\emph{Camera Positional Encoding (CaPE)}~\cite{kong2024eschernet} employs such transformation matrices to inject relative camera poses into self-attention.
+The attention operation is modified as:
+\begin{equation}
+{O}
+= \operatorname{Attn}\big(\mathbf{D}^{\!\top}\!\odot {Q},\; \mathbf{D}^{-1}\!\odot {K},\; {V}\big).
+\label{eq:cape}
+\end{equation}
+This replaces each query-key interaction \(Q_{{t}_1}^\top K_{{t}_2}\) with \({Q}_{{t}_1}^\top \mathbf{D}_{{t}_1} \! \mathbf{D}_{{t}_2}^{-1} {K}_{{t}_2}\),
+where \(\mathbf{D}_{{t}_1} \! \mathbf{D}_{{t}_2}^{-1} = \mathbf{I}_{{d}/4} \!\otimes \mathbf{T}_{i({t}_1)}^{\textrm{cw}} \! (\mathbf{T}_{i({t}_2)}^{\textrm{cw}})^{\!-1}\),
+conditioning attention on the relative camera pose.
+
+\emph{Geometric Transform Attention (GTA)}~\cite{miyato2023gta} extends this formulation by additionally transforming the value matrix, thereby enforcing geometric consistency during both feature comparison and aggregation:
+\begin{equation}
+{O}
+= \mathbf{D} \odot \operatorname{Attn}\big(\mathbf{D}^{\!\top}\!\odot {Q},\; \mathbf{D}^{-1}\!\odot {K},\; \mathbf{D}^{-1}\!\odot {V}\big).
+\label{eq:gta}
+\end{equation}
+
+Building on this idea, \emph{Projective Positional Encoding (PRoPE)}~\cite{li2025cameras} (\cref{fig:rays}c) generalizes the relative transformation by replacing \(\mathbf{T}^{\textrm{cw}}_{i}\) with a camera projective matrix \(\mathbf{P}_{i} = \left[\begin{smallmatrix} \mathbf{K}_{i} & \bm{0} \\ \bm{0}^\top & 1 \end{smallmatrix}\right]\,\mathbf{T}^{\textrm{cw}}_{i}\) under intrinsics \(\mathbf{K}_{i}\).
+This projective formulation captures the complete camera frustum geometry, but is limited to pinhole cameras.
+
+\subsection{Unified Camera Positional Encoding}
+\label{sec:ucpe}
+
+
+
+
+\noindent\textbf{Relative Ray Encoding.}
+Existing relative camera encodings assume that all image tokens within the same view share a single, linear projection function.
+This assumption treats the entire image as one rigid entity, simplifying inter-camera geometric reasoning but ignoring intra-camera deviations in projection geometry.
+Consequently, such camera-level encodings perform well under the idealized pinhole model, but struggle to generalize to real cameras exhibiting spatially varying projection behaviors such as lens distortions and wide field-of-view effects.
+
+To accommodate non-linear projection models, we reformulate the encoding from a \emph{camera-to-camera} to a \emph{ray-to-ray} transformation, capturing fine-grained geometric variations across image tokens.
+Specifically, for each image token $t$, we aim to construct a local ray-to-world matrix $\mathbf{T}^{\textrm{wr}}_t$, serving as the geometric operator for attention-level feature transformation.
+Formally, each image token \(t\) is associated with a viewing ray parameterized by its origin and direction in the world coordinate system:
+\begin{equation}
+\bm{r}_t = \big(\bm{o}_t,\, \bm{d}_t\big),
+\quad
+\bm{o}_t \in \mathbb{R}^3,
+\quad
+\bm{d}_t \in \mathbb{S}^2,
+\label{eq:ray_def}
+\end{equation}
+where \((\bm{o}_t, \bm{d}_t)\) is derived as in~\cref{eq:ray_mapping}.
+We construct $\mathbf{T}^{\textrm{wr}}_t$ through defining a \emph{local ray coordinate system} anchored at the camera center, parameterized by an orthonormal basis \(\mathbf{R}^{\textrm{wr}}_t = [\mathbf{x}_t,\mathbf{y}_t,\mathbf{z}_t]\). As shown in~\cref{fig:rays}d, we take each ray direction $\mathbf{d}_t$ as the local $z$-axis and determine the other two orthogonal axes based on the camera's downward direction \(\mathbf{y}^{\textrm{cam}}_{i(t)}\) as follows:
+\begin{equation}
+\bm{z}_t = \bm{d}_t,
+\quad
+\bm{x}_t = \bm{y}^{\textrm{cam}}_{i(t)} \times \bm{z}_t,
+\quad
+\bm{y}_t = \bm{z}_t \times \bm{x}_t.
+\label{eq:ray_axes}
+\end{equation}
+This orthonormal basis \(\mathbf{R}^{\textrm{wr}}_t\), together with the translation, \(\mathbf{t}^{\textrm{wr}}_t=\mathbf{o}_t\), forms a ray-to-world transformation:
+\begin{equation}
+\mathbf{T}^{\textrm{wr}}_t =
+\begin{bmatrix}
+\mathbf{R}^{\textrm{wr}}_t & \bm{t}^{\textrm{wr}}_t \\
+\mathbf{0}^\top & 1
+\end{bmatrix}.
+\label{eq:ray2world}
+\end{equation}
+Each token feature is therefore associated with its specific geometric transform \(\mathbf{T}^{\textrm{rw}}_t = (\mathbf{T}^{\textrm{wr}}_t)^{-1}\),
+mapping world coordinates into the local ray and serving as the geometric operator later for attention-level feature transformation. % in Sec.~\ref{}
+This formulation enables the attention mechanism to reason in ray space rather than sharing the same positional encoding within a camera frame, providing a consistent and physically interpretable geometric basis for UCPE both within and across frames.
+
+\input{figure/pipeline.tex}
+
+\noindent\textbf{Absolute Orientation Encoding.}
+While relative ray encoding enables geometry-consistent reasoning across heterogeneous cameras, it provides no notion of absolute orientation, leaving the first-frame orientation ambiguous.
+Yet, most real-world videos are captured under a gravity-aligned ``up'' direction, which naturally defines absolute pitch and roll angles.
+To incorporate this global orientation, we adopt the \emph{latitude-up map (Lat-Up map)}~\cite{jin2023perspective,veicht2024geocalib,bernal2025precisecam} shown in \cref{fig:teaser}, which concatenates each ray's \emph{latitude angle} and corresponding \emph{up-vector}.
+This representation captures camera rotation through appearance cues such as sky-ground separation and object alignment, while also providing some distortion awareness for wide-angle lenses.
+
+For the \emph{latitude map} calculation, we start from ray~\(t\)'s world-space direction \(\bm{d}_t = [d_{t,x}, d_{t,y}, d_{t,z}]^\top\) as defined in~\cref{eq:ray_def}.
+The latitude map then encodes the angular elevation of each ray relative to the horizontal plane:
+\begin{equation}
+\text{Lat}_t = \arctan2 \big(-d_{t,y},\, \sqrt{d_{t,x}^{2} + d_{t,z}^{2}}\big),
+\label{eq:latmap}
+\end{equation}
+where positive values correspond to upward-looking rays.
+
+To compute the \emph{Up map}, we rotate each world-space ray \(\mathbf{d}_t\) by a small angle \(\delta\) around its local axis \(\bm{k}_t = \bm{d}_t \times \bm{u}^{\textrm{wld}}\),
+where \(\bm{u}^{\textrm{wld}}\) denotes the world up direction.
+The rotated ray \(\bm{d}^{\textrm{rot}}_t\) is then projected back to the image plane, and the resulting normalized pixel displacement defines the up direction:
+\begin{equation}
+\text{Up}_t =
+\frac{[\Delta u_t,\; \Delta v_t]}{\|[\Delta u_t,\; \Delta v_t]\|},
+\label{eq:upmap}
+\end{equation}
+where \([\Delta u_t,\Delta v_t]\) is the projection offset between the rotated and original rays (details in Supplementary~\cref{sec:abs_orient}).
+The resulting Lat-Up encoding \([\text{Lat}_t, \text{Up}_t]\) provides each token with a global orientation context, enabling explicit control over camera pitch and roll during generation.
+
+UCPE thus integrates the two complementary cues, \ie, local ray geometry and absolute orientation, to provide consistent and physically interpretable encoding that generalizes 
+across camera lenses.
+
+\subsection{Spatial Attention Adapter for UCPE Injection}
+\label{sec:adapter}
+
+\noindent\textbf{Spatial Attention with Hybrid Encoding.}
+We follow~\cite{li2025cameras} to fuse the relative ray encoding with RoPE to promote both ray-space and image-space reasoning.
+For each token \(t\), we construct a block-diagonal operator:
+\begin{equation}
+\mathbf{D}^{\textrm{UCPE}}_t
+= \operatorname{blkdiag}\!\big(
+\mathbf{D}^{\textrm{Ray}}_t,\;
+\mathbf{D}^{\textrm{RoPE}}_t
+\big),
+\label{eq:ucpe_block}
+\end{equation}
+where \(\mathbf{D}^{\textrm{Ray}}_t = \mathbf{I}_{\frac{d}{8}}\!\otimes\!\mathbf{T}^{\textrm{rw}}_t \in \mathbb{R}^{\frac{d}{2}\times\frac{d}{2}}\)
+encodes the world-to-ray transformation defined in~\cref{eq:ray2world},
+and \(\mathbf{D}^{\textrm{RoPE}}_t \in \mathbb{R}^{\frac{d}{2}\times\frac{d}{2}}\)
+is constructed with RoPE~\cite{heo2024rotary} to encode image-space positions, both with half of the feature dimension.
+We share this design across GTA and PRoPE baselines, which is their best-performing configuration~\cite{li2025cameras}.
+We then define \(\mathbf{D}^{\textrm{UCPE}}=\operatorname{blkdiag}(\mathbf{D}^{\textrm{UCPE}}_1,\ldots,\mathbf{D}^{\textrm{UCPE}}_T)\),
+and apply it to the attention operation as shown in~\cref{fig:pipeline} following~\cref{eq:gta}.
+
+Additionally, the Spatial Attention module takes a Lat-Up map as an optional input to provide absolute orientation control.
+When present, the Lat-Up feature %\(\mathbf{e}^{\textrm{cam}}_t\) 
+is projected by a linear layer to match the token dimension and then added to the input tokens as bias term.
+
+\noindent\textbf{Adapting Transformer with Attention.}
+We adopt Wan~\cite{wan2025wan} as our pretrained Diffusion Transformer, and intuitively the most suitable place to inject UCPE is within its self-attention layers that model spatial and temporal correlations.
+However, directly replacing the existing positional encoding (\eg, 3D RoPE) with UCPE may disturb the priors established during large-scale pretraining. 
+
+To preserve priors, we integrate UCPE through a lightweight, LoRA-inspired adapter that operates in parallel with the original attention. 
+As in~\cref{fig:pipeline}, each DiT block retains standard self-attention while introducing a camera-conditioned branch \(\operatorname{UCPEAttn}(\cdot)\) based on the proposed encoding.
+Crucially, thanks to the geometry-aware design of UCPE, this adapter requires only a small number of parameters to effectively model camera-conditioned correlations. 
+In practice, we linearly project input tokens to \(1/C\) of the original dimension using \(\mathcal{P}_{Q}, \mathcal{P}_{K}, \mathcal{P}_{V}\), and proportionally reduce the number of attention heads, effectively reducing parameters and computation.
+The \(\operatorname{UCPEAttn}(\cdot)\) output is then mapped back through a linear projection layer with zero-initialized weights, ensuring that the pretrained model remains unaltered at initialization.
+
+The spatial adapter enables efficient integration of UCPE into Diffusion Transformers, providing fine-grained camera control with minimal additional parameters.

@@ -1,0 +1,220 @@
+\section{Method}
+
+Existing Gaussian Splatting methods often suffer from overfitting caused by irregular Gaussian distributions under sparse-view conditions.
+To mitigate this limitation, we propose HeroGS, a unified multi-level (image, feature and parameter) guidance framework that provides diverse and complementary supervisory signals to refine and regularize the Gaussian field throughout training.
+At the \textbf{image level}, HeroGS introduces pseudo supervision, offering comprehensive guidance for Gaussians across different regions. This enhanced supervision enriches gradient propagation, leading to more globally consistent and well-structured Gaussian field, with camera extrinsics initialized through interpolation and jointly optimized during training.
+Building upon this, at the \textbf{feature level}, Feature-Adaptive Densification and Pruning (FADP)  leverages edge-aware and patch-based features extracted from training views to reinforce high-frequency structures while removing redundant Gaussians, resulting in a more accurate and compact representation.
+Finally, at the \textbf{parameter level}, Co-Pruned Geometry Consistency (CPG) prunes Gaussians with large parameter discrepancies, effectively suppressing geometric distortions and enhancing global consistency across the scene.
+This three-level supervision forms a coherent framework (illustrated in Fig.~\ref{fig:framework}) that not only enhances supervision quality but also preserves structural fidelity under sparse-view conditions.
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.95\columnwidth]{imgs/geometry_artifact.pdf}
+%   \vspace{-7pt}
+  \caption{ \textbf{Removing inconsistent Gaussians.} 
+%   
+%In the third and fourth columns, we present the input training views and the generated views, respectively. It shows that using frame interpolated model sometimes introduces 3D geometry inconsistency. The first and second columns show the rendered images with and without the CPG module, respectively. The module lead to improved spatial coherence and rendering quality.
+Columns 3 and 4: original training views and frame-interpolated pseudo-labels, respectively. Although pseudo-labels provide overall supervisory signals, they may lack accuracy in fine details and fail to offer precise guidance for high-frequency geometric structures. Columns 1 and 2: novel-view renderings produced by full pipeline versus those without CPG. It suppresses drifts, yielding sharper edges, coherent surfaces and markedly improved spatial fidelity. 
+%The Co-Pruned Geometry Consistency module suppresses these drifts, yielding sharper edges, coherent surfaces and markedly improved spatial fidelity.
+ % in SideFormer
+ }
+   \vspace{-11pt}
+  \label{fig:VIS_LLFF_geo_inconsist}
+\end{figure}
+%-------------------------------------------------------------------------
+\subsection{Image Level}
+
+Motivated by the observation that denser inputs yield superior reconstructions, we propose to generate intermediate viewpoints between adjacent training views and synthesize their corresponding RGB images as pseudo-labels using a frame interpolation model. Two consecutive training images are defined as $\mathbf{I}_{n}$ and $\mathbf{I}_{n+1}$, with corresponding camera poses $\mathbf{P}_{n}=(\mathbf{R}_{n},\mathbf{T}_{n})$ and $\mathbf{P}_{n+1}=(\mathbf{R}_{n+1},\mathbf{T}_{n+1})$. 
+% These image-pose pairs form a set of training data  $\left\{ \mathbf{I},\mathbf{P}\right\}$. 
+% For brevity in the formulas, we assume only one intermediate frame is generated between consecutive training views. This generated frame is denoted as $\mathbf{I}^{(\alpha)}_{n}$, where $\alpha \in (0,1)$ represents the interpolation weight that determines the generated frame's position between $\mathbf{I}_0$ and $\mathbf{I}_1$.
+% We set $\alpha=0.5$ for this single intermediate frame.
+To simplify the notation, we assume a single intermediate frame, denoted as $\mathbf{I}^{(\alpha)}_{n}$, is generated between consecutive training views $\mathbf{I}_{n}$ and $\mathbf{I}_{n+1}$, where $\alpha \in (0,1)$ is the interpolation weight. In our experiments, however, multiple intermediate frames are generated (see Sec.~\ref{sec:analysis} for details).
+In this paper, VFI~\cite{seo2025bim}, a state-of-the-art frame interpolation model, is utilized to generate the intermediate images, \emph{i.e.},
+% The generated images are obtained from VFI~\cite{seo2025bim}, a frame interpolation model, according to the following formulation:
+\begin{equation}
+\small
+\mathbf{I}^{(\alpha)}_{n} = \mathrm{VFI}\big(\mathbf{I}_{n}, \mathbf{I}_{n+1},\alpha \big).
+\end{equation}Given that our pseudo-labeled images lack ground-truth extrinsic parameters, we initialize the camera pose for each generated image via interpolation. Specifically, spherical linear interpolation (slerp) is employed for rotation and linear interpolation for translation:
+% The camera pose for this generated image is initialized via interpolation, as these pseudo-labeled images do not have ground-truth extrinsic parameters. Specifically, we employ spherical linear interpolation $\text{slerp}(\cdot)$ for rotation and linear interpolation for translation as follows:
+\begin{equation}
+\small
+\begin{split}
+\mathbf{R}^{(\alpha)}_n & = \mathrm{slerp}(\mathbf{R}_{n}, \mathbf{R}_{n+1}, \alpha), \\
+\mathbf{T}^{(\alpha)}_n & = (1 - \alpha)  \mathbf{T}_{n} + \alpha \mathbf{T}_{n+1}.
+\end{split}
+\label{Eq(alpha)}
+\end{equation}
+
+In the training phase, the scene is rendered from the generated viewpoints, and supervision is applied by comparing the results with the pseudo-labeled images. Let $\hat{\mathbf{I}}_{n}^{(\alpha)}$ be the rendered image from the $n$-th generated viewpoint. The estimated depth of the generated image $\mathbf{I}_{n}^{(\alpha)}$ is denoted as $\mathbf{D}_{n}^{(\alpha)}$, and the rendered depth map from the same viewpoint is $\hat{\mathbf{D}}_{n}^{(\alpha)}$, which is calculated via volumetric rendering:
+\begin{equation}
+\small
+\hat{\mathbf{D}}_{n}^{(\alpha)} = \sum_{i=1}^{L} d_i o_i \prod_{j=1}^{i-1}(1-o_j).
+\end{equation}The sum is over the $L$ ordered 3D Gaussians that overlap a pixel. For the $i$-th Gaussian, ${d}_{i}$ is its depth and $o_{i}$ is its learned opacity.
+Similar to \cite{zhu2024fsgs}, our training objective integrates photometric supervision on the generated images, measured by L1 and D-SSIM losses, with geometric supervision on the rendered depth maps, assessed using a Pearson correlation coefficient loss, \emph{i.e.},
+% In the training phase, we render the scene from a generated viewpoint and compare it with the generated view image for supervision:
+% \begin{equation}
+% \begin{array}{l}
+% \mathcal{L}_{g}=\sum_{m=1}^{N-1}\lambda_1||{I}_{m}^{g}-\hat{{I}_{m}^{g}}||_1+\lambda_{2}D-SSIM({I}_{m}^{g}-\hat{{I}_{m}^{g}})\\+\lambda_{3}||Corr({D}_{m}^{g}-\hat{{D}_{m}^{g}})||_1
+% \end{array}
+% \label{equa(3)}
+% \end{equation}
+\begin{align}
+\footnotesize
+    \mathcal{L}_g = \sum_{n=1}^{N-1} \bigg( & \lambda_1 \|\mathbf{I}_{n}^{(\alpha)} - \hat{\mathbf{I}}_{n}^{(\alpha)}\|_1 + \lambda_2 \mathcal{L}_{\text{D-SSIM}}(\mathbf{I}_{n}^{(\alpha)}, \hat{\mathbf{I}}_{n}^{(\alpha)}) \notag \\
+    & + \lambda_3 \big(1 - \mathrm{Corr}(\mathbf{D}_{n}^{(\alpha)}, \hat{\mathbf{D}}_{n}^{(\alpha)})\big) \bigg).
+\label{equa(3)}
+\end{align}
+% where $\hat{\mathbf{I}}_{n}^{(\alpha)}$ is the rendered image at $n$-th generated viewpoint, $\mathbf{D}_{n}^{(\alpha)}$ is the estimated depth of the generated image $\mathbf{I}_{n}^{(\alpha)}$, $\hat{\mathbf{D}}_{n}^{(\alpha)}$ is the rendered depth at generated viewpoint, which is obtained from:
+% \begin{equation}
+% \hat{D_{m}^{g}}=\sum_{i=1}^{L}{D}_{i}\alpha_{i}\prod_{j=1}^{i-1}(1-\alpha_{j})
+% \end{equation}
+% \begin{equation}
+% \hat{\mathbf{D}}_{n}^{(\alpha)} = \sum_{i=1}^{L} d_i o_i \prod_{j=1}^{i-1}(1-o_j),
+% \end{equation}where ${d}_{i}$ and $o_{i}$ denote the depth and opacity of the $i$-th Gaussian projected onto the corresponding pixel, respectively.
+
+% Similar to \cite{zhu2024fsgs}, we apply supervision on the training views using the L1 loss and the D-SSIM loss. In addition, we supervise the rendered depth using the Pearson correlation coefficient loss.
+To ensure reliable supervision, low-quality pseudo-labels are filtered out by a selection module, and only the high-quality ones are retained for training. Further details are discussed in appendix.
+
+
+Since the frame interpolation model lacks 3D awareness, a slight mismatch can occur between generated images and their camera poses. To mitigate this, these interpolated camera poses are parameterized as learnable variables, optimizing them jointly with the Gaussian field throughout training.
+\subsection{Feature Level}
+%%prevent oversampling and promote balanced Gaussian distribution. The two strategies are tightly coupled: while edge-based densification focuses on adding high-frequency details near object boundaries, patch-based control ensures that such additions do not result in local over-concentration or sparsity elsewhere. This synergy enables effective geometry refinement without disrupting the global spatial coherence of the scene.
+% Solely using pseudo-labels for supervision can introduce undesired 3D geometry distortions, as illustrated in Fig.~\ref{fig:VIS_LLFF_geo_inconsist}. This limitation stems from the interpolation model's lack of inherent 3D structural reasoning. To enhance geometric details, we introduce a \textbf{Feature-Adaptive Densification and Pruning (FADP)} module. FADP refines our pseudo-label learning pipeline by enhancing texture-aware geometry, coupling two strategies: edge-aware densification and patch-based density controlling.
+
+While pseudo-labels offer valuable global supervision, their limited precision in fine details makes it difficult to accurately constrain high-frequency geometric structures (Fig.~\ref{fig:VIS_LLFF_geo_inconsist}), motivating further refinement at feature level.
+
+To resolve this concern and enhance geometric detail, \textbf{F}eature-\textbf{A}daptive \textbf{D}ensification and \textbf{P}runing (\textbf{FADP}) is introduced. FADP refines Gaussian distributions in high-frequency regions by improving texture-aware geometry through two complementary strategies: edge-aware densification and patch-based density control.
+
+For each training image $\mathbf{I}_{n}$, we first extract its corresponding edge map $\mathbf{E}_{n}$ using an edge detection model~\cite{liufu2025sauge}. 2D points are then sampled along the detected edges and back-projected into 3D space to define the centers of new Gaussians. The attributes of each new Gaussian $\hat{\mathbf{G}}$, namely color, opacity, and shape, are initialized based on its neighbors. Specifically, we identify its $K$-nearest neighbors ($K=3$ by default), $\{\hat{\mathbf{G}}_{1}, \hat{\mathbf{G}}_{2},\dots, \hat{\mathbf{G}}_{K}\}$, from the existing Gaussians. Each attribute $\hat{\mathbf{A}}$ of the new Gaussian $\hat{\mathbf{G}}$ is computed via inverse-distance weighted interpolation:
+\begin{equation}
+\small
+\hat{\mathbf{A}} = \frac{\sum_{k=1}^{K} w_{k} \cdot \mathbf{A}_{k}}{\sum_{k=1}^{K} w_{k}}, \quad w_{k} = \frac{1}{d_{k} + \epsilon},
+\end{equation}
+where $\mathbf{A}_{k}$ is the attribute of the $k$-th nearest inherent $\mathbf{G}_{k}$, $d_{k}$ is its Euclidean distance to $\hat{\mathbf{G}}$, and $\epsilon$ is a small constant. 
+% to avoid division by zero.
+
+To complement edge-aware densification, a \textbf{patch-based density controlling strategy} is proposed to prevent oversampling and promote balanced Gaussian distributions. Specifically, each training image is divided into an $m \times m$ grid of patches ($m=8$ by default) and Gaussians are projected onto image plane. Let $\mathcal{C} = \{ c_1, c_2, \ldots, c_{m^2} \} \in \mathbb{R}^{m^2}$ denote the number of projected Gaussians in each of the $m \times m$ patches. We reweight these counts to obtain $\mathcal{C'} = \{ c_1', c_2', \ldots, c_{m^2}' \}$ using the following piecewise function:
+\begin{equation}
+\small
+c_i' =
+\begin{cases}
+c_{\mathrm{min}}, & \text{if } c \leq \tau_{\mathrm{sparse}} \\
+c_i \cdot \lambda_{\mathrm{low}}, & \text{if } \tau_{\mathrm{sparse}} < c < \tau_{\mathrm{low}} \\
+c_i, & \text{if } \tau_{\mathrm{low}} \leq c \leq \tau_{\mathrm{high}} \\
+c_i \cdot \lambda_{\mathrm{high}}, & \text{if } c > \tau_{\mathrm{high}}
+\end{cases}
+\end{equation}
+where $\tau_{\mathrm{sparse}}, \tau_{\mathrm{low}}, \tau_{\mathrm{high}}$ are density thresholds, and $\lambda_{\mathrm{low}} > 1$, $\lambda_{\mathrm{high}} < 1$ are scaling factors that increase sampling in underrepresented regions and suppress sampling in over-dense areas. A minimum count $c_{\mathrm{min}}$ is enforced in sparse patches to guarantee coverage.
+
+To maintain the global number of Gaussians, we apply normalization:
+\begin{equation}
+\small
+\mathcal{C'} \leftarrow \text{round}\left( \mathcal{C'} \cdot \frac{\sum_i c_i}{\sum_i c_i'} \right).
+\end{equation}
+
+A residual correction step is applied to ensure $\sum_i c_i' = \sum_i c_i$ by adjusting the entries in $\mathbf{c'}$.
+
+In essence, the globally refined Gaussian distributions obtained from the previous stage provide a more complete structural foundation, bringing $\mathcal{C}$ closer to the distributions required for realistic rendering even before optimization. This enables patch-based
+density controlling strategy to achieve more effective and reliable refinement.
+
+By jointly leveraging edge-based guidance and patch-based controlling, FADP achieves an optimal balance between texture-sensitive densification and globally consistent Gaussian distributions. The two strategies are tightly coupled: while edge-based densification focuses on adding high-frequency details near object boundaries, patch-based controlling ensures that such additions do not result in local over-concentration or sparsity elsewhere. This synergy enables effective geometry refinement without disrupting the global spatial coherence of the scene.
+\begin{table*}[htp!]
+
+  \begin{tabularx}{\textwidth}{l|*{9}{Y}}
+
+  \hline
+  \multirow{2}{*}{Methods} & \multicolumn{3}{c}{2 views} & \multicolumn{3}{c}{3 views} & \multicolumn{3}{c}{6 views}  \\
+  & PSNR↑ & SSIM↑ & LPIPS↓ & PSNR↑ & SSIM↑ & LPIPS↓ & PSNR↑ & SSIM↑ & LPIPS↓ \\
+  \hline
+  Mip-NeRF~\cite{barron2021mipnerf}      & - & - & - & 16.11 & 0.401 & 0.460 & 22.91 & 0.756 & 0.213\\
+  SparseNeRF~\cite{wang2023sparsenerf}   & 17.80 & 0.532 & 0.372 & 19.86 & 0.624 & 0.328 & 23.26 & 0.741 & 0.235\\
+  FrugalNeRF~\cite{Lin_2025_CVPR} & \underline{18.29} & \underline{0.557} & 0.342 & 19.92 & 0.634 & 0.297 & - & - & -  \\
+  \hline
+  3DGS~\cite{kerbl20233d}     & 16.19 & 0.437 & 0.388 & 19.24 & 0.649 & 0.237 & 23.63 & 0.809 & 0.129\\
+  DRGS~\cite{chung2023depth}      & 17.04 & 0.513 & \underline{0.318} & 16.73 & 0.487 & 0.310 & 18.60 & 0.560 & 0.239\\
+  DNGaussian~\cite{li2024dngaussian}   & 17.03 & 0.519 & 0.362 & 19.12 & 0.591 & 0.294 & 22.18 & 0.755 & 0.198\\
+  FSGS~\cite{zhu2024fsgs}   & 15.65 & 0.460 & 0.412 & 20.43 & 0.682 & 0.248 & 24.15 & 0.823 & \underline{0.128}\\
+  CoR-GS~\cite{zhang2024cor}      & 17.38 & 0.539 & 0.350 & 20.45 & \underline{0.712} & \underline{0.196} & 24.29 & 0.824 & 0.135 \\
+  
+  DropGaussian~\cite{Park_2025_CVPR}      & 17.32 & 0.509 & 0.343 & \underline{20.55} & 0.710 & 0.200 & \underline{24.55} & \underline{0.835} & \textbf{0.117} \\
+  \hline
+  HeroGS (Ours)  & \textbf{18.78} & \textbf{0.595} & \textbf{0.317} & \textbf{21.30} & \textbf{0.739} & \textbf{0.189} & \textbf{24.59} & \textbf{0.837} & 0.135 \\
+  
+  \hline
+
+  \end{tabularx}
+  \caption{\textbf{Quantitative results on LLFF with 2, 3, 6 training views.} The \textbf{best} and \underline{second-best} entries are denoted using \textbf{bold} and \underline{underline} respectively. 3DGS-based methods require multi-view stereo estimation from COLMAP, which fails on 3 scenes for 2 training views. We therefore report the averaged metrics of the remaining scenes.}
+  \label{tab:QUA_LLFF}
+\end{table*}
+\begin{table*}[htp!]
+
+  \begin{tabularx}{\textwidth}{l|*{9}{Y}}
+
+  \hline
+  \multirow{2}{*}{Methods} & \multicolumn{3}{c}{2 views} & \multicolumn{3}{c}{3 views} & \multicolumn{3}{c}{6 views}  \\
+  & PSNR↑ & SSIM↑ & LPIPS↓ & PSNR↑ & SSIM↑ & LPIPS↓ & PSNR↑ & SSIM↑ & LPIPS↓ \\
+  \hline
+  3DGS      & 16.19 & 0.437 & 0.388 & 19.24 & 0.649 & 0.237 & 23.63 & 0.809 & \underline{0.129}\\
+  FSGS   & 15.65 & 0.460 & 0.412 & 20.43 & 0.682 & 0.248 & 24.15 & 0.823 & \textbf{0.128}\\
+  \hline
+  +VFI     & 16.91 & 0.489 & 0.384 & 20.68 & 0.704 & 0.204 & 24.18 & 0.822 & 0.135\\
+  +FADP      & 17.28 & 0.503 & 0.370 & 20.99 & 0.720 & 0.192 & 24.25 & 0.824 & 0.136\\
+  +GSField (freeze$_{scale}$)   & \underline{17.93} & \underline{0.564} & \underline{0.345} & \underline{21.08} & \underline{0.732} & \underline{0.191} & \underline{24.40} & \underline{0.832} & 0.136\\
+
+  HeroGS (Ours)  & \textbf{18.78} & \textbf{0.595} & \textbf{0.317} & \textbf{21.30} & \textbf{0.739} & \textbf{0.189} & \textbf{24.59} & \textbf{0.837} & 0.135 \\
+  
+  \hline
+  \end{tabularx}
+  \caption{Ablation study on LLFF dataset with 2, 3, 6 training views. The \textbf{best} and \underline{second-best} entries are denoted using \textbf{bold} and \underline{underline} respectively. 
+  Under the 2-view setting, the baseline method (FSGS~\cite{zhu2024fsgs}) performs poorly, while our approach achieves a significant performance improvement.
+  }  
+  \label{tab:Ablation_LLFF}
+\end{table*}
+
+\subsection{Parameter Level}
+
+Motivated by CoR-GS~\cite{zhang2024cor} and aimed at eliminating erroneous Gaussians, we introduce the \textbf{C}o-\textbf{P}runed \textbf{G}eometry Consistency (\textbf{CPG})  at parameter level. CPG incorporates two auxiliary Gaussian fields, which are trained jointly with the primary field. To facilitate more effective co-pruning, the parameters of the auxiliary Gaussian fields are frozen after a predefined training iteration. By comparing the consistency of corresponding Gaussians across all three fields, we identify and remove inconsistent points through a comprehensive co-pruning strategy. This filtering process effectively suppresses geometric artifacts, such as blurriness and shape distortion, leading to significantly improved spatial coherence, as illustrated in Fig.~\ref{fig:VIS_LLFF_geo_inconsist}.
+
+\textbf{Training Strategy.} We adopt a two-stage strategy. Before a predefined iteration number \( N_{\mathrm{iter}} \), all three Gaussian Splatting (GS) fields perform \emph{mutual co-pruning}. Subsequently, the two auxiliary fields are partially frozen (fixing scale and rotation), and only the primary GS field continues to be updated. The pruning becomes unilateral: the primary field is pruned based on geometric agreement with the two frozen auxiliary fields.
+
+\textbf{Co-Pruning Criterion.} Given a source GS field \( \mathcal{G}_s = \{ \mathbf{G}^s_1, \dots, \mathbf{G}^s_{Y} \} \) and a target field \( \mathcal{G}_t \), let \( \mathbf{p}_y^s, \mathbf{p}_z^t \in \mathbb{R}^3 \) denote the 3D position of \( \mathbf{G}^s_y \) and \( \mathbf{G}^t_z \), respectively. For each Gaussian in $\mathcal{G}_s$, its nearest neighbor in the target field is obtained as follows:
+% \vspace{-5pt}
+\begin{equation}
+\small
+z^* = \arg\min_z \| \mathbf{p}_y^s - \mathbf{p}_z^t \|_2,
+\end{equation}
+
+\begin{equation}
+\small
+w_y = \| \mathbf{p}_y^s - \mathbf{p}_{z^*}^t \|_2.
+\end{equation}
+
+\( \mathbf{G}^s_y \) is pruned from source field if the distance exceeds a threshold $w_y > \delta$, where we set the threshold $\delta=5$. 
+Guided by parameter level, Gaussian fields contain finer details (as highlighted by the orange points in Fig.~\ref{fig:framework}), making it easier to accurately identify erroneous Gaussian \( \mathbf{G}^s_y \).
+
+\textbf{Post-Freeze Behavior.} After \( N_{\mathrm{iter}} \), pruning is applied solely to the primary field, leveraging both auxiliary fields as geometric references. This strategy facilitates progressive refinement through early-stage alignment via multi-field redundancy and late-stage geometry stabilization.
+Throughout training, each GS field, $i.e$., the primary and the two auxiliary fields—is independently supervised using a combination of training view and generated view losses:
+\begin{equation}
+\small
+\mathcal{L} = \lambda_{g}\mathcal{L}_{g}+\mathcal{L}_{r},
+\end{equation}
+where $\mathcal{L}_{g}$ and $\mathcal{L}_{r}$ follow the same formulation as in Eq.~\ref{equa(3)}.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,175 @@
+\section{Experiments}
+\subsection{Setup}
+\begin{table}[t]
+\centering
+\renewcommand{\arraystretch}{1.1}
+\setlength{\tabcolsep}{1pt}
+\resizebox{\columnwidth}{!}{
+\begin{tabular}{l|ccc ccc}
+\hline
+\multirow{2}{*}{\textbf{Methods}} 
+& \multicolumn{3}{c}{\textbf{3 Views}} 
+& \multicolumn{3}{c}{\textbf{6 Views}} \\ 
+& PSNR$\uparrow$ & SSIM$\uparrow$ & LPIPS$\downarrow$ 
+& PSNR$\uparrow$ & SSIM$\uparrow$ & LPIPS$\downarrow$ \\ 
+\hline
+3DGS      & 16.39 & 0.442 & \underline{0.432} & 22.49 & 0.725 & 0.279 \\
+FSGS      & 16.88 & 0.474 & 0.434 & 23.63 & 0.742 & 0.281 \\
+CoR-GS   & \underline{17.06} & \underline{0.491} & 0.443 & 23.59 & 0.742 & 0.275 \\
+DropGaussian & 16.81 & 0.480 & 0.438 & \underline{24.15} & \underline{0.772} & \textbf{0.215} \\
+\textbf{HeroGS}      & \textbf{17.51} & \textbf{0.512} & \textbf{0.422} & \textbf{24.70} & \textbf{0.781} & \underline{0.272} \\
+\hline
+\end{tabular}
+}
+
+\caption{\textbf{Quantitative results on Tanks\&Temples with 3, 6 training views without downsampling.}}
+\label{tab:QUA_T&T}
+\end{table}
+HeroGS is implemented based upon FSGS~\cite{zhu2024fsgs}, and is evaluated on the LLFF~\cite{mildenhall2019llff} and Tanks\&Temples~\cite{knapitsch2017tanks} datasets. On LLFF, we use 2, 3, and 6 training views, with resolutions downsampled by 8$\times$. Settings for 3 and 6 training views follow previous work~\cite{jang2025comapgs}. For the 2-view case, as FSGS~\cite{zhu2024fsgs} requires COLMAP-based multi-view stereo which fails on 3 scenes, we evaluate on the remaining 5 scenes. Here, two views are randomly chosen for training, and the rest for testing. On Tanks\&Temples, 3 and 6 training views are used without downsampling. In our experiments, a subset of training views is uniformly sampled, with remaining views used for testing. Following prior works~\cite{zhu2024fsgs,zhang2024cor}, PSNR, SSIM, and LPIPS are employed as the evaluation metrics.
+
+\subsection{Comparison}
+\textbf{LLFF.}
+Quantitative results are presented in Tab.~\ref{tab:QUA_LLFF}, and qualitative comparisons are shown in Fig.~\ref{fig:LLFF_vis}. HeroGS achieves superior performance across multiple metrics. Notably, under the challenging 2-view training setting, HeroGS demonstrates a significant performance advantage over existing baselines. This substantial gain is primarily driven by the strategic introduction of hierarchical guidance, effectively compensating for the scarcity of reliable supervision in extremely sparse input views.
+
+Moreover, as Fig.~\ref{fig:LLFF_vis} illustrates, 3DGS struggles to recover the structure of some objects, while DRGS tends to synthesize smooth views lacking high-frequency details, compared to FSGS and HeroGS. Although FSGS recovers most structural details, it often fails to produce accurate local texture patterns. In contrast, HeroGS renders more accurate and detailed textures, visible in the intricate patterns of fortress and trex, and produces clearer background regions, such as the distant structures in fern. This visual fidelity largely stems from our paradigm’s ability to mitigate overfitting by guiding Gaussian distributions at multiple levels.
+
+%%%%%表metric之间的间距有问题
+
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=0.85\textwidth]{imgs/Fig4_HeroGS.pdf}
+%   \vspace{-7pt}
+  \caption{ \textbf{Qualitative Comparison on LLFF (3 training views).} Under extreme view sparsity, 3DGS~\cite{kerbl20233d} collapses into severe artifacts and blurred geometry. DRGS and FSGS recover coarse structure yet still exhibit over-smoothed textures and noisy backgrounds. In contrast, HeroGS guides the model from complementary levels to deliver markedly sharper object boundaries, richer high-frequency textures, and distinctly clearer distant regions—demonstrating the efficacy of our full pipeline.
+ % in SideFormer
+ }
+  \vspace{-5pt}
+  \label{fig:LLFF_vis}
+\end{figure*}
+\textbf{Tanks\&Temples.}
+Extensive evaluations on the Tanks\&Temples dataset are conducted to assess the effectiveness of HeroGS in complex and large-scale environments. As shown in Fig.~\ref{fig:T&T_vis} (Appendix) and Tab.~\ref{tab:QUA_T&T}, HeroGS is compared against several 3DGS-based baselines.
+The basic 3DGS struggles to preserve geometric and textural fidelity under limited supervision, while prior approaches~\cite{zhu2024fsgs,zhang2024cor} introduce sparse or noisy regularization, often resulting in oversmoothed geometry and noticeable artifacts.
+DropGaussian~\cite{Park_2025_CVPR} further exhibits ghosting effects due to inaccurate Gaussian distributions in high-frequency regions.
+In contrast, the proposed HeroGS framework injects pseudo dense supervision at the image level, effectively bridging the sparse-to-dense gap.
+Furthermore, FADP and CPG collaboratively refine Gaussian distributions, yielding more accurate reconstructions of fine-grained structures and high-frequency textures.
+Notably, HeroGS consistently achieves superior PSNR and SSIM scores, demonstrating robust generalization and stability under sparse-input conditions.
+\subsection{Ablation study}
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=1.0\columnwidth]{imgs/contrast_VFI_FADP.pdf}
+%   \vspace{-7pt}
+  \caption{ \textbf{Comparison with and without image and feature level guidance.} Columns 1 and 2: novel-view renderings produced by baseline versus baseline with pseudo-labels and FADP. Columns 3 and 4: their corresponding  Gaussians. 
+  %Under the guidance of Pseudo-lables refined by FADP, the distribution of Gaussians becomes more reasonable, resulting in more realistic detail textures.
+ % in SideFormer
+ }
+  \vspace{-10pt}
+  \label{fig:FADP&PL_compare}
+\end{figure}
+We conduct comprehensive ablation studies on the LLFF dataset, encompassing both qualitative and quantitative comparisons. As shown in Tab.~\ref{tab:Ablation_LLFF}, simply incorporating image-level guidance significantly improves performance over the baseline (FSGS), especially in extremely sparse view settings. This highlights the effectiveness of using interpolated frames as pseudo-supervision to guide the model.
+Additionally, Fig.~\ref{fig:FADP&PL_compare} demonstrates that integrating the FADP into the proposed framework results in clearer reconstructions and more reasonable Gaussian distributions. Notably, while the total number of Gaussians is reduced compared to the baseline, their density increases near object boundaries. This contributes to improved geometric fidelity and the preservation of high-frequency details.
+To validate the effectiveness of multiple GS fields, an ablation study is conducted on their number and configuration. HeroGS employs two additional GS fields, with scale and rotation frozen respectively. 
+This setup is compared against: 
+(1) using a single additional GS field with its scale frozen, and (2) the baseline with only one GS field. As Tab.~\ref{tab:Ablation_LLFF} (in the Appendix) indicates, HeroGS achieves superior performance, demonstrating that disentangled geometric representation improves reconstruction accuracy and detail preservation. Fig.~\ref{fig:VIS_LLFF_geo_inconsist} provides further qualitative comparison. We observe that the interpolation network alone fails to accurately recover fine details and textures on interpolated images (Column 4) when compared with the training view (Column 3). When CPG is disabled (Column 2), the rendering suffers from slight geometric misalignment of textures. In contrast, enabling CPG (Column 1) in our paradigm effectively ameliorates both geometric drift and texture degradation, as it prunes Gaussians with spatial deviations and preserves those aligned with consistent geometry.
+
+\subsection{Analysis}
+\label{sec:analysis}
+\begin{table}[t]
+\centering
+
+%\resizebox{.95\columnwidth}{!}{
+  \begin{tabularx}{0.5\textwidth}{l|*{3}{Y}}
+
+  \hline
+  Settings & PSNR & SSIM & LPIPS\\
+  \hline
+  w/o Post-Freeze      & 21.16 & 0.735 &  0.190\\
+  All     & \textbf{21.30} & \textbf{0.739} & \textbf{0.189}\\
+  \hline
+  
+  \end{tabularx}
+  \caption{Ablation study on Post-Freeze Behavior on LLFF dataset for 3 training views. }
+  \label{tab:Ablation_post_freeze}
+\end{table}
+\textbf{Impact of Post-Freeze Behavior.}
+To illustrate the effect of the parameter-freezing strategy, the Post-Freeze Behavior is ablated in Tab.~\ref{tab:Ablation_post_freeze}. The frozen parameters compel the two auxiliary Gaussian fields to learn distinct local optima. This, in turn, facilitates the primary Gaussian field in effectively pruning misplaced or ill-shaped Gaussians, thereby yielding more authentic texture details.
+
+\textbf{Analysis of Training Dynamics.}
+We further analyze the training dynamics by monitoring the variation of Gaussian counts and PSNR values throughout the optimization process on the LLFF dataset, as illustrated in Fig.~\ref{fig:training}. As training progresses, our method exhibits a steady improvement in PSNR, indicating consistent convergence and stable optimization, whereas the baseline shows noticeable fluctuations and even performance degradation in later stages. Notably, at around 5K iterations, our approach already surpasses the baseline by a clear margin, while maintaining a significantly lower number of Gaussians. This reduction demonstrates that HeroGS achieves more compact scene representation, leading to improved memory efficiency and faster rendering speed.
+
+\textbf{Interpolation Factor.}
+The interpolation factor, denoted as $S$, represents the number of frames generated for supervision between two consecutive training views. Specifically, for Eq.~\ref{Eq(alpha)}, $S-1$ views are generated between the $n$-th and $(n+1)$-th frames, in which case $\alpha$ takes values from the set $\{ \frac{1}{S}, \frac{2}{S}, \dots, \frac{S-1}{S} \}$, leading to $S-1$ intermediate camera extrinsics evenly distributed along the motion path.
+As Fig.~\ref{fig:Inter_factor} (in the Appendix) shows, performance metrics generally exhibit lower values at an interpolation factor of $S=2$. While performance improves significantly from $S=4$ onwards, including at $S=8$ and $S=16$, all metrics demonstrate a tendency to stabilize beyond $S=4$. An interpolation factor of $S=4$ is selected in the experiments to strike an optimal balance between visual quality and computational cost.
+
+\textbf{Frame Interpolation Model Comparisons.}
+Tab.~\ref{tab:Comp_inter_model} presents a comparative analysis of the effects of employing different frame interpolation models to generate pseudo-labels. The first row showcases the performance when using alternative frame interpolation model~\cite{Wu_2024_CVPR}. The second row demonstrates the results achieved with our chosen model. The third row provides the outcome when the interpolated images are replaced by uniformly sampled ground truth images, while keeping all other weights constant. To clearly demonstrate the efficacy of parameter level, CPG is excluded in all experiments above. As shown in the table, utilizing the interpolated results from our chosen frame interpolation model at image level yields superior performance compared to other models. However, a minor gap still persists when compared to using ground truth images. This discrepancy arises from the presence of irregularly distributed Gaussians, which leads to local geometric misalignment and texture inconsistencies. CPG effectively mitigates the impact of these inconsistencies, thereby enhancing model performance and bridging this gap.
+
+\begin{table}[h]
+\centering
+
+%\resizebox{.95\columnwidth}{!}{
+  \begin{tabularx}{0.45\textwidth}{l|*{3}{Y}}
+
+  \hline
+  Settings & PSNR & SSIM & LPIPS\\
+  \hline
+  PerVFI~\cite{Wu_2024_CVPR}      & 20.78 & 0.711 &  0.204\\
+  BIMVFI     & 20.99 & 0.720 & 0.192\\
+  Ground Truth     & 21.09 & 0.720 & 0.195\\
+  Ours & \textbf{21.30} & \textbf{0.739} & \textbf{0.189}\\
+  \hline
+
+  \end{tabularx}
+  \caption{Comparison between different Interpolation Model on LLFF dataset for 3 training views. }  
+  \label{tab:Comp_inter_model}
+\end{table}
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.95\columnwidth]{imgs/Fig6_HeroGS.pdf}
+%   \vspace{-7pt}
+  \caption{ 
+  \textbf{Analysis of training dynamics.}
+  Comparison of PSNR (left) and the number of Gaussians (right) between our HeroGS and baseline during training.
+ % in SideFormer
+ }
+%   \vspace{-11pt}
+  \label{fig:training}
+\end{figure}
+
+\begin{table}[t]
+\centering
+\setlength{\tabcolsep}{4pt}
+\resizebox{\columnwidth}{!}{
+\begin{tabularx}{\columnwidth}{cccc|ccc}
+
+\toprule
+   &\textbf{PL} & \textbf{FADP} & \textbf{CPG} & \textbf{PSNR} $\uparrow$ & \textbf{SSIM} $\uparrow$& \textbf{LPIPS} $\downarrow$ \\
+\midrule \multirow{4}{*}{\shortstack{One\\ Level}}& \cmark            &             &               & 16.91 & 0.489&0.384 \\  &          &    \cmark         &               & 16.64 & 0.483&0.390 \\   &         &             &    \cmark           & 16.78  & 0.535 &0.405
+\\  &\multicolumn{3}{c|}{\textbf{average}}&16.78&0.502&0.393 \\\hline \multirow{4}{*}{\shortstack{Two\\Levels}} &\cmark            & \cmark             &               & 17.28 & 0.503&0.370 \\ &
+ \cmark             &               & \cmark             & 18.33 & 0.577& 0.336 \\ &
+             &     \cmark          & \cmark             & 17.43 & 0.540& 0.372\\ 
+ & \multicolumn{3}{c|}{\textbf{ average}}&17.68&0.540&0.359 \\ \hline &
+\cmark             & \cmark             & \cmark             & \textbf{18.78} & \textbf{0.595}&\textbf{0.317} \\
+\bottomrule
+\end{tabularx}}
+\caption{\textbf{Ablation study on level interdependencies} on LLFF dataset for 2 training views.}
+\label{tab:ablation2views}
+\vspace{-5pt}
+\end{table}
+
+\textbf{Level Interdependency.}
+The numerical trend in Tab.~\ref{tab:ablation2views} reveals clear hierarchical synergy among the three levels.
+On average, adding a second level yields gains of $+0.9$ PSNR, $+0.038$ SSIM, and $-0.034$ LPIPS, indicating complementary interaction.
+Integrating all three levels further improves performance by $+1.1$ PSNR, $+0.055$ SSIM, and $-0.042$ LPIPS, surpassing the previous stage.
+The difference in incremental gains further indicates the presence of intrinsic coupling across levels, where improvements at one level reinforce and amplify others. This interdependency implies that the modules do not function in isolation but collaboratively contribute to a unified optimization process.
+
+\section{Conclusion}
+In this work, we present \textbf{HeroGS}, a tightly coupled hierarchical guidance framework that tames the ill-posed challenge of sparse-view 3D reconstruction.
+At the \textit{image level}, pseudo-labels transform sparse supervision into pseudo-dense guidance, providing global regularization and rich structural cues for feature level.
+Building upon this, \textbf{FADP} at the \textit{feature level} refines local geometry by injecting texture-aware high-frequency feature cues.
+The \textbf{CPG} at the \textit{parameter level} further enforces geometric consistency via self-supervised co-pruning. These three levels form a hierarchical guidance framework that optimizes the overall Gaussian distributions.
+Extensive experiments on diverse benchmarks demonstrate that HeroGS sets a new state of the art for sparse-view reconstruction.
+%In this work, we introduce HeroGS, a principled framework that tames the ill-posed problem of sparse-view 3D reconstruction. Starting from sparse inputs, HeroGS bootstraps dense supervision by synthesizing pseudo labels from image level. We then equip the pipeline with two reinforcing modules: (1) FADP, which recovers fine-grained geometry by injecting texture-aware high-frequency cues, and (2) CPG, which promotes multi-view consensus via joint pruning of geometric and photometric outliers. Extensive experiments on diverse benchmarks demonstrate that PLGS sets a new state of the art for sparse-view reconstruction.
+\section*{Acknowledgments}
+This work was supported in part by the Key Deployment Program of the Chinese Academy of Sciences, China under Grant KGFZD-145-25-39, the National Natural Science
+Foundation of China under Grants 62272438, and Beijing
+Natural Science Foundation L25700.

@@ -1,0 +1,285 @@
+\section{Experiment}
+\label{section: exp}
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.9\linewidth]{figures/appendix/edit.pdf} 
+\caption{\textbf{Text control}. By adding "Rainy," "Sunny," and "Night" to the original text prompt, while keeping other conditions unchanged, our model represents strong ability to edit videos effectively. 
+% \textbf{(a)} "Rainy": Captures wet road surfaces and blurred camera views caused by raindrops, adding realistic weather dynamics. \textbf{(b)} "Sunny": Displays clear skies with sunlight shining on the scene, reflecting bright and vivid environmental details. \textbf{(c)} "Night": Depicts dimly lit scenes with streetlights and reduced visibility, accurately simulating nighttime driving conditions. 
+%Full-length videos are available on our project page in the supplementary materials \textcolor{red}{./drivephysica/page.html}
+}
+\label{fig:edit}
+\end{figure*}
+
+\input{figures/appendix/carla}
+
+\subsection{Setups}
+\noindent \textbf{Datasets and Baselines.} 
+We train and evaluate our model on the nuScenes dataset \cite{nuScenes}. To benchmark our approach, we compare it with state-of-the-art driving world models, including BEVControl \cite{bevcontrol}, DriveDiffusion \cite{li2023drivingdiffusionlayoutguidedmultiviewdriving}, DriveDreamer2 \cite{drivedreamer2}, Panacea \cite{wen2024panacea}, and MagicDrive-V2 \cite{gao2024magicdrivedithighresolutionlongvideo}.
+% Our method considers 10 object classes. % (car, truck, trailer, bus, construction vehicle, barrier, motorcycle, bicycle, pedestrian, traffic cone) and 10 road classes %(drivable area, road segment, road block, lane, ped crossing, walkway, stop line, carpark area, road divider, lane divider), surpassing the baseline models in diversity. 
+
+\noindent \textbf{Metrics.}
+For realism assessment, we use FID \cite{FID} and FVD \cite{Thomas2018fvd} to measure video quality. To evaluate instance-level temporal consistency, we test our model in real-world autonomous driving scenarios using the multi-object tracking (MOT) task. MOT ensures consistent object tracking across frames, minimizing ID switches (IDSW) and drift. Following Panacea \cite{wen2024panacea}, we employ the StreamPETR model \cite{streampetr} and evaluate performance using standard MOT metrics: AMOTA, AMOTP, RECALL, MOTA, and IDS. Additionally, we evaluate spatial geometric fidelity by measuring the alignment between generated videos and their conditioned sequences, ensuring accurate preservation of geometric structures. This is assessed through perception tasks, as precise detection and localization are fundamental to perception. Thus, perception performance directly indicates the accuracy of object localization and occlusion relationships. Using the StreamPETR model \cite{streampetr}, we employ metrics such as the nuScenes Detection Score (NDS), mean Average Precision (mAP), mean Average Orientation Error (mAOE), and mean Average Velocity Error (mAVE). We note that Bevfusion \cite{liu2023bevfusion} has also been used for perception metric evaluation \cite{gao2023magicdrive}, but it is based on an image model, performs worse than the video-based model StreamPETR, and cannot provide object tracking metrics. Therefore, we still choose StreamPETR for evaluation.
+
+\noindent For metrics and results on the planning task using pretrained UniAD \cite{shi2016uniad} model, please refer to Appendix.
+% StreamPETR and UniAD have been previously trained on the nuScenes dataset, providing a reliable standard for our performance experiments.
+%Appendix.\ref{app:perception} holds additional details.
+
+
+
+\begin{table}[tb]
+    \centering
+    \footnotesize
+        \centering
+        \resizebox{0.475\textwidth}{!}{
+        \setlength{\tabcolsep}{8pt}
+        \begin{tabular}{lcccc}
+            \toprule
+            Method     &Multi-View &Multi-Frame  & FVD$\downarrow$ & FID$\downarrow$ \\
+            \hline
+            %BEVGen \cite{swerdlow2023street} \  &$\checkmark$   &  &  & 25.54\\
+            BEVControl \cite{bevcontrol}  &$\checkmark$   &  & - & 24.85 \\
+            %WoVoGen \cite{wovogen} &$\checkmark$ & $\checkmark$ & 417.7 & 27.6 \\
+            %Drive-WM \cite{wang2023drivingfuturemultiviewvisual} &$\checkmark$ & $\checkmark$ & 122.7 & 15.8 \\
+            %DriveDreamer \cite{wang2023drive}   &$\checkmark$ &$\checkmark$  & 452 & 52.6\\
+            DrivingDiffusion \cite{li2023drivingdiffusionlayoutguidedmultiviewdriving}   &$\checkmark$ &$\checkmark$  & 332 & 15.83\\
+            Panacea \cite{wen2024panacea}   & $\checkmark$ &$\checkmark$  & 139 & 16.96\\  
+            MagicDrive-V2 \cite{gao2024magicdrivedithighresolutionlongvideo}   &$\checkmark$ &$\checkmark$  & 94.84 & 20.91\\
+            DriveScape \cite{drivescape}  & 
+            $\checkmark$ &$\checkmark$  & 76.39 & 8.34\\
+            DriveDreamer2 \cite{drivedreamer2}   &$\checkmark$ &$\checkmark$  & 55.7 & 11.2\\
+            \hline
+            \rowcolor[gray]{.9} 
+            \titleDef~   &$\checkmark$  &$\checkmark$  & \textcolor{blue}{38.06}  & \textcolor{blue}{3.96}  \\
+            \bottomrule
+        \end{tabular}
+        }
+        \caption{Comparing with SoTA methods on the validation set of the nuScenes dataset. We generate the entire validation set without applying any post-processing strategies to select specific samples.}
+        \label{tab:fvd}
+\end{table}
+
+
+\subsection{Training Details}
+Our method is implemented based on OpenSora \cite{opensora}. 
+All training inputs were set to 16x256x448 and conducted on 8 A100 GPUs.
+Experimental results show that our method can stably generate over 200 frames. For more implementation details, please refer to Appendix.% and the project webpage included.
+
+
+
+
+ 
+\subsection{Main Results}
+
+\subsubsection{Quantitative Analysis}
+To verify the high fidelity of our generated videos, we compare our approach with various state-of-the-art driving world models. 
+We generate training and validation data using the nuScenes dataset’s labels as conditions. 
+For fairness, we generate the entire dataset without applying any post-processing strategies to select specific samples. 
+
+
+\noindent\textbf{Realism of Images.} 
+Our generated videos exhibit higher visual quality, achieving an FID of $3.96$, as shown in Tab.~\ref{tab:fvd}. It substantially outperforms those of all counterparts, including both video-based methods like DriveDreamer2 ~\cite{drivedreamer2} and image-based solutions such as BEVControl ~\cite{bevcontrol}. %This highlights that the generated images exhibit higher visual quality.
+
+
+
+\begin{table}[tb]
+    \centering
+    \footnotesize
+    \resizebox{0.47\textwidth}{!}{
+    \setlength{\tabcolsep}{4pt}
+    \begin{tabular}{lcccccc}
+        \toprule
+        Method & Real & Generated & AMOTA$\uparrow$ & AMOTP$\downarrow$ & IDS$\downarrow$  \\
+        \hline
+        Oracle & $\checkmark$  & - & 0.289 & 1.419 & 687 \\
+        DriveDreamer2 & $\checkmark$  & $\checkmark$   & 0.313   & 1.387 & 593 \textcolor{blue}{(-94)}  \\
+        \rowcolor[gray]{.9} 
+        \titleDef~ (Ours) & $\checkmark$  & $\checkmark$   & 0.496    & 1.376 & 532 \textcolor{blue}{(-155)}\\
+        \bottomrule
+    \end{tabular}
+    }
+    \caption{Comparison on multi-object tracking task with MagicDrive-V2 \cite{gao2024magicdrivedithighresolutionlongvideo} based on a pre-trained StreamPETR model.
+    }
+    \label{tab:tracking}
+\end{table}
+
+
+
+\noindent\textbf{Instance-Level Temporal Consistency.} 
+% fvd
+% tracking
+Our method significantly reduces FVD to $38.06$ in Tab.~\ref{tab:fvd}, due to the Instance Flow Guider module preserving instance attributes over frames and therefore enhancing instance-level temporal consistency.
+Additionally, we also assess our model in real-world autonomous driving applications using the multi-object tracking (MOT) task in Tab.~\ref{tab:tracking}, 
+as MOT requires consistent tracking of the same object across frames while minimizing ID switches, making it a strong indicator of instance-level temporal consistency.
+Specifically, we generate data using the nuScenes validation set’s labels as conditions. 
+We then re-train the object tracking model StreamPETR \cite{streampetr} by integrating the generated data with real data.
+The MOT model's performance improves significantly, achieving a lower IDS of $532$ compared to the originally pre-trained StreamPETR, indicating % that the generated data is conducive to tracking models.
+%This demonstrates 
+our framework’s effectiveness in producing instance-level temporally consistent synthetic data.
+
+
+
+\begin{table}[htbp]
+    \centering
+    \footnotesize
+        \centering
+        \resizebox{0.36\textwidth}{!}{
+        \setlength{\tabcolsep}{7pt}
+        \begin{tabular}{cccc}
+            \toprule
+              Method   & Real & Generated &  NDS$\uparrow$\\
+            \hline
+                Oracle & $\checkmark$ & -  &46.90 \\ 
+                Panacea & - &$\checkmark$ &32.10 (68.00\%) \\
+                % MagicDrive & - &$\checkmark$ &34.20 (72.92\%) \\
+                MagicDrive-V2 & - &$\checkmark$ &36.82 (78.51\%) \\
+               \cellcolor[gray]{.9} \titleDef~     &\cellcolor[gray]{.9} - 
+               &\cellcolor[gray]{.9}  $ \cellcolor[gray]{.9} \checkmark$ 
+               & \cellcolor[gray]{.9} \textcolor{blue}{40.51 (86.38\%) }
+               \\
+            \bottomrule
+        \end{tabular}
+        }
+         \caption{
+         Comparison on perception task using the generated nuScenes validation set in (T+I)2V scenarios.
+We use pre-trained perception model StreamPETR \cite{streampetr} to evaluate. 
+%We ensured that the experiments underwent similar settings compared to the other methods. 
+Our model outperformed most baseline models across the board without any post-refine process, underscoring a better capability of spatial localization and occlusion hierarchy understanding.
+         }
+        \label{tab:perception}
+\end{table}
+
+
+
+
+\noindent\textbf{Spatial Geometric Fidelity.} 
+% perception
+% evaluate  + data augumentation
+\noindent \textit{Data Augmentation Performance.} 
+We assess our model in real-world autonomous driving applications using the perception task, 
+as the perception task fundamentally relies on precise detection and localization. Thus, perception performance directly reflects the accuracy of object localization and occlusion relationships. 
+In Tab.~\ref{tab:perception_augment}, 
+we first train StreamPETR exclusively on our generated training dataset, and it achieves a mAP of $35.5\%$, equivalent to $92.69\%$ of the performance obtained by models trained solely on the real nuScenes training dataset. 
+These results highlight that the generated dataset is not only a viable substitute for real data but also highly effective in training perception models independently.
+Moreover, we re-train StreamPETR by integrating the generated data with real data; the perception model's performance improves significantly, achieving a NDS of $51.9$, marking a $3.6$-point increase over the model trained exclusively on real data. This underscores the substantial value of incorporating generated data into the training pipeline.
+
+%We first retrain StreamPETR using only real data, setting this as the baseline for comparison, as presented in Tab.~\ref{tab:augment} line 4 (Compared to Panacea in Tab.~\ref{tab:augment} line 1, our re-implemented results on real data are stronger, and under this enhanced model setup, \titleDef~ still demonstrates a significantly greater performance improvement.)
+
+% In Tab.~\ref{tab:perception_augment}, StreamPETR was re-implemented from official config due to resolution differences with Panacea. Stronger baselines are harder to surpass, further highlighting our data’s effectiveness.
+
+
+\noindent \textbf{Perception Validation Performance.}  
+Additionally, we use the pre-trained StreamPETR model to evaluate the generated validation set of the nuScenes.
+In Tab.~\ref{tab:perception}, our model achieves a relative performance of $86.38\%$ on the nuScenes Detection Score (NDS), underscoring a better alignment with the control conditions. Additional results on planning task can refer to Appendix.
+
+\subsubsection{Qualitative Analysis}
+We conduct a qualitative comparison of \titleDef~ with other SOTA models using the generated videos.
+
+\noindent \textbf{Instance-Level Temporal Consistency.} 
+In Fig.\ref{fig:intro}(a), MagicDrive-V2 exhibits an inconsistency where the car's color changes over time. In contrast, our model maintains the car's attributes consistently across all frames, showcasing superior instance-level temporal consistency.
+
+\noindent \textbf{Spatial Localization.} 
+In Fig.\ref{fig:intro}(b), MagicDrive-V2 fails to adhere to the bounding box control signal, resulting in spatial deviation. In contrast, our model ensures precise spatial localization, accurately following the control signal.
+
+\noindent \textbf{Occlusion Hierarchy.} 
+In Fig.\ref{fig:intro}(c), for the video generated by Panacea, 
+the distant bus incorrectly occludes the nearby pedestrian, violating natural occlusion rules. 
+In contrast, our model accurately preserves the occlusion hierarchy, ensuring a realistic representation of scene depth.
+
+
+\subsubsection{Long-tail Scenarios Simulation.}
+Our method can simulate diverse long-tail driving scenarios. By modifying text prompts, we can change the weather and time of scenes, as shown in Fig.~\ref{fig:edit}. We can also generate critical long-tail events, such as sudden braking and lane cutting, using control conditions provided by the \textbf{Carla} simulator \cite{Dosovitskiy17}. Carla supplies conditions like 3D bounding box projections, lane line projections, and text descriptions for scenes. Leveraging Carla's highly configurable environment, we create synthetic control conditions for complex and diverse scenarios, such as multi-vehicle intersections, narrow streets, or sudden obstacles, which are challenging to capture in real-world data. In Fig.~\ref{fig:carla}, we demonstrate our model's ability to generate long-tail videos corresponding to these conditions. The results show that our method not only replicates realistic conditions but also seamlessly adapts to complex scenarios generated by Carla, enhancing its applicability in autonomous driving research. For more visualization details, please refer to the Appendix.
+% \titleDef~ offers the ability to generate an unlimited number of labeled training samples, providing a valuable resource for advancing autonomous driving systems. 
+
+
+
+\begin{table}[htbp]
+    \centering
+    \footnotesize
+    \resizebox{0.475\textwidth}{!}{
+    \setlength{\tabcolsep}{4pt}
+    \begin{tabular}{lcccccc}
+        \toprule
+        Method & Real & Gen. & mAP$\uparrow$ & mAOE$\downarrow$ & mAVE$\downarrow$ & NDS$\uparrow$ \\
+        \hline
+        Panacea & $\checkmark$  & - & 34.5 & 59.4 & 29.1 & 46.9 \\
+        % -  &$\checkmark$  &19.7 &74.3 & 49.3 & 34.1 \\
+        Panacea & - &$\checkmark$  & 22.5 & 72.7 & 46.9 & 36.1 \\
+        %\hline
+        %\rowcolor[gray]{.9} 
+        % $\checkmark$  & $\checkmark$   & 36.4 \textcolor{blue}{(+1.9\%)} &53.9 &27.8 &48.7 \textcolor{blue}{(+1.8\%)} \\
+        Panacea & $\checkmark$  & $\checkmark$   & 37.1 \textcolor{blue}{(+2.6\%)} & 54.2 & 27.3 & 49.2 \textcolor{blue}{(+2.3\%)} \\
+        \hline
+        \titleDef~ (Re-Impl.) &$\checkmark$  & -  & 38.3 & 62.1 & 28.8 & 48.3 \\
+        \titleDef~ (Ours) & -  &$\checkmark$  & 35.5 & 59.7 & 29.4 & 43.67 \\
+        \rowcolor[gray]{.9} 
+        \titleDef~ (Ours) & $\checkmark$  & $\checkmark$   & 42.0 \textcolor{blue}{(+3.7\%)} & 53.2 & 26.8 & 51.9 \textcolor{blue}{(+3.6\%)} \\
+        \bottomrule
+    \end{tabular}
+    }
+    \caption{Comparison on perception task with Panacea. We involve data augmentation using synthetic training data to train StreamPETR. The perception model's performance improves significantly, showing the substantial value of incorporating generated data into the training pipeline. 
+    }
+    \label{tab:perception_augment}
+\end{table}
+
+
+\begin{table}[htbp]
+    \centering
+    \footnotesize
+        \centering
+        \resizebox{0.475\textwidth}{!}{
+        \setlength{\tabcolsep}{4pt}
+        \begin{tabular}{lcccc}
+            \toprule
+            Settings        & FVD$\downarrow$ & FID$\downarrow$ & NDS$\uparrow$ & IDS$\downarrow$ \\
+            %\hline
+            %Oracle    & - & - & 46.90 & 1037\\ 
+            \hline
+            \rowcolor[gray]{.9} 
+            \titleDef~   & 38.06 & 3.96 & 40.51 & 532\\
+            \hline
+            w/o IFG    & 58.86 \textcolor{blue}{(+20.8)} & 6.28 \textcolor{blue}{(+2.32)} & 40.23 \textcolor{blue}{(-0.28)} & 1189 \textcolor{blue}{(+653)}\\ 
+            w/o SGA & 41.21 \textcolor{blue}{(+3.15)}& 4.22 \textcolor{blue}{(+0.26)} & 37.31 \textcolor{blue}{(-3.20)} & 723 \textcolor{blue}{(+187)}\\    
+            w/o SGA(Box) & 39.27 \textcolor{blue}{(+1.21)}& 4.07 \textcolor{blue}{(+0.11)} & 38.22 \textcolor{blue}{(-2.29)} & 628 \textcolor{blue}{(+92)}\\ 
+            w/o SGA(Depth)   & 40.46 \textcolor{blue}{(+2.40)} & 4.15 \textcolor{blue}{(+0.19)} & 39.13 \textcolor{blue}{(-1.38)} & 669 \textcolor{blue}{(+133)}\\
+            \bottomrule
+        \end{tabular}
+        }
+        \caption{Ablation study results in (T+I)2V scenarios on the generated nuScenes validation set.}
+        \label{tab: ablation}
+\end{table}
+
+
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=1.0\linewidth]{figures/ablation-compare.pdf} 
+\caption{
+Ablation study of two key modules. \textbf{Zoom for better view.}
+\textbf{(a)} Removing the IFG causes the car's color to change over time, breaking temporal consistency.
+\textbf{(b)} Replacing box projection with box coordinates in the Spatial Geometric Aligner module causes misalignment between the passenger and the control box, resulting in failed spatial localization.
+\textbf{(c)} Removing depth cues in the Spatial Geometric Aligner results in the nearby car A failing to occlude the distant car B, disrupting occlusion hierarchy.
+}
+\label{fig:ablation_compare}
+\vspace{-0.5cm}
+\end{figure}
+
+\subsection{Ablation Study}
+We validate two key modules through qualitative and quantitative analyses, demonstrating their effectiveness and robustness.
+The qualitative comparison is in Fig. \ref{fig:ablation_compare}. 
+
+% fid fivd
+% perception + tracking
+% 给图分析 - 参考与panacea对比图
+
+\noindent \textbf{Instance Flow Guider.}
+To evaluate the impact of the IFG module, we conduct an ablation study by removing the instance flow injection. 
+In Tab.~\ref{tab: ablation}, the absence of instance flow leads to a significant drop of $20.8$ in FVD and an increase of $653$ in IDS (ID Switch) for the multi-object tracking task.
+These results underscore the critical role of the IFG module in preserving instance-level temporal consistency.
+
+\noindent \textbf{Spatial Geometric Aligner.}
+To evaluate the influence of the SGA module, we remove the injection of depth cues and replace the box projection with box coordinates as the control signal, seperately. 
+As shown in Tab.~\ref{tab: ablation}, the absence of SGA module results in a significant degradation of \textbf{3.20} in NDS, highlighting its critical role in understanding spatial localization and occlusion hierarchy.
+
+
+
+\noindent Our method can also generate videos without the initial frame as condition. To evaluate the impact of two key modules in the T2V scenario, please refer to Appendix.

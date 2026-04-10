@@ -1,0 +1,30 @@
+\section{Related work}
+\label{sec:related_work}
+\begin{figure*}[t]
+\centering
+  \includegraphics[width=0.95\textwidth]{figs/totalpipelinev4.pdf}
+  \caption{ \textbf{Proposed DynamicVGGT training framework.} Given a sequence of multi-view images $\{V_1,V_2,V_3\}$, the model first encodes them using a pretrained DINOv2 backbone to extract patch tokens and camera tokens for each view, while motion tokens are initialized as learnable parameters that encode temporal priors. 
+  The patch and camera tokens are processed by the Alternating-Attention (AA) blocks to model intra-frame spatial geometry, 
+  whereas the Motion-aware Temporal Attention (MTA) blocks operate in parallel to model inter-frame temporal dependencies using the motion tokens.
+  The resulting temporal features ${TA}$ are then fed into a Dynamic 3D Gaussian Head (DGSHead) for dynamic 3DGS reconstruction and a Future Point Head for future point prediction.
+  }
+  \label{fig:pipeline}
+\end{figure*}
+\subsection{Feed-Forward Visual Geometry Learning.}
+% [介绍 DUSt3R, VGGT 等前馈几何模型的发展与局限]
+Feed-forward 3D reconstruction models~\cite{wang2024dust3r, wang2025vggt, jiang2025anysplat} aim to recover the geometry of static scenes directly from images under a temporal invariance assumption, providing robust 3D priors for downstream tasks~\citep{chen2024vpl, li2025papl, li2025constrained, liartdeco, li2026ec, gaodeep, gaogood}.
+Unlike traditional multi-view geometry pipelines~\cite{mur2015orb, mur2017orb} that relied on optimization-based correspondence matching, these learning-based methods predicted depth, camera pose, or dense 3D point maps in an end-to-end manner. 
+Representative frameworks such as DUSt3R~\cite{wang2024dust3r} had demonstrated that transformer-based architectures can effectively learn direct mappings from image pixels to 3D coordinate fields. Subsequent researches had expanded this paradigm to multi-view and sequential settings, integrating camera pose estimation, depth prediction, and correspondence learning into unified architectures. 
+Among these, VGGT~\cite{wang2025vggt} further enhanced the feed-forward formulation by introducing alternating attention mechanisms across spatial and temporal dimensions, achieving joint prediction of multiple geometric quantities through a single, shared model. 
+Anysplat~\cite{jiang2025anysplat} incorporated 3DGS with Feed-Forward Model to achieve high-fidelity reconstruction. Recent extensions of feed-forward visual geometry models have begun to incorporate temporal modeling for dynamic reconstruction. Approaches such as MoVieS\cite{lin2025movies} and StreamVGGT\cite{zhuo2025streaming} extend static frameworks like VGGT to handle sequential inputs, but they are primarily designed for indoor environments.
+Despite these advances, existing 3D feed-forward methods struggled with reconstruct the large scale, dynamic autonomous driving scenes, motivating the need for generalizable 4D feed-forward frameworks capable of capturing scene dynamics over time.
+
+
+\subsection{3DGS Reconstruction for Driving Scenes.}
+% [介绍动态 3DGS 方法在自动驾驶上的相关工作， DynamicVGGT做自动驾驶数据集]
+Building photorealistic reconstructions of dynamic urban scenes is crucial for autonomous driving, as it supports closed-loop training and evaluation under realistic motion patterns. Consequently, recent research~\cite{yan2024street} has shifted focus from static to dynamic scene reconstruction. However, most existing methods~\cite{chen2024omnire, zhou2024hugs} rely heavily on dense annotations, which are expensive to obtain and limit scalability. Furthermore, these approaches typically depend on per-scene optimization, making it difficult to exploit large-scale data priors and leading to slow reconstruction speeds.
+Recent advances in feed-forward reconstruction, such as STORM~\cite{yang2024storm} and DrivingForward~\cite{tian2025drivingforward}, demonstrate the potential for fast and generalizable 4D scene recovery without per-scene optimization.
+STORM introduces a feed-forward pipeline for dynamic scene reconstruction and editing, achieving high-quality results but still relying on calibrated multi-view inputs.
+DrivingForward~\cite{tian2025drivingforward} presents a feed-forward 3D Gaussian Splatting framework for driving scenes with flexible surround-view inputs, jointly training pose, depth, and Gaussian heads to infer camera poses and dense geometry without using depth ground truth or provided extrinsics. Our DynamicVGGT generalizes feed-forward reconstruction to real-world autonomous driving scenes, jointly modeling geometry and motion without camera parameters or dense annotations.
+
+

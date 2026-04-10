@@ -1,0 +1,849 @@
+
+\documentclass{article} % For LaTeX2e
+\usepackage{iclr2025_conference,times}
+
+% Optional math commands from https://github.com/goodfeli/dlbook_notation.
+\input{math_commands.tex}
+
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{xspace}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{tablefootnote}
+\usepackage{relsize} 
+\usepackage{xcolor}
+\usepackage{colortbl}
+\usepackage{comment}
+\usepackage{sidecap}
+\sidecaptionvpos{figure}{c}
+\newcommand{\ie}{\textit{i.e.}}
+\newcommand{\eg}{\textit{e.g.}}
+\newcommand{\etal}{\textit{et al.}}
+\newcommand{\midoplus}{\mathlarger{\mathlarger{\oplus}}}
+
+\newcommand{\qy}[1]{{\color{red}{QY: #1}}}
+\newcommand{\lmy}[1]{{\color{red}{LMY: #1}}}
+
+\newcommand{\nbc}[3]{
+        {\colorbox{#3}{\scriptsize\textcolor{white}{#1}}}
+            {\textcolor{#3}{\small$\blacktriangleright$\textit{#2}$\blacktriangleleft$}}
+}
+\setlength\tabcolsep{3pt}
+\newcommand{\MH}[1]{\nbc{MH}{#1}{violet}}
+\usepackage[normalem]{ulem}
+\usepackage{amssymb}
+
+\title{Fast Feedforward 3D Gaussian Splatting Compression}
+
+% Authors must not appear in the submitted version. They should be hidden
+% as long as the \iclrfinalcopy macro remains commented out below.
+% Non-anonymous submissions will be rejected without review.
+
+% \vspace{-25pt}
+\author{
+  Yihang Chen\textsuperscript{1,2},  
+  Qianyi Wu\textsuperscript{2}\thanks{Corresponding authors.},
+  Mengyao Li\textsuperscript{3,2},
+  Weiyao Lin\textsuperscript{1}\footnotemark[1],
+  Mehrtash Harandi\textsuperscript{2},
+  Jianfei Cai\textsuperscript{2} \\
+  \textsuperscript{1}Shanghai Jiao Tong University,
+  \textsuperscript{2}Monash University,
+  \textsuperscript{3}Shanghai University\\
+  \texttt{\{yhchen.ee, wylin\}@sjtu.edu.cn},~~\texttt{sdlmy@shu.edu.cn}, \\ 
+  \texttt{\{qianyi.wu, mehrtash.harandi, jianfei.cai\}@monash.edu}\\ 
+}
+
+% The \author macro works with any number of authors. There are two commands
+% used to separate the names and addresses of multiple authors: \And and \AND.
+%
+% Using \And between authors leaves it to \LaTeX{} to determine where to break
+% the lines. Using \AND forces a linebreak at that point. So, if \LaTeX{}
+% puts 3 of 4 authors names on the first line, and the last on the second
+% line, try using \AND instead of \And before the third author name.
+
+\newcommand{\fix}{\marginpar{FIX}}
+\newcommand{\new}{\marginpar{NEW}}
+
+\iclrfinalcopy % Uncomment for camera-ready version, but NOT for submission.
+\begin{document}
+
+
+\maketitle
+% \vspace{-10pt}
+\begin{abstract} 
+% \vspace{-5pt}
+With 3D Gaussian Splatting (3DGS) advancing real-time and high-fidelity rendering for novel view synthesis, storage requirements pose challenges for their widespread adoption. Although various compression techniques have been proposed, previous art suffers from a common limitation: \textit{for any existing 3DGS, per-scene optimization is needed to achieve compression, making the compression sluggish and slow.} To address this issue, we introduce \textbf{F}ast \textbf{C}ompression of 3D \textbf{G}aussian \textbf{S}platting (FCGS), an optimization-free model that can compress 3DGS representations rapidly in a single feed-forward pass, which significantly reduces compression time from minutes to seconds.
+To enhance compression efficiency, we propose a multi-path entropy module that assigns Gaussian attributes to different entropy constraint paths for balance between size and fidelity. We also carefully design both inter- and intra-Gaussian context models to remove redundancies among the unstructured Gaussian blobs.
+Overall, FCGS achieves a compression ratio of over $20\times$ while maintaining fidelity, surpassing most SOTA per-scene optimization-based methods. 
+Code: github.com/YihangChen-ee/FCGS.
+
+
+\end{abstract}
+% \vspace{-5pt}
+\section{Introduction}
+% \vspace{-5pt}
+In recent years, 3D Gaussian Splatting (3DGS)~\citep{3DGS} has significantly advanced the field of novel view synthesis. By leveraging fully explicit Gaussians with color and geometry attributes, 3DGS facilitates efficient scene training and rendering through rasterization techniques~\citep{ewa}. However, the vast number of Gaussians poses a considerable storage challenge, hindering its wider application.
+To address the storage challenges associated with 3DGS, various compression methods have been developed, as surveyed in~\citep{3dgszip}. These advancements have significantly reduced the storage requirements, bringing them to an acceptable scale. By reviewing the key developments in this area, we identified two fundamental principles that underpin the compression of 3DGS: the \textit{value-based} and \textit{structure-based} principles.
+
+\begin{itemize}
+    \vspace{-5pt}
+    \item \textbf{\textit{Value-based}} principle. This principle assesses the importance of parameters through value-based importance scores or similarities. Techniques like pruning and vector quantization are employed to reduce the parameter count by retaining only the most representative values. With this principle, earlier studies~\citep{Lee, Simon, Lightgaussian} focused on compactly representing unorganized Gaussian primitives based on their parameter values, and discarded less significant parameters for model efficiency.
+    % \vspace{-2pt}
+    \item \textbf{\textit{Structure-based}} principle. More recent approaches have shifted towards exploiting the structural relationships between Gaussian primitives for improved compression~\citep{scaffold,3dgszip}. This principle emphasizes leveraging organized structures to systematically arrange unsorted Gaussian primitives, which helps eliminate redundancies by establishing structured connections. For instance, HAC~\citep{HAC} uses the Instant-NGP~\citep{INGP} to organize Gaussian anchor features, SOG adopts a self-organizing grid~\citep{SOG}, and IGS~\citep{IGS} uses a triplane~\citep{EG3D} structure to efficiently organize Gaussian data. 
+\end{itemize}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.95\linewidth]{image/teaser.pdf}
+    \vspace{-20pt}
+    \caption{\textbf{Left}: Existing compression methods require optimization of the existing 3DGS, leading to the drawback of being time-consuming for training. Our proposed FCGS overcomes this issue by compressing 3DGS representations in a single feed-forward pass, significantly reducing time consumption for compression. \textbf{Right}: Compared to Lightgaussian~\citep{Lightgaussian}, FCGS achieves improved RD performance while requiring much less execution time on the \textit{DL3DV-GS} dataset.}
+    \label{fig:teaser}
+    \vspace{-10pt}
+\end{figure}
+
+% \vspace{-10pt}
+Although effective, these compression techniques have a common limitation: \textit{for any existing 3DGS, per-scene optimization is needed to achieve compression}, as shown in Figure~\ref{fig:teaser}.
+While the optimization-based compression pipeline benefits from scene-specific training to achieve superior RD performance, it slows down the compression significantly 
+due to time-consuming finetuning.
+
+To address this challenge, we propose a novel approach: an optimization-free compression pipeline that enables fast compression of existing 3DGS representations through a single feed-forward pass, which we call \textbf{FCGS} (\textbf{F}ast \textbf{C}ompression of 3D \textbf{G}aussian \textbf{S}platting) from now on. Agnostic to the source of the 3DGS (either it is from optimizaiton~\citep{3DGS} or from feed-forward models~\citep{pixelsplat, splatterimage, MVSplat, LGM}), our FCGS allows for fast compression, offering a convenient and hassle-free solution. 
+In contrast to previous methods that degrade the parameter values or alter the 3DGS structure, thereby requiring additional finetuning, FCGS aims to preserve both the values and the structure integrity of 3DGS, enabling an optimization-free design. The Multi-path Entropy Module (MEM), designed under the \emph{value-based} principle, deduces masks that determine whether attributes should be directly quantized for compression or processed through an autoencoder. 
+Building on the masks determined by MEM and inspired by the \emph{structure-based} principle, we propose both inter- and intra-Gaussian context models that effectively capture structural relationships among Gaussian attributes.
+
+It is important to highlight that both pipelines of \textbf{\emph{per-scene optimization-based compression}} (previous methods) and \textbf{\emph{generalizable optimization-free compression}} (our approach) are significant and serve different purposes. The former benefits from per-scene adaptation to achieve superior RD performance but suffers from slow compression speed, making it suitable for permanent data storage or server-side encoding. 
+In contrast, our pipeline offers a convenient and hassle-free solution, where a single model can \emph{directly} and \emph{rapidly} compress various 3DGS without the need for finetuning, making it well-suited for time-sensitive applications. To the best of our knowledge, our work is the first to achieve a \textbf{\emph{generalizable optimization-free compression pipeline}} for 3DGS.
+Although the absence of per-scene finetuning naturally limits our RD performance, we have still achieved a compression ratio exceeding 20$\times$ while maintaining excellent fidelity by meticulously designing MEM and context models. 
+Our contributions are summarized as follows:
+
+\begin{itemize} 
+    \item We propose a pioneering fast and generalizable optimization-free compression pipeline for 3D Gaussian Splatting, named FCGS, effectively broadening the application scenarios for 3DGS compression techniques. 
+    \item To facilitate  efficient compression of 3DGS representations, we introduce the MEM module to balance size and fidelity across different Gaussians. Additionally, we meticulously customize both inter- and intra-Gaussian context models, significantly enhancing compression performance by effectively eliminating redundancies. 
+    \item Extensive experiments across various datasets demonstrate the effectiveness of FCGS, achieving a compression ratio of 20$\times$ while maintaining excellent fidelity, even surpassing most of the optimization-based methods. 
+\end{itemize}
+
+\section{Related Work}
+
+The field of 3D scene representation for 3D scenes has seen significant advancements in recent years. Neural Radiance Field (NeRF)~\citep{NeRF} models scene information using fully implicit MLPs, which predict opacity and RGB values at 3D coordinates for ray rendering. However, these MLPs are designed to be quite large to capture all the scene-specific details, leading to slow training and rendering times. To improve both fidelity and rendering efficiency, subsequent works~\citep{INGP, TensoRF, DVGO} have introduced learnable explicit representations that assign scene-specific information to the input coordinates before they are processed by the MLPs. These methods, however, increase storage requirements due to the use of explicit representations. 3D Gaussian Splatting~\citep{3DGS} takes this further by representing the scene entirely through explicit attributed Gaussians. Using rasterization techniques, these Gaussians can be quickly rendered into 2D images for a given viewpoint. Unfortunately, this fully explicit representation significantly increases storage demands. To address the storage issues of NeRF and 3DGS, various research efforts have focused on compression techniques, which generally fall into two main design principles: \textit{value-based} and \textit{structure-based}.
+
+The \textit{value-based} principle focuses on the importance scores or similarities of parameters. Using these scores or similarities, pruning and vector quantization can be applied via thresholding or clustering, allowing for compression by retaining only the most representative parameters. However, this process often alters the original parameter values by a noticeable margin, necessitating an additional finetuning step to recover the lost information.
+For NeRF, methods like VQRF~\citep{VQRF} and Re:NeRF~\citep{Re:NeRF} calculate the significance of parameters based on opacity or gradient values and apply pruning or vector quantization, followed by a finetuning phase. BiRF~\cite{BiRF} investigates parameters' values and binarizes them.
+For 3DGS, similar value-based thresholding and clustering techniques are commonly used, as seen in works such as~\citet{Lee, Simon, Navaneet, Lightgaussian, EAGLES, RDOGaussian, Trimming, mini}, which consider Gaussian values. Additionally, scalar quantization and knowledge distillation are implemented in~\cite{EAGLES} and~\citep{Lightgaussian}, respectively.
+
+The \textit{structure-based} principle represents another major direction that investigates the structural redundancies of parameters. CNC~\citep{CNC} introduced a pioneering proof of concept by applying level- and dimension-wise context models to compress hash grids for Instant-NGP~\citep{INGP} in the NeRF series. This structure-based design is also evident in works like~\citet{Compressible, wavelet, SHACIRA, NeRFCodec}.  CodecNeRF~\citep{codecnerf} investigates a feed-forward approach to generate neural radiance field for scenes and then directly compresses them.
+In the case of 3DGS, structure-based compression methods have also seen notable progress. The primary challenge is the sparse and unorganized nature of 3DGS, which makes it difficult to identify and utilize structural relationships. Grid-based sorting~\citep{SOG} addresses this by projecting 3D Gaussians onto 2D planes for compression while preserving spatial relationships. Scaffold-GS~\citep{scaffold} uses anchors to cluster nearby Gaussians that share common features, and based on this, works such as~\citet{HAC, compgs, Contextgs} further reduce redundancies for anchors, resulting in improved compression performance. HAC~\citep{HAC} and IGS~\citep{IGS} explore relations among the organized grids and Gaussians. SUNDAE~\citep{SUNDAE} employs spectral Graph to improve pruning.
+
+However, these approaches all require per-scene finetuning for compression on a given 3DGS, which can be time-consuming. 
+In this paper, we explore a novel, optimization-free pipeline for 3DGS compression, innovatively building context models for Gaussian primitives, which are essential for eliminating redundancy and improving compression efficiency.
+
+
+\section{Fast Compression of 3D Gaussian Splatting}
+
+Our goal is to rapidly compress a 3DGS representation in a single feed-forward pass without finetuning. Inspired by image compression methods~\citep{balle}, we adopt an autoencoder-based structure, where the Gaussian attributes are encoded into a latent space for compression, as shown in Figure~\ref{fig:overall_method}. However, we found that treating all Gaussian parameters equally and feeding them all into the same autoencoder could lead to a significant loss of fidelity, as some attributes were highly sensitive to deviations. To address this, we introduce a Multi-path Entropy Module (MEM) to effectively balance compression size and fidelity. 
+For the context model design, we customize both inter- and intra-Gaussian context models that effectively eliminate redundancies among parameters of Gaussians (Figure~\ref{fig:main_method}), which are lightweight and efficient. Additionally, we use a Gaussian Mixture Model (GMM) to estimate the probability distribution. In the following sections, we first discuss the background and characteristics of 3DGS, and then delve into the design of our FCGS.
+
+\subsection{Preliminaries and Discussions}
+
+\textbf{3D Gaussian Splatting (3DGS)}~\citep{3DGS} employs a large number (\eg, $1$ million) attributed Gaussians to represent a 3D scene. These Gaussians are characterized by color and geometry parameters, and are splatted along given views using rasterization to generate rendered images. Each Gaussian is defined by a covariance $\bm{\Sigma} \in \mathbb{R}^{3 \times 3}$ and a location (mean) $\bm{\mu}^\text{g} \in \mathbb{R}^{3}$,
+
+\vspace{-10pt}
+\begin{equation}
+    G(\bm{l}) = \exp{\left(-\frac{1}{2}(\bm{l}-\bm{\mu}^\text{g})^\top\bm{\Sigma}^{-1}(\bm{l}-\bm{\mu}^\text{g})\right)}\;,
+\end{equation}
+where $\bm{l} \in \mathbb{R}^{3}$ is a random 3D location, and $\bm{\Sigma}$ is defined by a scaling matrix $\bm{S} \in \mathbb{R}^{3 \times 3}$ and a rotation matrix $\bm{R} \in \mathbb{R}^{3 \times 3}$ such that $\bm{\Sigma} = \bm{R}\bm{S}\bm{S}^\top\bm{R}^\top$. To render a pixel value $\bm{C} \in \mathbb{R}^{3}$, the Gaussians are first splatted to 2D, and rendering is performed as follows:
+
+\vspace{-10pt}
+\begin{equation}
+    \bm{C} = \sum_{i} {\bm{c}_i\alpha_i\prod_{j=1}^{i-1}\left(1-\alpha_j\right)}
+\end{equation}
+where $\alpha \in \mathbb{R}$ is the opacity, and $\bm{c} \in \mathbb{R}^{3}$ is the view-dependent color of each Gaussian, which is calculated from $3$-degree Spherical Harmonics (SH) $\in \mathbb{R}^{48}$. In this paper, we design our FCGS model based on this SH-based rendering structure of 3DGS.
+
+\textbf{Discussions.} The attributes of Gaussians can be categorized into \textbf{\textit{geometry}} and \textbf{\textit{color}} attributes. The \textbf{\textit{geometry}} attributes (opacity $\bm{\alpha}$, diagonal elements of scaling $\bm{S}$, and quaternion representation of rotation $\bm{R}$) determine the dependencies of the rasterization process (\eg, the coverage range of the Gaussians or the depth to which they should be composed). Once the geometric dependencies are established, the \textbf{\textit{color}} attributes are used to assign colors via $3$-degree SH following~\citep{3DGS}. 
+Since the \textbf{\textit{geometry}} attributes directly influence the rasterization dependencies, they are more sensitive to deviations than the \textbf{\textit{color}} attributes. For brevity, we denote \textbf{\textit{geometry}} attributes as $\bm{f}^{\text{geo}} \in \mathbb{R}^{8}$, \textbf{\textit{color}} attributes as $\bm{f}^{\text{col}} \in \mathbb{R}^{48}$, and the concat of both as $\bm{f}^{\text{gau}} \in \mathbb{R}^{56}$. In the following sections, unless otherwise specified, $\bm{x}$ refers to either $\bm{f}^{\text{geo}}$ or $\bm{f}^{\text{col}}$.
+
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.92\linewidth]{image/overall_method.pdf}
+    \vspace{-15pt}
+    \caption{Our approach is inspired by image compression, where the input Gaussian attributes $\bm{x}$ is mapped into the latent space $\hat{\bm{y}}$ for compression after passing through an analysis transform $g_a$ and quantization to eliminate redundancies. To compress $\hat{\bm{y}}$, a hyperprior branch is introduced, using the coarse representation $\hat{\bm{z}}$ to estimate the distribution parameters of $\hat{\bm{y}}$ under a Gaussian distribution assumption, which aids in entropy encoding and decoding. In addition to the hyperprior, various context models are applied to $\hat{\bm{y}}$ to improve the estimation of distribution probabilities. After decoding $\hat{\bm{y}}$, a synthesis transform $g_s$ projects it back to the original space as $\hat{\bm{x}}$. A loss function is used to maintain high fidelity between $\hat{\bm{x}}$ and $\bm{x}$ using their rendered images, while minimizing the entropy of $\hat{\bm{y}}$ and $\hat{\bm{z}}$. AE and AD represent Arithmetic Encoding and Arithmetic Decoding, respectively. In our paper, we implement transform networks as simple MLPs. $g_a$ and $g_s$ consist of 4 layers each, while $h_a$ and $h_s$ have 3 layers each.}
+    \label{fig:overall_method}
+    \vspace{-10pt}
+\end{figure}
+
+\subsection{Value-Based Principle: Multi-path Entropy Module (MEM)}
+
+As shown in Figure~\ref{fig:overall_method}, we draw inspiration from image compression and apply an autoencoder-based compression approach with a hyperprior structure, where the Gaussian attributes $\bm{x}$ are projected into a quantized latent space $\hat{\bm{y}}$ for compression. After obtaining $\hat{\bm{y}}$ through the arithmetic decoding, a synthesis transform $g_s$ is employed to project it back to the original space $\hat{\bm{x}}$, which is the decoded version.
+However, in 3DGS representations, Gaussians are not the final output; the actual results are the rendered images obtained through rasterization. Unfortunately, deviations in Gaussian attributes can be amplified during the rasterization process, leading to even greater deviations in the rendered images. Some Gaussians are highly sensitive to these deviations, as they may occupy crucial positions that significantly affect the rasterization process. Simply feeding all attributes into the autoencoder does not yield satisfactory results: 
+The forward pass of MLPs is inherently non-invertible due to non-linear activation functions, which means projecting $\bm{x}$ into latent space via an MLP does not allow for exact recovery of the original $\bm{x}$ from the latent. As a result, MLP-decoded attributes $\hat{\bm{x}}$ cannot always align precisely with the original attributes for each Gaussian. This misalignment would be amplified in rendering, leading to a significant fidelity drop in the rendered images, as exhibited in the ablation study (Subsection~\ref{subsec:ablation_study}).
+
+Geometry attributes are the most sensitive to such deviations because they directly impact dependencies during rasterization. For example, if the decoded opacity of a Gaussian is too large, it could block Gaussians behind it, preventing them from contributing as they should. Similarly, deviations in scaling and rotation can have significant effects. To address this, we remove $g_a$ and $g_s$ for all geometry attributes $\bm{f}^{\text{geo}}$, ensuring that $\bm{y}=\bm{x}$.
+Fortunately, color attributes are less sensitive to deviations, although they still impact the final result. For $\bm{f}^{\text{col}}$, as depicted in Figure~\ref{fig:overall_method}, we introduce MEM to deduce a binary mask $m\in\mathbb{R}$ that adaptively determines whether an $\bm{x}$ (only for $\bm{f}^{\text{col}}$ here) should pass through the MLPs $g_a$ and $g_s$ to eliminate redundancies, resulting in $\bm{y}=g_a(\bm{x})$, or simply bypass the MLPs, setting $\bm{y}=\bm{x}$ to best preserve the original information,
+
+\vspace{-15pt}
+\begin{equation}
+    \hat{\bm{x}}_i = g_s(\texttt{Q}(g_a(\bm{x}_i)))\times m_i + \texttt{Q}(\bm{x}_i)\times (1-m_i), \; m_i=\texttt{Sig}(\text{MLP}_\text{m}(\bm{f}^{\text{gau}}_i)) > \epsilon_m
+\end{equation}
+where $\texttt{Q}$ represents the quantization operation with a quantization step of $q$: if $\bm{y}_i$ is in the latent space ($m_i=1$), $q$ is $1$; otherwise ($m_i=0$), $q$ becomes a trainable decimal parameter. During training, uniform noise is added, while during testing, quantization is applied. $\texttt{Sig}$ is the Sigmoid function and $\epsilon_m$ is a hyperparameter that defines the threshold for binarizing the mask. Gradients of the binarized mask $m$ are backpropagated using STE~\citep{STE,Lee}.
+
+Balancing the mask rate is crucial, as it directly impacts the RD trade-off. Previous works like \citet{Lee} incorporate an additional loss term with a hyperparameter $\lambda_m$ to regulate the mask rate. However, given that the RD loss already includes a trade-off hyperparameter $\lambda$ to balance bits and fidelity, introducing another parameter, $\lambda_m$, would unnecessarily complicate the process of finding the optimal RD trade-off. To resolve this, we integrate the mask information directly into the bit consumption calculation, allowing the model to adaptively learn the optimal mask rate, thereby eliminating $\lambda_m$. Please refer to Subsection \ref{subsec:training} for details.
+
+\subsection{Structure-Based Principle: Autoregressive Context Models}
+
+To further enhance the accuracy of probability estimation, context models play a crucial role for $\hat{\bm{y}}$. Specifically, a portion of $\hat{\bm{y}}$ is first decoded and then used to assist in predicting the remaining part based on contextual relationships. In image compression, where data like $\hat{\bm{y}}$ are arranged in a structured grid (\ie, a feature map), designing such context models is relatively straightforward. However, Gaussians in 3DGS are sparse and unorganized (as is $\hat{\bm{y}}$), making it a challenge to design efficient and lightweight context models. To tackle this, we analyze the unique properties of Gaussians and develop customized inter- and intra-Gaussian context models, as illustrated in Figure~\ref{fig:main_method}.
+
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.95\linewidth]{image/main_method.pdf}
+    \vspace{-15pt}
+    \caption{Context models of FCGS. We build on the hyperprior design of image compression (\textbf{top}) and introduce our inter- and intra-Gaussian context models (\textbf{mid \& bottom}). Together, they form a GMM that provides a more accurate estimation of the value distribution probability of $\hat{\bm{y}}$ (\textbf{right}).}
+    \label{fig:main_method}
+    \vspace{-15pt}
+\end{figure}
+
+
+\textbf{Inter-Gaussian Context Models.} 3D Gaussians collectively represent the scene, leading to inherent relationships among them. To uncover these relationships, we refer to grid-based structures, which are typically compact, organized, and capable of constructing spatial connections among Gaussians. While this ``grid'' structure does not naturally exist within 3DGS, we propose an innovative method to \emph{create grids} from Gaussians themselves. 
+Note that a concurrent work~\citet{Contextgs} proposes structuring anchors into multiple levels to model entropy. However, its anchor location quantization process introduces deviations, which impacts fidelity and requires finetuning. Differently, our inter-Gaussian context model overcomes this limitation by creating grids in a feed-forward manner for context modeling, without modifying Gaussian locations, eliminating the need of finetuning.
+
+We divide all Gaussians' $\hat{\bm{y}}$ into $N^\text{s}$ batches ($N^\text{s}=2$ as an example in Figure~\ref{fig:main_method} mid) and decode each batch sequentially. During this process, the previously decoded $\hat{\bm{y}} \in \mathbb{Y}_{[0,n^\text{s}-1]}$ are first used to create grids, which then provide context for the to-be-decoded $\hat{\bm{y}} \in \mathbb{Y}_{[n^\text{s}]}$ via interpolation. Here, $\mathbb{Y}_{[n^\text{s}]}$ refers to the set of $\hat{\bm{y}}$ belonging to the $n^\text{s}$-th batch out of $N^\text{s}$. To generate the feature $\bm{f}^{\bm{v}}$ for a voxel at position $\bm{v}$ on the grids, we investigate $\hat{\bm{y}}$ within $\bm{v}$'s interpolation range. For a voxel located at $\bm{v}_i\in\mathbb{R}^{3}$ (\ie, the \textcolor[RGB]{192,0,0}{red point} in Figure~\ref{fig:main_method} mid (b)), its feature $\bm{f}^{\bm{v}}_i$ is computed as follows:
+
+
+\vspace{-10pt}
+\begin{equation}
+    \bm{f}^{\bm{v}}_i = \frac{\sum_{k: \hat{\bm{y}}_k \in \mathbb{Y}_{[0,n^\text{s}-1]}^{\bm{v}_i}} w_k\hat{\bm{y}}_k}{\sum_{k: \hat{\bm{y}}_k \in \mathbb{Y}_{[0,n^\text{s}-1]}^{\bm{v}_i}} w_k}, \quad\text{where}\; w_k=\prod_{\text{dim}\in\{x,y,z\}}\left(1-|\bm{\mu}^\text{g}_{k,\text{dim}}-\bm{v}_{i,\text{dim}}|\right)
+\label{eq:grid_creator}
+\end{equation}
+where $\mathbb{Y}_{[0,n^\text{s}-1]}^{\bm{v}_i}$ denotes the subset of $\mathbb{Y}_{[0,n^\text{s}-1]}$ where $\hat{\bm{y}}$ fall into $\bm{v}_i$'s interpolation range (\ie, the \textcolor[RGB]{223,113,50}{orange box} in Figure~\ref{fig:main_method} mid (a,b,c)).
+$k$ is the index of $\hat{\bm{y}}_k$, and $w_k$ represents the weight that determines the contribution of each $\hat{\bm{y}}_k$. The closer $\hat{\bm{y}}_k$ is to $\bm{v}_i$, the greater its contribution. Regardless of the number of $\hat{\bm{y}}$ within $\bm{v}_i$'s interpolation range, we can always compute a weighted average feature $\bm{f}^{\bm{v}}_i$ for ${\bm{v}_i}$ that integrates information for interpolation in the next step.
+
+By conducting this calculation for all the voxels, we can create the grids, which are organized and structured, enabling them to provide contextual information for any input coordinates via interpolation. For a to-be-decoded $\hat{\bm{y}}_i \in \mathbb{Y}_{[n^\text{s}]}$, located at $\bm{\mu}_i^\text{g}$, its distribution parameters $\bm{\mu}^\text{s}_i$, $\bm{\sigma}^\text{s}_i$, and $\bm{\pi}^\text{s}_i$ can be computed from these grids using $\text{MLP}_\text{s}$:
+
+
+\vspace{-6pt}
+\begin{equation}
+    \bm{\mu}^\text{s}_i, \bm{\sigma}^\text{s}_i, \bm{\pi}^\text{s}_i = \text{MLP}_\text{s} (\midoplus[\bm{f}^{\bm{\mu}^\text{g}}_i, \texttt{emb}(\bm{\mu}^\text{g}_i)]), \quad \text{where}\; \bm{f}^{\bm{\mu}^\text{g}}_i = \sum_{k: \bm{v}_k \in \mathbb{V}^{\bm{\mu}^\text{g}_i}}w_k \bm{f}^{\bm{v}}_k
+\label{eq:grid_interpolation}
+\end{equation}
+where $\mathbb{V}^{\bm{\mu}^\text{g}_i}$ represents the set of voxels forming $\bm{\mu}_i^\text{g}$'s minimum bounding box (\ie, the \textcolor[RGB]{192,0,0}{$4$ red points} in Figure~\ref{fig:main_method} mid (c)), 
+and $\bm{f}^{\bm{\mu}^\text{g}}_i$ is the feature obtained by grid interpolation. \texttt{emb} and $\midoplus$ are sin-cos positional embedding and channel-wise concatenate operation, respectively. The calculated parameters $\bm{\mu}^\text{s}_i$, $\bm{\sigma}^\text{s}_i$, and $\bm{\pi}^\text{s}_i$ are then used to estimate the distribution of $\hat{\bm{y}}_i$ in GMM.
+
+In practice, we use both 3D and 2D grids, designed with multiple resolutions to capture varying levels of detail. The 3D grids effectively represent the spatial relationships between the Gaussians and the voxels, though they are of lower resolution due to the higher dimensionality. To complement this, we employ three 2D grids, each created by collapsing one dimension. These 2D grids provide higher resolutions, allowing for a more precise capture of local details.
+
+\textbf{Intra-Gaussian Context Models.} Beyond addressing redundancies across Gaussians, we further utilize our FCGS to eliminate redundancies within each Gaussian. Specifically, we split each $\hat{\bm{y}}_i$ into $N^\text{c}$ chunks, and $\text{MLP}_\text{c}$ is used to deduce the distribution parameters for each chunk from the previously decoded ones. For path $m=1$ in MEM, we split $\hat{\bm{y}}$ into $N^\text{c}=4$ chunks along channel dimension. For path $m=0$, $\hat{\bm{y}}$ is split into $N^\text{c}=3$ chunks along \texttt{RGB} axis to leverage redundancies of color components. We do not apply intra-context for $\bm{f}^{\text{geo}}$, as its internal relations are trivial.
+
+\vspace{-10pt}
+\begin{equation}
+    \bm{\mu}^\text{c}_i, \bm{\sigma}^\text{c}_i, \bm{\pi}^\text{c}_i = \midoplus_{n^\text{c}=1}^{N^c}\{\bm{\mu}^\text{c}_{i, n^\text{c}}, \bm{\sigma}^\text{c}_{i, n^\text{c}}, \bm{\pi}^\text{c}_{i, n^\text{c}}\},\; \text{where}\;
+    \bm{\mu}^\text{c}_{i, n^\text{c}}, \bm{\sigma}^\text{c}_{i, n^\text{c}}, \bm{\pi}^\text{c}_{i, n^\text{c}} = \text{MLP}_\text{c}(\hat{\bm{y}}_{i, [0,n^\text{c}c-c)})
+\end{equation}
+where $n^\text{c}$ and $c$ are chunk index and channel amount per chunk, respectively. $\bm{\mu}^\text{c}_{i, n^\text{c}}, \bm{\sigma}^\text{c}_{i, n^\text{c}}, \bm{\pi}^\text{c}_{i, n^\text{c}}$ are the intermediate probability parameters for chunk $n^\text{c}$, with a dimension size of $c$ for each.
+
+
+\textbf{Gaussian Mixed Model (GMM).} In addition to the context models, hyperprior also outputs a set of distribution parameters $\bm{\mu}^\text{h}_i$, $\bm{\sigma}^\text{h}_i$ and $\bm{\pi}^\text{h}_i$ from $\hat{\bm{z}}_i$. To this end, we introduce GMM to represent the final probability as combination of these $3$ sets of Gaussian distribution parameters. For any $\hat{\bm{y}}_i$ at channel $j$, its probability can be calculated as combination of cumulative Gaussian distribution $\Phi$,
+
+\vspace{-10pt}
+\begin{small}
+\begin{equation}
+    p(\hat{y}_{i,j})=\sum_{l\in{\{\text{h}, \text{s}, \text{c}\}}}{\theta}_{i,j}^l\left(\Phi(\hat{{y}}_{i,j}+\frac{q^l}{2} \mid {\mu}_{i,j}^l, {\sigma}_{i,j}^l)-\Phi(\hat{{y}}_{i,j}-\frac{q^l}{2} \mid {\mu}_{i,j}^l, {\sigma}_{i,j}^l)\right), {\theta}_{i,j}^l = \frac{\exp({\pi}_{i,j}^l)}{\sum_{v\in{\{\text{h}, \text{s}, \text{c}\}}} \exp({\pi}_{i,j}^v)}
+\vspace{-10pt}
+\end{equation}
+\end{small}
+
+Note that for \textbf{\textit{geometry}} attributes $\bm{f}^{\text{geo}}$, $l\in{\{\text{h}, \text{s}\}}$. GMM adaptively weights the mixing of the three sets of distributions, providing more accurate probability estimation. For $\hat{\bm{z}}$ in the hyperprior branch, we follow~\citet{balle} to use a factorized module to estimate its $p(\hat{{z}}_{i,j})$. According to information theory~\citep{Elements_of_information_theory}, bit consumption of $\bm{x}_i$ can be calculated: $bit_i = \sum_j^{D^y} (-\log_2{p(\hat{y}_{i,j})}) + \sum_j^{D^z} (-\log_2{p(\hat{z}_{i,j})})$. $D^y$ and $D^z$ are number of channels of $\hat{\bm{y}}_i$ and $\hat{\bm{z}}_i$.
+
+\subsection{Training and Coding Process}
+\label{subsec:training}
+\textbf{Training loss.} After obtaining $\hat{\bm{x}}$ from $\hat{\bm{y}}$ through the synthesis transform $g_s$, we can evaluate the fidelity between the ground truth $\bm{I}$ and the image $\hat{\bm{I}}$ rendered from $\hat{\bm{x}}$.
+To balance the mask rate of $\bm{f}^{\text{col}}$ in MEM, we include the mask $m$ directly in the bit calculation process, rather than introducing an additional loss term. Specifically, we forward \emph{all} Gaussians' $\bm{f}^{\text{col}}$ in both MEM paths and use $m$ to compute the weighted sum of the output bit from both paths, ensuring the gradients can be backpropagated for both. The overall loss function is:
+
+\vspace{-18pt}
+\begin{equation}
+    L = L_{\text{fidelity}}(\hat{\bm{I}}, {\bm{I}}) + \lambda\frac{L_{\text{entropy}}}{N^\text{g}\times 56}, \; \text{where}\; L_{\text{entropy}} = \sum_{i=1}^{N^\text{g}} bit_i^{\text{geo}} + m_ibit_i^{\text{col} \mid m_i=1} + (1-m_i)bit_i^{\text{col} \mid m_i=0}
+\end{equation}
+where ${N^\text{g}}$ represents the amount of Gaussians, $56$ is the dimension of $\bm{f}^{\text{gau}}$, and they collectively represent the amount of attribute parameters. $bit_i^{\text{geo}}$ and $bit_i^{\text{col}}$ represents the bit consumption for a Gaussian's \textbf{\textit{geometry}} and \textbf{\textit{color}} attributes, respectively, with $\bm{x}_i$ set as $\bm{f}^{\text{geo}}_i$ or $\bm{f}^{\text{col}}_i$, respectively. $\lambda$ is a hyperparameter controlling the trade-off between fidelity and entropy. The fidelity loss, $L_{\text{fidelity}}$ includes both \texttt{MSE} and \texttt{SSIM} metrics to evaluate the reconstruction quality of $\hat{\bm{x}}$. Minimizing this loss encourages $\hat{\bm{x}}$ to closely resemble the original $\bm{x}$ while also reducing the bit consumption.
+
+\textbf{Encoding/decoding process.} \textbf{For encoding}, the attributes $\bm{f}^{\text{geo}}$ and $\bm{f}^{\text{col}}$ are encoded using Arithmetic Encoding (AE)~\citep{AE} in the space of $\hat{\bm{y}}$ and $\hat{\bm{z}}$ given the corresponding probabilities, masks $m$ are binary and encoeded using AE based on the occurrence frequency of $1$, and Gaussian coordinates $\bm{\mu}^{\text{g}}$ are 16-bit quantized and encoded losslessly using GPCC~\citep{GPCC}. \textbf{For decoding}, Gaussian coordinates $\bm{\mu}^{\text{g}}$, masks $m$, and hyperpriors $\hat{\bm{z}}$ are decoded first. Then, to decode $\hat{\bm{y}}_{i, [n^\text{c}c-c, n^\text{c}c)} \mid \hat{\bm{y}}_i\in \mathbb{Y}_{[n^\text{s}]}$, its value distribution is calculated using GMM based on: $\bm{\mu}^\text{s}_{i, n^\text{c}}$, $\bm{\sigma}^\text{s}_{i, n^\text{c}}$, $\bm{\pi}^\text{s}_{i, n^\text{c}}$ from $\hat{\bm{y}}\in \mathbb{Y}_{[0,n^\text{s}-1]}$ using inter-Gaussian context models (channel sliced), and $\bm{\mu}^\text{c}_{i, n^\text{c}}$, $\bm{\sigma}^\text{c}_{i, n^\text{c}}$, $\bm{\pi}^\text{c}_{i, n^\text{c}}$ from $\hat{\bm{y}}_{i, [0,n^\text{c}c-c)} \mid \hat{\bm{y}}_i\in \mathbb{Y}_{[n^\text{s}]}$ using intra-Gaussian context models, and $\bm{\mu}^\text{h}_{i, n^\text{c}}$, $\bm{\sigma}^\text{h}_{i, n^\text{c}}$, $\bm{\pi}^\text{h}_{i, n^\text{c}}$ from $\hat{\bm{z}}_i$ using hyperprior (channel sliced). On obtaining GMM, it is decoded using AD.
+ 
+
+\section{Experiments}
+\subsection{Implementation Details}
+
+\textbf{Implementation.} Our FCGS model is implemented using the PyTorch framework~\citep{pytorch} and trained on a single NVIDIA L40s GPU. The dimension of $\hat{\bm{y}}$ is set to 256 for \textbf{\textit{color}} ($m=1$). For $\hat{\bm{z}}$, dimensions are set to 16, 24, and 64 for \textbf{\textit{geometry}}, \textbf{\textit{color}} ($m=0$), and \textbf{\textit{color}} ($m=1$), respectively. Grid resolutions are $\{70, 80, 90\}$ for 3D grids and $\{300, 400, 500\}$ for 2D grids. We set $N^\text{s}$ to 4, using uneven splitting ratios of $\{\frac{1}{6}, \frac{1}{6}, \frac{1}{3}, \frac{1}{3}\}$, with uniform random sampling. $\epsilon_m$ is set to $0.01$. In inference, we maintain a same random seed in encoding and decoding to guarantee consistency. The training batch size is $1$ (\ie, one 3DGS scene per training step). We adjust $\lambda$ from $1e-4$ to $16e-4$ to achieve variable bitrates.
+During training, we first train $g_a$ and $g_s$ of $m=1$ using only the fidelity loss to ensure satisfactory reconstruction quality. We then jointly train the context models for \textbf{\textit{color}} with $m=1$, and finally, train the entire model in an end-to-end manner. We adopt this training process because the gradient chain for the $m=0$ path is shorter than that of the $m=1$ path. Without sufficient pre-training of the $m=1$ path, the model is prone to collapsing into a local minimum where all $m$ values are zero.
+
+\textbf{Training Dataset.} FCGS requires training on a large-scale dataset with abundant 3DGS. To achieve that, we refer to \textit{DL3DV} dataset~\citep{DL3DV}, which contains approximately $7K$ multi-view scenes. We train these scenes to generate their 3DGS at a resolution of $960$P, which takes about $60$ GPU days on NVIDIA L40s. After filtering out low-quality ones, we obtain $6770$ 3DGS, and randomly split $100$ for testing and the remaining for training. This dataset is referred to as \textit{DL3DV-GS}. For more details regarding \textit{DL3DV-GS}, please refer to Appendix Section~\ref{sec:statistic_DL3DV-GS}.
+
+\textbf{Metrics.} We assess compression performance in terms of fidelity relative to size. Herein, we present PSNR metric to evaluate fidelity due to page constraints. For additional metrics (SSIM~\citep{ssim} and LPIPS~\citep{LPIPS}), please refer to Appendix Section~\ref{sec:more_fidelity}.
+
+
+\subsection{Experiment Evaluation}
+For 3DGS from optimization, FCGS enables rapid compression. Since no prior works customize optimization-free compression for 3DGS, direct comparisons are unavailable. This leaves us to benchmark against optimization-based methods, a comparison that is inherently unfair to FCGS. Nonetheless, we achieve excellent RD performance despite this lack of optimization. Furthermore, FCGS can also compress 3DGS generated by feed-forward models~\citep{MVSplat, LGM}, demonstrating its versatility.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1.00\linewidth]{image/main_curve.pdf}
+    \vspace{-22pt}
+    \caption{Performance comparison. Each scene is initially trained for $30K$ iterations to produce the vanilla 3DGS. Methods marked with \text{*} and circle are finetuned from this common 3DGS (our FCGS also compresses the same 3DGS); Methods marked with \text{**} and triangles are trained from scratch due to their modification to structures. We also present the runtime of our method and other approaches at the \textbf{bottom} of the figure (which is also reflected by the size of the marks), where our approach requires significantly less time for compression. For our runtime, it means using multiple/single GPUs. Thanks to our optimization-free pipeline, we divide the 3DGS into chunks, with each chunk containing $1$ million Gaussians, allowing us to easily encode these chunks in parallel using multiple GPUs, further speeding up the process. 
+    }
+    \label{fig:main_curve}
+    \vspace{-5pt}
+\end{figure}
+
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1.00\linewidth]{image/visualization.pdf}
+    \vspace{-13pt}
+    \caption{Qualitative comparison. We achieve substantial size reduction while preserving high fidelity. PSNR (dB) / SIZE (MB) are indicated in the bottom-right corner. We only present two baseline methods for qualitative comparison here due to space limitation. Please refer to Appendix Section~\ref{sec:additional_qualitative} for more comprehensive qualitative comparisons.}
+    \label{fig:visualization}
+    % \vspace{-5pt}
+\end{figure}
+
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.95\linewidth]{image/main_curve_gene.pdf}
+    \vspace{-5pt}
+    \caption{Compression of 3DGS from feed-forward models. \textbf{Left}: MVSplat is a generalizable reconstruction model, whose fidelity is measured between the rendered images and the ground truth. \textbf{Right}: LGM is a generative model, whose fidelity is measured between images rendered from 3DGS before and after compression, as no ground truth cannot be measured due to its generative nature. 
+    }
+    \label{fig:main_curve_gene}
+    \vspace{-5pt}
+\end{figure}
+
+\textbf{For 3DGS from optimization}, we employ \textit{DL3DV-GS}, \textit{MipNeRF360}~\citep{mip360}, and \textit{Tank\&Temples}~\citep{tant} for evaluation. For the baseline methods, we compare those built upon the vanilla 3DGS structure, including both finetune from existing 3DGS ~\citep{Navaneet, Simon,Lightgaussian} or train from scratch~\citep{SOG, EAGLES, Lee}. The results are in Figure~\ref{fig:main_curve}. 
+Although our FCGS lacks per-scene adaptation, which naturally puts us at a disadvantage for unfair comparison, it still surpasses most optimization-based methods, thanks to the effectiveness of MEM and context models. 
+The qualitative comparisons are shown in Figure~\ref{fig:visualization}, which exhibit high fidelity after compression.
+Please refer to Appendix Section~\ref{sec:SoTA_discussion} and~\ref{sec:storage_size} to find discussions on the SoTA compression methods and the detailed analysis on the storage size of each component, respectively.
+
+\textbf{For 3DGS from feed-forward models}, we also demonstrate compression capability. To evaluate our performance, we refer to MVSplat~\citep{MVSplat} and LGM~\citep{LGM}. MVSplat is a generalizable model that reconstructs interpolated novel views given two bounded views. LGM is a generative model that creates the 3D scenes from the $4$ multi-view images. We follow LGM to generate the remaining $3$ views from the initial $1$ view using~\citep{wang2023imagedream}, which are then collectively input into LGM for 3DGS creation. This process results in ground-truth cannot be measured for LGM, thus we evaluate the compression fidelity by measuring the similarities of images rendered from 3DGS before or after compression. We utilize $10$ scenes from \textit{ACID}~\citep{ACID} and $50$ scenes from \textit{Gobjaverse}~\citep{gobjaverse1, gobjaverse2} for these two models for evaluation. The results are shown in Figure~\ref{fig:main_curve_gene}. Although trained on 3DGS from optimization~\citep{3DGS}, FCGS still generalizes in a zero-shot manner to feed-forward-based 3DGS, achieving compression ratios of $15\times$ and $5\times$. Notably, when compressing 3DGS from feed-forward models, we set mask $m$ to all $0$s for \textbf{\textit{color}} attributes. Please refer to Appendix Section~\ref{sec:mask_all_0} for limitation analysis.
+
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.98\linewidth]{image/ablation_study.pdf}
+    \vspace{-5pt}
+    \caption{Ablation studies on the \textit{DL3DV-GS} dataset. \textbf{Left}: Setting $m$ to all $0$s results in a significant increase in bit consumption. Conversely, setting $m$ to all $1$s leads to a drastic drop in fidelity, even without applying quantization or entropy constraints to $\bm{y}$. \textbf{Right}: Excluding the proposed context models leads to a substantial increase in bit consumption, due to the absence of mutual dependencies.}
+    \label{fig:ablation_study}
+    \vspace{-10pt}
+\end{figure}
+
+\subsection{Ablation Study}
+\label{subsec:ablation_study}
+We perform ablation studies to evaluate the effectiveness of our proposed \textbf{MEM} and \textbf{context models}.
+First, we investigate the \textbf{MEM} module, which adaptively selects high-tolerance \textbf{\textit{color}} attributes to eliminate redundancies via an autoencoder structure, while ensuring all \textbf{\textit{geometry}} attributes are directly quantized. Without MEM, we observe the following:
+\textbf{1)} If both color and geometry attributes are processed through the autoencoder, the model collapses because rasterization cannot be performed correctly due to deviations in the geometry information.
+\textbf{2)} Fixing the \textbf{\textit{geometry}} attributes to be directly quantized, we allow all \textbf{\textit{color}} attributes to be processed by the autoencoder (\ie, all $m=1$). As shown in Fig~\ref{fig:ablation_study} left, even without quantization or entropy constraints on $\bm{y}$, the rendered images suffer from a significant drop in fidelity due to deviations brought by MLPs.
+\textbf{3)} On the other hand, if all \textbf{\textit{color}} attributes are directly quantized (\ie, all $m=0$), their redundancies are not effectively eliminated, leading to increased storage costs.
+
+Next, we explore the impact of our \textbf{context models}. As demonstrated in Figure~\ref{fig:ablation_study} right, removing intra- and inter-Gaussian context models progressively decreases RD performance. Compared to the full FCGS model, the bit consumption is $1.5\times$ for the base model under similar fidelity conditions.
+
+
+\begin{SCfigure}[][t]
+    \centering
+    \includegraphics[width=0.50\linewidth]{image/boost.pdf}
+    \caption{Building on pruning approaches, FCGS can further boost compression performance. The size of the compressed 3DGS using FCGS (at the highest rate) is only $40\%$ that of MSC with the same fidelity. When combined with pruning techniques, FCGS achieves a compression ratio of $100\times$ over the vanilla 3DGS (see Mini\text{**}+Ours). Experiments are conducted on the \textit{Deep Blending} dataset. The x-axis uses a $\texttt{Log10}$ scale.}
+    \label{fig:boost}
+    \vspace{-15pt}
+\end{SCfigure}
+
+\subsection{Boost existing compression approaches}
+
+The vanilla 3DGS~\citep{3DGS} sometimes struggles with densification issues, leading to suboptimal fidelity. Pruning techniques effectively eliminate trivial Gaussians, enhancing fidelity while reducing size, particularly evident with the \textit{Deep Blending} dataset~\citep{deepblending}. Importantly, FCGS is compatible with these pruning techniques. We refer to Trimming~\citep{Trimming} and Mini-Splatting~\citep{mini}, both of which apply pruning to Gaussians. As shown in Figure~\ref{fig:boost}, FCGS significantly boosts their compression performance. Notably, MSC is a straightforward optimization-free compression tool utilized in~\citet{mini}. We compare the compression performance of FCGS and MSC by directly applying them to the same pruned 3DGS representations. The superior compression performance of FCGS underscores its significance. Please refer to Appendix Section~\ref{sec:additional_exp_boost} to find the results on the other three datasets.
+
+\subsection{Coding and rendering efficiency analysis}
+
+Our coding time includes GPCC~\citep{GPCC} coding for coordinates $\bm{\mu}^\text{g}$ and arithmetic coding for attributes $\bm{f}^{\text{geo}}$ and $\bm{f}^{\text{col}}$ and masks $m$. 
+On average, FCGS takes about $1$ second to encode $100K$ Gaussians when running on a single GPU.
+Please refer to Appendix Section~\ref{sec:coding_time} to find the detailed analysis on coding time.
+The rendering time of the decoded 3DGS is consistent with that before compression since FCGS does not alter the number or structure of the Gaussians. For instance, the average FPS is $102$ and $91$ before and after compression ($\lambda=1e-4$) on the \textit{MipNeRF360} dataset.
+
+
+\section{Conclusion}
+
+In this paper, we introduce a pioneering \textbf{\textit{generalizable optimization-free compression}} pipeline for 3DGS representations and propose our FCGS model. FCGS enables fast compression of existing 3DGS without any finetuning, offering significant time savings. More importantly, we achieve impressive RD performance, exceeding $20\times$ compression, through the meticulous design of the MEM module and context models. Our approach can also boost compression performance of pruning-based methods. Overall, this new compression pipeline has the potential to significantly enhance the widespread application of 3DGS compression techniques due to its numerous advantages.
+
+\clearpage
+
+\section*{Acknowledgement}
+The paper is supported in part by The National Natural Science Foundation of China (No.62325109, U21B2013).
+MH is supported by funding from The Australian Research Council Discovery Program DP230101176.
+
+\bibliography{iclr2025_conference}
+\bibliographystyle{iclr2025_conference}
+
+\appendix
+
+\clearpage
+\setcounter{page}{1}
+
+\renewcommand\thesection{\Alph{section}}
+\renewcommand\thetable{\Alph{table}}
+\renewcommand\thefigure{\Alph{figure}}
+\setcounter{section}{0}
+\setcounter{table}{0}
+\setcounter{figure}{0}
+
+\centerline{\noindent\textbf{{\Large -- Appendix --}}}
+\vspace{-10pt}
+\begin{table}[H]
+    \small
+    \centering
+    \renewcommand{\arraystretch}{0.95}
+    \caption{Table of Notation.}
+    \vspace{8pt}
+    \begin{tabular}{cll}
+    \toprule[2pt]
+      \textbf{Notation} & \textbf{Shape}   & \textbf{Definition} \\
+    \midrule[1pt]
+        $\bm{l}$ &$\mathbb{R}^{3}$&A random 3D location\\
+        $\bm{\mu}^\text{g}$ &$\mathbb{R}^{3}$&Location of Gaussians in 3DGS\\
+        $\bm{\Sigma}$ &$\mathbb{R}^{3\times3}$&Covariance matrix of Gaussians\\
+        $\bm{S}$ &$\mathbb{R}^{3\times3}$&Scale matrix of Gaussians\\
+        $\bm{R}$ &$\mathbb{R}^{3\times3}$&Rotation matrix of Gaussians\\
+        $\alpha$ &$\mathbb{R}$&Opacity of Gaussians after 2D projection\\
+        $\bm{c}$ &$\mathbb{R}^{3}$&View-dependent color of Gaussians\\
+        $\bm{C}$ &$\mathbb{R}^{3}$&The obtained pixel value after rendering\\
+        \cline{1-3}
+        $\bm{f}^{\text{geo}}$ &$\mathbb{R}^{8}$&Geometry attribute \\
+        $\bm{f}^{\text{col}}$ &$\mathbb{R}^{48}$&Color attribute \\
+        $\bm{f}^{\text{gau}}$ &$\mathbb{R}^{56}$&Concat of $\bm{f}^{\text{geo}}$ and $\bm{f}^{\text{col}}$ \\
+        $\bm{x}$ &&Input to the autoencoder, either $\bm{f}^{\text{geo}}$ or $\bm{f}^{\text{col}}$ \\
+        $\bm{y}$ &$\mathbb{R}^{D^y}$&Latent space of $\bm{x}$ \\
+        $\bm{z}$ &$\mathbb{R}^{D^z}$&Hyperprior $\bm{y}$ \\
+        $\hat{\bm{x}}$ &&Decoded version of $\bm{x}$ \\
+        $\hat{\bm{y}}$ &$\mathbb{R}^{D^y}$&Quantized version of $\bm{y}$ \\
+        $\hat{\bm{z}}$ &$\mathbb{R}^{D^z}$&Quantized version of $\bm{z}$ \\
+        $m$ &$\mathbb{R}$&The adaptive mask in MEM  \\
+        $D^y$ &&Number of channels of $\bm{y}$  \\
+        $D^z$ &&Number of channels of $\bm{z}$  \\
+        $g_a$ &&The synthesis transform  \\
+        $g_s$ &&The analysis transform  \\
+        $h_a$ &&The hyper synthesis transform  \\
+        $h_s$ &&The hyper analysis transform  \\
+        $N^\text{g}$ &&Number Gaussians for each 3DGS scene  \\
+        $N^\text{s}$ &&Number of batches for the inter-Gaussian context model  \\
+        $N^\text{c}$ &&Number of chunks for the intra-Gaussian context model  \\
+        $n^\text{s}$ &&One batch for the inter-Gaussian context model  \\
+        $n^\text{c}$ &&One chunk for the intra-Gaussian context model  \\
+        $\bm{v}$ &$\mathbb{R}^{3}$&A voxel of the grids  \\
+        $\bm{f}^{\bm{v}}$ && Feature of the voxel $\bm{v}$  \\
+        $w$ && Weight for interpolation  \\
+        $c$ &&Channel amount per chunk for the intra-Gaussian context model \\
+        $\bm{\mu}^\text{h}$, $\bm{\sigma}^\text{h}$, $\bm{\pi}^\text{h}$ &$\mathbb{R}^{D^y}$ for each& The set of Gaussian distribution parameter from hyperprior \\
+        $\bm{\mu}^\text{s}$, $\bm{\sigma}^\text{s}$, $\bm{\pi}^\text{s}$ &$\mathbb{R}^{D^y}$ for each& The set of Gaussian distribution parameter from inter-Gaussian context model \\
+        $\bm{\mu}^\text{c}$, $\bm{\sigma}^\text{c}$, $\bm{\pi}^\text{c}$ &$\mathbb{R}^{D^y}$ for each& The set of Gaussian distribution parameter from intra-Gaussian context model \\
+        $\theta$ &&The softmax-nomalized weight for GMM mixing  \\
+        $p$ &&Probability \\
+        $bit$ &&Bit consumption calculated from the probability  \\
+        $\bm{I}$ &&The ground truth multi-view image  \\
+        $\hat{\bm{I}}$ &&The multi-view image render from $\hat{\bm{x}}$  \\
+        $\Phi$ &&The cumulative Gaussian distribution function \\
+        $\mathbb{Y}_{[n^\text{s}]}$ &&Set of $\hat{\bm{y}}$ for the $n^\text{c}$-th batch  \\
+        $\mathbb{V}$ &&Usually used in the form of $\mathbb{V}^{\bm{\mu}^\text{g}}$, meaning voxels forming a $\bm{\mu}^\text{g}$'s minimum bounding box.  \\
+        $\texttt{Q}$ &&The quantization operation  \\
+        $q$ &&The learnable quantization step as model parameters  \\
+        $\texttt{Sig}$ &&The Sigmoid function  \\
+        $\epsilon_m$ &&The hyperparameter for the binary thresholding of the mask  \\
+        $\texttt{emb}$ &&Sin-cos positional embedding for coordinates \\
+        $\midoplus$ &&Concatenate operation \\
+        $\text{MLP}_\text{m}$ &&The MLP to deduce mask in MEM  \\
+        $\text{MLP}_\text{s}$ &&The MLP to deduce Gaussian distribution parameters in inter-Gaussian context  \\
+        $\text{MLP}_\text{c}$ &&The MLP to deduce Gaussian distribution parameters in intra-Gaussian context  \\
+        $\lambda_m$ &&The tradeoff parameter for mask rate (not used)  \\
+        $\lambda$ &&The RD tradeoff parameter for bit and fidelity  \\
+        $L$ &&The overall loss function \\
+        $L_{\text{fidelity}}$ &&The fidelity loss function \\
+        $L_{\text{entropy}}$ &&The entropy loss function \\
+    \bottomrule[2pt]
+    \end{tabular}
+    \label{tab:notation_table}
+\end{table}
+\clearpage
+
+\section{Statistical Data for DL3DV-GS}
+\label{sec:statistic_DL3DV-GS}
+
+Using the \textit{DL3DV} dataset~\citep{DL3DV}, we generate our \textit{DL3DV-GS} dataset through per-scene optimization with 3DGS~\citep{3DGS}, resulting in a total of $6770$ 3DGS representations. In this section, we present statistical data for the \textit{DL3DV-GS} dataset, including its size and fidelity metrics, as exhibited below.
+Note that, during per-scene optimization, we adhere to the 3DGS train-test view splitting strategy, using $1$ view for testing and $7$ views for training across every $8$ consecutive views. After optimization, we randomly select $100$ scenes for testing, leaving the rest for training. All the approaches are evaluated on the test scenes. For our FCGS, it is evaluated on test views, while for other training-based methods, they are optimized (or trained) on training views and then evaluated on test views.
+\vspace{20pt}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.00\linewidth]{image/DL3DV_statistic.pdf}
+    \caption{Statistical data of the \textit{DL3DV-GS} dataset. We also mark the mean values of each data in the sub-figures.}
+    \label{fig:statistic_DL3DV-GS}
+\end{figure}
+\clearpage
+
+We also provide example images of this dataset. The images are randomly selected from test views from test scenes, which presents high fidelity.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.90\linewidth]{image/DL3DV_example.pdf}
+    \caption{We randomly select several test views from test scenes for visualization, which showcase high-fidelity quality. The PSNR (dB) values for these four example scenes are indicated at the bottom-right corner of each image, which exhibit high fidelity.}
+    \label{fig:example_DL3DV-GS}
+\end{figure}
+\clearpage
+
+\section{Analysis of Limitations}
+\label{sec:mask_all_0}
+To compress 3DGS from feed-forward models, we set the mask $m$ to all $0$s for \textbf{\textit{color}} attributes, instead of using MEM to adaptively infer the mask $m$. This is because the characteristics in 3DGS from feed-forward models like MVSplat~\citep{MVSplat} differ significantly from our training data (\ie, 3DGS from optimization).
+Specifically, \textbf{for MVSplat}~\citep{MVSplat,pixelsplat}, it uses an SH of $4$ degrees (which we truncate to $3$ degrees without observing significant fidelity loss), and applies a weighted mask that assigns lower weights to higher-degree SH. This results in the values of high-degree SH in its 3DGS being one order of magnitude smaller than in ours. \textbf{For LGM}~\citep{LGM}, it uses an SH degree of $0$ (\ie, it only has DC coefficients). To make our model compatible with its 3DGS, we need to pad zeros for high-degree coefficients to match the shape.
+Due to these differences, values of these 3DGS vary greatly from ours. Failures mainly arise from incorrect selections of $m$ by MEM due to the domain gap: a Gaussian that should have been assigned to the $m=0$ path for fidelity preservation may be mistakenly assigned to $m=1$, and the autoencoder in this path fails to recover these Gaussian values properly from their latent space, leading to significant fidelity degradation. This issue becomes noticeable for 3DGS from feed-forward models such as MVSplat~\citep{MVSplat}, due to a distribution gap between our training data (3DGS from optimization) and those from feed-forward models like MVSplat. We mitigate this problem by enforcing all Gaussians to the $m=0$ path for compressing 3DGS from feed-forward models, thereby prioritizing fidelity. For instance, to compress 3DGS from MVSplat, $m$ deduced from MEM may not be correct, which would result in a PSNR drop of approximately $0.7$dB at a slightly smaller compression size compared to setting all $m$ as $0$s. Overall, this is our major limitation, which points out an interesting problem for future work: \textit{how to design optimization-free compression models that can be well generalized to 3DGS with different value characteristics.}
+
+\section{Effect of Different Random Seeds on Gaussian Splitting}
+In our inter-Gaussian context models, we employ a random splitting strategy to uniformly divide all Gaussians into $N^\text{s}$ batches and decode them progressively. For decoding, we maintain the same random seed as encoding to guarantee the consistency of the contexts. In this section, we investigate the effect of different random seeds on this splitting process and its impact on the final results. Note that this only affects bit consumption but does not influence reconstruction fidelity. By testing $5$ different random seeds over the test set of \textit{DL3DV-GS} with $\lambda=1e-4$, we observed a standard deviation of $8e-4$ MB, with a Coefficient of Variation (\ie, standard deviation divided by the mean) of $3.6e-5$. This experiment demonstrates the stability of our splitting approach with respect to the random seed.
+
+We also investigated other sampling strategies like Farthest Point Sampling (FPS) in~\citep{PointNetpp}. Since FPS is very time-consuming for massive points in 3DGS, we evaluated only scenes with fewer than $500K$ Gaussians in the test set of \textit{DL3DV-GS}. We observed an average bit increase of $0.6\%$. This is because FPS tends to sample points located at corners (which have the farthest distances from others), leading to non-uniform splitting and affecting the accuracy of context models.
+
+\clearpage
+
+\section{Discussions on SoTA 3DGS Compression Methods}
+\label{sec:SoTA_discussion}
+The State-of-The-Art (SoTA) 3DGS compression methods are HAC~\citep{HAC} and ContextGS~\citep{Contextgs}, which utilize a \textit{\textbf{per-scene optimization-based compression}} pipeline and exhibit better compression performance over our FCGS. However, since we configure FCGS without per-scene optimization, this setup naturally puts it at a disadvantage when compared with optimization-based methods, and indeed, there is a performance gap compared to these two methods (\ie, HAC and ContextGS). However, these two approaches employ anchor-based structures~\citep{scaffold}, whose representations diverge from the standard 3DGS structure and are inherently about $5\times$ smaller than the vanilla 3DGS. In this paper, we target FCGS at the standard 3DGS structure, same as the comparative methods in our experiment. It is also promising to extend FCGS to anchor-based 3DGS variants~\citep{scaffold} to achieve better RD performance, which we leave for future work.
+
+
+\section{Mask Ratio Analysis in MEM}
+We provide statistical data on the ratio of path $m=1$ in MEM. As $\lambda$ increases, the model is expected to achieve lower bitrates at the cost of reduced fidelity. To accomplish this, the model tends to assign more $1$s to the mask $m$, thereby allowing more \textbf{\textit{color}} attributes $\bm{f}^{\text{col}}$ to eliminate redundancies via the autoencoder (\ie, the path of $m=1$), and vice versa.
+
+\vspace{-10pt}
+\begin{table}[H]
+    \normalsize
+    \centering
+    \caption{Ratio of path $m=1$ in MEM.}
+    \renewcommand{\arraystretch}{1.00}
+        \begin{tabular}{c|ccc}
+        \toprule[2pt]
+         $\lambda$ & \textit{DL3DV-GS} & \textit{MipNeRF360}  & \textit{Tank\&Temples}   \\ \toprule
+        $1e-4$  & 0.62  & 0.48 & 0.60 \\
+        $2e-4$  & 0.67  & 0.55 & 0.66 \\
+        $4e-4$  & 0.74  & 0.63 & 0.74 \\
+        $8e-4$  & 0.82  & 0.74 & 0.82 \\
+        $16e-4$ & 0.89  & 0.85 & 0.90 \\ \bottomrule[2pt]
+        \end{tabular}
+\end{table}
+
+\clearpage
+
+\section{More Fidelity Metrics and Training Time}
+\label{sec:more_fidelity}
+We provide additional fidelity metrics, including PSNR, SSIM, and LPIPS. We also report the training time for each method. For those marked with \text{*}, it represents the time taken for finetuning from a common existing 3DGS. For those marked with \text{**}, it represents the time taken for training from scratch. For our method, it is the encoding time using multiple/single GPUs.
+
+
+\begin{table}[h]
+    % \small
+    \centering
+    \caption{Experiments on \textit{DL3DV-GS} dataset. Methods marked with \text{*} are finetuned from a common 3DGS (our FCGS compresses the same 3DGS). Methods marked with \text{**} are trained from scratch. The notation ``(751 +)'' indicates the training time of the vanilla 3DGS. }
+    \vspace{10pt}
+    \begin{tabular}{lccccc}
+        \toprule[2pt]
+        \multicolumn{1}{l|}{Methods}        & PSNR (dB) $\uparrow$ & SSIM $\uparrow$ & \multicolumn{1}{c|}{LPIPS $\downarrow$} & \multicolumn{1}{c|}{SIZE (MB) $\downarrow$} & TIME (s) $\downarrow$ \\ \bottomrule
+        \multicolumn{1}{l|}{3DGS} & \cellcolor{red!25}{29.34}     & \cellcolor{red!25}{0.898} & \multicolumn{1}{c|}{\cellcolor{red!25}{0.146}} & \multicolumn{1}{c|}{372.50}    & 751      \\ \hline
+        \multicolumn{1}{l|}{Light*}         & 28.89     & 0.890 & \multicolumn{1}{c|}{0.159} & \multicolumn{1}{c|}{24.61}     & (751 +) 227      \\
+        \multicolumn{1}{l|}{Navaneet*}      & 28.36     & 0.884 & \multicolumn{1}{c|}{0.169} & \multicolumn{1}{c|}{\cellcolor{red!25}{13.60}}     & (751 +) 546      \\
+        \multicolumn{1}{l|}{Simon*}         & 29.04     & 0.893 & \multicolumn{1}{c|}{0.154} & \multicolumn{1}{c|}{\cellcolor{yellow!25}{15.36}}     & (751 +) 122      \\ \hline
+        \multicolumn{1}{l|}{SOG**}          & 28.54     & 0.888 & \multicolumn{1}{c|}{0.156} & \multicolumn{1}{c|}{16.50}     & 1068     \\
+        \multicolumn{1}{l|}{EAGLES**}       & 28.53     & 0.884 & \multicolumn{1}{c|}{0.170} & \multicolumn{1}{c|}{24.04}     & 518      \\
+        \multicolumn{1}{l|}{Lee**}          & 28.71     & 0.886 & \multicolumn{1}{c|}{0.165} & \multicolumn{1}{c|}{36.56}     & 938      \\
+        \hline
+        \multicolumn{1}{l|}{Ours-lowrate}       & 28.86     & 0.891 & \multicolumn{1}{c|}{0.156} & \multicolumn{1}{c|}{15.83}     & (751 +) \cellcolor{red!25}{9 / 16}         \\
+        \multicolumn{1}{l|}{Ours-highrate}      & \cellcolor{yellow!25}{29.26}     & \cellcolor{yellow!25}{0.897} & \multicolumn{1}{c|}{\cellcolor{yellow!25}{0.148}} & \multicolumn{1}{c|}{27.44}     &  (751 +) \cellcolor{yellow!25}{11 / 20}        \\ \bottomrule[2pt]
+    \end{tabular}
+    \label{tab:experiments_DL3DV}
+\end{table}
+
+\begin{table}[h]
+    % \small
+    \centering
+    \caption{Experiments on \textit{MipNeRF360} dataset. Methods marked with \text{*} are finetuned from a common 3DGS (our FCGS compresses the same 3DGS). Methods marked with \text{**} are trained from scratch. The notation ``(1583 +)'' indicates the training time of the vanilla 3DGS. }
+    \vspace{10pt}
+    \begin{tabular}{lccccc}
+        \toprule[2pt]
+        \multicolumn{1}{l|}{Methods}        & PSNR (dB) $\uparrow$ & SSIM $\uparrow$ & \multicolumn{1}{c|}{LPIPS $\downarrow$} & \multicolumn{1}{c|}{SIZE (MB) $\downarrow$} & TIME (s) $\downarrow$ \\ \bottomrule
+        \multicolumn{1}{l|}{3DGS} & \cellcolor{red!25}{27.52}     & \cellcolor{red!25}{0.813} & \multicolumn{1}{c|}{\cellcolor{red!25}{0.221}} & \multicolumn{1}{c|}{741.12}    & 1583     \\ \hline
+        \multicolumn{1}{l|}{Light*}         & 27.31     & 0.808 & \multicolumn{1}{c|}{0.235} & \multicolumn{1}{c|}{48.61}     & (1583 +) 422      \\
+        \multicolumn{1}{l|}{Navaneet*}      & 26.80     & 0.796 & \multicolumn{1}{c|}{0.256} & \multicolumn{1}{c|}{\cellcolor{red!25}{20.66}}     & (1583 +) 973      \\
+        \multicolumn{1}{l|}{Simon*}         & 27.15     & 0.802 & \multicolumn{1}{c|}{0.242} & \multicolumn{1}{c|}{\cellcolor{yellow!25}{27.71}}     & (1583 +) 195      \\ \hline
+        \multicolumn{1}{l|}{SOG**}          & 27.08     & 0.799 & \multicolumn{1}{c|}{0.229} & \multicolumn{1}{c|}{41.00}     & 2391     \\
+        \multicolumn{1}{l|}{EAGLES**}       & 27.14     & \cellcolor{yellow!25}{0.809} & \multicolumn{1}{c|}{0.231} & \multicolumn{1}{c|}{58.91}     & 1245     \\
+        \multicolumn{1}{l|}{Lee**}          & 27.05     & 0.797 & \multicolumn{1}{c|}{0.247} & \multicolumn{1}{c|}{48.93}     & 1885     \\ \hline
+        \multicolumn{1}{l|}{Ours-lowrate}       & 27.05     & 0.798 & \multicolumn{1}{c|}{0.237} & \multicolumn{1}{c|}{34.64}     & (1583 +) \cellcolor{red!25}{10 / 31}         \\
+        \multicolumn{1}{l|}{Ours-highrate}      & \cellcolor{yellow!25}{27.39}     & 0.806 & \multicolumn{1}{c|}{\cellcolor{yellow!25}{0.226}} & \multicolumn{1}{c|}{64.05}     & (1583 +) \cellcolor{yellow!25}{14 / 41}         \\ \bottomrule[2pt]
+    \end{tabular}
+    \label{tab:experiments_mip}
+\end{table}
+
+\begin{table}[h]
+    % \small
+    \centering
+    \caption{Experiments on \textit{Tank\&Temples} dataset. Methods marked with \text{*} are finetuned from a common 3DGS (our FCGS compresses the same 3DGS). Methods marked with \text{**} are trained from scratch. The notation ``(814 +)'' indicates the training time of the vanilla 3DGS. }
+    \vspace{10pt}
+    \begin{tabular}{lccccc}
+        \toprule[2pt]
+        \multicolumn{1}{l|}{Methods}        & PSNR (dB) $\uparrow$ & SSIM $\uparrow$ & \multicolumn{1}{c|}{LPIPS $\downarrow$} & \multicolumn{1}{c|}{SIZE (MB) $\downarrow$} & TIME (s) $\downarrow$ \\ \bottomrule
+        \multicolumn{1}{l|}{3DGS} & \cellcolor{red!25}{23.71}     & \cellcolor{red!25}{0.845} & \multicolumn{1}{c|}{\cellcolor{red!25}{0.179}} & \multicolumn{1}{c|}{432.03}    & 814      \\ \hline
+        \multicolumn{1}{l|}{Light*}         & 23.62     & 0.837 & \multicolumn{1}{c|}{0.197} & \multicolumn{1}{c|}{28.60}     & (814 +) 241      \\
+        \multicolumn{1}{l|}{Navaneet*}      & 23.15     & 0.831 & \multicolumn{1}{c|}{0.205} & \multicolumn{1}{c|}{\cellcolor{red!25}{13.64}}     & (814 +) 587      \\
+        \multicolumn{1}{l|}{Simon*}         & 23.63     & \cellcolor{yellow!25}{0.842} & \multicolumn{1}{c|}{0.187} & \multicolumn{1}{c|}{\cellcolor{yellow!25}{17.65}}     & (814 +) 120      \\ \hline
+        \multicolumn{1}{l|}{SOG**}          & \cellcolor{yellow!25}{23.66}     & 0.837 & \multicolumn{1}{c|}{0.187} & \multicolumn{1}{c|}{23.10}     & 1219     \\
+        \multicolumn{1}{l|}{EAGLES**}       & 23.28     & 0.835 & \multicolumn{1}{c|}{0.203} & \multicolumn{1}{c|}{28.99}     & 604      \\
+        \multicolumn{1}{l|}{Lee**}          & 23.35     & 0.832 & \multicolumn{1}{c|}{0.202} & \multicolumn{1}{c|}{39.38}     & 1007     \\ \hline
+        \multicolumn{1}{l|}{Ours-lowrate}       & 23.48     & 0.832 & \multicolumn{1}{c|}{0.193} & \multicolumn{1}{c|}{17.89}     & (814 +) \cellcolor{red!25}{10 / 16}         \\
+        \multicolumn{1}{l|}{Ours-highrate}      & 23.62     & 0.839 & \multicolumn{1}{c|}{\cellcolor{yellow!25}{0.184}} & \multicolumn{1}{c|}{32.02}     & (814 +) \cellcolor{yellow!25}{13 / 24}         \\ \bottomrule[2pt]
+    \end{tabular}
+    \label{tab:experiments_tt}
+\end{table}
+\clearpage
+
+
+
+\section{Analysis of Storage Size of Different Components}
+\label{sec:storage_size}
+We provide the storage size of each component from the \textit{DL3DV-GS} dataset, as shown in the tables below. These two tables exhibit the total storage size (in MB) and the per-parameter size (in bit) of each component, respectively.
+For the coordinates $\bm{\mu}^\text{g}$, they are consistently compressed using the same GPCC command across different $\lambda$ values, resulting in a same size. For other components, as $\lambda$ decreases, the storage required for both geometry attributes $\bm{f}^{\text{geo}}$ and color attributes $\bm{f}^{\text{col}}$ ($m=1$ plus $m=0$) reduces. Focusing on the color attributes $\bm{f}^{\text{col}}$, the mask rate increases as $\lambda$ becomes larger, shifting more $\bm{f}^{\text{col}}$ to the $m=1$ path for redundancy elimination via the autoencoder structure. With a higher portion of $\bm{f}^{\text{col}}$ going through the $m=1$ path, the overall storage of this path may increase (while the bits per parameter still reduce). The storage for the $m=0$ path decreases significantly due to simultaneously reduced selection ratios of this path and decreased per-parameter size under stronger entropy constraints. The mask size itself also reduces as the mask rate increases, since in a binary distribution, greater dominance of one value (\ie, $1$ in our case) lowers the entropy.
+
+Regarding the challenges in compression, Table~\ref{tab:per_param_size} shows that $\bm{f}^{\text{col}}$ ($m=1$) is the easiest to compress, as it is compressed in a latent space using autoencoder. In contrast, $\bm{f}^{\text{geo}}$ is more difficult to compress due to the complexity and sensitivity of geometric attributes, which have greater variability and less mutual information. The compression ratio could be calculated as $32$ divided by a bit value in Table~\ref{tab:per_param_size}, since the original parameters (\ie, those before compression) are stored in \texttt{float32}, which allocates $32$ bits for each parameter.
+
+\begin{table}[H]
+    \normalsize
+    \centering
+    \caption{\textbf{Storage size} of different components on the \textit{DL3DV-GS} dataset. All sizes are measured in \textbf{MB}. The mask rate indicates the proportion of color attributes $\bm{f}^{\text{col}}$ assigned to the $m=1$ path (\ie, compressed via the autoencoder).}
+    \vspace{5pt}
+    \renewcommand{\arraystretch}{1.20}
+    \setlength{\tabcolsep}{6pt}  
+    \begin{tabular}{c|c|ccccc|c}
+        \toprule[2pt]
+        $\lambda$   & Total size   & $\bm{\mu}^\text{g}$ & $\bm{f}^{\text{col}}$ ($m$=1) & $\bm{f}^{\text{col}}$ ($m$=0) & $\bm{f}^{\text{geo}}$ & Mask size & Mask rate \\ \toprule
+        $1e-4$ & 27.44 & 3.25     & 2.61           & 10.92          & 10.50    & 0.17      & 0.62      \\
+        $2e-4$ & 24.15 & 3.25     & 2.72           & 8.10           & 9.93     & 0.16      & 0.67      \\
+        $4e-4$ & 21.12 & 3.25     & 2.77           & 5.67           & 9.29     & 0.14      & 0.74      \\
+        $8e-4$ & 18.14 & 3.25     & 3.01           & 3.42           & 8.34     & 0.12      & 0.82      \\
+        $16e-4$ & 15.83 & 3.25     & 2.94           & 1.76           & 7.80     & 0.08      & 0.89      \\ \bottomrule[2pt]
+    \end{tabular}
+\end{table}
+
+\begin{table}[H]
+    \normalsize
+    \centering
+    \caption{\textbf{Per-parameter bits} of different components on the \textit{DL3DV-GS} dataset. All sizes are measured in \textbf{bit}. The mask rate indicates the proportion of color attributes $\bm{f}^{\text{col}}$ assigned to the $m=1$ path (\ie, compressed via the autoencoder).}
+    \vspace{5pt}
+    \renewcommand{\arraystretch}{1.20}
+    \setlength{\tabcolsep}{6pt}  
+    \begin{tabular}{c|c|ccccc|c}
+        \toprule[2pt]
+        $\lambda$   & Weighted AVG   & $\bm{\mu}^\text{g}$ & $\bm{f}^{\text{col}}$ ($m$=1) & $\bm{f}^{\text{col}}$ ($m$=0) & $\bm{f}^{\text{geo}}$ & Mask size & Mask rate \\ \toprule
+        $1e-4$ & 2.51 & 5.92 & 0.45 & 3.29 & 6.94 & 0.94 & 0.62      \\
+        $2e-4$ & 2.21 & 5.92 & 0.43 & 2.92 & 6.56 & 0.89 & 0.67      \\
+        $4e-4$ & 1.94 & 5.92 & 0.40 & 2.58 & 6.14 & 0.81 & 0.74      \\
+        $8e-4$ & 1.67 & 5.92 & 0.39 & 2.32 & 5.51 & 0.66 & 0.82      \\
+        $16e-4$ & 1.45 & 5.92 & 0.36 & 2.10 & 5.15 & 0.48 & 0.89      \\ \bottomrule[2pt]
+    \end{tabular}
+    \label{tab:per_param_size}
+\end{table}
+\clearpage
+
+\section{Analysis of Encoding/Decoding Time of Different Components}
+\label{sec:coding_time}
+We provide the encoding/decoding time for each component from the \textit{DL3DV-GS} dataset, as shown in the tables below. For the coordinates $\bm{\mu}^\text{g}$, the same GPCC command is applied consistently across different $\lambda$ values, resulting in a similar time consumption. Other components (\ie, $\bm{f}^{\text{col}}$, $\bm{f}^{\text{geo}}$ and the mask) are encoded/decoded using arithmetic codec. As $\lambda$ increases, entropy decreases, leading to reduced codec time. With a higher $\lambda$, an increased mask rate shifts more $\bm{f}^{\text{col}}$ to the $m=1$ path, which raises the time for this path (though the time per parameter still reduces considering the increased mask rate). The time for the $m=0$ path decreases significantly due to simultaneously reduced selection ratios of this path and decreased per-parameter time under stronger entropy constraints. The ``Others'' time includes network forward passes and supplementary operations. With bitrates decreases (\ie, with higher $\lambda$), more $\bm{f}^{\text{col}}$ is assigned to the $m=1$ path, which involves an autoencoder. This leads to a slight increase in network forward time which is categorized under ``Others''. Notably, during encoding, most time is spent on GPCC, while arithmetic coding remains efficient. During decoding, the arithmetic decoder’s index search raises decoding complexity over encoding, while GPCC decoding is faster than encoding since it does not require RD search. Overall, decoding is faster than encoding.
+
+\begin{table}[H]
+    \small
+    \centering
+    \caption{\textbf{Encoding time} of different components on the \textit{DL3DV-GS} dataset, which has over $1.57$ million Gaussians on average in the testing set. All times are measured in seconds, with each component’s percentage share of the total encoding time provided in parentheses. The mask rate indicates the proportion of color attributes $\bm{f}^{\text{col}}$ assigned to the $m=1$ path (\ie, compressed via the autoencoder). Results are obtained using a single GPU.}
+    \vspace{5pt}
+    \renewcommand{\arraystretch}{1.20}
+    % \setlength{\tabcolsep}{6pt}  
+    \begin{tabular}{c|c|cccccc|c}
+        \toprule[2pt]
+        $\lambda$   & Total time   & $\bm{\mu}^\text{g}$ & $\bm{f}^{\text{col}}$ ($m$=1) & $\bm{f}^{\text{col}}$ ($m$=0) & $\bm{f}^{\text{geo}}$ & Mask & Others & Mask rate  \\ \toprule
+        $1e-4$ & 20.47 & 9.48 (46\%) & 2.81 (14\%) & 4.41 (22\%) & 2.35 (11\%) & 0.02 (0\%) & 1.41 (7\%) & 0.62     \\
+        $2e-4$ & 18.33 & 9.46 (52\%) & 2.97 (16\%) & 2.63 (14\%) & 1.83 (10\%) & 0.02 (0\%) & 1.42 (8\%) & 0.67    \\
+        $4e-4$ & 17.17 & 9.50 (55\%) & 3.09 (18\%) & 1.67 (10\%) & 1.46 (8\%) & 0.02 (0\%) & 1.44 (8\%) & 0.74    \\
+        $8e-4$ & 16.44 & 9.49 (58\%) & 3.34 (20\%) & 1.01 (6\%) & 1.10 (7\%) & 0.02 (0\%) & 1.48 (9\%) & 0.82    \\
+        $16e-4$ & 15.86 & 9.44 (60\%) & 3.21 (20\%) & 0.68 (4\%) & 1.00 (6\%) & 0.02 (0\%) & 1.51 (10\%) & 0.89    \\ \bottomrule[2pt]
+    \end{tabular}
+\end{table}
+
+
+\begin{table}[H]
+    \small
+    \centering
+    \caption{\textbf{Decoding time} of different components on the \textit{DL3DV-GS} dataset, which has over $1.57$ million Gaussians on average in the testing set. All times are measured in seconds, with each component’s percentage share of the total decoding time provided in parentheses. The mask rate indicates the proportion of color attributes $\bm{f}^{\text{col}}$ assigned to the $m=1$ path (\ie, compressed via the autoencoder). Results are obtained using a single GPU.}
+    \vspace{5pt}
+    \renewcommand{\arraystretch}{1.20}
+    % \setlength{\tabcolsep}{6pt}  
+    \begin{tabular}{c|c|cccccc|c}
+        \toprule[2pt]
+        $\lambda$   & Total time   & $\bm{\mu}^\text{g}$ & $\bm{f}^{\text{col}}$ ($m$=1) & $\bm{f}^{\text{col}}$ ($m$=0) & $\bm{f}^{\text{geo}}$ & Mask & Others & Mask rate  \\ \toprule
+        $1e-4$ & 15.93 & 3.53 (22\%) & 3.85 (24\%) & 5.07 (32\%) & 2.51 (16\%) & 0.02 (0\%) & 0.95 (6\%) & 0.62     \\
+        $2e-4$ & 14.16 & 3.52 (25\%) & 4.21 (30\%) & 3.28 (23\%) & 2.14 (15\%) & 0.02 (0\%) & 0.99 (7\%) & 0.67    \\
+        $4e-4$ & 12.84 & 3.52 (27\%) & 4.33 (34\%) & 2.16 (17\%) & 1.77 (14\%) & 0.02 (0\%) & 1.04 (8\%) & 0.74    \\
+        $8e-4$ & 12.13 & 3.53 (29\%) & 4.68 (39\%) & 1.40 (12\%) & 1.39 (11\%) & 0.02 (0\%) & 1.10 (9\%) & 0.82    \\
+        $16e-4$ & 11.47 & 3.52 (31\%) & 4.67 (41\%) & 0.87 (8\%) & 1.24 (11\%) & 0.02 (0\%) & 1.15 (10\%) & 0.89    \\ \bottomrule[2pt]
+    \end{tabular}
+\end{table}
+\clearpage
+
+\section{Ablation on the Number of Splits in Context Models}
+\label{sec:number_of_splits}
+We conduct further ablation studies on the number of splits in context models, as summarized below.
+
+\begin{itemize}
+    \item \textbf{Inter-Gaussian context models.}
+    In Table~\ref{tab:number_of_splits_inter}, increasing the number of splits leads to size reduction with the same fidelity under the given digital precision. On the one hand, testing with only $2$ splits using an extreme ratio of $95\%, 5\%$ demonstrates poor performance, underscoring the importance of rational split strategies. After that, the most notable improvement occurs when increasing from $3$ splits to $4$ splits, achieving a size reduction of $0.227$ MB. Beyond $4$ splits, the size reduction becomes negligible. On the other hand, even in the extreme $2$-split case, the size remains significantly smaller than in the ablation study shown in Figure~\ref{fig:ablation_study}, where the inter-Gaussian context model is entirely removed. This is because, while $\bm{f}^{\bm{\mu}^\text{g}}$ is unavailable for the first batch (we manually set it to $0$ as a placeholder) in Equation~\ref{eq:grid_interpolation}, the positional encoding $\texttt{emb}(\bm{\mu}^\text{g})$ still provides effective context.
+    \item \textbf{Intra-Gaussian context models.}
+    In Table~\ref{tab:number_of_splits_intra}, increasing the number of chunks does not consistently yield size reduction. For $2$ chunks, insufficient context information leads to a size increase. Expanding to $8$ or $16$ chunks does not always provide further benefits due to the increased complexity of the model, which makes convergence more challenging.
+\end{itemize}
+
+\begin{table}[h]
+    \centering
+    \caption{Ablation study on the number of splits in the inter-Gaussian context model on the \textit{DL3DV-GS} dataset with $\lambda=1e-4$. We change inter-split number of all $\bm{f}^{\text{col}}$ ($m=1$), $\bm{f}^{\text{col}}$ ($m=0$), and $\bm{f}^{\text{geo}}$. Our FCGS employs a default setting of $17\%, 17\%, 33\%, 33\%$ (4 splits).}
+    \vspace{5pt}
+    \renewcommand{\arraystretch}{1.20}
+    \setlength{\tabcolsep}{8pt}  
+    \begin{tabular}{c|c|ccc}
+        \toprule[2pt]
+        \# Split Batches & SIZE (MB) $\downarrow$   & PSNR (dB) $\uparrow$ & SSIM $\uparrow$ & LPIPS $\downarrow$ \\  \bottomrule
+        $95\%, 5\%$ (2) & 28.685 & 29.264 & 0.897 & 0.148     \\
+        $25\%, 25\%, 50\%$ (3) & 27.667 & 29.264 & 0.897 & 0.148     \\
+        $17\%, 17\%, 33\%, 33\%$ (4) & 27.440 & 29.264 & 0.897 & 0.148     \\
+        $13\%, 13\%, 25\%, 25\%, 25\%$ (5) & 27.379 & 29.264 & 0.897 & 0.148     \\
+        \bottomrule[2pt]
+    \end{tabular}
+    \label{tab:number_of_splits_inter}
+\end{table}
+
+\begin{table}[h]
+    \centering
+    \caption{Ablation study on the number of splits in the intra-Gaussian context model on the \textit{DL3DV-GS} dataset with $\lambda=1e-4$. We change intra-split number of $\bm{f}^{\text{col}}$ ($m=1$). Our FCGS employs a default setting of $4$ chunks.}
+    \vspace{5pt}
+    \renewcommand{\arraystretch}{1.20}
+    \setlength{\tabcolsep}{8pt}  
+    \begin{tabular}{c|c|ccc}
+        \toprule[2pt]
+        \# Split Chunks & SIZE (MB) $\downarrow$   & PSNR (dB) $\uparrow$ & SSIM $\uparrow$ & LPIPS $\downarrow$ \\  \bottomrule
+        2 & 28.562 & 29.267 & 0.897 & 0.148     \\
+        4 & 27.440 & 29.264 & 0.897 & 0.148     \\
+        8 & 27.516 & 29.264 & 0.897 & 0.148     \\
+        16 & 27.649 & 29.265 & 0.897 & 0.148     \\ \bottomrule[2pt]
+    \end{tabular}
+    \label{tab:number_of_splits_intra}
+\end{table}
+
+\clearpage
+
+
+
+\section{Visualization of Bit Allocation Using Context Models}
+\label{sec:visualize_context}
+
+We present a visualization of bits per parameter using the proposed inter- and intra-Gaussian context models, shown in the figure below.
+
+\begin{itemize}
+    \item \textbf{For the inter-Gaussian context model}: From a statistical perspective, each Gaussian in different batches is expected to hold similar amounts of information on average due to the random splitting strategy, which ensures an even distribution of Gaussians across the 3D space. Thus, as batches progress deeper (\ie, B1 $\rightarrow$ B4), the bits per parameter decrease. The most significant reduction occurs between B1 and B2, since B1 lacks inter-Gaussian context, leading to less accurate probability estimates. For subsequent batches, the reduction is less pronounced, as B1 already includes $1/6$ of the total Gaussians, providing sufficient context for accurate prediction. Adding more Gaussians from later batches yields diminishing benefits. This finding validates our approach of splitting batches with varying proportions of Gaussians, where the first two batches contain fewer Gaussians.
+    \textbf{For the intra-Gaussian context model}: In (a), different from that in the inter-Gaussian context model, the information distribution among different chunks is not guaranteed to be equal, as the latent space is derived from a learnable MLP. As a result, C1 receives the least information because it lacks intra-Gaussian context, leading to less accurate probability predictions. Therefore, allocating more information to C1 would make entropy reduction challenging. To counter this, the neural network compensates by assigning minimal information to C1, thereby saving bits. Conversely, C2 receives the most information as it plays a pivotal role in predicting subsequent chunks (\ie, C3 and C4), while its own entropy can be reduced by leveraging C1. As a result, the bits per parameter decrease consistently from C2 to C4 due to the increasingly rich context. In (b), the bit variation reflects differences among color components, where Green has the least information and is the easiest to predict.
+\end{itemize}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=1.00\linewidth]{image/visualize_context.pdf}
+\caption{Visualization of bits per parameter on the \textit{DL3DV-GS} dataset with $\lambda=16e-4$. B1 $\rightarrow$ B4 and C1 $\rightarrow$ C4 indicate batches and chunks of inter- and intra-Gaussian context models, respectively. Bit allocation for both color and geometry attributes using inter- and intra-Gaussian context models is shown. Note that in (a), the bits per parameter for color attributes $\bm{f}^{\text{col}}$ ($m=1$) are calculated in the latent space (\ie, $\hat{y}$) as $\frac{\texttt{per chunk bits in $\hat{y}$}}{64}$ for each chunk, where $64$ is the number of channels per chunk of $\hat{y}$. This calculation is used for bit allocation visualization of each chunk in $\hat{y}$. This differs slightly from Table~\ref{tab:per_param_size}, which takes a holistic view and calculates bits per parameter as $\frac{\texttt{total bits in $\hat{y}$}}{48}$, where $48$ is the total number of channels for $\bm{f}^{\text{col}}$ ($m=1$). The bit values in (a) are scaled by 100x for readability.}
+\label{fig:visualize_context}
+\end{figure}
+\clearpage
+
+
+
+\section{Ablation Studies on the Hyperprior}
+
+We present statistical data for ablation studies, and also conduct ablation experiment over the hyperprior, as shown in Table~\ref{tab:statistic_context}. This hyperprior follows the approach of \citet{balle}, which is originally designed for image compression, and we consistently retain it in our FCGS model. In this section, we investigate the effect of the hyperprior by manually setting $\hat{\bm{z}}$ to all zeros to remove the information contributed from the hyperprior, while still preserving a necessary Gaussian probability for entropy estimation (which is now predicted from an all-zero hyperprior $\hat{\bm{z}}$ instead).
+
+Interestingly, our experiments reveal the hyperprior does not significantly contribute to the compression performance. This suggests there is less redundancy within each Gaussian attribute in 3DGS compared to that within each individual image~\citet{balle}. Instead, our inter- and intra-context models, which are for the unique characteristics of 3DGS, have shown more effectiveness.
+
+\begin{table}[H]
+    \centering
+    \vspace{-5pt}
+    \caption{Statistical data from ablation studies over MEM on the \textit{DL3DV-GS} dataset. Data are presented as PSNR (dB) / SIZE (MB).}
+    \vspace{5pt}
+    \renewcommand{\arraystretch}{1.20}
+    \begin{tabular}{l|ccccc}
+        \toprule[2pt]
+        $\lambda$                        & $1e-4$  & $2e-4$  & $4e-4$  & $8e-4$  & $16e-4$ \\ \bottomrule
+        Ours                             & 29.26 / 27.44 & 29.22 / 24.15 & 29.17 / 21.12 & 29.05 / 18.14 & 28.86 / 15.83 \\
+        Ours w $m$ all $0$s              & 29.27 / 38.15 & 29.23 / 33.87 & 29.16 / 30.12 & 28.98 / 25.99 & 28.69 / 22.84 \\
+        Ours w $m$ all $1$s              & \multicolumn{5}{c}{28.82 / --} \\ \bottomrule[2pt]
+    \end{tabular}
+    \label{tab:statistic_MEM}
+\end{table}
+
+
+\begin{table}[H]
+    \centering
+    \small
+    \vspace{-5pt}
+    \caption{Statistical data from ablation studies over context models on the \textit{DL3DV-GS} dataset. Data are presented as PSNR (dB) / SIZE (MB).}
+    \vspace{5pt}
+    \renewcommand{\arraystretch}{1.20}
+    \begin{tabular}{l|ccccc}
+        \toprule[2pt]
+        $\lambda$                        & $1e-4$  & $2e-4$  & $4e-4$  & $8e-4$  & $16e-4$ \\ \bottomrule
+        Ours                             & 29.26 / 27.44 & 29.22 / 24.15 & 29.17 / 21.12 & 29.05 / 18.14 & 28.86 / 15.83 \\
+        Ours w/o intra                   & 29.26 / 29.65 & 29.22 / 25.94 & 29.15 / 23.32 & 29.02 / 18.87 & 28.82 / 16.80 \\
+        Ours w/o intra \& inter          & 29.26 / 38.55 & 29.22 / 35.63 & 29.14 / 31.15 & 29.02 / 26.50 & 28.81 / 23.53 \\
+        Ours w/o intra \& inter \& hyper & 29.25 / 39.41 & 29.22 / 34.79 & 29.17 / 31.29 & 29.05 / 27.47 & 28.84 / 24.66 \\ \bottomrule[2pt]
+    \end{tabular}
+    \label{tab:statistic_context}
+\end{table}
+
+
+\section{Training with Less Data}
+
+
+As outlined in the implementation, we train FCGS on $6670$ 3DGS scenes generated from the DL3DV dataset~\citep{DL3DV}. Although preparing this training data is time-intensive, it is a one-time investment: Once trained, FCGS can be directly applied for compression without requiring further optimization, making the effort highly valuable.
+To evaluate FCGS’s performance trained on significantly less data, we conducted experiments using only $100$ scenes, as shown in Table~\ref{tab:train_with_fewer_data}. Even with this reduced training set, FCGS still delivers strong results, achieving comparable fidelity metrics with only $12.9\%$ increase in size. This robustness is due to FCGS’s compact and efficient architecture, with a total model size of less than $10$ MB.
+This finding suggests a promising direction for future work: training FCGS with a larger and more diverse dataset to further enhance its capability.
+
+\begin{table}[H]
+    \centering
+    \caption{Results of \textbf{training with less data}. Experiments are conducted on the \textit{DL3DV-GS} dataset with $\lambda=1e-4$.}
+    \vspace{5pt}
+    \renewcommand{\arraystretch}{1.20}
+    \setlength{\tabcolsep}{8pt}  
+    \begin{tabular}{c|c|ccc}
+        \toprule[2pt]
+        \# Trainig data & SIZE (MB) $\downarrow$   & PSNR (dB) $\uparrow$ & SSIM $\uparrow$ & LPIPS $\downarrow$ \\  \bottomrule
+        Full (\# $6670$ scenes) & 27.440 & 29.264 & 0.897 & 0.148 \\
+        Subset (\# $100$ scenes) & 30.981 & 29.256 & 0.897 & 0.148 \\ \bottomrule[2pt]
+    \end{tabular}
+    \label{tab:train_with_fewer_data}
+\end{table}
+\clearpage
+
+\section{Boost Compression Performance of Pruning-based Approaches}
+\label{sec:additional_exp_boost}
+Mini-Splatting~\citep{mini} and Trimming~\citep{Trimming} effectively prune trivial Gaussians, thereby slimming the 3DGS. By applying our FCGS on top of their pruned 3DGS, we can achieve superior compression performance. We further evaluate this scheme across \textit{DL3DV-GS}, \textit{MipNeRF360}, and \textit{Tank\&Temples} datasets.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.00\linewidth]{image/supple_boost_mini_trim.pdf}
+    \caption{Our FCGS boosts the compression performance of pruning-based approaches. Built on Mini-Splatting~\citep{mini} and Trimming~\citep{Trimming}, we achieve superior RD performance by \textit{directly} applying FCGS to their pruned 3DGS, without any finetuning.}
+    \label{fig:supple_boost_mini_trim}
+\end{figure}
+\clearpage
+
+\section{Additional Qualitative Comparisons}
+\label{sec:additional_qualitative}
+
+\vspace{-10pt}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\linewidth]{image/supple_visualization_allmethods.pdf}
+    \caption{Qualitative comparison with baselines methods. Zoom in for more details. We achieve substantial size reduction while preserving high fidelity. PSNR (dB) / SIZE (MB) are indicated in the bottom-right corner of each image.}
+    \vspace{-10pt}
+    \label{fig:supple_visualization_allmethods}
+\end{figure}
+
+\end{document}

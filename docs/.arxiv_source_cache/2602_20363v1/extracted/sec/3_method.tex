@@ -1,0 +1,75 @@
+\begin{figure*}[htbp]
+\centering
+    \includegraphics[width=\linewidth]{figs/framework.png}
+    \caption{We distill aesthetic features into a feedforward Gaussian Splatting network (\textit{top}). At inference, to search for aesthetic viewpoints, we adopt a two-stage pipeline: coarse sampling to find good candidates (\textit{bottom left}) and local refinement by gradient ascent (\textit{bottom right}).}
+    \label{fig:framework}
+\end{figure*}
+
+\section{Proposed Method}
+\label{sec:method}
+
+% Talk about overall framework. From sparse-view input to the aesthetic field and the two-stage viewpoint search.
+\textbf{Problem Statement.} We aim to identify aesthetically pleasing viewpoints for a given 3D scene observed from sparse input views. We formulate this as finding the camera pose $\mathbf P^*$ that maximizes the predicted aesthetic score $score(\mathbf P)$ over the continuous view space:
+\begin{equation}
+    \mathbf P^* = \arg\max_\mathbf P score(\mathbf P).
+\end{equation}
+Since direct optimization is intractable as it requires back-and-forth 2D projection and evaluation, we propose to approximate this objective by learning a \textit{3D aesthetic field}, which defines a continuous mapping from camera pose to aesthetic quality while being grounded in scene geometry.
+
+To learn this field, we \textit{distill} aesthetic knowledge from a pretrained 2D aesthetic model into a feedforward Gaussian Splatting framework~\cite{depthsplat,mvsplat} to reconstruct per-Gaussian geometry and aesthetic features from sparse input views.
+The distilled field enables rendering of aesthetic features at novel viewpoints, which are evaluated by an aesthetic decoder to assess framing and composition.
+To efficiently explore the 3D scene for viewpoint suggestion, we introduce a two-stage search pipeline: (1) coarse sampling of candidate viewpoints along and around the input trajectory followed by aesthetic scoring to select top candidates, and (2) gradient-based optimization for local refinement.
+The overall framework is illustrated in \cref{fig:framework}.
+
+\subsection{Distilling the 3D Aesthetic Field}\label{sec:distill}
+\textbf{Feedforward 3D Gaussian Splatting.}
+We build our framework upon a feedforward Gaussian Spatting model~\cite{depthsplat} that predicts per-pixel Gaussian representation from sparse input views in a single forward pass. Specifically, given input views $\{\mathbf I^i\in\mathbb{R}^{H\times W\times 3}\}_{i=1}^N$ and corresponding camera poses $\{\mathbf P^i\in\mathbb{R}^{3\times 4}\}_{i=1}^N$, a multi-view transformer extracts multi-view features $\{\mathbf F^i_{mv}\}_{i=1}^N$. The features are then fused across neighboring views using plane-sweep~\cite{collins1996space,xu2023unifying} aggregation and enriched with monocular depth cues to predict per-pixel depth, which determines the center $\boldsymbol{\mu}$ of each 3D Gaussian. A DPT head~\cite{dpt} finally regresses the remaining per-Gaussian parameters including covariance $\boldsymbol\Sigma$, opacity $\alpha$, and color $\mathbf c$. Novel view images can be rendered from the 3D Gaussians via Gaussian Splatting~\cite{kerbl20233d}.
+This backbone provides a differentiable and efficient 3D representation that we extend to build the aesthetic field.
+
+\noindent\textbf{Direct RGB Scoring and Its Instability.}
+Given the feedforward Gaussian Splatting backbone, a straightforward solution for viewpoint suggestion is to render novel views and directly score them using a pretrained aesthetic model.
+However, this naive approach faces two key challenges.
+\textit{First}, aesthetic models are highly sensitive to small pixel variations, producing fluctuating scores even for adjacent views (see \cref{fig:nva_1}). This is because existing datasets lack annotations across nearby viewpoints in 3D, hence the models haven't seen such variations in training.
+\textit{Second}, rendering artifacts at novel views can bias aesthetic predictions and misguide optimization (see \cref{fig:nva_1}).
+To address them, we shift from pixel-level scoring to feature-level reasoning by distilling aesthetic representations into the 3D Gaussians.
+Operating in this latent feature space enhances robustness to low-level artifacts and enforces multi-view spatial consistency, leading to smoother aesthetic variations across nearby views. See \cref{sec:nva} for further details.
+
+\noindent\textbf{Aesthetic Feature Distillation.}
+We distill high-level aesthetic representations from a pretrained aesthetic teacher model~\cite{wei2018good}.
+Specifically, we select an intermediate layer as the distillation target and train our model to predict a per-Gaussian aesthetic embedding $\mathbf f_{aes}$, which can be decoded into aesthetic scores through the remaining layers of the teacher after rasterization.
+
+As shown in \cref{fig:framework}, on top of the backbone, we introduce lightweight aesthetic modules: a CNN aesthetic encoder, an aesthetic DPT head~\cite{dpt}, and a transformer downsampler. The aesthetic encoder is from the teacher's feature extraction layers~\cite{wei2018good} and produces multi-scale aesthetic features $\{\mathbf F_{aes}^i\}_{i=1}^N$ from the input images. These features are fused with multi-view features $\{\mathbf F^i_{mv}\}_{i=1}^N$ from the backbone, and processed by the aesthetic DPT head~\cite{dpt} to regress per-Gaussian aesthetic embeddings $\mathbf f_{aes}$. Combined with other Gaussian attributes $(\boldsymbol{\mu},\boldsymbol{\Sigma},\alpha)$, these embeddings are rendered into aesthetic feature maps $\mathbf{\widehat{F}}_{pred}$ at novel views through the same rasterization pipeline as RGB rendering. To reduce storage and rasterization overhead, each $\mathbf f_{aes}$ is a compact $32$-dim vector instead of $512$-dim as the teacher feature. Since the teacher feature maps $\mathbf{F}_{gt}$ are much smaller and deeper than $\mathbf{\widehat{F}}_{pred}$, we employ a lightweight transformer downsampler to align them and obtain the final prediction $\mathbf F_{pred}$. 
+
+Furthermore, we condition the model on camera poses at both input and novel views, since aesthetic representations are inherently viewpoint-dependent. Incorporating pose information allows the model to capture these dependencies.
+
+\noindent\textbf{Training Objective.}
+The backbone multi-view transformer, DPT head, and aesthetic encoder are kept frozen to preserve consistent geometry predictions and 2D aesthetic perception, while the additional modules are trained end-to-end. We use mean-squared error (MSE) loss on the rendered feature maps $\mathbf F_{pred}$ at hold-out views, where ground-truth $\mathbf{F}_{gt}$ are obtained by feeding ground-truth images into the pretrained aesthetic model~\cite{wei2018good}.
+
+\subsection{Viewpoint Search Pipeline}\label{sec:search}
+The learned 3D aesthetic field provides a continuous and differentiable mapping from camera pose to aesthetic score, enabling efficient search and optimization in viewpoint space.
+To efficiently explore this space, we adopt a two-stage coarse-to-fine search pipeline.
+In the first stage, candidate viewpoints are heuristically sampled around the input trajectories and scored to identify high-quality candidates.
+In the second stage, we perform gradient ascent on the selected candidates to locally refine their poses.
+The distilled aesthetic field yields a smooth score landscape (see \cref{fig:nva_1} (a)), allowing stable gradient-based optimization (see \cref{sec:grad}).
+The final refined viewpoints are returned as aesthetic suggestions. The entire process is illustrated in the bottom of~\cref{fig:framework}. We now describe each stage in detail.
+
+\noindent\textbf{Stage 1: Coarse Sampling.}
+The goal of this stage is to efficiently identify promising viewpoint candidates for further refinement.
+We first connect the input views into a continuous camera trajectory by interpolating both camera positions and orientations, yielding a smooth path that covers the major observed viewpoints of the scene.
+Candidate viewpoints are then linearly sampled along this trajectory.
+For each sample, we further generate a local neighborhood of perturbed cameras with small in-plane shifts and directional jitters, allowing local exploration around the trajectory while maintaining scene focus.
+Each candidate viewpoint is rendered through the aesthetic field to obtain its aesthetic features, which are evaluated by the aesthetic decoder to produce a score.
+% Thanks to the efficiency of the feedforward rasterization pipeline, all candidates can be scored efficiently.
+Finally, we select the top-$K$ high-scoring candidates $\{\mathbf{P}_{cand}^k\}_{k=1}^K$ for the subsequent refinement stage. To enhance diversity, near-identical candidates are filtered out via a distance-based duplication check, ensuring that the selected set covers distinct viewpoints.
+
+% {\color{red}Todo: (1) Talk about region-aware sampling instead of picking top-K. (2) Talk about mechanism for filtering out too identical candidates.}
+
+
+\noindent\textbf{Stage 2: Gradient-based Refinement.} Starting from the candidate viewpoints obtained in Stage 1, we perform local optimization directly on camera poses to further maximize their aesthetic scores.
+Specifically, each camera pose $\mathbf P_{cand}^k$ is parameterized by 3D translation and orientation, and updated through gradient ascent on the aesthetic score:
+\begin{equation}
+    \mathbf P_{t+1}=\mathbf P_{t} + \eta \nabla_{\mathbf P}score(\mathbf P_{t}),
+\end{equation}
+where $\eta$ is the step size.
+In practice, we optimize a 5-dim vector comprising 3D translation and two rotation variables (yaw and pitch), as roll is rarely adjusted in typical scene captures. 
+% Rotation is represented by a simple angle-based parameterization, which suffices for our local refinement setting and avoids singularity issues.
+We use a fixed number of iterations for each candidate and retain the top-scoring refined viewpoints as the final suggestions.

@@ -1,0 +1,171 @@
+\section{Experiments}
+\label{sec:experiments}
+
+\subsection{Experimental Setups}
+\paragraph{Dateset.}
+We conducted experiments on the challenging large-scale public nuScenes dataset \cite{caesar2020nuscenes}. 
+It contains 1,000 autonomous driving sequences collected from the Boston and Singapore regions.
+These two cities are known for their dense traffic and highly challenging driving conditions. 
+The nuScenes training set contains 297,737 LiDAR scans, while the validation set contains 52,423 LiDAR scans, with each LiDAR scan comprising 32 beams.
+This dataset is widely used for various tasks in autonomous driving, including but not limited to 3D object detection \cite{huang2021bevdet, li2023bevdepth, li2023end, li2024bevformer}, multi-object tracking \cite{hu2022monocular, pang2022simpletrack, zhang2022mutr3d}, trajectory prediction \cite{gu2023vip3d, liang2020pnpnet}, semantic occupancy prediction \cite{contributors2023openscene, tong2023scene}, and open-loop planning for end-to-end autonomous driving \cite{hu2022st, hu2023planning, jiang2023vad}.
+
+\vspace{-4mm}
+%--------------------------------------------------------------
+\paragraph{Evaluation Metrics.}
+We introduce two categories of metrics to evaluate both the generator's performance and the quality of long-horizon scene generation.
+For evaluating the performance of the LiDAR data generator, we follow the approach in \cite{LiDARGen2022} and use two metrics: Maximum Mean Discrepancy (MMD) and Jensen-Shannon Divergence (JSD).
+To evaluate the accuracy of autoregressive generation, we use the Chamfer Distance (CD) \cite{fan2017point} along with two additional error metrics based on ray depth, which quantify the difference between the generated point cloud for each frame and the corresponding ground truth in the driving scenario.
+
+%--------------------------------------------------------------
+\subsection{LiDAR Data Generation}
+An important component of our approach is the LiDAR data generator, as the quality of its generated samples plays a crucial role in the overall framework performance.
+Table \ref{table_generation} summarizes the quantitative results of LaGen and several baseline LiDAR generation models.
+The experimental results demonstrate that our approach outperforms these baselines on both key metrics for LiDAR data generation.
+
+%--------------------------------------------------------------
+\setlength{\tabcolsep}{5.3pt} 
+\begin{table*}[ht]
+\centering
+\caption{Comparison of our method with several state-of-the-art LiDAR prediction models on two indicators based on ray depth. The underlined data represents the results obtained by introducing rolling inference on the original 4D-Occ model.}
+\renewcommand{\arraystretch}{1.17}
+\begin{tabular}{cccccccc|cccccc}
+\toprule
+ \textbf{Method} & \textbf{Input} &
+\multicolumn{12}{c}{\textbf{L1 Error (m)$\downarrow$} \qquad \qquad \qquad \qquad \qquad \qquad \qquad \textbf{Absrel (\%)$\downarrow$} \quad} \\
+\cmidrule(l{3pt}r{3pt}){3-14} 
+&\textbf{frames}& 0.5s & 1.5s & 3.5s & 5.5s & 7.5s & 9.5s & 0.5s & 1.5s & 3.5s & 5.5s & 7.5s & 9.5s \\
+\midrule
+4D-Occ \cite{khurana2023point}  
+& 2 
+& 1.24 & \underline{2.04} & \underline{3.41} & \underline{4.87} & \underline{7.07} &\underline{9.95}  
+& 8.88 & \underline{14.82} & \underline{25.36} & \underline{40.14} & \underline{56.24} & \underline{67.37}\\
+4D-Occ  \cite{khurana2023point} 
+& 6 
+& \cellcolor{Lavender} 1.23 & \cellcolor{Lavender} 1.62 & \cellcolor{Lavender} \underline{2.60} & \cellcolor{Lavender} \underline{3.48} & \underline{4.74} & \underline{6.49} 
+& \cellcolor{Lavender} 8.41 & \cellcolor{Lavender} 12.15 & \cellcolor{Lavender} \underline{22.16} & \cellcolor{Lavender} \underline{29.20} & \underline{35.78} & \underline{39.50} \\
+\midrule
+ViDAR \cite{yang2024visual} 
+& 2 
+& 2.38 & 2.70 & 3.34 & 4.24 & 5.40 & 6.06 
+& 16.29 & 19.96 & 27.34 & 36.25 & 48.61 & 54.13 \\
+ViDAR \cite{yang2024visual} 
+& 6
+& 2.15 & 2.60 & 3.06 & 3.49 & \cellcolor{Lavender} 3.91 & \cellcolor{Lavender} 4.42 
+& 17.98 & 20.57 & 25.87 & 30.18 & \cellcolor{Lavender}  33.77 & \cellcolor{Lavender}  38.34 \\
+\midrule
+Ours & 
+\cellcolor{rowgray}1
+& \cellcolor{LightPink} \textbf{0.13} & \cellcolor{LightPink} \textbf{0.18} & \cellcolor{LightPink} \textbf{0.24} & \cellcolor{LightPink} \textbf{0.30} & \cellcolor{LightPink} \textbf{0.36} & \cellcolor{LightPink} \textbf{0.41}  & \cellcolor{LightPink} \textbf{2.06} & \cellcolor{LightPink} \textbf{2.51} &  \cellcolor{LightPink} \textbf{3.05} & \cellcolor{LightPink} \textbf{3.56} & \cellcolor{LightPink} \textbf{4.09} & \cellcolor{LightPink} \textbf{4.36}\\
+\bottomrule
+\end{tabular}
+\label{table_metric2}
+\vspace{-3mm}
+\end{table*}
+%--------------------------------------------------------------
+
+%--------------------------------------------------------------
+\subsection{Autoregressive LiDAR Scene Generation}
+This subsection assesses the performance of LaGen on long-horizon LiDAR scene generation tasks. 
+To this end, we develop a nuScenes-based evaluation protocol tailored for this task and compare LaGen with several state-of-the-art prediction-based approaches.
+
+%--------------------------------------------------------------
+\subsubsection{Benchmark for Autoregressive Scene Generation}
+The nuScenes dataset consists of a large number of driving scene clips with varying numbers of frames. 
+We divide the dataset into sequential scene segments, each lasting 10 seconds.
+Our principle is: if a segmented scene sequence contains frames belonging to different scenes, that sequence is removed.
+As a result, we obtain a dataset containing 176 valid scenes, with each scene segment consisting of 20 consecutive LiDAR frames and other scene information.
+
+%--------------------------------------------------------------
+\subsubsection{Comparison with Prediction Models}
+To quantitatively assess LaGen’s capability in generating spatiotemporally consistent LiDAR scenes, we compare it with several state-of-the-art prediction models, as shown in Table \ref{table_prediction}.
+Note that the original version of 4d-occ can predict at most 6 frames; we adopt a rolling scheme to extend its predictions to longer sequences. 
+Based on these results, we can conclude that LaGen offers the following significant advantages over these prediction models:
+\begin{enumerate}[label=\arabic*), leftmargin=*, align=left]
+\item LaGen can generate future driving scenes using only a single-frame historical input;
+\item LaGen achieves lower errors in short-horizon generation and can stably generate scenes over a longer time range.
+\end{enumerate} 
+
+%--------------------------------------------------------------
+\subsection{Editability and Interactive Generation}
+In this subsection, we demonstrate LaGen’s interactive generation capabilities. 
+Since it generates scenes frame by frame, we can edit the positions of objects in the scene at any intermediate frame.
+In Figure~\ref{interaction}, we illustrate interactive generation by moving or removing a bounding box corresponding to a vehicle.
+We observe that after moving the other vehicle, LaGen accurately restore the occlusion effects caused by the object's new position. 
+Additionally, when the vehicle is removed, LaGen successfully completes the previously occluded portions of the road during standard generation.
+The interactivity of LaGen in autoregressive generation represents a significant advancement, enabling it to generate more diverse and realistic 4D scenes in real time according to changes in the external environment.
+
+%------------------------------------------------------------------
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.95\linewidth]{./figs/interaction.pdf}\\
+  \vspace{-2mm}
+  \caption{\label{interaction}
+    Object-level editing and interaction. By moving or removing a bounding box within the scene, we achieve precise object-level editing and interactive control. %It can be observed that, after moving and removing vehicle objects within the scene, LaGen is able to reproduce the occlusion effects of these target objects on other parts of the scene during the generation process.
+    }
+%\vspace{-5mm}
+\end{figure}
+%------------------------------------------------------------------
+
+%--------------------------------------------------------------
+
+%--------------------------------------------------------------
+\subsection{Ablation Study}
+We perform ablation studies to evaluate the contributions of the SDE and NM modules. 
+As shown in Table \ref{table_ablation_sde}, the SDE module can improve the prediction accuracy to some extent, 
+but when the prediction horizon is very long, it may introduce additional error accumulation.
+Table \ref{table_ablation_nm} indicates that the NM module can significantly mitigate error accumulation in long-horizon LiDAR scene generation.
+%As shown in Table \ref{table_ablation_sde}, \ref{table_ablation_nm}, the SDE module can enhance the spatiotemporal consistency of the generated results, while the NM module can alleviate error accumulation during long-horizon LiDAR scene generation.
+
+\vspace{-1mm}
+
+%--------------------------------------------------------------
+\begin{table}[ht]
+\centering
+\caption{The ablation results on the SDE module of LaGen.}
+\vspace{-1mm}
+\setlength{\tabcolsep}{3pt}
+\renewcommand{\arraystretch}{1.17}
+\begin{tabular}{ccccccccc}
+\toprule
+ \textbf{LaGen} &
+\multicolumn{8}{c}{\textbf{Chamfer Distance (m$^2$)$\downarrow$}} \\
+\cmidrule(l{3pt}r{3pt}){2-9} 
+& 0.5s & 1.0s & 2.0s & 3.0s & 4.0s & 6.0s & 8.0s & 9.5s \\ 
+\midrule
+w/o SDE
+&0.58 & 0.72 & 0.98 & 1.18 & 1.38 & 1.89 & 2.33 & 2.60  \\
+\midrule
+w/ SDE
+& \textbf{0.50} & \textbf{0.61} & \textbf{0.80} & \textbf{1.08} & \textbf{1.32} & \textbf{1.84} & \textbf{2.24} &  2.66\\
+\bottomrule
+\end{tabular}
+\label{table_ablation_sde}
+\vspace{-4mm}
+\end{table}
+%--------------------------------------------------------------
+
+%--------------------------------------------------------------
+\begin{table}[ht]
+\centering
+\caption{The ablation results on the NM module of LaGen.}
+\vspace{-1mm}
+\setlength{\tabcolsep}{3pt}
+\renewcommand{\arraystretch}{1.17}
+\begin{tabular}{ccccccccc}
+\toprule
+ \textbf{LaGen} &
+\multicolumn{8}{c}{\textbf{Chamfer Distance (m$^2$)$\downarrow$}} \\
+\cmidrule(l{3pt}r{3pt}){2-9} 
+& 6.0s & 6.5s & 7.0s & 7.5s & 8.0s & 8.5s & 9.0s & 9.5s \\ 
+\midrule
+w/o NM
+&1.98 & 2.20 & 2.33 & 2.60 & 2.73 & 2.86 & 3.08 & 3.18\\
+\midrule
+w/ NM
+& \textbf{1.84} & \textbf{1.92} & \textbf{2.03} & \textbf{2.14} & \textbf{2.24} & \textbf{2.39} & \textbf{2.54} & \textbf{2.66}\\
+\bottomrule
+\end{tabular}
+\label{table_ablation_nm}
+\vspace{-4mm}
+\end{table}
+%--------------------------------------------------------------

@@ -1,0 +1,91 @@
+\section{Introduction}
+\label{sec:intro}
+
+Reconstructing high-fidelity 3D scenes for photorealistic novel view synthesis remains a core challenge in computer vision. While Neural Radiance Fields (NeRF)~\cite{mildenhall2021nerf} and its variants~\cite{barron2021mipnerf,Barron_2022_CVPR,barron2023zipnerf} achieve remarkable visual quality, their implicit representation incurs slow rendering. Recently, 3D Gaussian Splatting (3DGS)~\cite{kerbl20233d} introduces an explicit and efficient alternative, delivering NeRF-level fidelity with real-time performance, and a series of its extensions~\cite{Yu2023MipSplatting,sabourgoli2024spotlesssplats,seo2025flod} rapidly establishing a new state-of-the-art for high-quality, efficient scene reconstruction.
+%-------------------------------------------------------------------------
+
+With the success of these methods in dense-view scenarios, the research frontier is now shifting toward the more challenging sparse-input setting. In this regime, the scarcity of viewpoints often leads to irregular Gaussian distributions, resulting in geometric ambiguities and severe rendering artifacts. 
+FSGS~\cite{zhu2024fsgs} accelerates early-stage densification to compensate for the insufficient initial Gaussians, while DropGaussian~\cite{Park_2025_CVPR} adopts a dropout-based strategy to regularize the Gaussian distributions in occluded regions. 
+However, the absence of comprehensive guidance still leaves the Gaussian field imperfectly optimized, resulting in inaccurate and uneven distributions — with insufficient Gaussians in background regions leading to blurriness, and inadequate supervision over high-frequency details causing misaligned or misplaced Gaussians.
+This motivates us to introduce a multi-level framework that globally-to-locally coherent guidance to more comprehensively direct the formation of accurate Gaussian distributions.
+
+Sparse-view settings often cause Gaussians to fall outside the field of view, receiving limited gradient feedback and overfitting to a few training images~\cite{Park_2025_CVPR}.
+As shown in Fig.~\ref{fig:new_motivation}, adding more views improves gradient coverage and alleviates this issue.
+Inspired by this, we synthesize pseudo-labels that, together with real views, provide dense image-level supervision to regularize Gaussian distributions.
+This enhanced supervision enriches gradient propagation across the scene, leading to more uniform Gaussian distributions and improved reconstruction fidelity under sparse inputs, while providing richer spatial structural cues for fine-grained guidance at the feature level.
+
+To further refine and regularize the Gaussian distributions in high-frequency regions, we introduce the \textbf{F}eature-\textbf{A}daptive \textbf{D}ensification and \textbf{P}runing (\textbf{FADP}) at the feature level.
+FADP increases Gaussian density along edge-aware regions to capture high-frequency details, prunes redundant splats within homogeneous patches to avoid over-saturation, and adds new Gaussians in sparse background areas to improve coverage.
+The refined Gaussian distributions from FADP provide a stable foundation for the parameter-level, enabling more reliable co-pruning based on geometric consistency.
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.95\columnwidth]{imgs/Fig1_Motivation.pdf}
+%   \vspace{-7pt}
+
+  \caption{ 
+  \textbf{Motivation of HeroGS.} 
+  (Left) Image-level pseudo-labels bridge the gap between sparse and dense supervision, yielding a more complete Gaussian distributions. 
+  (Right) FADP and CPG refine inaccurate Gaussians by enhancing distributions closer to ground-truth geometry and pruning inconsistencies. 
+ % in SideFormer
+ }
+  \vspace{-10pt}
+  \label{fig:new_motivation}
+\end{figure}
+
+%In Fig.~\ref{fig:vis_detail_depth}C, it clearly illustrates the significant deterioration in reconstruction quality for 3DGS and its derivative methods as input views decrease. In contrast, our proposed framework exhibits enhanced robustness under sparse-view conditions, effectively mitigating the performance drop and maintaining higher fidelity in both geometry and appearance (Fig.~\ref{fig:vis_detail_depth}A). Quantitatively, the proposed method outperforms state-of-the-art approaches across multiple evaluation metrics—particularly under extremely sparse inputs—underscoring its superior capability in high-quality reconstruction from minimal data. 
+At the parameter level, we introduce the \textbf{C}o-\textbf{P}runed \textbf{G}eometry Consistency (\textbf{CPG}), which eliminates abnormal or inconsistent Gaussian distributions via a co-pruning mechanism combined with a post-freeze behavior strategy.
+Co-Pruning leverages the self-consistency of the Gaussian field to jointly evaluate and filter Gaussian parameters, retaining only those that exhibit stable and geometrically consistent distributions.
+This process effectively preserves robust Gaussians while eliminating unstable or redundant ones, leading to a cleaner and more reliable scene representation, as illustrated in the right part of Fig.~\ref{fig:new_motivation}.
+The whole pipeline constitutes a hierarchical guidance strategy that collaboratively optimizes the Gaussian distributions across levels, enhancing its global consistency and fidelity.
+Our contributions can be summarized as follows:
+
+\begin{itemize}
+%%%%%你这一个点写太多了和第二个点对比太鲜明了，一个超长一个超短，你分三个四个点写都行啊
+   \item  We propose \textbf{HeroGS}, a hierarchical guidance framework that enables compact and high-fidelity 3D reconstructions under sparse-view conditions.
+   \item At image level, pseudo-labels are generated to promote more accurate Gaussian distributions. At  feature and parameter levels, the proposed \textbf{FADP} and \textbf{CPG} further refine Gaussian field by enhancing feature-aware density and enforcing geometric consistency, respectively.
+
+
+   \item Extensive qualitative and quantitative experiments on real-world datasets, including large-scale scenes and various training views, demonstrate that our method significantly outperforms state-of-the-art baselines.
+\end{itemize}
+
+
+\section{Related Work}
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=0.95\textwidth]{imgs/Fig2_HeroGS.pdf}
+%   \vspace{-7pt}
+  \caption{ \textbf{HeroGS Overview.} Initialized from SfM, our framework operates across three levels.
+(1) \textbf{Image-level Guidance:} A set of intermediate RGB frames is synthesized from sparse inputs, offering pseudo-dense guidance that globally regularizes the Gaussian distributions and, at the feature level, manifests as patch-based Gaussian numbers $\mathcal{C}$.
+%and jointly optimize their poses together with 3D Gaussian field.
+(2) \textbf{Feature-level Refinement:} The Feature-Adaptive Densification and Pruning (FADP) leverages edge- and patch-aware features from training views to enhance high-frequency and background regions, while suppressing redundant Gaussians and dilivering finer details for next level.
+(3) \textbf{Parameter-level Consistency:} The Co-Pruned Geometry Consistency (CPG) employs auxiliary Gaussian fields with partially frozen parameters to perform co-pruning, eliminating geometrically inconsistent splats.
+These levels form a hierarchical guidance with interconnections (dashed lines) that jointly constrains and optimizes the Gaussian field for improved structural fidelity.
+  %This paradigm introduces a comprehensive Pseudo-Label framework composed of multiple interacting modules. We first manufacture basic but noisy pseudo-labels by interpolating intermediate RGB frames to provide auxiliary supervision. Here, we jointly optimize the Gaussian Splatting representation(initialized by SFM) and the poses of the interpolated views using a combination of rendered loss $\mathcal{L}_{\mathrm{g}}$ and RGB loss $\mathcal{L}_{\mathrm{r}}$. Second, a Feature-Adaptive Densification and Pruning (FADP) module rectifies the pseudo-label-based training process by selectively densifying and pruning Gaussians based on features extracted from training views. To purge erroneous pseudo-label influence, two auxiliary Gaussian fields with partially frozen parameters are introduced for co-pruning to suppress inconsistent Gaussians. Together, these components form a unified pseudo-label supervision paradigm that enhances geometric consistency and improves rendering quality under sparse input conditions.
+ % in SideFormer
+ }
+  \vspace{-5pt}
+  \label{fig:framework}
+\end{figure*}
+%%%%%不要用\para这个符号，两段之间空的太多了，用\textbf加粗一下就行
+\textbf{Novel View Synthesis.}
+\textbf{Neural Radiance Fields (NeRF)}~\cite{mildenhall2021nerf, barron2022mip, bao2023and} and \textbf{3D Gaussian Splatting (3DGS)}~\cite{kerbl20233d} have emerged as two prominent paradigms for high-fidelity novel view synthesis. NeRF-based methods have achieved impressive results in producing photorealistic novel views, especially when abundant views (often hundreds) are available. Meanwhile, 3DGS represents scenes explicitly as a set of 3D Gaussian primitives, which enables faster convergence and real-time rendering performance through GPU-friendly splatting operations. Recent works such as MiniSplatting~\cite{kaiser2024minisplatting} focus on optimizing 3DGS by introducing memory-efficient representation and lightweight pipeline, while Stop-the-Pop~\cite{radl2024stopthepop} improves rendering realism and robustness by a novel hierarchical rasterization approach. Beyond these, Deformable 3DGaussians~\cite{yang2023deformable3dgs} extends 3DGS to efficiently reconstruct and render dynamic scenes by learning a canonical static scene and a time-dependent deformation field for Gaussians. However, both categories are fundamentally data-hungry and show performance degradation under sparse input settings, where their reliance on dense photometric supervision becomes a limiting factor.
+
+\textbf{Novel View Synthesis with sparse views.}
+%%High-fidelity 3D reconstruction and novel view synthesis techniques, such as Neural Radiance Fields (NeRF) ~\cite{wang2023sparsenerf, mildenhall2021nerf, barron2022mip, bao2023and} and 3D Gaussian Splatting (3DGS) ~\cite{ kerbl20233d}, have made significant progress in generating realistic images. However, these methods typically require a large number of input images (hundreds) to learn a scene, which limits their practical application.
+To address the challenges of sparse views, existing methods based on NeRF are mainly divided into two categories: (1) regularization-based methods, which apply techniques such as depth smoothness~\cite{ niemeyer2022regnerf}, occlusion regularization~\cite{yang2023freenerf}, or frequency control to existing sparse data to prevent overfitting; (2) methods incorporating external priors like using pre-trained models to generate depth maps~\cite{chen2021mvsnerf, fan2024instantsplat, jang2021codenerf, yu2021pixelnerf} or feature extractors~\cite{jain2021putting, kwak2023geconerf} to enhance geometric and visual consistency. For 3DGS specifically, some methods have been proposed, such as DNGaussian~\cite{li2024dngaussian} introducing depth regularization, SparseGS~\cite{xiong2024sparsegs} combining depth and diffusion regularization, FSGS~\cite{zhu2024fsgs} increasing point cloud density through Gaussian unpooling, and CoR-GS~\cite{zhang2024cor} and CoherentGS~\cite{paliwal2024coherentgs} utilizing multi-view consistency or monocular depth for optimization. However, existing sparse-view 3D reconstruction methods generally still suffer from severe overfitting, indicating a need for further research to improve their robustness in practical applications.
+
+%-------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
