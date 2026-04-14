@@ -3,7 +3,14 @@ from pathlib import Path
 
 import pytest
 
-from build_blog import _render_page, validate_post_file, validate_post_html
+from build_blog import (
+    _equation_target_term,
+    _postprocess_rewrite_output,
+    _render_page,
+    _strengthen_section_context,
+    validate_post_file,
+    validate_post_html,
+)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -153,6 +160,30 @@ def test_validator_flags_mixed_language_summary_and_section() -> None:
     assert any("技术细节存在中英文混杂" in issue for issue in issues)
 
 
+def test_postprocess_strips_section_reference_artifacts_from_technical_text() -> None:
+    raw = "围绕 3.4 输出与推理，接下来，sec3.2:SADA 介绍了总体框架，subsec:task 详细介绍了训练流程。"
+
+    cleaned = _postprocess_rewrite_output(raw, purpose="technical")
+
+    assert "sec3.2" not in cleaned.lower()
+    assert "subsec" not in cleaned.lower()
+
+
+def test_strengthen_section_context_removes_section_reference_artifacts() -> None:
+    text = "sec3.1:problem 先说明输入设定。\nsubsec:task 再交代训练目标。"
+
+    strengthened = _strengthen_section_context(text, "技术总览", "technical")
+
+    assert "sec3.1" not in strengthened.lower()
+    assert "subsec" not in strengthened.lower()
+    assert "作者这样设计" in strengthened or "这一步的作用" in strengthened
+
+
+def test_equation_target_term_avoids_ascii_heavy_symbol_names() -> None:
+    assert _equation_target_term(r"\Sigma_{edge}=\sum_i w_i x_i") == ""
+    assert _equation_target_term(r"\mathrm{FDR}=\mathbb{E}[V/R]") == "FDR"
+
+
 def test_validator_flags_shallow_one_liner_and_collapsed_innovation_list() -> None:
     html_shallow = """
     <html><body><article>
@@ -168,6 +199,54 @@ def test_validator_flags_shallow_one_liner_and_collapsed_innovation_list() -> No
     issues = validate_post_html(html_shallow)
     assert any("一句话总结过于笼统" in issue for issue in issues)
     assert any("核心创新仍是单段罗列" in issue for issue in issues)
+
+
+def test_validator_flags_innovation_template_scaffolding() -> None:
+        html_templated = """
+        <html><body><article>
+            <!-- source-grounding: arxiv_id=2506.13260v1; pdf=dummy.pdf; source_dir=dummy; sections=5; figures=3; equations=1 -->
+            <div class='tip'><strong>一句话总结：</strong>这是一句完整总结，包含问题、方法和结果，不会触发其他检查项。</div>
+            <h2 id='summary'>简单摘要</h2><p>摘要内容完整，足够长，并且是正常中文描述。</p>
+            <h2 id='innovation'>核心创新</h2>
+            <p>第一个关键变化，是作者先把核心切入点明确成一个新问题设置。</p>
+            <p>第二个关键变化，是方法链路里补上了跨模块连接。</p>
+            <p>第三个关键变化，是实验和实现层面进一步落实了一个训练接口。这让论文的创新不只停留在概念描述，而能落到可执行的技术路径上。</p>
+            <p>第四个关键变化，是实验和实现层面进一步落实了另一个实现细节。这让论文的创新不只停留在概念描述，而能落到可执行的技术路径上。</p>
+            <h2 id='technical'>技术细节</h2>
+            <h3>3 方法</h3><p>这里给出完整技术描述，解释模块如何工作以及为什么这样设计。</p>
+            <h3>4 训练</h3><p>这里继续说明训练和推理细节，避免其他检查项误报。</p>
+            <h2 id='experiment'>实验结论</h2><p>实验内容完整，比较对象、指标和结论都比较清楚。</p>
+            <h2 id='takeaway'>理解评价</h2><p>这篇论文存在明显局限，未来可以继续改进和扩展方向。</p>
+        </article></body></html>
+        """
+
+        issues = validate_post_html(html_templated)
+        assert any("第N个关键变化" in issue for issue in issues)
+        assert any("实验和实现层面进一步落实了" in issue for issue in issues)
+        assert any("重复收束句" in issue for issue in issues)
+
+
+def test_validator_flags_technical_coverage_and_explanation_depth() -> None:
+        html_coverage_bad = """
+        <html><body><article>
+            <!-- source-grounding: arxiv_id=2506.13260v1; pdf=dummy.pdf; source_dir=dummy; sections=6; figures=3; equations=2 -->
+            <div class='tip'><strong>一句话总结：</strong>这是一句完整总结，包含问题、方法和结果，不会触发其他检查项。</div>
+            <h2 id='summary'>简单摘要</h2><p>摘要内容完整，足够长，并且是正常中文描述。</p>
+            <h2 id='innovation'>核心创新</h2><p>创新内容完整描述，能够说明论文贡献。</p>
+            <h2 id='technical'>技术细节</h2>
+            <p>这一段只是泛泛地说方法会先做预测，再做生成，但没有解释任何模块如何配合。</p>
+            <p>系统随后产生未来场景结果，并把输出送到下一步处理，不过这里仍然没有交代机制细节。</p>
+            <p>最后模型会进一步优化整体输出质量，但读者仍看不出每一步到底依赖什么实体和约束。</p>
+            <p>训练阶段只说使用常规损失完成学习，却没有说明损失项、模块名或者关键设计为什么成立。</p>
+            <h2 id='experiment'>实验结论</h2><p>实验内容完整，比较对象、指标和结论都比较清楚。</p>
+            <h2 id='takeaway'>理解评价</h2><p>这篇论文存在明显局限，未来可以继续改进和扩展方向。</p>
+        </article></body></html>
+        """
+
+        issues = validate_post_html(html_coverage_bad)
+        assert any("技术细节覆盖度不足" in issue for issue in issues)
+        assert any("技术细节解读不足" in issue for issue in issues)
+        assert any("技术细节原文锚点不足" in issue for issue in issues)
 
 
 def test_validator_flags_generic_equation_template_and_scaffold_takeaway() -> None:

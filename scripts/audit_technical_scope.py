@@ -7,7 +7,7 @@ import re
 import sys
 from collections import Counter
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, cast
+from typing import Any, Dict, Iterable, List, Optional, Tuple, cast
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -15,9 +15,11 @@ if str(REPO_ROOT) not in sys.path:
 
 from build_blog import (
     PdfReaderTool,
+    _extract_equation_lines,
     _extract_section_html,
     _extract_source_material,
     _is_review_like_paper,
+    _normalize_pdf_text,
     _normalize_equation_latex,
     _review_scope_headings,
     _strip_html_tags,
@@ -129,6 +131,9 @@ _WORD_STOPLIST = {
     "efficient",
 }
 
+_PDF_SECTION_LINE_RE = re.compile(r"^(\d{1,2})(?:\.|\))?\s+(.+?)\s*$")
+_PDF_SUBSECTION_LINE_RE = re.compile(r"^(\d{1,2}\.\d+(?:\.\d+)?)(?:\.|\))?\s+(.+?)\s*$")
+
 
 def _slug_to_arxiv_id(slug: str) -> str:
     if "_" not in slug:
@@ -149,6 +154,121 @@ def _normalize_for_match(text: str) -> str:
 
 def _strip_html_text(text: str) -> str:
     return _clean_text(_strip_html_tags(text))
+
+
+def _looks_like_pdf_heading(text: str) -> bool:
+    clean = _clean_text(text)
+    if not clean or len(clean) > 120:
+        return False
+    if any(token in clean for token in ["=", "\\", "{", "}", "$", "|", "http://", "https://"]):
+        return False
+    if clean.lower().startswith(("figure ", "fig. ", "table ", "algorithm ", "appendix ")):
+        return False
+    if len(clean.split()) > 16:
+        return False
+    alpha_count = sum(ch.isalpha() for ch in clean)
+    digit_count = sum(ch.isdigit() for ch in clean)
+    return alpha_count >= 3 and alpha_count >= digit_count
+
+
+def _parse_pdf_section_details(text: str) -> Tuple[Dict[str, str], Dict[str, Dict[str, object]], List[Dict[str, str]]]:
+    normalized = _normalize_pdf_text(text)
+    lines = normalized.splitlines()
+    section_entries: List[Dict[str, object]] = []
+    subsection_entries: List[Dict[str, object]] = []
+
+    for idx, raw_line in enumerate(lines):
+        line = _clean_text(raw_line)
+        if not line:
+            continue
+        subsection_match = _PDF_SUBSECTION_LINE_RE.match(line)
+        if subsection_match and _looks_like_pdf_heading(subsection_match.group(2)):
+            subsection_entries.append(
+                {
+                    "line_idx": idx,
+                    "number": subsection_match.group(1),
+                    "heading": subsection_match.group(2),
+                }
+            )
+            continue
+        section_match = _PDF_SECTION_LINE_RE.match(line)
+        if section_match and _looks_like_pdf_heading(section_match.group(2)):
+            section_entries.append(
+                {
+                    "line_idx": idx,
+                    "number": section_match.group(1),
+                    "heading": section_match.group(2),
+                }
+            )
+
+    if not section_entries:
+        return {}, {}, []
+
+    sections: Dict[str, str] = {}
+    section_details: Dict[str, Dict[str, object]] = {}
+    equations: List[Dict[str, str]] = []
+    for index, section in enumerate(section_entries):
+        heading = str(section["heading"])
+        start_line = int(section["line_idx"]) + 1
+        end_line = int(section_entries[index + 1]["line_idx"]) if index + 1 < len(section_entries) else len(lines)
+        section_lines = lines[start_line:end_line]
+        section_text = _clean_text("\n".join(section_lines))
+        if section_text:
+            sections[heading] = section_text
+
+        section_subsections: List[Dict[str, object]] = []
+        child_entries = [
+            item for item in subsection_entries
+            if start_line <= int(item["line_idx"]) < end_line and str(item["number"]).count(".") == 1
+        ]
+        for child_index, child in enumerate(child_entries):
+            child_start = int(child["line_idx"]) + 1
+            child_end = int(child_entries[child_index + 1]["line_idx"]) if child_index + 1 < len(child_entries) else end_line
+            child_text = _clean_text("\n".join(lines[child_start:child_end]))
+            section_subsections.append(
+                {
+                    "heading": str(child["heading"]),
+                    "number": str(child["number"]),
+                    "text": child_text,
+                    "subsubsections": [],
+                }
+            )
+
+        section_details[heading] = {
+            "heading": heading,
+            "number": str(section["number"]),
+            "text": section_text,
+            "subsections": section_subsections,
+        }
+
+        for equation_line in _extract_equation_lines("\n".join(section_lines), max_items=8):
+            equations.append(
+                {
+                    "latex": equation_line,
+                    "context_en": _clip_text(section_text, 320),
+                    "section_heading": heading,
+                    "section_number": str(section["number"]),
+                    "subsection_number": "",
+                    "subsubsection_number": "",
+                    "owner_key": str(section["number"]),
+                }
+            )
+
+    return sections, section_details, equations
+
+
+def _build_pdf_fallback_material(doc: object) -> Dict[str, object]:
+    full_text = str(getattr(doc, "full_text", "") or "")
+    sections, section_details, equations = _parse_pdf_section_details(full_text)
+    return {
+        "abstract": "",
+        "sections": sections,
+        "section_details": section_details,
+        "equations": equations,
+        "figures": [],
+        "tables": [],
+        "source_dir": "",
+    }
 
 
 def _find_blog_headings(section_html: str) -> List[str]:
@@ -281,12 +401,20 @@ def _analyze_post(post_path: Path, reader: PdfReaderTool, docs_dir: Path) -> Opt
     source_material = _extract_source_material(doc.arxiv_id, doc.title, docs_dir)
     source_sections = cast(Dict[str, str], source_material.get("sections") if isinstance(source_material.get("sections"), dict) else {})
     source_details = cast(Dict[str, Dict[str, Any]], source_material.get("section_details") if isinstance(source_material.get("section_details"), dict) else {})
-    if not source_sections or not source_details:
-        return None
-
-    scope_headings = _review_scope_headings(source_details)
-    if not scope_headings:
-        return None
+    scope_headings = _review_scope_headings(source_details) if source_details else []
+    audit_source = "source"
+    if not source_sections or not source_details or not scope_headings:
+        fallback_material = _build_pdf_fallback_material(doc)
+        fallback_sections = cast(Dict[str, str], fallback_material.get("sections") if isinstance(fallback_material.get("sections"), dict) else {})
+        fallback_details = cast(Dict[str, Dict[str, Any]], fallback_material.get("section_details") if isinstance(fallback_material.get("section_details"), dict) else {})
+        fallback_scope_headings = _review_scope_headings(fallback_details) if fallback_details else []
+        if not fallback_sections or not fallback_details or not fallback_scope_headings:
+            return None
+        source_material = fallback_material
+        source_sections = fallback_sections
+        source_details = fallback_details
+        scope_headings = fallback_scope_headings
+        audit_source = "pdf-fallback"
 
     html = post_path.read_text(encoding="utf-8")
     technical_html = _extract_section_html(html, "technical")
@@ -366,6 +494,7 @@ def _analyze_post(post_path: Path, reader: PdfReaderTool, docs_dir: Path) -> Opt
         "slug": slug,
         "arxiv_id": doc.arxiv_id,
         "title": doc.title,
+        "audit_source": audit_source,
         "is_review_like": _is_review_like_paper(doc.title, source_sections),
         "source_scope_headings": scope_headings,
         "source_scope_subsection_count": scope_subsection_count,

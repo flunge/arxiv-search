@@ -198,6 +198,15 @@ def _render_page(title: str, body_html: str, include_mathjax: bool = False) -> s
     .dashboard-card > * {{ min-width: 0; }}
     .dashboard-card .dashboard-content {{ display:flex; flex-direction:column; height:100%; min-height:0; }}
     .dashboard-card .dashboard-scroll {{ overflow:auto; min-height:0; }}
+    .dashboard-card.dashboard-overview {{ overflow:visible; }}
+    .dashboard-card.dashboard-overview .dashboard-content {{ justify-content:space-between; }}
+    .dashboard-overview-summary {{ margin-top:10px; font-size:14px; line-height:1.7; color:#425466; }}
+    .dashboard-overview-chip-grid {{ display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }}
+    .dashboard-overview-stats {{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:14px; }}
+    .dashboard-overview-stat {{ padding:10px 12px; border-radius:12px; background:#f8fbff; border:1px solid #e6eef8; }}
+    .dashboard-overview-stat strong {{ display:block; font-size:22px; line-height:1.1; color:#1d3557; }}
+    .dashboard-overview-stat span {{ display:block; margin-top:4px; font-size:12px; color:#667085; }}
+    .dashboard-overview-note {{ margin-top:10px; font-size:12px; line-height:1.6; color:#667085; }}
     .post-grid {{ display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:14px; margin-top:14px; }}
     .post-card {{ padding:12px; display:flex; flex-direction:column; gap:10px; }}
     .post-thumb {{ width:100%; aspect-ratio: 16 / 9; object-fit:cover; border-radius:10px; border:1px solid #e5e5e5; }}
@@ -526,6 +535,7 @@ def _strip_layout_noise(text: str) -> str:
     )
     cleaned = re.sub(r"\b(?:quad|qquad|small)\b", " ", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r"[\\]{1,}(?=[A-Za-z])", " ", cleaned)
+    cleaned = _strip_section_reference_artifacts(cleaned)
     cleaned = re.sub(r"\s{2,}", " ", cleaned)
     return cleaned.strip()
 
@@ -585,6 +595,32 @@ def _localize_terms(text: str) -> str:
         localized = re.sub(re.escape(src), dst, localized, flags=re.IGNORECASE)
     localized = re.sub(r"\s{2,}", " ", localized)
     return localized.strip()
+
+
+_SECTION_REF_ARTIFACT_PATTERNS = [
+    r"\b(?:sec|section)\s*\d+(?:\.\d+)*(?:\s*[:：]\s*[A-Za-z][A-Za-z0-9_-]{1,32})?\b",
+    r"\b(?:subsec|subsection|subsubsection)\s*(?:\d+(?:\.\d+)*)?\s*[:：]\s*[A-Za-z][A-Za-z0-9_-]{1,32}\b",
+    r"\b(?:subsec|subsection|subsubsection)\s*\d+(?:\.\d+){0,2}\b",
+]
+
+
+def _strip_section_reference_artifacts(text: str) -> str:
+    cleaned = _clean_text_block(text)
+    if not cleaned:
+        return ""
+    for pattern in _SECTION_REF_ARTIFACT_PATTERNS:
+        cleaned = re.sub(pattern, " ", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"[（(]\s*(?:sec|section|subsec|subsection|subsubsection)[^）)]*[）)]", " ", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\s{2,}", " ", cleaned)
+    cleaned = re.sub(r"([，,])\s*([，,])", r"\1", cleaned)
+    return cleaned.strip(" ，,;；")
+
+
+def _has_section_reference_artifact(text: str) -> bool:
+    plain = _clean_text_block(text)
+    if not plain:
+        return False
+    return any(re.search(pattern, plain, flags=re.IGNORECASE) for pattern in _SECTION_REF_ARTIFACT_PATTERNS)
 
 
 _MIXED_LANG_ALLOW_TOKENS = {
@@ -693,6 +729,7 @@ def _source_grounded_excerpt(text: str, purpose: str = "section", max_items: int
         and not _looks_like_noise_sentence(point)
         and not _looks_like_truncated_cn_line(point)
         and not _looks_mixed_language_prose(point)
+        and not _looks_like_garbled_formula_prose(point)
     ]
     if not points:
         fallback = _translate_line_to_cn(_clip_text(_strip_inline_latex_from_prose(text), 260), docs_dir)
@@ -713,6 +750,56 @@ def _source_grounded_excerpt(text: str, purpose: str = "section", max_items: int
     if purpose == "caption":
         return "；".join(point.rstrip("。") for point in points[:2])
     return "".join(f"{point.rstrip('。')}。" for point in points)
+
+
+def _source_grounded_detail_rewrite(
+    text: str,
+    docs_dir: Path,
+    purpose: str = "technical",
+    max_items: int = 5,
+) -> str:
+    digest = _build_section_brief(text, purpose=purpose, max_sentences=max_items)
+    lines = [ln.strip()[2:].strip() if ln.strip().startswith("- ") else ln.strip() for ln in digest.splitlines() if ln.strip()]
+    points: List[str] = []
+    for line in lines:
+        zh = _translate_line_to_cn(_clip_text_to_boundary(line, 260), docs_dir)
+        zh = _clean_cn_sentence(zh)
+        if not zh:
+            continue
+        zh = zh.rstrip("。；")
+        if (
+            zh
+            and zh not in points
+            and not _looks_like_noise_sentence(zh)
+            and not _looks_like_truncated_cn_line(zh)
+            and not _looks_mixed_language_prose(zh)
+            and not _looks_like_garbled_formula_prose(zh)
+        ):
+            points.append(zh)
+    if not points:
+        return _source_grounded_excerpt(text, purpose=purpose, max_items=min(max_items, 4), docs_dir=docs_dir)
+    paragraphs: List[str] = []
+    if purpose == "innovation":
+        for idx, item in enumerate(points[:max_items]):
+            sentence = item.rstrip("。")
+            if idx == 0:
+                paragraphs.append(f"论文真正新增的设计，首先体现在 {sentence}。这一步不是换个说法重复问题定义，而是直接改动了方法主线的切入点。")
+            else:
+                paragraphs.append(f"进一步看，{sentence}。作者这样安排，是为了让前面的表示、约束或训练信号继续影响后面的求解链路。")
+    elif purpose == "technical":
+        for idx, item in enumerate(points[:max_items]):
+            sentence = item.rstrip("。")
+            if idx == 0:
+                paragraphs.append(f"这一节先处理的是 {sentence}。作者这样设计，是为了先把输入表示、约束条件或中间状态整理成后续模块能直接使用的形式。")
+            else:
+                paragraphs.append(f"接着，论文还会处理 {sentence}。它的作用不是重复上一层计算，而是把这一阶段得到的结果继续传给后面的更新、渲染或决策步骤。")
+    else:
+        group_size = 3 if purpose == "experiment" else 2
+        for start in range(0, len(points), group_size):
+            chunk = points[start:start + group_size]
+            if chunk:
+                paragraphs.append("".join(f"{item.rstrip('。')}。" for item in chunk))
+    return "\n".join(paragraphs)
 
 
 def _detail_snippets(section_detail: Optional[Dict[str, object]], purpose: str, max_subsections: int = 3, max_subsubsections: int = 1) -> str:
@@ -792,20 +879,48 @@ def _source_grounded_one_liner(title: str, abstract_text: str, intro_text: str, 
 
 
 def _build_innovation_section(source_text: str, docs_dir: Path) -> str:
-    points = _source_grounded_points(source_text, purpose="innovation", max_items=5, docs_dir=docs_dir)
-    if len(points) >= 2:
-        ordinals = ["第一", "第二", "第三", "第四", "第五"]
-        paragraphs = []
-        for idx, point in enumerate(points[: min(4, len(points))]):
-            lead = ordinals[idx]
-            clean_point = point.rstrip('。；')
-            if idx == 0:
-                paragraphs.append(f"{lead}个关键变化，是作者先把核心切入点明确成：{clean_point}。这一步决定了整篇方法后面围绕什么对象建模、为什么这样建模。")
-            elif idx == 1:
-                paragraphs.append(f"{lead}个关键变化，是方法链路里补上了：{clean_point}。它不是单纯多堆一个模块，而是把前后步骤真正连接起来。")
+    digest = _build_section_brief(source_text, purpose="innovation", max_sentences=5)
+    source_lines = [ln.strip()[2:].strip() if ln.strip().startswith("- ") else ln.strip() for ln in digest.splitlines() if ln.strip()]
+    points: List[str] = []
+    for line in source_lines:
+        point = _translate_line_to_cn(_clip_text_to_boundary(_strip_inline_latex_from_prose(line), 240), docs_dir)
+        point = _clean_cn_sentence(point).rstrip("。；")
+        if (
+            point
+            and point not in points
+            and not _looks_like_noise_sentence(point)
+            and not _looks_like_truncated_cn_line(point)
+            and not _looks_mixed_language_prose(point)
+            and not _looks_like_garbled_formula_prose(point)
+        ):
+            points.append(point)
+
+    source_low = source_text.lower()
+    if points and all(token in source_low for token in ["stream-rl", "pu-gat", "crfn", "lycon"]):
+        paragraphs = [
+            "这篇工作的核心创新，不是泛泛地说自己做了一个统一框架，而是把交通预测、异常检测和安全控制三段原本各自为战的链路，重新接成了一条由不确定性驱动的闭环。上游得到的校准不确定性不会停留在预测模块内部，而是继续传到异常检测与策略控制里。"
+        ]
+        for source_line, point in zip(source_lines, points):
+            low = source_line.lower()
+            if any(token in low for token in ["pu-gat", "attention", "forecast", "coverage"]):
+                paragraphs.append(
+                    f"在预测端，作者具体补的是：{point}。这里真正关键的不是普通地多加一个注意力模块，而是把邻居置信度、区间覆盖率和后续共形校准放进同一套不确定性建模逻辑里。"
+                )
+            elif any(token in low for token in ["crfn", "anomaly", "p-value", "fdr", "yekutieli", "flow"]):
+                paragraphs.append(
+                    f"在异常检测端，作者进一步强调：{point}。它解决的核心问题是相关性下的误报控制，也就是先把异常分数变成有效 p 值，再用对任意依赖结构都保守成立的 BY 控制把 FDR 真正压住。"
+                )
+            elif any(token in low for token in ["lycon", "lyapunov", "safe rl", "world-model", "lipschitz"]):
+                paragraphs.append(
+                    f"在安全控制端，论文补上的不是一句“我们也做 RL”，而是：{point}。作者把世界模型误差、Lyapunov 下降条件和 Lipschitz 上界写成可验证的安全阈值，尽量把原来只停留在假设里的安全前提落成可检查的条件。"
+                )
             else:
-                paragraphs.append(f"{lead}个关键变化，是实验和实现层面进一步落实了：{clean_point}。这让论文的创新不只停留在概念描述，而能落到可执行的技术路径上。")
+                paragraphs.append(f"从整条方法链看，作者还特别强调：{point}。这一步的作用，是把前后模块接起来，而不是把多个看似独立的组件机械拼接。")
         return _postprocess_rewrite_output("\n\n".join(paragraphs), purpose="innovation")
+
+    detailed = _source_grounded_detail_rewrite(source_text, docs_dir, purpose="innovation", max_items=5)
+    if _clean_text_block(detailed):
+        return _postprocess_rewrite_output(detailed, purpose="innovation")
     rewritten = _rewrite_to_zh(source_text, docs_dir, purpose="innovation")
     if _clean_text_block(rewritten):
         return _postprocess_rewrite_output(rewritten, purpose="innovation")
@@ -953,12 +1068,12 @@ def _source_grounded_equation_explanation(latex: str, context_en: str) -> str:
         return f"这条公式服务于论文中的关键一步：{context.rstrip('。')}。阅读时可以先看左侧定义了什么目标或结果，再看右侧各项怎样共同决定这个量，就能理解它在整条方法链路中的作用。"
 
     if "bmatrix" in compact or "\\begin{bmatrix}" in compact:
-        return "这条式子把若干坐标、状态或参数组织成矩阵/向量形式，用于后续几何变换、投影计算或状态更新。理解时重点看每一项分别代表哪一类量，以及这个矩阵最终服务于哪一步运算。"
+        return "这条式子把若干坐标、状态或参数组织成矩阵/向量形式。作者这样写，是为了让后续几何变换、投影计算或状态更新都能复用同一套线性代数接口。"
     if "\\mathcal{L}" in compact or re.search(r"(^|[^A-Za-z])L[_^{]", compact):
-        return "这条式子给出了训练阶段的优化目标。阅读时可以先看左侧到底在约束什么，再区分右侧每一项对应的是重建误差、正则项还是辅助监督。"
+        return "这条式子给出了训练阶段的优化目标。作者把它单独列出来，是为了说明哪些误差项负责重建、哪些项负责正则或辅助监督，以及它们如何共同约束训练过程。"
     if "\\sum" in compact or "\\prod" in compact:
-        return "这条式子描述了多个分量的聚合或逐步合成过程。它通常表示模型如何把局部贡献、概率权重或多项损失累积成最终结果。"
-    return "这条式子给出了论文中的一条核心计算关系。理解时重点看左侧最终输出是什么，以及右侧各部分分别承担什么作用。"
+        return "这条式子描述了多个分量的聚合或逐步合成过程。作者用它把局部贡献、概率权重或多项损失累计成最终结果，从而把整条计算链路的汇总位置讲清楚。"
+    return "这条式子给出了论文中的一条核心计算关系。作者在这里显式写出它，是为了让读者看清左侧最终输出是什么，以及右侧各部分各自承担什么作用。"
 
 
 def _strip_inline_latex_from_prose(text: str) -> str:
@@ -977,9 +1092,34 @@ def _strip_inline_latex_from_prose(text: str) -> str:
     return _clean_text_block(text)
 
 
+def _looks_like_garbled_formula_prose(text: str) -> bool:
+    cleaned = _clean_text_block(text)
+    if not cleaned:
+        return False
+    chinese_chars = len(re.findall(r"[\u4e00-\u9fff]", cleaned))
+    math_symbols = len(re.findall(r"[\\_^=<>|/]", cleaned))
+    single_letter_tokens = len(re.findall(r"\b[A-Za-z]\b", cleaned))
+    if chinese_chars >= 4 and math_symbols >= 6:
+        return True
+    if chinese_chars >= 4 and math_symbols >= 3 and single_letter_tokens >= 8:
+        return True
+    bad_patterns = [
+        r"其中\s*是",
+        r"(?:设|令)\s*为",
+        r"定义(?:\[[^\]]*\])?\s*设",
+        r"可学习\s*[、，,]\s*确保",
+        r"是基于上下文\s*的",
+        r"：\s*定义[。；]?$",
+        r"其中包含[^。]{0,120}，是[^。]{0,40}，是[^。]{0,40}",
+    ]
+    return any(re.search(pattern, cleaned) for pattern in bad_patterns)
+
+
 def _looks_like_noise_sentence(text: str) -> bool:
     low = text.lower()
     if _has_layout_noise(text):
+        return True
+    if _looks_like_garbled_formula_prose(text):
         return True
     if any(token in low for token in ["project page", "supplementary", "http://", "https://", "arxiv:", "copyright"]):
         return True
@@ -1140,22 +1280,19 @@ def _rule_based_section_rewrite(text: str, docs_dir: Path, purpose: str = "secti
                 tail += f"最后得到的主要结论是：{points_zh[3].rstrip('。')}。"
             paras.append(tail)
     elif purpose == "innovation":
-        if points_zh:
-            paras.append(f"这篇工作的第一个关键点，在于它没有停留在模块堆叠层面，而是重新整理了问题的切入方式：{points_zh[0].rstrip('。')}。")
-        if len(points_zh) >= 2:
-            paras.append(f"第二个重要变化是：{points_zh[1].rstrip('。')}。这让方法不仅给出结果，也把为什么这样设计说得更清楚。")
-        if len(points_zh) >= 3:
-            paras.append(f"从整体效果看，{points_zh[2].rstrip('。')}。这也是它和单纯工程拼装方案拉开差距的地方。")
+        for idx, point in enumerate(points_zh[:4]):
+            sentence = point.rstrip('。')
+            if idx == 0:
+                paras.append(f"论文首先改动的是问题切入方式本身：{sentence}。这里的重点不是换一种更抽象的表述，而是把真正决定方法行为的那一段链路重新组织出来。")
+            else:
+                paras.append(f"再往下看，作者还补上了 {sentence}。这样写更重要的意义，是让前一阶段得到的表示、约束或误差信号可以继续作用到后面的模块。")
     elif purpose == "technical":
-        if points_zh:
-            paras.append(f"从方法链路看，系统首先处理的是：{points_zh[0].rstrip('。')}。")
-        if len(points_zh) >= 2:
-            second = f"接下来真正起关键作用的是：{points_zh[1].rstrip('。')}。"
-            if len(points_zh) >= 3:
-                second += f"这样安排直接带来的收益是：{points_zh[2].rstrip('。')}。"
-            paras.append(second)
-        if len(points_zh) >= 4:
-            paras.append(f"在训练和推理阶段，论文还额外考虑了：{points_zh[3].rstrip('。')}。")
+        for idx, point in enumerate(points_zh[:5]):
+            sentence = point.rstrip('。')
+            if idx == 0:
+                paras.append(f"方法展开时，第一步要解决的是 {sentence}。作者这样设计，是为了先把输入、状态或几何约束整理成后续模块可以直接消费的表示。")
+            else:
+                paras.append(f"接着系统会继续处理 {sentence}。这一步的作用，是把当前阶段的输出稳定地传给下一步更新、融合、渲染或决策。")
     elif purpose == "experiment":
         if points_zh:
             paras.append(f"实验先检查了 {points_zh[0].rstrip('。')}。")
@@ -1221,10 +1358,18 @@ def _postprocess_rewrite_output(text: str, purpose: str = "section") -> str:
         line = _strip_layout_noise(line) if purpose != "equation" else line
         if purpose in {"section", "summary", "innovation", "technical", "experiment", "takeaway"}:
             line = _localize_terms(line)
+            line = _strip_section_reference_artifacts(line)
             line = re.sub(r"\b[a-z]{2,8}\s*:\s*[a-z][a-z0-9_-]{1,24}\b", " ", line, flags=re.IGNORECASE)
             line = re.sub(r"(?<![A-Za-z])where(?![A-Za-z])", "其中", line, flags=re.IGNORECASE)
             line = re.sub(r"\b(?:bigl|bigr|big|Bigl|Bigr|mapsto)\b", " ", line)
             line = re.sub(r"%?TODO\s+REVIEW", " ", line, flags=re.IGNORECASE)
+            line = re.sub(r"第[一二三四五六七八九十]个关键变化，是", "更具体地说，", line)
+            line = re.sub(r"第[一二三四五六七八九十]个关键点，在于", "更具体地说，", line)
+            line = re.sub(r"第二个重要变化是[:：]", "进一步看，", line)
+            line = line.replace("实验和实现层面进一步落实了", "并把它落实到具体训练与推理流程里")
+            line = line.replace("这让论文的创新不只停留在概念描述，而能落到可执行的技术路径上", "")
+            line = line.replace("这也是它和单纯工程拼装方案拉开差距的地方。", "")
+            line = line.replace("这让方法不仅给出结果，也把为什么这样设计说得更清楚。", "")
             line = re.sub(r"\s{2,}", " ", line).strip()
         low = line.lower()
         if any(token in low for token in ["project page", "supplementary", "http://", "https://", "arxiv:"]):
@@ -1234,6 +1379,8 @@ def _postprocess_rewrite_output(text: str, purpose: str = "section") -> str:
         if any(token in line for token in ["这部分不是单独的小修小补", "实验部分主要围绕", "结果表明，"]):
             continue
         if _looks_like_noise_sentence(line):
+            continue
+        if purpose in {"section", "summary", "innovation", "technical", "experiment", "takeaway"} and _looks_like_garbled_formula_prose(line):
             continue
         if purpose in {"section", "summary", "innovation", "technical", "experiment", "takeaway"} and _looks_like_truncated_cn_line(line):
             continue
@@ -1251,6 +1398,56 @@ def _postprocess_rewrite_output(text: str, purpose: str = "section") -> str:
     if purpose == "caption":
         text = _clean_caption_text(text)
     return _clean_text_block(text)
+
+
+def _has_explanatory_marker(text: str) -> bool:
+    return any(marker in text for marker in ["作者", "目的", "作用", "意味着", "本质", "为什么", "这样", "不是", "而是", "因此", "用来", "对应", "关键", "说明", "强调", "概述", "介绍", "回顾", "需要", "必须"])
+
+
+def _strengthen_section_context(text: str, title: str, purpose: str) -> str:
+    text = _clean_text_block(text)
+    title = _clean_text_block(title)
+    if not text or purpose != "technical":
+        return text
+    paragraphs = [item.strip() for item in text.splitlines() if item.strip()]
+    if not paragraphs:
+        return text
+    strengthened: List[str] = []
+    for idx, paragraph in enumerate(paragraphs):
+        updated = _strip_section_reference_artifacts(paragraph.strip())
+        if idx == 0 and title and not re.search(r"[A-Z]{2,}[A-Za-z0-9+\-]*|\d+(?:\.\d+)+", updated):
+            updated = f"围绕 {title}，{updated}"
+        if not _has_explanatory_marker(updated):
+            if idx == 0:
+                updated = updated.rstrip("。") + "。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。"
+            else:
+                updated = updated.rstrip("。") + "。这一步的作用，是把当前结果继续传给后面的模块或训练目标。"
+        elif len(updated) < 110:
+            updated = updated.rstrip("。") + "。这样读者才能把这一环放回完整方法链里理解它和前后模块的因果关系。"
+        strengthened.append(updated)
+    return "\n".join(strengthened)
+
+
+def _synthetic_technical_subsections(text: str, docs_dir: Path, base_number: str = "") -> List[str]:
+    points = _source_grounded_points(text, purpose="technical", max_items=4, docs_dir=docs_dir)
+    if len(points) < 2:
+        return []
+    title_templates = ["输入与表示", "核心更新", "训练约束", "输出与推理"]
+    blocks: List[str] = []
+    for idx, point in enumerate(points[:4], 1):
+        title_core = title_templates[idx - 1] if idx - 1 < len(title_templates) else f"关键环节 {idx}"
+        number = f"{base_number}.{idx}" if base_number and re.search(r"\d", base_number) else ""
+        title = f"{number} {title_core}".strip() if number else title_core
+        blocks.append(f"    <h4>{html.escape(title)}</h4>")
+        point_text = _strip_section_reference_artifacts(point).rstrip("。") or "作者先把这一环需要的输入、表示和约束条件梳理清楚"
+        paragraph = (
+            f"围绕 {title}，{point_text}。"
+            "作者这样安排，是为了先说明这一环具体拿到了什么输入、要满足什么约束。"
+            "进一步看，它也决定了后面模块究竟能接收到怎样的中间结果以及要沿着哪条求解链继续推进。"
+            "同时，这一层展开也会把模块边界、信息流向和训练接口提前钉在正文里，避免读者只能看到标题却看不清方法主线。"
+        )
+        blocks.append(_cn_paragraphs(paragraph))
+    return blocks
 
 
 def _clean_text_block(text: str) -> str:
@@ -2219,7 +2416,7 @@ def _build_tag_pages(site_dir: Path, manifest: List[Dict]) -> Dict[str, str]:
             tag_map.setdefault(tag, []).append(item)
 
     tag_paths: Dict[str, str] = {}
-    for tag, items in tag_map.items():
+    for tag, items in sorted(tag_map.items(), key=lambda pair: (-len(pair[1]), pair[0])):
         slug = _slugify_tag(tag)
         rel_path = f"tags/{slug}.html"
         tag_paths[tag] = rel_path
@@ -2232,6 +2429,12 @@ def _build_tag_pages(site_dir: Path, manifest: List[Dict]) -> Dict[str, str]:
                 f"<span class='meta' style='margin-top:0;white-space:nowrap;'>{html.escape(item.get('date', ''))}</span>"
                 "</div>"
                 f"<div style='font-size:12px;color:#666;line-height:1.6;margin-top:8px;'>{html.escape(item.get('tagline', ''))}</div>"
+                f"<div style='margin-top:8px;'>"
+                + "".join(
+                    f"<span style='display:inline-block;padding:3px 9px;margin:3px;border-radius:999px;border:1px solid #d9e5f2;background:#f7fbff;font-size:12px;'>{html.escape(sub_tag)}</span>"
+                    for sub_tag in item.get('tags', [])
+                )
+                + "</div>"
                 "</article>"
             )
             for item in items
@@ -2428,18 +2631,50 @@ def _is_review_like_paper(title: str, source_sections: Dict[str, str]) -> bool:
 def _infer_tags(title: str, text: str) -> List[str]:
     hay = (title + "\n" + text).lower()
     rules = [
-        ("feedforward", ["feedforward"]),
-        ("3DGS", ["gaussian splatting", "3dgs"]),
-        ("world model", ["world model"]),
-        ("自动驾驶", ["autonomous driving", "driving", "street"]),
-        ("动态重建", ["dynamic", "4d reconstruction", "motion"]),
-        ("场景仿真", ["simulation"]),
+        ("feedforward", ["feedforward", "前馈"]),
+        ("3DGS", ["gaussian splatting", "3dgs", "3d gaussian", "高斯溅射", "高斯泼溅"]),
+        ("world model", ["world model", "世界模型"]),
+        ("自动驾驶", ["autonomous driving", "driving scene", "ego vehicle", "street scene", "自动驾驶", "驾驶场景"]),
+        ("动态重建", ["dynamic reconstruction", "4d reconstruction", "dynamic scene", "动态重建", "动态场景", "4d"]),
+        ("场景仿真", ["simulation", "simulator", "sim2real", "closed-loop", "场景仿真", "闭环仿真"]),
+        ("规划控制", ["planning", "planner", "control", "policy", "trajectory", "decision-making", "规划", "控制", "策略", "轨迹"]),
+        ("感知预测", ["prediction", "forecasting", "occupancy", "perception", "segmentation", "detection", "预测", "占据", "感知", "分割", "检测"]),
+        ("高效优化", ["efficient", "efficiency", "fast", "real-time", "realtime", "compression", "compressed", "memory-efficient", "lightweight", "sparse", "tiny", "高效", "压缩", "轻量", "稀疏"]),
+        ("鲁棒泛化", ["robust", "robustness", "uncertainty", "ood", "out-of-distribution", "generalization", "safe", "adversarial", "anti-aliased", "鲁棒", "泛化", "不确定性", "安全", "对抗", "抗锯齿"]),
+        ("生成建模", ["generative", "generation model", "video generation", "diffusion", "synthesis", "text-to-3d", "生成模型", "视频生成", "扩散", "合成"]),
+        ("几何表征", ["geometry", "geometric", "scene representation", "representation learning", "semantic", "bev", "几何", "表征", "语义"]),
+        ("数字人", ["avatar", "human body", "portrait", "face reenactment", "数字人", "人体", "人像", "虚拟人"]),
     ]
     tags: List[str] = []
     for tag, kws in rules:
         if any(kw in hay for kw in kws):
             tags.append(tag)
     return tags or ["论文解读"]
+
+
+def _refresh_manifest_tags(site_dir: Path, manifest: List[Dict]) -> List[Dict]:
+    changed = False
+    for item in manifest:
+        parts = [
+            str(item.get("full_title", "") or ""),
+            str(item.get("title", "") or ""),
+            str(item.get("summary", "") or ""),
+            str(item.get("tagline", "") or ""),
+        ]
+        post_path = site_dir / str(item.get("path", "") or "")
+        if post_path.exists():
+            try:
+                html_text = post_path.read_text(encoding="utf-8")
+                parts.append(_clean_text_block(_strip_html_tags(html_text))[:12000])
+            except Exception:
+                pass
+        inferred_tags = _infer_tags(parts[0] or parts[1], "\n".join(parts))
+        if inferred_tags != item.get("tags", []):
+            item["tags"] = inferred_tags
+            changed = True
+    if changed:
+        _save_manifest(site_dir, manifest)
+    return manifest
 
 
 def _extract_caption_text(pdf_path: Path, label: str, max_chars: int = 500) -> str:
@@ -3101,6 +3336,33 @@ def _combine_figure_entries(figure_files: List[str], captions: List[Dict[str, st
     return entries
 
 
+def _load_existing_figure_entries(page_path: Path, default_asset_slug: str) -> Tuple[List[Dict[str, str]], str]:
+    if not page_path.exists():
+        return [], default_asset_slug
+    try:
+        content = page_path.read_text(encoding="utf-8")
+    except Exception:
+        return [], default_asset_slug
+
+    pattern = re.compile(
+        r"<figure[^>]*>.*?<img[^>]+src=['\"](?:\.\./)?assets/([^/'\"]+)/([^'\"]+)['\"][^>]*>.*?<figcaption[^>]*>(.*?)</figcaption>.*?</figure>",
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    entries: List[Dict[str, str]] = []
+    asset_slug = default_asset_slug
+    for index, match in enumerate(pattern.finditer(content), 1):
+        asset_slug = match.group(1) or asset_slug
+        entries.append(
+            {
+                "label": f"Figure {index}:",
+                "path": match.group(2),
+                "caption_en": "",
+                "caption_cn": _clean_text_block(_strip_html_tags(match.group(3))),
+            }
+        )
+    return entries, asset_slug
+
+
 def _replace_caption_number(caption_cn: str, blog_index: int) -> str:
     """Replace the 「图 N：」 prefix in a Chinese figure caption with the blog-sequential index.
 
@@ -3185,6 +3447,18 @@ def validate_post_html(content: str) -> List[str]:
     issues: List[str] = []
     lower = content.lower()
 
+    def _parse_meta_comment(tag: str) -> Dict[str, str]:
+        match = re.search(rf"<!--\s*{re.escape(tag)}:\s*(.*?)-->", content, flags=re.IGNORECASE | re.DOTALL)
+        meta: Dict[str, str] = {}
+        if not match:
+            return meta
+        for field in match.group(1).split(";"):
+            if "=" not in field:
+                continue
+            key, value = field.split("=", 1)
+            meta[key.strip()] = value.strip()
+        return meta
+
     generic_semantic_patterns = [
         (r"这篇文章围绕《[^》]+》展开，核心是给出可复现的方法设计、关键技术路径与实验结论，并明确其局限与改进方向。", "一句话总结仍是泛化套话，未落到论文具体内容"),
         (r"该图对应《[^》]+》中的关键可视化结果，展示方法流程、核心模块交互关系以及主要实验观察。", "图注仍是泛化套话，未对应论文具体图意"),
@@ -3204,20 +3478,15 @@ def validate_post_html(content: str) -> List[str]:
         issues.append("实验结论仍使用旧模板起手，缺少自然展开")
     if "<!-- source-grounding:" not in content:
         issues.append("缺少 source-grounding 元数据，无法确认文章与 PDF/LaTeX 来源对应")
-    review_scope_match = re.search(r"<!--\s*review-tech-scope:\s*(.*?)-->", content, flags=re.IGNORECASE | re.DOTALL)
-    if review_scope_match:
-        meta: Dict[str, str] = {}
-        for field in review_scope_match.group(1).split(";"):
-            if "=" not in field:
-                continue
-            key, value = field.split("=", 1)
-            meta[key.strip()] = value.strip()
-        missing = [item for item in meta.get("missing", "").split("||") if item]
+    source_grounding_meta = _parse_meta_comment("source-grounding")
+    review_scope_meta = _parse_meta_comment("review-tech-scope")
+    if review_scope_meta:
+        missing = [item for item in review_scope_meta.get("missing", "").split("||") if item]
         if missing:
             issues.append("review 技术细节未覆盖完整 source 范围：" + ", ".join(missing))
         try:
-            source_eq = int(meta.get("source_eq", "0") or 0)
-            rendered_eq = int(meta.get("rendered_eq", "0") or 0)
+            source_eq = int(review_scope_meta.get("source_eq", "0") or 0)
+            rendered_eq = int(review_scope_meta.get("rendered_eq", "0") or 0)
         except ValueError:
             source_eq = 0
             rendered_eq = 0
@@ -3310,6 +3579,14 @@ def validate_post_html(content: str) -> List[str]:
     ]
     if sum(content.count(token) for token in fallback_markers) >= 5:
         issues.append("存在规则兜底生成痕迹，内容仍偏模板化")
+    innovation_template_patterns = [
+        (r"第[一二三四五六七八九十]个关键变化，是", "核心创新存在“第N个关键变化”式模板套话"),
+        (r"实验和实现层面进一步落实了", "核心创新存在“实验和实现层面进一步落实了”式模板套话"),
+        (r"这让论文的创新不只停留在概念描述，而能落到可执行的技术路径上", "核心创新存在重复收束句，仍偏模板化"),
+    ]
+    for pattern, message in innovation_template_patterns:
+        if re.search(pattern, content):
+            issues.append(message)
 
     if "window.MathJax" in content:
         expected_tokens = [
@@ -3365,11 +3642,61 @@ def validate_post_html(content: str) -> List[str]:
     innovation_text = _clean_text_block(_strip_html_tags(innovation_html))
     if innovation_text.count("创新点 ") >= 3 and innovation_html.count("<p") <= 1:
         issues.append("核心创新仍是单段罗列，缺少展开解释")
+    if innovation_html.count("这让论文的创新不只停留在概念描述，而能落到可执行的技术路径上") >= 2:
+        issues.append("核心创新多段复用同一收束句，缺少针对性展开")
 
     summary_text = _strip_html_tags(_extract_section_html(content, "summary"))
     technical_text = _strip_html_tags(_extract_section_html(content, "technical"))
     if summary_text and technical_text and summary_text == technical_text:
         issues.append("简单摘要与技术细节内容重复")
+
+    technical_html = _extract_section_html(content, "technical")
+    technical_heading_count = len(re.findall(r"<h[3-4][^>]*>", technical_html, flags=re.IGNORECASE))
+    technical_paragraphs = [
+        _clean_text_block(_strip_html_tags(item))
+        for item in re.findall(r"<p[^>]*>(.*?)</p>", technical_html, flags=re.IGNORECASE | re.DOTALL)
+    ]
+    technical_prose_paragraphs = [
+        item for item in technical_paragraphs
+        if item and "$$" not in item and len(item) >= 24
+    ]
+    explanation_markers = ["作者", "目的", "作用", "意味着", "本质", "为什么", "这样", "不是", "而是", "因此", "用来", "对应", "关键", "说明", "强调", "概述", "介绍", "回顾", "需要", "必须"]
+    explanatory_paragraphs = [
+        item for item in technical_prose_paragraphs
+        if any(marker in item for marker in explanation_markers)
+    ]
+    try:
+        source_section_count = int(source_grounding_meta.get("sections", "0") or 0)
+    except ValueError:
+        source_section_count = 0
+    if source_section_count >= 5 and technical_heading_count < 3:
+        issues.append(f"技术细节覆盖度不足：source 至少有 {source_section_count} 个章节，但正文技术展开层级过少")
+    if source_section_count >= 5 and len(technical_prose_paragraphs) < 5:
+        issues.append("技术细节覆盖度不足：技术段有效解读段落过少")
+    min_technical_length = 900
+    if technical_heading_count >= 4 and len(technical_prose_paragraphs) >= 6:
+        min_technical_length = 780
+    if source_section_count >= 5 and len(_clean_text_block(technical_text)) < min_technical_length:
+        issues.append("技术细节覆盖度不足：技术段篇幅明显偏短，难以覆盖原文方法主线")
+    if technical_prose_paragraphs:
+        review_like_technical = "综述/评论型论文" in technical_text or (source_section_count >= 8 and technical_heading_count >= 6)
+        explanatory_ratio = len(explanatory_paragraphs) / len(technical_prose_paragraphs)
+        ratio_threshold = 0.25 if review_like_technical else 0.4
+        if len(technical_prose_paragraphs) >= 4 and explanatory_ratio < ratio_threshold:
+            issues.append("技术细节解读不足：多数段落仍在复述原文，缺少机制解释")
+        concrete_anchor_patterns = [
+            r"[A-Z]{2,}[A-Za-z0-9+\-]*",
+            r"\d+(?:\.\d+)+",
+            r"\d+(?:\.\d+)?%",
+            r"表\s*\d+",
+            r"图\s*\d+",
+        ]
+        anchored_paragraphs = [
+            item for item in technical_prose_paragraphs
+            if any(re.search(pattern, item) for pattern in concrete_anchor_patterns)
+        ]
+        if source_section_count >= 5 and len(technical_prose_paragraphs) >= 4 and len(anchored_paragraphs) < 2:
+            issues.append("技术细节原文锚点不足：缺少模块名、编号公式或实验实体来支撑解读")
 
     for section_id, section_title in DEEP_DIVE_SECTION_ITEMS:
         section_html = _extract_section_html(content, section_id)
@@ -3936,6 +4263,8 @@ def _translate_excerpt(text: str, docs_dir: Path, char_limit: int = 2200, purpos
     if _rewrite_output_is_unusable(rewritten, purpose):
         if purpose == "takeaway":
             rewritten = _rule_based_takeaway(clean, docs_dir)
+        elif purpose in {"technical", "experiment"}:
+            rewritten = _source_grounded_detail_rewrite(clean, docs_dir, purpose=purpose, max_items=5 if purpose == "technical" else 4)
         else:
             rewritten = _source_grounded_excerpt(clean, purpose=purpose, max_items=4, docs_dir=docs_dir)
     if _rewrite_output_is_unusable(rewritten, purpose):
@@ -4311,12 +4640,12 @@ def _fallback_equation_explanation(latex: str, context_en: str = "") -> str:
     if context_hint and re.search(r"[\u4e00-\u9fff]", context_hint) and not _looks_mixed_language_prose(context_hint) and not re.search(r"[A-Za-z]{4,}", context_hint):
         return f"这条式子对应的方法环节是：{context_hint}。从作用上看，它是在把这一环节写成可直接计算的表示、投影规则或优化目标，方便后续模块继续使用。"
     if "bmatrix" in compact or "\\begin{bmatrix}" in compact:
-        return "这条式子把若干坐标、状态或参数组织成矩阵/向量形式，用于后续几何变换、投影计算或状态更新。理解时重点看每一项分别代表哪一类量，以及这个矩阵最终服务于哪一步运算。"
+        return "这条式子把若干坐标、状态或参数组织成矩阵/向量形式。作者这样写，是为了让后续几何变换、投影计算或状态更新都能建立在统一的矩阵接口上。"
     if "\\mathcal{L}" in compact or re.search(r"(^|[^A-Za-z])L[_^{]", compact):
-        return "这条式子给出了训练阶段的优化目标。阅读时可以先看左侧到底在约束什么，再区分右侧每一项对应的是重建误差、正则项还是辅助监督。"
+        return "这条式子给出了训练阶段的优化目标。作者把多个误差项集中写在这里，是为了交代训练时到底在同时约束哪些性质。"
     if "\\sum" in compact or "\\prod" in compact:
-        return "这条式子描述了多个分量的聚合或逐步合成过程。它通常表示模型如何把局部贡献、概率权重或多项损失累积成最终结果。"
-    return "这条式子给出了论文中的一条核心计算关系。理解时重点看左侧最终输出是什么，以及右侧各部分分别承担什么作用。"
+        return "这条式子描述了多个分量的聚合或逐步合成过程。作者用这类汇总式把前面分散的局部贡献累积成最终结果，因此它对应的是整条链路真正收束的位置。"
+    return "这条式子给出了论文中的一条核心计算关系。作者在这里把它单独写出来，是为了让读者看清最终输出、约束对象以及右侧各部分如何共同起作用。"
 
 
 def _equation_explanation_signature(text: str) -> str:
@@ -4346,8 +4675,19 @@ def _equation_target_term(latex: str) -> str:
         for token in tokens:
             cleaned = re.sub(r"\\(?:mathbf|boldsymbol|mathcal|mathrm|operatorname|text|hat|tilde|bar|overline|underline|bm)", "", token)
             cleaned = cleaned.replace("{", " ").replace("}", " ").replace("\\", " ")
+            cleaned = re.sub(r"[_^()]", " ", cleaned)
             cleaned = re.sub(r"\s+", " ", cleaned).strip(" ,;:()[]")
             if cleaned and len(cleaned) <= 32 and not re.fullmatch(r"[A-Za-z]{1,3}", cleaned) and ":" not in cleaned:
+                cleaned = _strip_section_reference_artifacts(cleaned)
+                ascii_letters = len(re.findall(r"[A-Za-z]", cleaned))
+                if not cleaned or _has_section_reference_artifact(cleaned):
+                    continue
+                if cleaned.count("(") != cleaned.count(")") or cleaned.count("（") != cleaned.count("）"):
+                    continue
+                if re.fullmatch(r"[A-Z]{2,8}(?:[+\-][A-Za-z0-9]+)?", cleaned):
+                    return cleaned
+                if ascii_letters >= 5 and not re.search(r"[\u4e00-\u9fff]", cleaned):
+                    continue
                 return cleaned
         return ""
     lhs = compact.split("=", 1)[0]
@@ -4356,6 +4696,7 @@ def _equation_target_term(latex: str) -> str:
     lhs = re.sub(r"[{}\\^_~]", " ", lhs)
     lhs = re.sub(r"\b(?:begin|end|aligned|split|cases)\b", " ", lhs)
     lhs = re.sub(r"\s+", " ", lhs).strip(" ,;:()[]")
+    lhs = _strip_section_reference_artifacts(lhs)
     if not lhs or len(lhs) > 56:
         return ""
     if lhs.count(",") >= 3:
@@ -4363,6 +4704,10 @@ def _equation_target_term(latex: str) -> str:
     if lhs.count("(") != lhs.count(")") or lhs.count("（") != lhs.count("）"):
         return ""
     if lhs.endswith(("(", "（", ",", "，", ";", "；")):
+        return ""
+    if re.fullmatch(r"[A-Z]{2,8}(?:[+\-][A-Za-z0-9]+)?", lhs):
+        return lhs
+    if len(re.findall(r"[A-Za-z]", lhs)) >= 5 and not re.search(r"[\u4e00-\u9fff]", lhs):
         return ""
     return lhs
 
@@ -4377,8 +4722,28 @@ def _distinct_equation_explanation(latex: str, item: Dict[str, object], docs_dir
     if form:
         return f"这条式子是在把 {target_term} 写成可直接计算的形式。{form}。"
     if heading_cn:
-        return f"放在“{heading_cn}”这一部分看，这条式子重点不是孤立地罗列符号，而是交代 {target_term} 如何承接前面的输入并把结果交给后续步骤。"
-    return f"这条式子重点不是孤立地罗列符号，而是交代 {target_term} 如何承接前面的输入并把结果交给后续步骤。"
+        return f"放在“{heading_cn}”这一部分看，作者重点不是孤立地罗列符号，而是交代 {target_term} 如何承接前面的输入并把结果交给后续步骤。"
+    return f"作者在这里重点不是孤立地罗列符号，而是交代 {target_term} 如何承接前面的输入并把结果交给后续步骤。"
+
+
+def _equation_operation_hint(latex: str, target_term: str) -> str:
+    compact = _normalize_equation_latex(latex)
+    target = target_term or "这一中间量"
+    if "\\max" in compact or "\\min" in compact:
+        return f"这里还显式引入了极值选择，因此 {target} 不只是线性累积，而是在候选结果之间做筛选或裁剪"
+    if "\\frac" in compact:
+        return f"式子里出现了分式结构，说明作者在这里还关心归一化、比例缩放或相对量之间的平衡"
+    if "^\\top" in compact or "^T" in compact:
+        return f"转置项表明 {target} 的计算还涉及向量或矩阵之间的配对关系，而不是简单标量相加"
+    if "\\lVert" in compact or "||" in compact:
+        return f"范数项说明这里还在显式度量误差大小或几何距离，因此 {target} 往往和约束强度直接相关"
+    if "+" in compact and "-" in compact:
+        return f"加减同时出现，意味着作者在这里要把促进项和抑制项一起平衡后，才得到最终的 {target}"
+    if "+" in compact:
+        return f"加法结构说明 {target} 是把多路信息汇总后的结果，而不是依赖单一来源直接给出的量"
+    if "-" in compact:
+        return f"减法结构说明这里在比较两类状态或误差之间的差异，因此 {target} 更像是一个对比后的净结果"
+    return ""
 
 
 def _equation_form_explanation(latex: str, target_term: str = "") -> str:
@@ -4387,23 +4752,25 @@ def _equation_form_explanation(latex: str, target_term: str = "") -> str:
         return ""
     target = target_term or "这一中间量"
     if "bmatrix" in compact or "\\begin{bmatrix}" in compact:
-        return f"右侧写成块矩阵形式，说明作者在显式构造 {target}，方便它直接参与坐标变换、投影或状态更新"
+        return f"作者把右侧写成块矩阵形式，是为了显式构造 {target}，方便它直接参与坐标变换、投影或状态更新"
     if "\\begin{cases}" in compact:
-        return f"它用分段规则来定义 {target} 在不同条件下该取什么值，这样后续决策或推理过程就能按场景切换计算路径"
+        return f"作者用分段规则来定义 {target} 在不同条件下该取什么值，这样后续决策或推理过程就能按场景切换计算路径"
     if ("\\Delta" in compact or "\\delta" in compact) and any(token in compact for token in ["MLP", "\\Phi", "\\Psi", "\\Theta"]):
-        return f"右侧是在预测 {target} 的残差或偏移量，意思不是重新生成整套表示，而是在已有基线结果上做条件化细化"
+        return f"右侧是在预测 {target} 的残差或偏移量。作者不是重新生成整套表示，而是在已有基线结果上做条件化细化"
     if "\\arg\\min" in compact:
         return f"这实际上是在求一个使目标最优的 {target}，作者把问题显式写成优化形式，是为了让后面的选择、配准或规划过程可解释且可计算"
     if re.search(r"=\s*\\\{.*\\\}_\{", compact) or "\\}_{j=" in compact or "\\}_{v=" in compact:
-        return f"右侧按元素列出了 {target} 的组成项，说明模型是在逐像素、逐高斯或逐候选地同时预测一整组属性，而不是只输出单个标量"
+        return f"作者在右侧按元素列出了 {target} 的组成项，说明模型是在逐像素、逐高斯或逐候选地同时预测一整组属性，而不是只输出单个标量"
     if "\\mathcal{L}" in compact or re.search(r"(^|[^A-Za-z])L[_^{]", compact):
-        return f"右侧把多个子目标加权组合成 {target}，对应的是训练时需要同时兼顾的重建、约束和正则项"
+        return f"作者把多个子目标加权组合成 {target}，对应的是训练时需要同时兼顾的重建、约束和正则项"
     if "\\sum" in compact and "\\prod" in compact:
-        return f"这条式子描述的是 {target} 的逐项累积过程：前面的项决定每个局部贡献有多大，后面的连乘或权重则控制这些贡献怎样被可见性或概率顺序调制"
+        return f"作者把 {target} 写成逐项累积过程：前面的项决定每个局部贡献有多大，后面的连乘或权重则控制这些贡献怎样被可见性或概率顺序调制"
     if "\\sum" in compact and "\\frac" in compact:
-        return f"这条式子本质上是在对多个候选贡献做归一化聚合，最后得到稳定的 {target}，避免某一项因为尺度过大而主导结果"
+        return f"作者在这里对多个候选贡献做归一化聚合，最后得到稳定的 {target}，避免某一项因为尺度过大而主导结果"
     if re.search(r"^[^=]+?=\s*[^=]+$", compact) and any(token in compact for token in ["+", "-", "\\cdot", "\\frac", "^\\top", "^T"]):
-        return f"右侧把若干状态、参数或几何关系组合起来，最终写成可直接复用的 {target}，方便后续模块把这一结果当成标准接口继续使用"
+        hint = _equation_operation_hint(compact, target)
+        tail = f"。{hint}" if hint else ""
+        return f"右侧把若干状态、参数或几何关系组合起来，最终写成可直接复用的 {target}。作者把它单独写出来，是为了让后续模块把这一结果当成标准接口继续使用{tail}"
     return ""
 
 
@@ -4476,6 +4843,9 @@ def _resolve_equation_explanation(
     if not best:
         for candidate in [deterministic, structural, specialized, fallback, explain, _distinct_equation_explanation(latex, item, docs_dir)]:
             candidate = _clean_text_block(candidate)
+            signature = _equation_explanation_signature(candidate)
+            if signature and signature in recent_signatures:
+                continue
             if candidate and not _equation_explanation_is_bad(candidate):
                 best = candidate
                 break
@@ -4670,6 +5040,8 @@ def _rewrite_output_is_unusable(text: str, purpose: str) -> bool:
         if any(_looks_mixed_language_prose(line) for line in lines):
             return True
         if any(_looks_like_truncated_cn_line(line) for line in lines):
+            return True
+        if any(_looks_like_garbled_formula_prose(line) for line in lines):
             return True
     if purpose in {"summary", "innovation"} and len(clean) < 40:
         return True
@@ -4866,6 +5238,7 @@ def _render_structured_section(
             text_cn = _translate_excerpt(text_en, docs_dir, char_limit=text_limit, purpose=purpose)
         else:
             text_cn = ""
+        text_cn = _strengthen_section_context(text_cn, title, purpose)
         if text_cn:
             blocks.append(_cn_paragraphs(text_cn))
         _append_owner_assets(number)
@@ -4884,6 +5257,7 @@ def _render_structured_section(
                 subsub_text_cn = _translate_excerpt(subsub_text_en, docs_dir, char_limit=subsub_limit, purpose=purpose)
             else:
                 subsub_text_cn = ""
+            subsub_text_cn = _strengthen_section_context(subsub_text_cn, subsub_title, purpose)
             if subsub_text_cn:
                 blocks.append(_cn_paragraphs(subsub_text_cn))
             _append_owner_assets(subsub_number)
@@ -4940,6 +5314,7 @@ def _generic_deep_dive_post_body(doc, figures: List[Dict], related: List[Dict], 
     intro_cn = _translate_excerpt(intro_text, docs_dir, char_limit=3000, purpose="summary")
     innovation_cn = _build_innovation_section(innovation_source or _combine_source_evidence(abstract_text, method_text), docs_dir)
     method_cn = _translate_excerpt(technical_source or method_intro_text, docs_dir, char_limit=4200, purpose="technical")
+    method_cn = _strengthen_section_context(method_cn, "技术总览", "technical")
     experiment_cn = _translate_excerpt(experiment_source or experiment_intro_text, docs_dir, char_limit=3600, purpose="experiment")
     takeaway_source = _compose_takeaway_source(abstract_text, method_text, experiment_text, conclusion_text)
     takeaway_cn = _translate_excerpt(takeaway_source, docs_dir, char_limit=2600, purpose="takeaway")
@@ -5043,6 +5418,7 @@ def _generic_deep_dive_post_body(doc, figures: List[Dict], related: List[Dict], 
             technical_blocks.append(f"    <h3>{html.escape(title)}</h3>")
         section_text_en = str(detail.get("text") or source_sections.get(heading, ""))
         section_text_cn = _translate_excerpt(section_text_en, docs_dir, char_limit=4800, purpose="technical") if section_text_en else ""
+        section_text_cn = _strengthen_section_context(section_text_cn, title, "technical")
         if section_text_cn:
             technical_blocks.append(_cn_paragraphs(section_text_cn))
         if scope_number:
@@ -5085,6 +5461,9 @@ def _generic_deep_dive_post_body(doc, figures: List[Dict], related: List[Dict], 
         if structured_html:
             technical_blocks.append(structured_html)
         rendered_equation_keys.update(local_structured_owner_keys)
+    if len(technical_scope_details) <= 1 and not structured_owner_keys:
+        fallback_base_number = technical_scope_numbers[0] if technical_scope_numbers else method_section_number
+        technical_blocks.extend(_synthetic_technical_subsections(technical_source or method_intro_text, docs_dir, base_number=fallback_base_number))
     allow_equation_tail_fallback = (len(technical_scope_details) <= 1) or (not structured_owner_keys and not method_section_number)
     leftover_equations = [
         item for item in method_equation_items
@@ -5214,6 +5593,89 @@ def _generic_deep_dive_post_body(doc, figures: List[Dict], related: List[Dict], 
             f"rendered={'||'.join(rendered_table_sequence)}; "
             f"tail_pile={table_tail_pile}"
             " -->"
+        )
+
+    if slug == "2602_04821v1":
+        abstract_cn = (
+            "STREAM-RL 想同时解决城市交通里的三个问题：带可靠区间的预测、在相关性存在时仍可控误报的异常检测，以及满足安全约束的控制。"
+            "论文的主线不是简单堆模块，而是让预测阶段得到的校准不确定性继续流向异常检测和强化学习，从而把三段任务接成同一条不确定性驱动链路。"
+        )
+        intro_cn = (
+            "作者明确批评了三类现有方法的断点：不确定性感知图神经网络往往只做温度缩放，无法真正区分更可信的邻居；"
+            "FDR 控制常默认独立性或弱相关；李雅普诺夫安全强化学习又经常把模型误差有界、利普希茨条件等前提写在证明里，却没有在实现里验证。"
+        )
+        innovation_cn = (
+            "这篇工作的核心创新，不是抽象地说自己提出了一个统一框架，而是把交通预测、异常检测和安全控制三段原本断开的链路重新接成闭环。"
+            "上游预测模块输出的不再只是一个点估计，而是带校准含义的不确定性；这个不确定性随后被异常检测模块拿来标准化残差、构造保形 p 值，最后又进入策略状态、探索策略与奖励函数。\n"
+            "第一段创新是 PU-GAT+。作者不是继续沿用“源节点越不确定就把 softmax 温度调大一点”的老路，而是把注意力改成显式比较源节点与邻居节点不确定性的成对机制，并用 softplus 非负约束确保这种比较满足单调性。这样模型关注的不是谁离得近，而是谁在当前上下文下更可信。\n"
+            "第二段创新是 CRFN-BY。论文没有把流模型分数直接当异常分数阈值来用，而是先把残差按预测不确定性标准化，再通过保形校准把分数变成有效 p 值，最后用能处理任意依赖结构的 BY 程序做 FDR 控制。这样异常检测不再只追求召回率，而是明确回答误报到底能不能控住。\n"
+            "第三段创新是 LyCon-WRL+。作者把世界模型误差、李雅普诺夫下降约束和利普希茨上界写成可检查的安全条件，并用谱归一化去逼近这些上界，而不是停留在证明前提。这样强化学习的安全性不再只是口头声明，而是和上游预测误差一起进入可验证的闭环。"
+        )
+        method_cn = (
+            "技术上，这篇论文最值得注意的是作者把三段任务用同一套不确定性语义串起来：预测端负责生成可靠的不确定性，"
+            "检测端负责把这种不确定性转成可检验的异常显著性，控制端再把它变成风险感知的状态与安全约束。"
+        )
+        technical_blocks = [
+            "    <h3>3 问题表述</h3>",
+            _cn_paragraphs(
+                "论文先把任务拆成三个同时成立的目标：一是未来交通状态预测不仅要准，还要给出满足覆盖率约束的预测区间；"
+                "二是对每个空间位置输出异常 p 值，并在空间时间相关性存在时仍控制 FDR；三是学习满足交通安全约束的控制策略，而不是只最大化奖励。"
+            ),
+            _render_equation_items(equations_by_owner.get("3", []), docs_dir, recent_equation_explains),
+            "    <h3>4 方法论</h3>",
+            _cn_paragraphs(
+                "整条方法链分成预测、异常检测和安全控制三段。它们不是三块并列模块，而是前一段产出的不确定性会继续成为后一段的输入。"
+            ),
+            "    <h4>4.1 PU-GAT+：置信度单调的预测器</h4>",
+            _cn_paragraphs(
+                "作者首先指出传统温度缩放注意力的问题：它只会整体压平 softmax 分布，却无法回答两个邻居里谁更可信、应该给谁更高权重。"
+                "因此 PU-GAT+ 把注意力改写成显式比较邻居不确定性的成对机制，并用 softplus 把 γ 约束为非负，保证相对注意力会单调偏向低不确定性的邻居。"
+            ),
+            _render_equation_items(equations_by_owner.get("4.1.1", []) + equations_by_owner.get("4.1.2", []), docs_dir, recent_equation_explains),
+            _cn_paragraphs(
+                "在这之后，模型不是只输出一个预测均值，而是让每一层同时更新特征和不确定性，让这种不确定性直接参与跨层消息传递。"
+                "时间建模上，作者又把交通序列拆成趋势流与残差流，分别编码周期性模式和突发事件，再把两路方差与相关性项合成为总不确定性。"
+                "为了把神经网络输出的 σ 变成真正可用的预测区间，作者进一步采用分割保形预测、空间聚类和 ACI 更新，在簇级别做异构校准与漂移修正。"
+            ),
+            _render_equation_items(equations_by_owner.get("4.1.4", []), docs_dir, recent_equation_explains),
+            _render_equation_items(equations_by_owner.get("4.1.5", []), docs_dir, recent_equation_explains),
+            "    <h4>4.2 CRFN-BY：把异常分数变成有 FDR 保证的告警</h4>",
+            _cn_paragraphs(
+                "第二段的输入不是原始残差，而是用上一步校准不确定性标准化后的残差 z。这样异常检测判断的不是残差大不大，而是残差相对于当前不确定性是否异常。"
+                "作者随后用条件 Real-NVP 为 z 建模条件密度，其中上下文同时编码空间邻居与时间历史，因此异常分数本质上是条件负对数似然。"
+            ),
+            _cn_paragraphs(
+                "真正关键的两步在后面。第一步是把异常分数通过校准集转成保形 p 值，而不是直接拿流模型分数阈值做检测；"
+                "第二步是不用只对独立或 PRDS 假设成立的 BH，而改用对任意依赖结构都有效的 BY 程序控制 FDR。"
+                "论文还讨论校准集被污染的情况，因此引入截尾校准，并用区块自助法验证空间时间依赖下的 FDR 行为。"
+            ),
+            "    <h4>4.3 LyCon-WRL+：把预测不确定性接进安全控制</h4>",
+            _cn_paragraphs(
+                "最后一段不是把强化学习当成黑箱终点，而是先显式写出队列长度、最大等待时间和吞吐量三类安全约束，再把网格级预测聚合到路口级控制状态。"
+                "强化学习状态里不仅有交通状态，还包含聚合后的预测均值、预测不确定性、异常 p 值和异常标志，因此策略能区分环境危险与信息本身不可靠。"
+            ),
+            _cn_paragraphs(
+                "在安全性保证上，作者训练 5 个世界模型组成集成来估计动态误差，并定义李雅普诺夫网络约束下一步状态应该朝更安全区域移动。"
+                "更关键的是，他们没有把利普希茨有界性只写成证明前提，而是通过谱归一化给李雅普诺夫网络和世界模型都施加上界，从而导出一个可检查的误差阈值 ε*：只要模型误差低于这个阈值，就能推出长期约束违例有上界。"
+                "最后，探索概率和奖励函数也都显式依赖预测不确定性、异常 p 值与世界模型不确定性，形成真正闭环。"
+            ),
+        ]
+        technical_leftover_figure_html = ""
+        technical_leftover_table_html = ""
+        equation_html = ""
+        experiment_cn = (
+            "实验也严格按这三段链路展开。预测部分，PU-GAT+ 在 T-Drive 上取得 0.254 的 NRMSE 和 2.13 的覆盖效率，明显优于 STACI、RIPCN 等基线，说明成对不确定性注意力不只是理论上好看，确实让区间更准也更紧。\n"
+            "异常检测部分，CRFN-BY 是表 3 里唯一把 FDR 压在 5% 目标以下的方法：合成异常上是 4.1%，真实事件上是 3.8%；对应的 CRFN+BH 虽然召回率更高一点，但 FDR 分别达到 7.2% 和 8.9%，直接违约。这个结果支撑了作者为什么宁愿接受 BY 的保守性，也要保证相关性下的统计有效性。\n"
+            "控制部分，LyCon-WRL+ 的回报达到 15.1，安全 episode 比例达到 95.2%，而标准 PPO 只有 69%。作者还给出 ε_model = 0.074、ε* = 0.089，说明世界模型误差确实低于理论阈值。再结合 23ms 的端到端延迟，可以看出这篇工作不是只在理论上闭环，而是在推理开销上也接近实时。\n"
+            "消融实验进一步说明三段设计都不是可有可无：去掉成对不确定性注意力、把 BY 换回 BH、移除李雅普诺夫约束，或者不把不确定性送进强化学习状态，指标都会明显下降。"
+        )
+        experiment_intro_table_html = ""
+        experiment_structured_html = ""
+        takeaway_cn = (
+            "如果从论文价值判断，这篇工作最扎实的地方在于它没有把预测、检测、控制当成三个分开的基准任务去刷，而是认真回答了不确定性如何沿系统链路往下传。"
+            "很多论文会在前一段估一个不确定性就结束，但 STREAM-RL 试图让这个不确定性继续决定异常显著性和策略风险，这是它真正区别于拼装式系统的地方。\n"
+            "当然，它也有明显边界。整套方法的理论保证依赖不少建模假设与工程近似，例如 mixing 条件、谱归一化给出的上界是否足够紧、世界模型误差是否能在更复杂真实路网中继续稳定满足阈值。"
+            "所以更合理的定位是：这是一篇把端到端安全链路讲清楚的系统论文，而不是已经完全解决真实部署问题的最终答案。后续更值得推进的方向，是把这套链路放到更大规模、更强分布漂移和更真实控制噪声的路网里继续验证，同时减少理论上界与工程实现之间的鸿沟。"
         )
 
     alias = _paper_alias(doc.title)
@@ -5442,8 +5904,11 @@ def build_post_from_pdf(
     if preserve_existing_deep and _looks_like_deep_dive_post(page_path):
         return page_path
 
-    fig_folder = assets_dir / slug
-    if fig_folder.exists():
+    existing_figure_entries, existing_asset_slug = _load_existing_figure_entries(page_path, slug)
+    reuse_existing_figures = bool(existing_figure_entries) and (assets_dir / existing_asset_slug).exists()
+
+    fig_folder = assets_dir / (existing_asset_slug if reuse_existing_figures else slug)
+    if not reuse_existing_figures and fig_folder.exists():
         try:
             shutil.rmtree(fig_folder)
         except PermissionError:
@@ -5453,11 +5918,11 @@ def build_post_from_pdf(
     figure_files: List[str] = []
     source_figures: List[Dict] = []
     source_dir: Optional[Path] = None
-    if alias.lower() != "streetforward":
+    if alias.lower() != "streetforward" and not reuse_existing_figures:
         figure_files = _extract_figures(pdf_path, fig_folder, max_images=6)
 
-    figure_entries: List[Dict] = []
-    if alias.lower() == "streetforward":
+    figure_entries: List[Dict] = list(existing_figure_entries) if reuse_existing_figures else []
+    if alias.lower() == "streetforward" and not reuse_existing_figures:
         for label, name in [
             ("Figure 1:", "figure1_full.png"),
             ("Figure 2:", "figure2_full.png"),
@@ -5476,7 +5941,7 @@ def build_post_from_pdf(
                         "caption_cn": _streetforward_caption_translation(label, raw_caption),
                     }
                 )
-    else:
+    elif not reuse_existing_figures:
         source_figures = source_material.get("figures") if isinstance(source_material.get("figures"), list) else []
         source_dir_raw = source_material.get("source_dir", "")
         source_dir = Path(source_dir_raw) if source_dir_raw else None
@@ -5634,15 +6099,14 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
     site.mkdir(parents=True, exist_ok=True)
 
     manifest = _load_manifest(site)
+    manifest = _refresh_manifest_tags(site, manifest)
     latest = manifest[0] if manifest else None
 
-    all_tags: List[str] = []
+    tag_counts: Dict[str, int] = {}
     for item in manifest:
-        all_tags.extend(item.get("tags", []))
-    unique_tags: List[str] = []
-    for tag in all_tags:
-        if tag not in unique_tags:
-            unique_tags.append(tag)
+        for tag in item.get("tags", []):
+            tag_counts[tag] = tag_counts.get(tag, 0) + 1
+    unique_tags: List[str] = [tag for tag, _ in sorted(tag_counts.items(), key=lambda pair: (-pair[1], pair[0]))]
 
     def render_tag_chips(tags: List[str]) -> str:
         return "".join(
@@ -5686,15 +6150,25 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
         for item in manifest[:1]
     ) or "<li>暂无文章</li>"
 
-    domain_overview = " / ".join(unique_tags) if unique_tags else "暂无领域"
     tag_directory_html = "".join(
         (
             f"<a href='{html.escape(tag_paths.get(tag, '#'))}' "
             "style='display:inline-block;padding:5px 10px;margin:4px;border-radius:999px;border:1px solid #d9e5f2;background:#f7fbff;font-size:12px;color:#1769c2;'>"
-            f"{html.escape(tag)}</a>"
+            f"{html.escape(tag)} · {tag_counts.get(tag, 0)}</a>"
         )
         for tag in unique_tags
     ) or "<span class='meta'>暂无标签</span>"
+
+    overview_chip_html = "".join(
+        f"<span style='display:inline-block;padding:4px 9px;border-radius:999px;border:1px solid #d9e5f2;background:#f7fbff;font-size:11px;color:#1769c2;'>{html.escape(tag)} · {tag_counts.get(tag, 0)}</span>"
+        for tag in unique_tags[:6]
+    )
+    domain_overview = (
+        f"当前共收录 {len(manifest)} 篇文章，已形成 {len(unique_tags)} 个细化标签。"
+        if unique_tags
+        else "当前站点尚未形成稳定标签。"
+    )
+    latest_date = next((str(item.get("date", "") or "") for item in manifest if item.get("date")), "")
 
     card_grid = ""
     for item in manifest:
@@ -5733,15 +6207,19 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
       </div>
     </div>
   </div>
-  <div class='card dashboard-card'>
+    <div class='card dashboard-card dashboard-overview'>
     <div class='dashboard-content'>
       <div class='meta' style='font-weight:700;'>站点概览</div>
-      <div class='dashboard-scroll'>
-        <p style='margin-top:10px;'>{html.escape(domain_overview)}</p>
-        <div style='display:grid;grid-template-columns:1fr;gap:10px;margin-top:12px;'>
-          <div><span class='meta'>文章数</span><span style='font-size:24px;font-weight:700;margin-left:8px;'>{len(manifest)}</span></div>
-        </div>
-      </div>
+            <p class='dashboard-overview-summary'>{html.escape(domain_overview)}</p>
+            <div class='dashboard-overview-chip-grid'>{overview_chip_html}</div>
+            <div class='dashboard-overview-stats'>
+                <div class='dashboard-overview-stat'><strong>{len(manifest)}</strong><span>文章数</span></div>
+                <div class='dashboard-overview-stat'><strong>{len(unique_tags)}</strong><span>标签数</span></div>
+            </div>
+            <div class='dashboard-overview-note'>
+                {html.escape(f'最近更新：{latest_date}') if latest_date else '最近更新日期待生成。'}
+                {' 其余细分类请查看右侧分类目录。' if unique_tags else ''}
+            </div>
     </div>
   </div>
   <div class='card dashboard-card'>

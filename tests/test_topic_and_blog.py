@@ -3,6 +3,7 @@ from pathlib import Path
 import fitz
 
 from build_blog import (
+    _infer_tags,
     _choose_main_tex,
     _figure_band_bounds,
     _pick_best_figure_rect,
@@ -72,11 +73,13 @@ def test_build_blog_outputs_files(tmp_path: Path) -> None:
     assert "world model" in home_html
     assert "分类目录" in home_html
     assert ".dashboard-card { aspect-ratio: 1.618 / 1;" in home_html
-    assert "文章数</span><span" in home_html
+    assert "dashboard-overview" in home_html
+    assert "<strong>1</strong><span>文章数</span>" in home_html
+    assert "<span>标签数</span>" in home_html
     assert "点击标签进入独立目录页" not in home_html
     assert "这里汇总当前站点规模与已覆盖的研究主题" not in home_html
     assert "tags/world-model.html" in home_html
-    assert "最新发布日期" not in home_html
+    assert "最近更新：" in home_html
     assert (site_dir / "tags" / "world-model.html").exists()
 
 
@@ -100,6 +103,77 @@ def test_build_all_posts_outputs_multiple_pages(tmp_path: Path) -> None:
     assert len(posts) == 2
     assert home.exists()
     assert len(list((site_dir / "posts").glob("*.html"))) == 2
+
+
+def test_infer_tags_supports_finer_taxonomy() -> None:
+        tags = _infer_tags(
+                "Feedforward world model for autonomous driving simulation and planning",
+                """
+                This paper studies Gaussian Splatting and dynamic reconstruction for autonomous driving.
+                It focuses on planning, control, occupancy forecasting, robust uncertainty estimation,
+                efficient compression, semantic geometry representation, and video generation.
+                """,
+        )
+
+        assert "feedforward" in tags
+        assert "world model" in tags
+        assert "自动驾驶" in tags
+        assert "场景仿真" in tags
+        assert "规划控制" in tags
+        assert "感知预测" in tags
+        assert "高效优化" in tags
+        assert "鲁棒泛化" in tags
+        assert "生成建模" in tags
+        assert "几何表征" in tags
+
+
+def test_build_home_refreshes_manifest_tags_from_existing_post(tmp_path: Path) -> None:
+        site_dir = tmp_path / "site"
+        posts_dir = site_dir / "posts"
+        posts_dir.mkdir(parents=True)
+
+        (posts_dir / "demo.html").write_text(
+                """
+                <html><body>
+                <article>
+                    <h1>Feedforward Driving World Model</h1>
+                    <p>This article covers autonomous driving simulation, planning, occupancy forecasting,
+                    efficient compression, robust uncertainty estimation and semantic geometry.</p>
+                </article>
+                </body></html>
+                """,
+                encoding="utf-8",
+        )
+
+        (site_dir / "blog_manifest.json").write_text(
+                """
+                [
+                    {
+                        "slug": "demo",
+                        "title": "Demo",
+                        "date": "2026-04-14",
+                        "arxiv_id": "demo",
+                        "path": "posts/demo.html",
+                        "summary": "placeholder",
+                        "tagline": "placeholder",
+                        "thumbnail_path": "",
+                        "tags": ["论文解读"],
+                        "featured": true,
+                        "full_title": "Feedforward Driving World Model"
+                    }
+                ]
+                """,
+                encoding="utf-8",
+        )
+
+        build_home(site_dir)
+
+        refreshed = (site_dir / "blog_manifest.json").read_text(encoding="utf-8")
+        assert "feedforward" in refreshed
+        assert "world model" in refreshed
+        assert "自动驾驶" in refreshed
+        assert "规划控制" in refreshed
+        assert "感知预测" in refreshed
 
 
 def test_figure_band_bounds_uses_previous_caption() -> None:
