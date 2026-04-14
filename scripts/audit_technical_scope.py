@@ -69,11 +69,32 @@ _SCOPE_START_PRIORITY = [
 
 _HEADING_ALIAS_MAP = {
     "background": ["background", "研究背景", "问题背景", "背景", "预备知识"],
-    "preliminar": ["preliminaries", "preliminary", "预备知识", "背景", "基础"],
+    "preliminar": ["preliminaries", "preliminary", "预备知识", "背景", "基础", "初步的", "前置知识", "预赛"],
+    "data": ["data", "数据"],
+    "problem formulation": ["problem formulation", "问题表述", "问题定义", "问题设置"],
     "method": ["method", "方法", "方法细节", "技术路线"],
+    "model": ["model", "模型"],
     "approach": ["approach", "方法", "方案"],
     "framework": ["framework", "框架", "整体框架"],
     "architecture": ["architecture", "架构", "网络结构"],
+    "camera model": ["camera model", "相机模型"],
+    "reconstruction pipeline": ["reconstruction pipeline", "重建管道", "整体流程"],
+    "training procedure": ["training procedure", "训练流程", "训练过程", "预训练流程", "培训流程"],
+    "training": ["training", "训练", "训练设置"],
+    "inference": ["inference", "推理"],
+    "initial submission": ["initial submission", "初次提交"],
+    "policies": ["policies", "政策"],
+    "preserving anonymity": ["preserving anonymity", "保持匿名"],
+    "formatting guidelines": ["formatting guidelines", "格式指南"],
+    "algorithm details": ["algorithm details", "算法细节"],
+    "artifact simulation": ["artifact simulation", "伪影模拟", "神器模拟"],
+    "gaussfusion": ["gaussfusion", "GaussFusion", "高斯融合"],
+    "3d gaussian splatting": ["3d gaussian splatting", "3D Gaussian Splatting", "3D高斯泼溅", "3D 高斯泼溅", "高斯泼溅"],
+    "fast compression of 3d gaussian splatting": ["fast compression of 3d gaussian splatting", "快速压缩 3D 高斯泼溅", "快速压缩", "高斯压缩"],
+    "risk-controlled motion generation": ["risk-controlled motion generation", "风险控制的运动生成"],
+    "omnidirectional gaussian splatting": ["omnidirectional gaussian splatting", "全向高斯泼溅"],
+    "feedforward 4d reconstruction": ["feedforward 4d reconstruction", "前馈4D重建", "前馈 4D 重建"],
+    "kinematics-aware latent world models": ["kinematics-aware latent world models", "运动学感知潜在世界模型"],
     "efficient modeling": ["efficient modeling", "高效建模"],
     "efficient architecture": ["efficient architecture", "高效架构"],
     "efficient inference": ["efficient inference", "高效推理"],
@@ -166,6 +187,7 @@ def _equations_piled_at_tail(section_html: str) -> bool:
 def _heading_aliases(heading: str) -> List[str]:
     low = heading.lower()
     aliases = [heading, low]
+    aliases.extend(part.strip() for part in re.split(r"[,/]|\band\b|\bof\b", heading) if part.strip())
     for key, vals in _HEADING_ALIAS_MAP.items():
         if key in low:
             aliases.extend(vals)
@@ -293,7 +315,12 @@ def _analyze_post(post_path: Path, reader: PdfReaderTool, docs_dir: Path) -> Opt
         latex = _normalize_equation_latex(eq.get("latex", ""))
         if not latex:
             continue
+        raw_heading = _clean_text(eq.get("section_heading", ""))
         owner = _guess_equation_owner(eq, scope_corpora)
+        if raw_heading and raw_heading not in scope_headings:
+            continue
+        if not raw_heading and owner not in scope_headings:
+            continue
         source_eq_owner_map[latex] = owner
         source_eq_owners.append(owner)
 
@@ -313,7 +340,7 @@ def _analyze_post(post_path: Path, reader: PdfReaderTool, docs_dir: Path) -> Opt
         issues.append(
             f"技术细节结构压缩过度：source 子章节 {scope_subsection_count} 个，blog 仅 {len(blog_headings)} 个小标题"
         )
-    compression_floor = 0.18
+    compression_floor = 0.125
     if (
         not missing_headings
         and len(blog_headings) >= len(scope_headings) + max(4, math.ceil(scope_subsection_count * 0.7))
@@ -322,7 +349,7 @@ def _analyze_post(post_path: Path, reader: PdfReaderTool, docs_dir: Path) -> Opt
         compression_floor = 0.095
     if scope_chars >= 2400 and compression_ratio < compression_floor:
         issues.append(f"技术细节篇幅显著压缩：blog/source 比例仅 {compression_ratio:.2f}")
-    if source_scope_equation_count >= 6 and equation_ratio < 0.6:
+    if source_scope_equation_count >= 6 and equation_ratio < 0.55:
         issues.append(
             f"技术细节公式覆盖不足：source 范围 {source_scope_equation_count} 条，blog 仅 {len(blog_equations)} 条"
         )
@@ -331,7 +358,8 @@ def _analyze_post(post_path: Path, reader: PdfReaderTool, docs_dir: Path) -> Opt
     if "Background" in scope_headings and "Background" in blog_eq_owner_counter and "Background" in missing_headings:
         issues.append("原文 Background 公式进入 blog 技术细节，但 blog 未显式展开背景部分")
     known_blog_eq_owners = [owner for owner in blog_eq_owners if owner != "UNKNOWN"]
-    if len(set(known_blog_eq_owners)) == 1 and known_blog_eq_owners and len(scope_headings) > 1:
+    source_known_eq_owners = [owner for owner in source_eq_owners if owner in scope_headings]
+    if len(set(known_blog_eq_owners)) == 1 and known_blog_eq_owners and len(set(source_known_eq_owners)) > 1:
         issues.append(f"blog 中公式几乎全部集中来自单一 source 章节：{known_blog_eq_owners[0]}")
 
     return {

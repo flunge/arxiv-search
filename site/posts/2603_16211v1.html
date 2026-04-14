@@ -215,7 +215,7 @@
 <body>
 <div class='page-stage'>
   <div id='page-shell' class='page-shell'>
-<!-- source-grounding: arxiv_id=2603.16211v1; pdf=2603_16211v1_Leveling3D Leveling Up 3D Reconstruction with Feed-Forward 3D Gaussian Splatting.pdf; source_dir=C:\Users\XPENG_USER\Documents\docs\文献\feedforward\docs\.arxiv_source_cache\2603_16211v1\extracted; sections=5; figures=0; equations=10 -->
+<!-- source-grounding: arxiv_id=2603.16211v1; pdf=2603_16211v1_Leveling3D Leveling Up 3D Reconstruction with Feed-Forward 3D Gaussian Splatting.pdf; source_dir=docs\.arxiv_source_cache\2603_16211v1\extracted; sections=5; figures=0; equations=10 -->
 
 <div class='layout'>
   <aside class='sidebar'><div class='sidebar-controls'><h3 class='sidebar-title'>目录</h3><a href='../index.html' class='sidebar-home-link'>首页</a><button type='button' class='sidebar-toggle' aria-expanded='true' title='隐藏目录' onclick='toggleSidebar(this)'>&#8249;</button></div><ul><li><a href='#summary'>简单摘要</a></li><li><a href='#innovation'>核心创新</a></li><li><a href='#technical'>技术细节</a></li><li><a href='#experiment'>实验结论</a></li><li><a href='#takeaway'>理解评价</a></li></ul></aside>
@@ -230,55 +230,75 @@
 
     <h2 id='summary'>简单摘要</h2>
     <p>之前的作品探索使用扩散模型修复损坏的渲染结果。我们提出了一种几何感知的调平适配器，这是一种轻量级技术，可以将扩散模型中的内部知识与前馈模型中的先验几何结构对齐。</p>
-<figure><img class='paper-fig' src='../assets/2603_16211v1/fig_1.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：以前使用简单参考或文本提示作为扩散控制的 3DGS 细化方法在外推视图中的工件区域内的几何概括能力有限</figcaption></figure>
+<figure><img class='paper-fig' src='../assets/2603_16211v1/fig_2.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：我们的管道集成了几何感知水平适配器，该适配器将几何标记与扩散控制融合在一起，从而能够对外推视图进行稳健的细化，并通过扩展来提高 3D 重建的水平</figcaption></figure>
+<figure><img class='paper-fig' src='../assets/2603_16211v1/fig_1.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：以前使用简单参考或文本提示作为扩散控制的 3DGS 细化方法在外推视图中的工件区域内的几何概括能力有限</figcaption></figure>
     <p>虽然现有作品提出了一些新颖的技术来解决 3DGS 的渲染伪影，但它们主要采用扩散模型作为 2D 渲染校正的后处理工具。</p>
 
     <h2 id='innovation'>核心创新</h2>
-    <p>第一，前馈 3D 重建彻底改变了 3D 视觉，为下游任务（例如使用 3D 高斯分布进行新颖视图合成）提供了强大的基线。</p>
-    <p>第二，我们提出了一种几何感知的调平适配器，这是一种轻量级技术，可将扩散模型中的内部知识与前馈模型中的先验几何结构对齐。</p>
-    <p>第三，调平适配器能够在由 3D 表示的欠约束区域引起的外推新颖视图的伪像区域上生成。</p>
+    <p>第一个关键新意是：前馈 3D 重建彻底改变了 3D 视觉，为下游任务（例如使用 3D 高斯分布进行新颖视图合成）提供了强大的基线。这部分不是单独的小修小补，而是在原论文方法链路里承担了明确作用。</p>
+    <p>第二个关键新意是：我们提出了一种几何感知的调平适配器，这是一种轻量级技术，可将扩散模型中的内部知识与前馈模型中的先验几何结构对齐。这部分不是单独的小修小补，而是在原论文方法链路里承担了明确作用。</p>
+    <p>第三个关键新意是：调平适配器能够在由 3D 表示的欠约束区域引起的外推新颖视图的伪像区域上生成。这部分不是单独的小修小补，而是在原论文方法链路里承担了明确作用。</p>
+    <p>第四个关键新意是：具体来说，为了学习更加多样化的分布式生成，我们引入了用于训练的调色板过滤策略，以及测试时掩蔽细化以防止固定区域的混乱边界。这部分不是单独的小修小补，而是在原论文方法链路里承担了明确作用。</p>
 
+    <!-- equation-placement: source=3.1||3.1||3.1||3.1||3.1||3.2||3.2||3.3||3.3||3.3; rendered=3.1||3.1||3.1||3.1||3.1||3.2||3.2||3.3||3.3||3.3; tail_pile=0 -->
+    
     <h2 id='technical'>技术细节</h2>
-    <p>前馈 3D 重建已成为逐场景优化的强大替代方案，可在单次前向传递中实现可概括的新颖视图合成。这种设计将信息从自信的、重建良好的几何图形传播到带有伪影的外推区域。</p>
-<figure><img class='paper-fig' src='../assets/2603_16211v1/fig_2.png' alt='Figure 2:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：我们的管道集成了几何感知水平适配器，该适配器将几何标记与扩散控制融合在一起，从而能够对外推视图进行稳健的细化，并通过扩展来提高 3D 重建的水平</figcaption></figure>
+    <p>前馈 3D 重建已成为按场景优化的强大替代方案，可在单次前向传递中实现可概括的新颖视图合成。给定视图图像，其中 3D 场景，从 VGGT 中提取，来自 AnySplat 的几何编码器首先聚合来自多视图输入的标记。与 AnySplat 一样，高斯基元由高斯头利用深度图、姿势和聚合标记来提取。</p>
+    <p>我们首先将条件图像修补为 VGGT 后面的标记，其中 是补丁大小， 是高度和宽度。给定交叉注意力结果，我们将其解补丁以生成条件残差。这种设计将信息从自信的、重建良好的几何图形传播到带有伪影的外推区域。</p>
 <figure><img class='paper-fig' src='../assets/2603_16211v1/fig_3.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：该图展示了论文中的关键模块、实验设置或可视化效果</figcaption></figure>
+<figure><img class='paper-fig' src='../assets/2603_16211v1/fig_4.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：该图展示了论文中的关键模块、实验设置或可视化效果</figcaption></figure>
+
+
+
     <h3>3.1 初步的</h3>
-    <p>前馈 3D 重建已成为逐场景优化的强大替代方案，可在单次前向传递中实现可概括的新颖视图合成。给定视图图像，其中 3D 场景，从 VGGT 中提取，来自 AnySplat 的几何编码器首先聚合来自多视图输入的标记。与 AnySplat 一样，高斯基元由高斯头通过深度图、姿势和聚合标记来提取。</p>
-    <h3>3.2 几何感知调平适配器</h3>
-    <p>在这里，我们将 Leveling Adapter 的目标定义为将相应的条件图像与来自 AnySplat 编码器的多视图几何聚合的几何先验标记对齐。在投影层中应用步幅为 8 的卷积，以将条件从 到 对齐。这种设计将信息从自信的、重建良好的几何图形传播到带有伪影的外推区域。</p>
-    <h3>3.3 培训和测试</h3>
-    <p>然后，将选定的序列输入前馈重建基线以生成相应的 3DGS 表示。对于每个序列，我们在 的间隔内渲染了一组与真实情况配对的小说视图图像。对于每个小说视图渲染，我们获得一个透射率图。</p>
-    <h3>3.4 通过生成优化 3D 重建</h3>
-    <p>(i) 对于远离输入视图的新颖外推视图，渲染修复失败，其中几何先验变得不可靠。接下来，我们对稀疏输入之间和附近的一组外推姿势进行二次采样，以渲染一组粗略外推的 NVS 结果。然后，此反馈会细化几何形状和外观，从而产生更完整的 3DGS 表示。</p>
+    <p>前馈 3D 重建已成为按场景优化的强大替代方案，可在单次前向传递中实现可概括的新颖视图合成。给定视图图像，其中 3D 场景，从 VGGT 中提取，来自 AnySplat 的几何编码器首先聚合来自多视图输入的标记。与 AnySplat 一样，高斯基元由高斯头利用深度图、姿势和聚合标记来提取。</p>
     <p>$$ f_{\boldsymbol{\theta}}:\{I_i\}_{i=1}^N \;\mapsto\; \Bigl\{ \boldsymbol{\mu}, \sigma, \boldsymbol{r}, \boldsymbol{s}, \boldsymbol{c} \Bigr\}^\mathcal{G} \cup \{p_i\}_{i=1}^N. $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时重点看左侧最终输出是什么，以及右侧各部分分别承担什么作用。</p>
+    <p>放在“方法”这一部分看，它重点在定义或约束 f theta : I i i 这一项。这条式子给出了论文中的一条核心计算关系。理解时重点看左侧最终输出是什么，以及右侧各部分分别承担什么作用。</p>
     <p>$$ \mathcal{C}(x_p) = \sum_{i\in K} \mathbf{c}i \alpha_i \prod_{j=1}^{i-1}(1 - \alpha_j), \; \alpha_i=\sigma_i\mathcal{G}^\prime(x_p) $$</p>
     <p>这条式子描述了多个分量的聚合或逐步合成过程。它通常表示模型如何把局部贡献、概率权重或多项损失累积成最终结果。</p>
     <p>$$ \mathbf{Z}_t = \sqrt{\bar{\alpha}_t} \mathbf{Z}_0 + \sqrt{1 - \bar{\alpha}_t} \boldsymbol{\epsilon}, \quad \boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I}) $$</p>
     <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
     <p>$$ \mathcal{L} = \mathbb{E}_{\mathbf{Z}_t,\mathbf{C}, t, \boldsymbol{\epsilon}} [ ||\boldsymbol{\epsilon} - \boldsymbol{\epsilon}_\theta(\mathbf{Z}_t, \mathbf{C})||_2^2 ], $$</p>
-    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
+    <p>放在“方法”这一部分看，它重点在定义或约束 L 这一项。这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
     <p>$$ \hat{\mathbf{F}}_{\text{enc}}^i = \mathbf{F}_{\text{enc}}^i + \mathbf{F}_c^i, \; \text{for } i \in {1,2,3,4}, \; \mathbf{F}_c = \mathcal{F}_{AD}(\mathbf{C}) $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时重点看左侧最终输出是什么，以及右侧各部分分别承担什么作用。</p>
+    <p>放在“方法”这一部分看，它重点在定义或约束 F enc i 这一项。这条式子给出了论文中的一条核心计算关系。理解时重点看左侧最终输出是什么，以及右侧各部分分别承担什么作用。</p>
+    <h3>3.2 几何感知调平适配器</h3>
+    <p>在这里，我们将 Leveling Adapter 的目标定义为将相应的条件图像与来自 AnySplat 编码器的多视图几何聚合的几何先验标记对齐。在投影层中应用步长为 8 的卷积来对齐从 到 的条件。这种设计将信息从自信的、重建良好的几何图形传播到带有伪影的外推区域。</p>
     <p>$$ \begin{split} \mathbf{C}_{res} &= \text{Unpatch}\bigl( \text{Attention}(\mathbf{Q}, \mathbf{K}, \mathbf{V}) \bigr) \end{split} $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时重点看左侧最终输出是什么，以及右侧各部分分别承担什么作用。</p>
+    <p>放在“方法”这一部分看，它重点在定义或约束 C res 这一项。这条式子给出了论文中的一条核心计算关系。理解时重点看左侧最终输出是什么，以及右侧各部分分别承担什么作用。</p>
     <p>$$ \hat{\mathbf{F}}_{\text{enc}}^i = \mathbf{F}_{\text{enc}}^i + \hat{\mathbf{F}}_c^i, \; \text{for } i \in {1,2,3,4}, \; \hat{\mathbf{F}}_c = \mathcal{F}_{level}(\hat{\mathbf{C}}) $$</p>
     <p>这条式子给出了论文中的一条核心计算关系。理解时重点看左侧最终输出是什么，以及右侧各部分分别承担什么作用。</p>
+    <h3>3.3 培训和测试</h3>
+    <p>然后，将所选序列输入前馈重建基线以生成相应的 3DGS 表示。对于每个序列，我们在 的间隔内渲染了一组与真实情况配对的小说视图图像。对于每个小说视图渲染，我们获得一个透射率图。</p>
     <p>$$ \mathcal{S}_{\text{p}} = \frac{1}{|\bar{M}|} \sum_{\mathbf{p} \in \bar{M}} \mathbf{1} [ \big| I_{\text{int}}(\mathbf{p}) - \mu \big| < \sigma ], $$</p>
-    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
+    <p>放在“方法”这一部分看，它重点在定义或约束 S p 这一项。这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
+    <p>$$ L_N = \frac{1}{N}\sum_{i\in N} L_{\text{LPIPS}}({I}_i, \tilde{I}_i), $$</p>
+    <p>放在“方法”这一部分看，它重点在定义或约束 L N 这一项。这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
+    <p>$$ \begin{aligned} {M}^{\text{close}} &= 1-((\bar{M} \oplus \mathbf{K}_{5}) \ominus \mathbf{K}_{5}), \\ {M}^{\text{refine}} &= {M}^{\text{close}} \oplus \mathbf{K}_{20}, \end{aligned} $$</p>
+    <p>放在“方法”这一部分看，它重点在定义或约束 M close 这一项。这条式子给出了论文中的一条核心计算关系。理解时重点看左侧最终输出是什么，以及右侧各部分分别承担什么作用。</p>
+    <h3>3.4 通过生成优化 3D 重建</h3>
+    <p>(i) 对于远离输入视图的新颖外推视图，渲染修复失败，其中几何先验变得不可靠。接下来，我们对稀疏输入之间和附近的一组外推姿势进行二次采样，以渲染一组粗略外推的 NVS 结果。然后，此反馈会细化几何形状和外观，从而产生更完整的 3DGS 表示。</p>
 
+
+
+
+    
     <h2 id='experiment'>实验结论</h2>
-    <p>实验部分主要围绕 此外，我们的方法在两个数据集上获得了最低的 Met3R 分数（TartanAir 上为 0.0614，ScanNet 上为 0.0376） 展开。结果表明，对于每个稀疏级别，我们评估从精炼的前馈 3DGS 渲染的所有外推视图的平均值的所有指标。</p>
+    <p>实验部分主要围绕 我们使用通用指标（例如 NVS 的 PSNR、SSIM 和 LPIPS）进行所有实验 展开。结果表明，我们根据最先进的基于扩散的增强管道评估我们的方法，分为图像扩散和视频扩散方法。</p>
+    <p>实验部分主要围绕 我们还评估了具有稀疏双视图输入设置的新颖视图深度估计 展开。结果表明，如表所示，与 AnySplat 相比，我们的方法在 TartanAir 上减少了 AbsRel 9%，在 ScanNet 上减少了 34%，在 TartanAir / 12 上减少了至少 5.3%。</p>
 
-<figure><img class='paper-fig' src='../assets/2603_16211v1/fig_4.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：该图展示了论文中的关键模块、实验设置或可视化效果</figcaption></figure>
+
 <figure><img class='paper-fig' src='../assets/2603_16211v1/fig_5.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：该图展示了论文中的关键模块、实验设置或可视化效果</figcaption></figure>
 <figure><img class='paper-fig' src='../assets/2603_16211v1/fig_6.png' alt='Figure 6:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 6：该图展示了论文中的关键模块、实验设置或可视化效果</figcaption></figure>
+
+
+
     <h3>4.1 设置</h3>
     <p>实验部分主要围绕 我们使用通用指标（例如 NVS 的 PSNR、SSIM 和 LPIPS）进行所有实验 展开。结果表明，我们根据最先进的基于扩散的增强管道评估我们的方法，分为图像扩散和视频扩散方法。</p>
     <h3>4.2 主要结果</h3>
-    <p>实验部分主要围绕 定性结果可稳健恢复纹理丰富的表面，以应对具有挑战性的外推视图 展开。结果表明，我们还评估了具有稀疏两视图输入设置的新颖视图深度估计。</p>
+    <p>实验部分主要围绕 定性结果可以稳健地恢复纹理丰富的表面，以应对具有挑战性的外推视图 展开。结果表明，我们还评估了具有稀疏双视图输入设置的新颖视图深度估计。</p>
     <h3>4.3 不同稀疏度数的比较</h3>
-    <p>实验部分主要围绕 对于每个稀疏级别，我们评估从精炼的前馈 3DGS 渲染的所有外推视图的平均值的所有指标 展开。结果表明，我们的方法证明了与基线相比所有稀疏性都有所改善。</p>
+    <p>实验部分主要围绕 对于每个稀疏级别，我们评估从精炼的前馈 3DGS 渲染的所有外推视图的平均值的所有指标 展开。结果表明，与基线相比，我们的方法证明了所有稀疏性的改进。</p>
     <h3>4.4 消融研究</h3>
     <p>实验部分主要围绕 为了研究掩模细化模块的影响，我们在 ScanNet 上对闭运算和膨胀运算的内核大小进行了消融研究（和） 展开。结果表明，这是因为大内核会导致掩模侵占最初由前馈 3DGS 渲染的高保真区域。</p>
 
@@ -289,6 +309,7 @@
     
   </article>
 </div>
+
   </div>
 </div>
 <div id='page-lightbox' class='page-lightbox' hidden aria-hidden='true'>

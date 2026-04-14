@@ -230,41 +230,56 @@
 
     <h2 id='summary'>简单摘要</h2>
     <p>我们推出了第一个 LiDAR 场景生成方法，用于解锁 LiDAR 点云的图像预训练先验，并利用自监督 3D 表示来获得最先进的结果。以及 (iii) 在推理时启用点云控制，以仅使用无条件模型进行对象修复和场景混合。</p>
-<figure><img class='paper-fig' src='../assets/2601_07692v2/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：768 维 3D 特征被简化为三个主要成分，然后映射到 RGB 颜色以进行可视化；（上）LiDAR 场景中的点特征，（下）网格大小 864 的投影特征，与变压器的内部表示相匹配</figcaption></figure>
+
     <p>当考虑 LiDAR 传感器密度的变化时，挑战变得更加严峻，因为每种变化都需要自己的广泛数据集。为了解决像素级表示的高维性带来的挑战，后来引入了潜在扩散模型，提供更快的训练和更高质量的生成。</p>
 
     <h2 id='innovation'>核心创新</h2>
-    <p>第一，LiDAR 场景合成是解决自动驾驶等机器人任务 3D 数据稀缺问题的新兴解决方案。</p>
-    <p>第二，我们推出了第一个 LiDAR 场景生成方法，用于解锁 LiDAR 点云的图像预训练先验，并利用自监督 3D 表示来获得最先进的结果。</p>
-    <p>第三，为了解决这个问题，我们引入了 VAE 对齐训练方法，该方法以 3D 表示对齐为指导，以实现跨模态适应。</p>
+    <p>第一个关键变化，是作者先把核心切入点明确成：LiDAR 场景合成是解决自动驾驶等机器人任务 3D 数据稀缺问题的新兴解决方案。这一步决定了整篇方法后面围绕什么对象建模、为什么这样建模。</p>
+    <p>第二个关键变化，是方法链路里补上了：最近的方法采用扩散或流动匹配模型来生成逼真的场景，但与具有数百万个样本的 RGB 数据集相比，3D 数据仍然有限。它不是单纯多堆一个模块，而是把前后步骤真正连接起来。</p>
+    <p>第三个关键变化，是实验和实现层面进一步落实了：我们推出了第一个 LiDAR 场景生成方法，用于解锁 LiDAR 点云的图像预训练先验，并利用自监督 3D 表示来获得最先进的结果。这让论文的创新不只停留在概念描述，而能落到可执行的技术路径上。</p>
+    <p>第四个关键变化，是实验和实现层面进一步落实了：为了解决这个问题，我们引入了 VAE 对齐训练方法，该方法以 3D 表示对齐为指导，以实现跨模态适应。这让论文的创新不只停留在概念描述，而能落到可执行的技术路径上。</p>
 
+    <!-- equation-placement: source=3.1||3.2; rendered=3.2||3.1; tail_pile=0 -->
+    <!-- figure-placement: source=3.2||3.2||4.2||4.2||4.4; rendered=3.2||3.2||4.2||4.2||4.4; tail_pile=0 -->
     <h2 id='technical'>技术细节</h2>
-    <p>我们使用潜在向量 z 进行解码以生成重建的距离图像。重建损失是在输入范围图像及其重建之间计算的。一旦完成此步骤，我们就会解冻 FM 模型并继续进行完整的端到端训练。</p>
-<figure><img class='paper-fig' src='../assets/2601_07692v2/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：（中）使用标准 VAE 范式获得的对应潜伏 PCA 可视化，例如 ，其中 VAE 在范围图像上独立训练；（右）通过 3D 表示对齐对我们的端到端训练中的潜在变量进行 PCA 可视化</figcaption></figure>
-<figure><img class='paper-fig' src='../assets/2601_07692v2/figure6_full.png' alt='Figure 6:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：我们生成包含汽车、行人和骑自行车者的多样化场景，同时忠实地捕捉 LiDAR 模式</figcaption></figure>
-    <h3>3.1 预赛</h3>
-    <p>我们使用潜在向量 z 进行解码以生成重建的距离图像。重建损失是在输入范围图像及其重建之间计算的。为了减轻 VAE 输出的典型模糊性，我们还引入了对抗性损失，它使用补丁判别器来鼓励现实和清晰的重建，其动机是。</p>
-    <h3>3.2 R3DPA</h3>
-    <p>一旦完成此步骤，我们就会解冻 FM 模型并继续进行完整的端到端训练。端到端训练联合优化VAE和FM模型（见图）。具体来说，我们在每个步骤中优化 (i) VAE ，其中仅更新 VAE 的编码器权重，以及 (ii) FM 模型。</p>
-    <p>$$ \begin{pmatrix} i \\ j \end{pmatrix} = \begin{pmatrix} \left( 1 - \left( \arcsin(p_z/ r) + f_{\text{down}} \right) f_v^{-1} \right) H \\ \frac{1}{2}\left(1 - \arctan(p_y/p_x) \pi^{-1}\right) W \end{pmatrix} $$</p>
-    <p>这条式子给出了渲染/成像算子的整体输入输出：模型把相机参数与场景表示一起送入渲染器，得到最终图像或投影结果。它相当于把整条前向生成链路压缩成一个明确的计算接口。</p>
+    <p>我们使用潜在向量 z 进行解码以生成重建的距离图像。重建损失是在输入范围图像及其重建之间计算的。完成此步骤后，我们将解冻 FM 模型并继续进行完整的端到端训练。</p>
+
+    <h3>3 方法</h3>    <p>我们的目标是通过将丰富的 3D 表示与从大规模图像数据集中学习的预训练 RGB 图像先验相结合来增强 3D LiDAR 场景生成。为了利用从大规模 RGB 图像数据集中学到的知识，我们使用在此类数据上预训练的权重来初始化潜在 FM 模型。为了解决这个问题，我们引入了 VAE 对齐训练方法，该方法以 3D 表示对齐为指导，以实现跨模态适应。</p>    <h4>3.1 预赛</h4>
+    <p>我们使用潜在向量 z 进行解码以生成重建的距离图像。重建损失是在输入范围图像及其重建之间计算的。为了减轻 VAE 输出的典型模糊性，我们还引入了对抗性损失 ，它使用分片判别器来鼓励现实和清晰的重建，其动机是。</p>
+    <p>$$ \begin{pmatrix} i \\ j \end{pmatrix} = \begin{pmatrix} ( 1 - ( \arcsin(p_z/ r) + f_{\text{down}} ) f_v^{-1} ) H \\ \frac{1}{2}(1 - \arctan(p_y/p_x) \pi^{-1}) W \end{pmatrix} $$</p>
+    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
+    <h4>3.2 R3DPA</h4>
+    <p>表示对齐的目标是使用从预训练编码器中提取的特征来监督 FM 变压器的内部表示。完成此步骤后，我们将解冻 FM 模型并继续进行完整的端到端训练。端到端训练联合优化了VAE和FM模型（见图）。</p>
+    <p>在联合优化期间，VAE 和 SiT 网络根据各自的目标进行更新，并结合。具体来说，我们在每个步骤中优化 (i) 使用 的 VAE，其中仅更新 VAE 的编码器权重，以及 (ii) 使用 的 FM 模型。FM 模型通常在标准化为单位方差的空间中进行训练。</p>
+<figure><img class='paper-fig' src='../assets/2601_07692v2/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：768 维 3D 特征被简化为三个主要成分，然后映射到 RGB 颜色以进行可视化；（上）LiDAR 场景中的点特征，（下）网格大小 864 的投影特征，与变压器的内部表示相匹配，重点说明方法流程、比较对象以及最终结果之间的关系</figcaption></figure>
+<figure><img class='paper-fig' src='../assets/2601_07692v2/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：（中）使用标准 VAE 范式获得的对应潜伏 PCA 可视化，例如 ，其中 VAE 在范围图像上独立训练；（右）通过 3D 表示对齐对我们的端到端训练中的潜在变量进行 PCA 可视化，重点说明方法流程、比较对象以及最终结果之间的关系</figcaption></figure>
     <p>$$ \mathcal{L}_{\textrm{Alignment}}(\theta,\phi) = -\mathbb{E} \Bigg[ \frac{1}{H} \frac{1}{W} \sum_{j=1}^H \sum_{i=1}^W \langle y_{(i,j)}, y_{(i,j)}^t \rangle \Bigg], $$</p>
-    <p>这条式子给出了论文中的一条核心计算关系。理解时可以先看左侧最终想得到什么结果，再看右侧的 L、textrm、Alignment、theta 等量如何共同决定这个结果在方法链路中的作用。</p>
+    <p>放在“方法”这一部分看。这条式子给出了训练阶段的优化目标。阅读时可以先看左侧到底在约束什么，再区分右侧每一项对应的是重建误差、正则项还是辅助监督。</p>
 
+
+
+
+    
     <h2 id='experiment'>实验结论</h2>
-    <p>实验部分主要围绕 然而，我们观察到使用 RangeNet++ 的 FRID 分数与定性结果不相关，对于几何损坏的输入产生不切实际的好分数 展开。</p>
-    <p>对比结果表明，除了感知指标之外，我们还使用 Jensen–Shannon Divergence (JSD) 比较鸟瞰点分布的直方图。进一步结合定性现象和消融分析，可以看出：对于范围图像指标，其性能与 FRID 的最新技术相当，同时在 FLD 指标上实现了显着改进。</p>
+    <p>我们在 KITTI-360 数据集上进行了最先进的比较和消融实验。我们使用在不同特征表示上计算的 Fr&#x27;echet 距离来评估真实场景和生成场景的分布之间的距离。然而，我们观察到使用 RangeNet++ 的 FRID 分数与定性结果不相关，对于几何损坏的输入产生不切实际的好分数。</p>
+    <p>除了感知指标之外，我们还使用 Jensen-Shannon Divergence (JSD) 比较鸟瞰点分布的直方图。与最先进的比较 我们将我们的方法与 SOTA 场景生成方法进行比较。这可以稳定生成场景中的方向，从而允许使用非旋转不变指标进行评估。</p>
 
-<figure><img class='paper-fig' src='../assets/2601_07692v2/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：无条件生成的定性比较；我们的模型生成具有多样化和真实对象的高质量点云</figcaption></figure>
-<figure><img class='paper-fig' src='../assets/2601_07692v2/figure7_full.png' alt='Figure 7:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：使用 3D 表示进行场景混合的测试时调节；我们以两个真实场景的缝合特征为条件，将一个场景的左半部分与另一个场景的右半部分混合</figcaption></figure>
+
+
+
+
+
     <h3>4.1 实验装置</h3>
-    <p>实验部分主要围绕 我们在 KITTI-360 数据集上进行了最先进的比较和消融实验 展开。结果表明，然而，我们观察到使用 RangeNet++ 的 FRID 分数与定性结果不相关，对于几何损坏的输入产生不切实际的好分数。</p>
+    <p>我们在 KITTI-360 数据集上进行了最先进的比较和消融实验。然而，我们观察到使用 RangeNet++ 的 FRID 分数与定性结果不相关，对于几何损坏的输入产生不切实际的好分数。除了感知指标之外，我们还比较直方图。</p>
     <h3>4.2 与最先进的比较</h3>
-    <p>实验部分主要围绕 我们在表中呈现定量结果，在图中呈现定性比较 展开。结果表明，对于范围图像指标，其性能与 FRID 的最新技术相当，同时在 FLD 指标上实现了显着改进。</p>
+    <p>我们在表中呈现定量结果，在图中呈现定性比较。对于范围图像指标，其性能与 FRID 的最新技术相当，同时在 FLD 指标上实现了显着改进。在鸟瞰指标上，提高了 JSD 分数，同时实现了与 MMD 上最先进的性能相当的性能。</p>
+<figure><img class='paper-fig' src='../assets/2601_07692v2/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：无条件生成的定性比较；我们的模型生成具有多样化和真实对象的高质量点云</figcaption></figure>
+<figure><img class='paper-fig' src='../assets/2601_07692v2/figure6_full.png' alt='Figure 6:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：我们生成包含汽车、行人和骑自行车者的多样化场景，同时忠实地捕捉 LiDAR 模式</figcaption></figure>
     <h3>4.3 消融</h3>
-    <p>实验部分主要围绕 所有消融结果均在训练验证设置下报告 展开。结果表明，在这一系列的消融实验中，我们评估了以下方面的影响：(i) 利用在大规模图像数据集上预训练的骨干网的先验知识，以及 (ii) 结合我们提出的 VAE 对齐步骤以更好地实现。</p>
+    <p>所有消融结果均在训练验证评估设置下报告。在这一系列的消融实验中，我们评估了以下方面的影响：(i) 利用在大规模图像数据集上预训练的骨干网的先验知识，以及 (ii) 结合我们提出的 VAE 对齐步骤以更好地实现。如表所示，单独使用 RGB 先验并不能提高性能，而 VAE 对齐步骤可以在所有指标上实现一致的改进。</p>
     <h3>4.4 使用 3D 表示进行测试时调节</h3>
-    <p>实验部分主要围绕 我们使用对齐损失来探索推理时间指导，而无需重新训练 展开。结果表明，给定场景的特征网格（如图 ），通过反向传播对齐损失相对于潜在向量 的梯度，可以引导生成过程与这些特征保持一致。</p>
+    <p>我们使用对齐损失来探索推理时间指导，而无需重新训练。给定场景的特征网格（如图 ），通过反向传播对齐损失相对于潜在向量 的梯度，可以引导生成过程与这些特征保持一致。我们提出了这种表示调节的两种应用。该图展示了修复的定性示例。</p>
+<figure><img class='paper-fig' src='../assets/2601_07692v2/figure7_full.png' alt='Figure 7:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：使用 3D 表示进行场景混合的测试时调节；我们以两个真实场景的缝合特征为条件，将一个场景的左半部分与另一个场景的右半部分混合</figcaption></figure>
 
     <h2 id='takeaway'>理解评价</h2>
     <p>如果把这篇论文放回问题背景里看，它真正的价值在于：我们推出了第一个 LiDAR 场景生成方法，用于解锁 LiDAR 点云的图像预训练先验，并利用自监督 3D 表示来获得最先进的结果。这说明作者不是只补一个局部模块，而是在重新组织问题该怎样被解决。</p>
@@ -273,6 +288,7 @@
     
   </article>
 </div>
+
   </div>
 </div>
 <div id='page-lightbox' class='page-lightbox' hidden aria-hidden='true'>

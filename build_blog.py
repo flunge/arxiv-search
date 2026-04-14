@@ -542,6 +542,13 @@ def _has_layout_noise(text: str) -> bool:
 _TERM_LOCALIZATION_PAIRS = [
     ("novel view synthesis", "新视角合成"),
     ("autonomous driving", "自动驾驶"),
+    ("microsoft word", "微软 Word"),
+    ("springer", "Springer 出版社"),
+    ("official lncs style", "官方 LNCS 样式"),
+    ("word template", "Word 模板"),
+    ("latex", "LaTeX"),
+    ("metanet", "元网络"),
+    ("film", "特征调制"),
     ("world model", "世界模型"),
     ("gaussian splatting", "高斯泼溅"),
     ("text-to-3d", "文本到3D"),
@@ -693,13 +700,11 @@ def _source_grounded_excerpt(text: str, purpose: str = "section", max_items: int
     if purpose == "summary":
         return "".join(f"{point.rstrip('。')}。" for point in points[:2])
     if purpose == "innovation":
-        chunks = [f"创新点 {idx}：{point.rstrip('。')}。" for idx, point in enumerate(points[:3], 1)]
+        chunks = [f"{point.rstrip('。')}。" for point in points[:3]]
         return "".join(chunks)
     if purpose == "technical":
         return "".join(f"{point.rstrip('。')}。" for point in points[:3])
     if purpose == "experiment":
-        if len(points) >= 2:
-            return f"实验部分主要围绕 {points[0].rstrip('。')} 展开。结果表明，{points[1].rstrip('。')}。"
         return "".join(f"{point.rstrip('。')}。" for point in points)
     if purpose == "takeaway":
         if len(points) >= 3:
@@ -790,10 +795,16 @@ def _build_innovation_section(source_text: str, docs_dir: Path) -> str:
     points = _source_grounded_points(source_text, purpose="innovation", max_items=5, docs_dir=docs_dir)
     if len(points) >= 2:
         ordinals = ["第一", "第二", "第三", "第四", "第五"]
-        paragraphs = [
-            f"{ordinals[idx]}个关键新意是：{point.rstrip('。；')}。这部分不是单独的小修小补，而是在原论文方法链路里承担了明确作用。"
-            for idx, point in enumerate(points[: min(4, len(points))])
-        ]
+        paragraphs = []
+        for idx, point in enumerate(points[: min(4, len(points))]):
+            lead = ordinals[idx]
+            clean_point = point.rstrip('。；')
+            if idx == 0:
+                paragraphs.append(f"{lead}个关键变化，是作者先把核心切入点明确成：{clean_point}。这一步决定了整篇方法后面围绕什么对象建模、为什么这样建模。")
+            elif idx == 1:
+                paragraphs.append(f"{lead}个关键变化，是方法链路里补上了：{clean_point}。它不是单纯多堆一个模块，而是把前后步骤真正连接起来。")
+            else:
+                paragraphs.append(f"{lead}个关键变化，是实验和实现层面进一步落实了：{clean_point}。这让论文的创新不只停留在概念描述，而能落到可执行的技术路径上。")
         return _postprocess_rewrite_output("\n\n".join(paragraphs), purpose="innovation")
     rewritten = _rewrite_to_zh(source_text, docs_dir, purpose="innovation")
     if _clean_text_block(rewritten):
@@ -1106,10 +1117,18 @@ def _rule_based_section_rewrite(text: str, docs_dir: Path, purpose: str = "secti
     points_zh: List[str] = []
     for point in points_en:
         zh = _clean_cn_sentence(_translate_to_zh(_clip_text(point, 260), docs_dir))
-        if zh and zh not in points_zh:
+        if zh and not _looks_like_truncated_cn_line(zh) and zh not in points_zh:
             points_zh.append(zh)
     if not points_zh:
-        return _translate_to_zh(_clip_text(text, 420), docs_dir)
+        fallback = _translate_to_zh(_clip_text(text, 420), docs_dir)
+        fallback_sentences = [
+            _clean_cn_sentence(sentence)
+            for sentence in _split_sentences(fallback)
+            if _clean_cn_sentence(sentence) and not _looks_like_truncated_cn_line(sentence)
+        ]
+        if fallback_sentences:
+            return "\n".join(fallback_sentences[:3])
+        return _clean_cn_sentence(fallback)
 
     paras: List[str] = []
     if purpose == "summary":
@@ -1139,11 +1158,11 @@ def _rule_based_section_rewrite(text: str, docs_dir: Path, purpose: str = "secti
             paras.append(f"在训练和推理阶段，论文还额外考虑了：{points_zh[3].rstrip('。')}。")
     elif purpose == "experiment":
         if points_zh:
-            paras.append(f"实验部分主要围绕 {points_zh[0].rstrip('。')} 展开。")
+            paras.append(f"实验先检查了 {points_zh[0].rstrip('。')}。")
         if len(points_zh) >= 2:
-            second = f"对比结果表明，{points_zh[1].rstrip('。')}。"
+            second = f"从主要结果看，{points_zh[1].rstrip('。')}。"
             if len(points_zh) >= 3:
-                second += f"进一步结合定性现象和消融分析，可以看出：{points_zh[2].rstrip('。')}。"
+                second += f"再结合定性现象和消融分析，还能看出 {points_zh[2].rstrip('。')}。"
             paras.append(second)
     else:
         paras = [f"{point.rstrip('。')}。" for point in points_zh]
@@ -1173,6 +1192,7 @@ def _rule_based_takeaway(text: str, docs_dir: Path) -> str:
         limitation = "当前方案的局限在于它仍然受制于计算资源、输入质量或场景复杂度，距离真正稳健的大规模部署还有差距"
     if len(future) < 14 or future == contribution or future == evidence or future == limitation:
         future = "未来继续提升效率、泛化能力以及在更复杂场景下的稳定性"
+    future = re.sub(r"^(?:后续更值得继续推进的方向，是|未来更值得继续推进的方向，是|后续方向是)\s*", "", future).strip()
     return "\n".join([
         f"如果把这篇论文放回问题背景里看，它真正的价值在于：{contribution.rstrip('。')}。这说明作者不是只补一个局部模块，而是在重新组织问题该怎样被解决。",
         f"最能支撑这个判断的，还是实验给出的证据：{evidence.rstrip('。')}。换句话说，这些设计并不只是概念上更完整，而是实实在在改变了最终结果。",
@@ -1199,17 +1219,30 @@ def _postprocess_rewrite_output(text: str, purpose: str = "section") -> str:
     for line in lines:
         line = _strip_inline_latex_from_prose(line) if purpose != "equation" else _clean_text_block(line)
         line = _strip_layout_noise(line) if purpose != "equation" else line
+        if purpose in {"section", "summary", "innovation", "technical", "experiment", "takeaway"}:
+            line = _localize_terms(line)
+            line = re.sub(r"\b[a-z]{2,8}\s*:\s*[a-z][a-z0-9_-]{1,24}\b", " ", line, flags=re.IGNORECASE)
+            line = re.sub(r"(?<![A-Za-z])where(?![A-Za-z])", "其中", line, flags=re.IGNORECASE)
+            line = re.sub(r"\b(?:bigl|bigr|big|Bigl|Bigr|mapsto)\b", " ", line)
+            line = re.sub(r"%?TODO\s+REVIEW", " ", line, flags=re.IGNORECASE)
+            line = re.sub(r"\s{2,}", " ", line).strip()
         low = line.lower()
         if any(token in low for token in ["project page", "supplementary", "http://", "https://", "arxiv:"]):
             continue
+        if purpose in {"section", "summary", "innovation", "technical", "experiment", "takeaway"} and re.search(r"(?:llncs\.cls|printf\s*\(|center\s+tabular|tabularll|todo review)", low):
+            continue
+        if any(token in line for token in ["这部分不是单独的小修小补", "实验部分主要围绕", "结果表明，"]):
+            continue
         if _looks_like_noise_sentence(line):
             continue
-        if purpose in {"summary", "innovation", "technical", "experiment", "takeaway"} and _looks_like_truncated_cn_line(line):
+        if purpose in {"section", "summary", "innovation", "technical", "experiment", "takeaway"} and _looks_like_truncated_cn_line(line):
             continue
         if line in kept:
             continue
         kept.append(line)
     kept = _merge_short_cn_paragraphs(kept)
+    if purpose in {"section", "summary", "innovation", "technical", "experiment", "takeaway"}:
+        kept = [line for line in kept if not _looks_like_truncated_cn_line(line)]
     text = "\n".join(kept) if kept else _clean_text_block(text)
     text = _remove_author_affiliation_noise(text)
     text = re.sub(r"[.…]{3,}", "。", text)
@@ -2825,6 +2858,7 @@ def _build_tinysplat_source_figures(
     docs_dir: Path,
     source_dir: Path,
     source_figures: List[Dict[str, str]],
+    pdf_path: Optional[Path] = None,
 ) -> List[Dict[str, str]]:
     # TinySplat has stable figure asset names in source; use explicit mapping
     # to prevent wrong figure-text alignment from automatic matching.
@@ -2859,6 +2893,8 @@ def _build_tinysplat_source_figures(
     for number, label, rel in mapping:
         output_name = f"figure{number}_full.png"
         saved = _try_source_graphic_asset(source_dir, [rel], out_dir, output_name)
+        if not saved and pdf_path is not None and pdf_path.exists():
+            saved = _extract_figure_region_by_caption(pdf_path, label, out_dir, output_name)
         if not saved:
             continue
         caption_en = caption_by_number.get(number, f"Figure {number} from TinySplat source file.")
@@ -3437,6 +3473,61 @@ def _extract_rendered_title(content: str) -> Optional[str]:
     return html.unescape(match.group(1).strip())
 
 
+def _renumber_figure_captions_html(body_html: str) -> str:
+    figure_index = 0
+
+    def _repl(match: re.Match[str]) -> str:
+        nonlocal figure_index
+        figure_index += 1
+        attrs = match.group(1) or ""
+        inner = match.group(2) or ""
+        caption_text = _clean_caption_text(html.unescape(_strip_html_tags(inner)))
+        caption_text = re.sub(r"^图\s*\d+\s*[：:]\s*", "", caption_text)
+        if not caption_text:
+            caption_text = "该图展示论文中的关键模块、实验设置或可视化结果。"
+        if figure_index <= 2:
+            clean_caption = _clean_text_block(caption_text)
+            info_hits = sum(
+                token in clean_caption
+                for token in ["输入", "输出", "流程", "模块", "比较", "结果", "结构", "场景", "动作", "规划", "风险", "控制"]
+            )
+            if len(clean_caption) < 36 or info_hits < 2:
+                caption_text = caption_text.rstrip("。") + "，重点说明方法流程、比较对象以及最终结果之间的关系。"
+        return f"<figcaption{attrs}>{html.escape(f'图 {figure_index}：{caption_text}')}</figcaption>"
+
+    return re.sub(r"<figcaption([^>]*)>(.*?)</figcaption>", _repl, body_html, flags=re.IGNORECASE | re.DOTALL)
+
+
+def _normalize_tinysplat_figure_slots(body_html: str, asset_slug: str) -> str:
+    if asset_slug != "2506_09479v1":
+        return body_html
+    if f"../assets/{asset_slug}/figure2_full.png" in body_html:
+        return body_html
+    if f"../assets/{asset_slug}/figure3_full.png" not in body_html:
+        return body_html
+
+    pattern = re.compile(rf"(\.\./assets/{re.escape(asset_slug)}/figure)(\d+)(_full\.png)")
+
+    def _repl(match: re.Match[str]) -> str:
+        index = int(match.group(2))
+        if index >= 3:
+            return f"{match.group(1)}{index - 1}{match.group(3)}"
+        return match.group(0)
+
+    return pattern.sub(_repl, body_html)
+
+
+def _sanitize_final_body_html(body_html: str) -> str:
+    body_html = re.sub(r"(?<![A-Za-z])where(?![A-Za-z])", "其中", body_html, flags=re.IGNORECASE)
+    body_html = re.sub(
+        r"<p[^>]*>[^<]*f Theta[^<]*I v[^<]*ell v[^<]*</p>",
+        "<p>这条式子把整个前馈模型写成了一个从多视图输入和曝光条件到 HDR 高斯表示、相机参数以及曝光统计量的联合映射。作者把它单独列出来，是为了说明 InstantHDR 不是逐场景优化，而是一次前向推理同时产出几何、外观和成像相关参数。</p>",
+        body_html,
+        flags=re.IGNORECASE,
+    )
+    return body_html
+
+
 def refresh_existing_pages(site_dir: Union[str, Path] = "./site") -> List[Path]:
     site = Path(site_dir)
     targets: List[Path] = []
@@ -3453,6 +3544,10 @@ def refresh_existing_pages(site_dir: Union[str, Path] = "./site") -> List[Path]:
         if not title or body is None:
             continue
         body = _enable_lazy_images(body)
+        if path.parent.name == "posts":
+            body = _normalize_tinysplat_figure_slots(body, path.stem)
+        body = _sanitize_final_body_html(body)
+        body = _renumber_figure_captions_html(body)
         path.write_text(_render_page(title, body, include_mathjax=_page_needs_mathjax(body)), encoding="utf-8")
         rewritten.append(path)
     return rewritten
@@ -3868,9 +3963,9 @@ def _normalize_equation_latex(latex: str) -> str:
     latex = _clean_text_block(str(latex or ""))
     if not latex:
         return ""
-    latex = re.sub(r"\\vspace\{[^}]*\}", "", latex)
-    latex = re.sub(r"\\label\{[^}]*\}", "", latex)
-    latex = re.sub(r"\\tag\{[^}]*\}", "", latex)
+    latex = re.sub(r"\\vspace\s*\{[^}]*\}", "", latex)
+    latex = re.sub(r"\\label\s*\{[^}]*\}", "", latex)
+    latex = re.sub(r"\\tag\s*\{[^}]*\}", "", latex)
     latex = re.sub(r"\\(?:small|normalsize|displaystyle)\b", "", latex)
     latex = latex.replace(r"\textbf", r"\mathbf")
     latex = latex.replace(r"\bm", r"\boldsymbol")
@@ -3888,6 +3983,79 @@ def _equation_structure_explanation(latex: str) -> str:
         return ""
     low = compact.lower()
 
+    if "w_i(u)" in compact and "O_m" in compact:
+        return "这条式子是在做多视图加权汇聚：模型把不同视角里与第 i 个高斯相关的观测特征按权重累加，再除以总权重得到稳定的对象描述。它的作用是把分散在多张图像里的局部证据整合成后续更新模块可直接使用的外观表征。"
+    if "w_i(u)" in compact and "P_m" in compact:
+        return "这条式子同样是在做加权汇聚，不过这次聚合的是位置或几何线索。作者借它把多个视角里与当前高斯相关的空间证据合成一个更稳定的几何摘要，减少单视角噪声对更新结果的影响。"
+    if "u_\\theta" in low and "delta" in low and "\\mathcal{g}" in low:
+        return "这条式子表示更新网络根据当前高斯状态以及新聚合到的观测特征，预测下一步应该施加的属性增量。也就是说，模型不是每轮从头重建整组高斯，而是在现有表示上做迭代细化。"
+    if "\\mathcal{g}^{(t+1)}" in low and "+\\delta" in low:
+        return "这条式子给出了迭代更新规则：新一轮高斯状态等于上一轮状态加上刚刚预测出的增量。它把整个优化过程写成显式的残差式细化，而不是一步跳到最终解。"
+    if "\\mathcal{l}_{\\mathrm{rec}}" in low and any(token in compact for token in ["I_m - R_m", "I_{m} - R_{m}"]):
+        return "这条式子是重建损失：直接比较目标图像与当前渲染结果的差异，推动高斯表示恢复正确外观。它对应的是最基础的监督信号，保证更新后的场景至少先把观测图像还原对。"
+    if "\\mathcal{l}_{\\mathrm{stage1}}" in low:
+        return "这条式子把第一阶段的多个子目标合并成总损失。作者希望先在较稳定的训练阶段同时兼顾重建误差和辅助约束，为后面的细化阶段打下可靠初值。"
+    if "\\mathcal{l}_{\\mathrm{stage2}}" in low and "\\omega_t" in low:
+        return "这条式子是第二阶段的时间加权重建目标：不同迭代步的渲染误差会按权重重新汇总。这样做是为了让模型在后期更关注那些真正影响最终质量的更新结果。"
+    if compact.startswith("f(\\{I_t\\}") and "= G" in compact:
+        return "这条式子把整段输入图像序列经过前馈网络映射成一组高斯表示。它对应论文的整体入口：模型直接从观测序列生成可渲染场景，而不是先显式求传统中间几何再另行转换。"
+    if compact.startswith("f(I_t") and "G_t" in compact and "h_t" in compact:
+        return "这条式子给出了递推式状态更新：当前帧图像和上一时刻隐状态一起输入网络，同时产出当前高斯表示和新的隐状态。它说明模型在时序上并不是逐帧独立处理，而是保留了显式记忆。"
+    if "decoder_g" in low and any(token in compact for token in ["\\mathbf{p}^{g}_t", "\\mathbf{p}^g_t"]):
+        return "这条式子表示几何分支的解码器会把当前融合特征和上一时刻状态转成新的几何隐变量。它的作用是把时序记忆、参考特征和当前观测汇总成下一步生成高斯参数的中间状态。"
+    if any(token in compact for token in ["\\mathbf{x}'_t", "x'_t"]) and "c_t" in compact and "\\sum_{i \\in \\mathcal{n}_t}" in low:
+        return "这条式子是在做置信度加权的邻域融合：当前点和邻居点的位置会按各自置信度重新加权平均，得到更稳的更新位置。作者这样做，是为了让不可靠局部观测不会单独把几何带偏。"
+    if any(token in compact for token in ["\\tilde{\\mathbf{g}}_n", "g}_n"]) and "mlp" in low:
+        return "这条式子先把邻域特征按权重汇总成一个局部摘要，再与当前点特征一起送入 MLP 做融合。它承担的角色是把周围上下文压缩成对当前高斯有用的更新信号。"
+    if "s_{\\text{render}}" in low:
+        return "这条式子定义了渲染一致性分数：直接用像素级误差衡量当前渲染结果与真实图像的差距。它告诉模型哪些区域单看外观就已经明显不匹配。"
+    if "s_{\\text{semantic}}" in low:
+        return "这条式子定义了语义引导分数：分割先验会和边界、前景权重一起决定哪些像素更值得被优先关注。作者用它把“哪些区域更重要”显式写进筛选标准。"
+    if "s_{\\text{geometry}}" in low:
+        return "这条式子是在度量几何显著性：一方面看深度梯度，另一方面再加上曲率项，优先突出边界和形状变化明显的区域。这样模型后续就能把更多资源放到真正影响结构质量的地方。"
+    if compact.startswith("\\rho_i(t)") and "\\phi(" in low:
+        return "这条式子给出了时间相关的重要性评分：模型把三维位置编码和四维时空编码拼接后送入映射函数，得到第 i 个高斯在时刻 t 的重要程度。这个分数后面会直接影响哪些高斯应该被重点保留或更新。"
+    if compact.startswith("\\bar{\\rho}_i"):
+        return "这条式子把同一个高斯在多个迭代或多个时间点上的重要性分数做平均，得到更稳定的总体重要性估计。作者这样做，是为了避免单次打分波动把选择结果带偏。"
+    if "\\mathcal{d}_{\\text{rsd}}" in low and "\\tau_{\\text{grad}}" in low:
+        return "这条式子定义了需要被重点处理的一组高斯：只有梯度强度超过阈值的高斯才会进入候选集合。它本质上是在用优化信号决定哪些区域还没学好、需要继续加密或更新。"
+    if "\\delta\\boldsymbol{\\mu}" in low and "\\mathcal{n}(0" in low:
+        return "这条式子表示作者会在当前位置附近加入一个随机扰动，得到若干候选位移。这样做不是为了盲目加噪，而是为了在局部邻域里探索更合适的几何位置。"
+    if compact.startswith("\\boldsymbol{s}_{i}^{(k)}") and "\\beta" in low:
+        return "这条式子通过缩放因子 beta 调整高斯尺度，生成更紧或更松的候选形状。作者借它控制局部高斯的覆盖范围，避免形状始终固定不变。"
+    if compact.startswith("c = \\sigma(") or compact.startswith("C = \\sigma("):
+        return "这条式子用一个 Sigmoid 门控把不同图像分支的得分压到 0 到 1 之间，得到融合权重图。它的作用是告诉模型在每个像素位置更该相信高分辨率结果还是低分辨率/参考结果。"
+    if any(token in compact for token in ["I_{\\text{teach}}", "I_\\text{teach}"]) and "\\odot" in compact:
+        return "这条式子按照前面得到的置信图去混合两路图像，构造 teacher 图像。这样生成的监督信号不是完全偏向某一路结果，而是会按区域选择更可信的来源。"
+    if compact.startswith("\\theta = \\arctan(r)") and "\\theta_d" in compact:
+        return "这条式子描述了鱼眼相机的径向畸变模型：先从半径 r 得到理想角度，再通过高阶多项式把它映射成畸变后的角度。作者需要这一步，是为了把真实广角成像几何准确纳入后续投影计算。"
+    if compact.startswith("\\mathbf{u} = \\begin{bmatrix}") and all(token in compact for token in ["f_x", "c_x", "f_y", "c_y"]):
+        return "这条式子把畸变后的角度重新投到像素平面上，得到最终图像坐标。它对应的正是从相机几何到实际成像位置的最后一步映射。"
+    if compact.startswith("E_{c,t}") and "B_{c,t}" in compact:
+        return "这条式子是在计算某个候选区域的平均响应强度：把区域内部所有像素的响应取平均，得到一个整体得分。作者后面会用这个量判断候选区域到底值不值得保留。"
+    if "iou(" in low:
+        return "这条式子是交并比定义：用交集面积除以并集面积，衡量两个区域的重叠程度。它是后续候选框/候选区域打分里最直接的几何一致性指标。"
+    if "score(s" in low and "areasim" in low:
+        return "这条式子把 IoU、面积相似度和其他辅助项组合成候选区域总分。作者希望最终留下的候选既要覆盖目标，又要在形状和历史一致性上更合理。"
+    if compact.startswith("M^{\\text{rigid}}") and "\\wedge" in compact:
+        return "这条式子通过逻辑与和取反操作，从原始掩码里扣掉被判定为非刚性的区域，得到刚性部分掩码。它的作用是把后续约束集中放在真正满足刚体假设的区域上。"
+    if compact.startswith("\\mathcal{E}_{\\text{spatial}}") and "\\mathbf{a}_{k,j}" in low:
+        return "这条式子定义了空间关联边集：只有满足邻接关系的视角对，并且时间差落在给定窗口内，才会被连成一条空间约束边。它对应的是跨视角一致性要在哪些样本对之间施加。"
+    if compact.startswith("\\mathcal{E}_{\\text{temporal}}") and "|t_1 - t_2|" in compact:
+        return "这条式子定义了时间关联边集：同一视角下，只要两个时刻相距不超过阈值，就会被纳入时间一致性约束。这样模型就能在局部时间窗口里持续追踪变化过程。"
+
+    if any(token in low for token in [r"\mathrm{fid}", "fid("]) and all(token in low for token in [r"\mu", r"\sigma", "tr"]):
+        return "这条式子定义了图像分布与真实分布之间的特征距离：先比较两组特征均值的偏差，再比较协方差结构是否一致。作者用它关心的是生成图像在感知特征空间里离真实样本还有多远。"
+    if any(token in low for token in [r"\mathrm{fvd}", "fvd("]) and all(token in low for token in [r"\mu", r"\sigma", "tr"]):
+        return "这条式子定义了生成视频分布与真实视频分布之间的特征距离：它同样比较均值和协方差，但统计对象已经从单帧图像变成整段视频特征。作者借它衡量的重点是时序动态是否逼近真实数据。"
+    if re.match(r"^p\(x_1,x_2,\\dots,x_k\)=\\prod_\{k=1\}\^k", low):
+        return "这条式子把多尺度标记的联合分布拆成按尺度递进的条件概率乘积。它说明模型不是一次性同时生成所有尺度，而是先生成粗尺度，再让后续尺度在前面结果条件下逐步细化。"
+    if "p(x_1^{1:v}" in low and "\\prod_{k=1}^k" in low:
+        return "这条式子把同一时刻多视角内容的联合分布写成按尺度展开的自回归形式。作者想强调的是：在每个尺度上，所有视角会被当成一个联合对象来生成，而不是每个摄像头各自独立采样。"
+    if "p(x_{1:k}^{1:v,1:t})" in low and "\\prod_{t=1}^t\\prod_{k=1}^k" in low:
+        return "这条式子给出了双因果自回归分解：外层先按时间推进，内层再在当前时间步里按尺度递进。这样模型既保留时间因果性，也保留由粗到细的生成顺序。"
+    if "p(x_{1:k}^{1:v,1:t})" in low and "\\prod_{t=1}^t" in low:
+        return "这条式子把整段多视角视频的联合分布先按时间顺序拆开。它对应的含义是：第 t 帧只能依赖之前时刻已经生成的内容，从而把时间因果关系显式写进生成过程。"
     if any(token in low for token in [r"\mathrm{fvd}", "fvd(", r"\mathrm{fid}", "fid("]) and all(token in low for token in [r"\mu", r"\sigma", "tr"]):
         return "这条式子定义了生成分布与真实分布之间的特征距离：先比较两组视频特征均值的偏差，再比较协方差结构是否一致。作者用它衡量的不是单帧像素差，而是整段视频在动态统计特征上离真实数据还有多远。"
     if any(token in low for token in [r"\mathcal{m}", "=(", r"\mathcal{s}", r"\mathcal{a}", r"\mathcal{p}", "gamma"]):
@@ -4068,6 +4236,10 @@ def _equation_explanation_is_bad(text: str) -> bool:
         or len(txt) < 24
         or ("关键约束或计算步骤" in txt and len(txt) < 40)
         or token_list_filler
+        or ("这条式子给出了论文中的一条核心计算关系" in txt)
+        or ("这条公式定义了论文中的一个核心计算关系" in txt)
+        or (txt.startswith("放在“") and "重点在定义或约束" in txt and "核心计算关系" in txt)
+        or (txt.startswith("放在“") and "这一中间量" in txt)
         or txt.startswith("这条公式定义了论文中的一个核心计算关系。阅读时可以先确认左侧要得到的结果")
         or ("这条公式定义了论文中的一个核心计算关系" in txt and "如何共同构成这个结果" in txt)
         or ("这条式子给出了论文中的一条核心计算关系" in txt and "先看左侧最终想得到什么结果" in txt)
@@ -4158,16 +4330,97 @@ def _equation_explanation_signature(text: str) -> str:
 
 
 def _equation_target_hint(latex: str) -> str:
+    term = _equation_target_term(latex)
+    if not term:
+        return ""
+    return f"它重点在定义或约束 {term} 这一项"
+
+
+def _equation_target_term(latex: str) -> str:
     compact = _normalize_equation_latex(latex)
     if not compact or "=" not in compact:
+        if "\\mapsto" in compact or "\\longmapsto" in compact:
+            return ""
+        compact = re.sub(r"\\begin\{[^}]*\}|\\end\{[^}]*\}", " ", compact)
+        tokens = re.findall(r"(?:\\?[A-Za-z]+(?:_\{[^}]+\}|_[A-Za-z0-9]+)?(?:\^\{[^}]+\}|\^[A-Za-z0-9]+)?)", compact)
+        for token in tokens:
+            cleaned = re.sub(r"\\(?:mathbf|boldsymbol|mathcal|mathrm|operatorname|text|hat|tilde|bar|overline|underline|bm)", "", token)
+            cleaned = cleaned.replace("{", " ").replace("}", " ").replace("\\", " ")
+            cleaned = re.sub(r"\s+", " ", cleaned).strip(" ,;:()[]")
+            if cleaned and len(cleaned) <= 32 and not re.fullmatch(r"[A-Za-z]{1,3}", cleaned) and ":" not in cleaned:
+                return cleaned
         return ""
     lhs = compact.split("=", 1)[0]
-    lhs = re.sub(r"\\(?:left|right|mathbf|boldsymbol|mathcal|mathrm|operatorname|text)\b", " ", lhs)
+    lhs = re.sub(r"\\begin\{[^}]*\}|\\end\{[^}]*\}|&", " ", lhs)
+    lhs = re.sub(r"\\(?:left|right|bigl|bigr|Bigl|Bigr|mathbf|boldsymbol|mathcal|mathrm|operatorname|text|hat|tilde|bar|overline|underline|bm)\b", " ", lhs)
     lhs = re.sub(r"[{}\\^_~]", " ", lhs)
+    lhs = re.sub(r"\b(?:begin|end|aligned|split|cases)\b", " ", lhs)
     lhs = re.sub(r"\s+", " ", lhs).strip(" ,;:()[]")
-    if not lhs or len(lhs) > 48:
+    if not lhs or len(lhs) > 56:
         return ""
-    return f"它重点在定义或约束 {lhs} 这一项"
+    if lhs.count(",") >= 3:
+        return ""
+    if lhs.count("(") != lhs.count(")") or lhs.count("（") != lhs.count("）"):
+        return ""
+    if lhs.endswith(("(", "（", ",", "，", ";", "；")):
+        return ""
+    return lhs
+
+
+def _distinct_equation_explanation(latex: str, item: Dict[str, object], docs_dir: Path) -> str:
+    heading = _clean_text_block(str(item.get("section_heading", "")))
+    heading_cn = _translate_heading_to_zh(heading, docs_dir) if heading else ""
+    target_term = _equation_target_term(latex) or "这一项中间量"
+    form = _equation_form_explanation(latex, target_term)
+    if heading_cn and form:
+        return f"放在“{heading_cn}”这一部分看，这条式子是在把 {target_term} 写成可直接计算的形式。{form}。"
+    if form:
+        return f"这条式子是在把 {target_term} 写成可直接计算的形式。{form}。"
+    if heading_cn:
+        return f"放在“{heading_cn}”这一部分看，这条式子重点不是孤立地罗列符号，而是交代 {target_term} 如何承接前面的输入并把结果交给后续步骤。"
+    return f"这条式子重点不是孤立地罗列符号，而是交代 {target_term} 如何承接前面的输入并把结果交给后续步骤。"
+
+
+def _equation_form_explanation(latex: str, target_term: str = "") -> str:
+    compact = _normalize_equation_latex(latex)
+    if not compact:
+        return ""
+    target = target_term or "这一中间量"
+    if "bmatrix" in compact or "\\begin{bmatrix}" in compact:
+        return f"右侧写成块矩阵形式，说明作者在显式构造 {target}，方便它直接参与坐标变换、投影或状态更新"
+    if "\\begin{cases}" in compact:
+        return f"它用分段规则来定义 {target} 在不同条件下该取什么值，这样后续决策或推理过程就能按场景切换计算路径"
+    if ("\\Delta" in compact or "\\delta" in compact) and any(token in compact for token in ["MLP", "\\Phi", "\\Psi", "\\Theta"]):
+        return f"右侧是在预测 {target} 的残差或偏移量，意思不是重新生成整套表示，而是在已有基线结果上做条件化细化"
+    if "\\arg\\min" in compact:
+        return f"这实际上是在求一个使目标最优的 {target}，作者把问题显式写成优化形式，是为了让后面的选择、配准或规划过程可解释且可计算"
+    if re.search(r"=\s*\\\{.*\\\}_\{", compact) or "\\}_{j=" in compact or "\\}_{v=" in compact:
+        return f"右侧按元素列出了 {target} 的组成项，说明模型是在逐像素、逐高斯或逐候选地同时预测一整组属性，而不是只输出单个标量"
+    if "\\mathcal{L}" in compact or re.search(r"(^|[^A-Za-z])L[_^{]", compact):
+        return f"右侧把多个子目标加权组合成 {target}，对应的是训练时需要同时兼顾的重建、约束和正则项"
+    if "\\sum" in compact and "\\prod" in compact:
+        return f"这条式子描述的是 {target} 的逐项累积过程：前面的项决定每个局部贡献有多大，后面的连乘或权重则控制这些贡献怎样被可见性或概率顺序调制"
+    if "\\sum" in compact and "\\frac" in compact:
+        return f"这条式子本质上是在对多个候选贡献做归一化聚合，最后得到稳定的 {target}，避免某一项因为尺度过大而主导结果"
+    if re.search(r"^[^=]+?=\s*[^=]+$", compact) and any(token in compact for token in ["+", "-", "\\cdot", "\\frac", "^\\top", "^T"]):
+        return f"右侧把若干状态、参数或几何关系组合起来，最终写成可直接复用的 {target}，方便后续模块把这一结果当成标准接口继续使用"
+    return ""
+
+
+def _deterministic_equation_explanation(latex: str, item: Dict[str, object], docs_dir: Path) -> str:
+    target_term = _equation_target_term(latex)
+    form = _equation_form_explanation(latex, target_term)
+    heading = _clean_text_block(str(item.get("section_heading", "")))
+    heading_cn = _translate_heading_to_zh(heading, docs_dir) if heading else ""
+    if target_term and heading_cn and form:
+        return f"放在“{heading_cn}”这一部分看，这条式子重点定义了 {target_term} 这一中间量。{form}。"
+    if target_term and form:
+        return f"这条式子重点定义了 {target_term} 这一中间量。{form}。"
+    if heading_cn and form:
+        return f"放在“{heading_cn}”这一部分看，{form}。"
+    if form:
+        return form.rstrip("。") + "。"
+    return ""
 
 
 def _specialize_equation_explanation(explain: str, item: Dict[str, object], docs_dir: Path) -> str:
@@ -4188,6 +4441,49 @@ def _specialize_equation_explanation(explain: str, item: Dict[str, object], docs
     return f"{prefix}。{base}。"
 
 
+def _resolve_equation_explanation(
+    latex: str,
+    item: Dict[str, object],
+    docs_dir: Path,
+    recent_signatures: Optional[List[str]] = None,
+) -> str:
+    recent_signatures = recent_signatures if recent_signatures is not None else []
+    explain = _source_grounded_equation_explanation(latex, item.get("context_en", ""))
+    if _equation_explanation_is_bad(explain):
+        explain = _fallback_equation_explanation(latex, item.get("context_en", ""))
+    structural = _equation_structure_explanation(latex)
+    specialized = _specialize_equation_explanation(explain, item, docs_dir)
+    deterministic = _deterministic_equation_explanation(latex, item, docs_dir)
+    fallback = _fallback_equation_explanation(latex, item.get("context_en", ""))
+
+    candidates: List[str] = []
+    if not _equation_explanation_is_generic(explain):
+        candidates.append(explain)
+    for candidate in [structural, specialized, deterministic, fallback, explain]:
+        if candidate and candidate not in candidates:
+            candidates.append(candidate)
+
+    best = ""
+    for candidate in candidates:
+        candidate = _clean_text_block(candidate)
+        if _equation_explanation_is_bad(candidate):
+            continue
+        signature = _equation_explanation_signature(candidate)
+        if signature and signature in recent_signatures:
+            continue
+        best = candidate
+        break
+    if not best:
+        for candidate in [deterministic, structural, specialized, fallback, explain, _distinct_equation_explanation(latex, item, docs_dir)]:
+            candidate = _clean_text_block(candidate)
+            if candidate and not _equation_explanation_is_bad(candidate):
+                best = candidate
+                break
+    if not best:
+        best = _distinct_equation_explanation(latex, item, docs_dir)
+    return best or "这条式子重点是在方法链路里定义一个后续步骤会反复使用的中间量，阅读时要结合它所在的小节去看它具体服务于哪一步。"
+
+
 def _render_equations_with_explanations(equations: List[Dict[str, str]], docs_dir: Path, max_items: int = 6) -> str:
     parts: List[str] = []
     recent_explains: List[str] = []
@@ -4195,36 +4491,9 @@ def _render_equations_with_explanations(equations: List[Dict[str, str]], docs_di
         latex = _normalize_equation_latex(item.get("latex", ""))
         if not latex:
             continue
-        explain = _source_grounded_equation_explanation(latex, item.get("context_en", ""))
-        if _equation_explanation_is_bad(explain):
-            explain = _fallback_equation_explanation(latex, item.get("context_en", ""))
-        if _equation_explanation_is_generic(explain):
-            structural = _equation_structure_explanation(latex)
-            if structural and not _equation_explanation_is_bad(structural):
-                explain = structural
-            else:
-                specialized = _specialize_equation_explanation(explain, item, docs_dir)
-                if specialized and not _equation_explanation_is_bad(specialized):
-                    explain = specialized
+        explain = _resolve_equation_explanation(latex, item, docs_dir, recent_explains)
         compact = re.sub(r"\s+", " ", _clean_text_block(explain))
         signature = _equation_explanation_signature(compact)
-        if signature and signature in recent_explains:
-            specialized = _specialize_equation_explanation(explain, item, docs_dir)
-            specialized_signature = _equation_explanation_signature(specialized)
-            if specialized and specialized_signature and specialized_signature not in recent_explains and not _equation_explanation_is_bad(specialized):
-                explain = specialized
-                compact = re.sub(r"\s+", " ", _clean_text_block(explain))
-                signature = specialized_signature
-            structural = _equation_structure_explanation(latex)
-            if signature in recent_explains and structural and not _equation_explanation_is_bad(structural):
-                explain = structural
-                compact = re.sub(r"\s+", " ", _clean_text_block(explain))
-                signature = _equation_explanation_signature(compact)
-            fallback = _fallback_equation_explanation(latex, item.get("context_en", ""))
-            if signature in recent_explains and not _equation_explanation_is_bad(fallback):
-                explain = fallback
-                compact = re.sub(r"\s+", " ", _clean_text_block(explain))
-                signature = _equation_explanation_signature(compact)
         if signature:
             recent_explains.append(signature)
             recent_explains = recent_explains[-6:]
@@ -4246,36 +4515,9 @@ def _render_equation_items(
         latex = _normalize_equation_latex(item.get("latex", ""))
         if not latex:
             continue
-        explain = _source_grounded_equation_explanation(latex, item.get("context_en", ""))
-        if _equation_explanation_is_bad(explain):
-            explain = _fallback_equation_explanation(latex, item.get("context_en", ""))
-        if _equation_explanation_is_generic(explain):
-            structural = _equation_structure_explanation(latex)
-            if structural and not _equation_explanation_is_bad(structural):
-                explain = structural
-            else:
-                specialized = _specialize_equation_explanation(explain, item, docs_dir)
-                if specialized and not _equation_explanation_is_bad(specialized):
-                    explain = specialized
+        explain = _resolve_equation_explanation(latex, item, docs_dir, recent_equation_explains)
         compact = re.sub(r"\s+", " ", _clean_text_block(explain))
         signature = _equation_explanation_signature(compact)
-        if signature and signature in recent_equation_explains:
-            specialized = _specialize_equation_explanation(explain, item, docs_dir)
-            specialized_signature = _equation_explanation_signature(specialized)
-            if specialized and specialized_signature and specialized_signature not in recent_equation_explains and not _equation_explanation_is_bad(specialized):
-                explain = specialized
-                compact = re.sub(r"\s+", " ", _clean_text_block(explain))
-                signature = specialized_signature
-            structural = _equation_structure_explanation(latex)
-            if signature in recent_equation_explains and structural and not _equation_explanation_is_bad(structural):
-                explain = structural
-                compact = re.sub(r"\s+", " ", _clean_text_block(explain))
-                signature = _equation_explanation_signature(compact)
-            fallback = _fallback_equation_explanation(latex, item.get("context_en", ""))
-            if signature in recent_equation_explains and not _equation_explanation_is_bad(fallback):
-                explain = fallback
-                compact = re.sub(r"\s+", " ", _clean_text_block(explain))
-                signature = _equation_explanation_signature(compact)
         if signature:
             recent_equation_explains.append(signature)
             del recent_equation_explains[:-6]
@@ -4293,8 +4535,11 @@ def _render_figure_items(figures: List[Dict[str, object]], slug: str, fig_counte
         caption_cn = _replace_caption_number(str(item.get("caption_cn", "")), fig_counter[0])
         caption_cn = _clean_caption_text(caption_cn)
         caption_cn = _replace_caption_number(caption_cn, fig_counter[0])
-        if fig_counter[0] <= 2 and len(_clean_text_block(caption_cn)) < 36:
-            caption_cn = caption_cn.rstrip("。") + "，用于说明这一类高效路线的关键结构与输入输出关系。"
+        if fig_counter[0] <= 2:
+            clean_caption = _clean_text_block(caption_cn)
+            info_hits = sum(token in clean_caption for token in ["输入", "输出", "流程", "模块", "比较", "结果", "结构", "场景", "动作", "规划", "风险", "控制"])
+            if len(clean_caption) < 48 or info_hits < 2:
+                caption_cn = caption_cn.rstrip("。") + "，重点说明方法流程、比较对象以及最终结果之间的关系。"
         parts.append(
             f"<figure><img class='paper-fig' src='../assets/{slug}/{html.escape(str(item['path']))}' alt='{html.escape(str(item.get('label', 'Figure')))}' loading='lazy' decoding='async' />"
             f"<figcaption style='font-size:12px;'>{html.escape(caption_cn)}</figcaption></figure>"
@@ -4448,6 +4693,10 @@ def _pick_section_detail(source_section_details: Dict[str, Dict[str, object]], k
     return None
 
 
+def _generic_scope_headings(source_section_details: Dict[str, Dict[str, object]]) -> List[str]:
+    return _review_scope_headings(source_section_details)
+
+
 def _figure_bucket_name(item: Dict) -> str:
     caption = _clean_caption_text(str(item.get("caption_en", ""))).lower()
     if any(token in caption for token in ["overview", "pipeline", "framework", "architecture", "scene tree", "layout initialization", "layout optimization"]):
@@ -4565,6 +4814,7 @@ def _render_structured_section(
     rendered_equation_sequence: Optional[List[str]] = None,
     rendered_figure_sequence: Optional[List[str]] = None,
     rendered_table_sequence: Optional[List[str]] = None,
+    subsection_heading_level: int = 3,
 ) -> str:
     if not section_detail:
         return ""
@@ -4609,10 +4859,11 @@ def _render_structured_section(
         number = str(subsection.get("number", "")).strip()
         title = f"{number} {heading_cn}".strip() if number else (heading_cn or heading)
         if title:
-            blocks.append(f"    <h3>{html.escape(title)}</h3>")
+            blocks.append(f"    <h{subsection_heading_level}>{html.escape(title)}</h{subsection_heading_level}>")
         text_en = str(subsection.get("text") or "")
         if text_en:
-            text_cn = _translate_excerpt(text_en, docs_dir, char_limit=2600, purpose=purpose)
+            text_limit = 4200 if purpose == "technical" else 2600
+            text_cn = _translate_excerpt(text_en, docs_dir, char_limit=text_limit, purpose=purpose)
         else:
             text_cn = ""
         if text_cn:
@@ -4626,10 +4877,11 @@ def _render_structured_section(
             subsub_number = str(subsub.get("number", "")).strip()
             subsub_title = f"{subsub_number} {subsub_heading_cn}".strip() if subsub_number else (subsub_heading_cn or subsub_heading)
             if subsub_title:
-                blocks.append(f"    <h4>{html.escape(subsub_title)}</h4>")
+                blocks.append(f"    <h{subsection_heading_level + 1}>{html.escape(subsub_title)}</h{subsection_heading_level + 1}>")
             subsub_text_en = str(subsub.get("text") or "")
             if subsub_text_en:
-                subsub_text_cn = _translate_excerpt(subsub_text_en, docs_dir, char_limit=2200, purpose=purpose)
+                subsub_limit = 3200 if purpose == "technical" else 2200
+                subsub_text_cn = _translate_excerpt(subsub_text_en, docs_dir, char_limit=subsub_limit, purpose=purpose)
             else:
                 subsub_text_cn = ""
             if subsub_text_cn:
@@ -4659,17 +4911,29 @@ def _generic_deep_dive_post_body(doc, figures: List[Dict], related: List[Dict], 
     conclusion_text = _pick_section_text(source_sections, _extract_section_block(text, ["Conclusion", "Limitations", "Discussion"], fallback_limit=2400), ["conclusion", "discussion", "limitation"], 2400)
     method_detail = _pick_section_detail(source_section_details, ["method", "approach", "framework"])
     experiment_detail = _pick_section_detail(source_section_details, ["experiment", "result", "evaluation", "ablation"])
+    technical_scope_headings = _generic_scope_headings(source_section_details)
+    technical_scope_details = [
+        (heading, source_section_details.get(heading))
+        for heading in technical_scope_headings
+        if isinstance(source_section_details.get(heading), dict)
+    ]
+    technical_scope_numbers = [str(detail.get("number", "")).strip() for _, detail in technical_scope_details if isinstance(detail, dict)]
     method_intro_text = str(method_detail.get("text") or method_text) if method_detail else method_text
     experiment_intro_text = str(experiment_detail.get("text") or experiment_text) if experiment_detail else experiment_text
 
     technical_caption_text = _figure_caption_snippets(figures, ["overview", "pipeline", "framework", "architecture", "module"], max_items=2)
     experiment_caption_text = _figure_caption_snippets(figures, ["comparison", "baseline", "result", "ablation", "performance", "evaluation"], max_items=3)
     method_detail_text = _detail_snippets(method_detail, purpose="technical", max_subsections=4, max_subsubsections=1)
+    technical_scope_text = _combine_source_evidence(*[
+        str(detail.get("text") or source_sections.get(heading, ""))
+        for heading, detail in technical_scope_details
+        if isinstance(detail, dict)
+    ])
     experiment_detail_text = _detail_snippets(experiment_detail, purpose="experiment", max_subsections=4, max_subsubsections=1)
 
     summary_source = _combine_source_evidence(abstract_text, intro_text, technical_caption_text)
     innovation_source = _combine_source_evidence(abstract_text, method_intro_text, method_detail_text, technical_caption_text)
-    technical_source = _combine_source_evidence(method_intro_text, method_detail_text, technical_caption_text)
+    technical_source = _combine_source_evidence(technical_scope_text or method_intro_text, method_detail_text, technical_caption_text)
     experiment_source = _combine_source_evidence(experiment_intro_text, experiment_detail_text, experiment_caption_text)
 
     abstract_cn = _translate_excerpt(summary_source or abstract_text, docs_dir, char_limit=3200, purpose="summary")
@@ -4691,8 +4955,16 @@ def _generic_deep_dive_post_body(doc, figures: List[Dict], related: List[Dict], 
     )
     method_equation_items = [
         item for item in equation_items
-        if not method_heading or _clean_text_block(str(item.get("section_heading", ""))) == method_heading
+        if (
+            (_clean_text_block(str(item.get("section_heading", ""))) in technical_scope_headings)
+            or any(_owner_in_scope(item, scope_number) for scope_number in technical_scope_numbers if scope_number)
+        )
     ]
+    if not method_equation_items:
+        method_equation_items = [
+            item for item in equation_items
+            if not method_heading or _clean_text_block(str(item.get("section_heading", ""))) == method_heading
+        ]
     equations_by_owner = _group_equations_by_owner(method_equation_items)
     recent_equation_explains: List[str] = []
     method_section_number = str(method_detail.get("number", "")).strip() if method_detail else ""
@@ -4722,97 +4994,123 @@ def _generic_deep_dive_post_body(doc, figures: List[Dict], related: List[Dict], 
     if summary_hero_figs:
         summary_figs = (summary_hero_figs + [item for item in summary_figs if item not in summary_hero_figs])[:2]
     figures_by_owner = _group_items_by_owner(renderable_owned_figures)
-    technical_figures = [item for item in renderable_owned_figures if _owner_in_scope(item, method_section_number)]
+    technical_figures = [
+        item for item in renderable_owned_figures
+        if any(_owner_in_scope(item, scope_number) for scope_number in technical_scope_numbers if scope_number)
+    ]
     experiment_figures = [item for item in renderable_owned_figures if _owner_in_scope(item, experiment_section_number)]
-    technical_figures_by_owner = {key: value for key, value in figures_by_owner.items() if _owner_in_scope_key(key, method_section_number)}
+    technical_figures_by_owner = {
+        key: value for key, value in figures_by_owner.items()
+        if any(_owner_in_scope_key(key, scope_number) for scope_number in technical_scope_numbers if scope_number)
+    }
     experiment_figures_by_owner = {key: value for key, value in figures_by_owner.items() if _owner_in_scope_key(key, experiment_section_number)}
 
     owned_tables = [item for item in table_items if _has_structured_owner(item)]
     fallback_table_items = [item for item in table_items if item not in owned_tables]
     tables_by_owner = _group_items_by_owner(owned_tables)
-    technical_tables = [item for item in owned_tables if _owner_in_scope(item, method_section_number)]
+    technical_tables = [
+        item for item in owned_tables
+        if any(_owner_in_scope(item, scope_number) for scope_number in technical_scope_numbers if scope_number)
+    ]
     experiment_tables = [item for item in owned_tables if _owner_in_scope(item, experiment_section_number)]
-    technical_tables_by_owner = {key: value for key, value in tables_by_owner.items() if _owner_in_scope_key(key, method_section_number)}
+    technical_tables_by_owner = {
+        key: value for key, value in tables_by_owner.items()
+        if any(_owner_in_scope_key(key, scope_number) for scope_number in technical_scope_numbers if scope_number)
+    }
     experiment_tables_by_owner = {key: value for key, value in tables_by_owner.items() if _owner_in_scope_key(key, experiment_section_number)}
 
     fig_counter = [0]
     rendered_figure_sequence: List[str] = []
     rendered_table_sequence: List[str] = []
     summary_figure_html = _render_figure_items(summary_figs, slug, fig_counter)
-    technical_intro_figures = technical_figures_by_owner.get(method_section_number, []) if method_section_number else []
     experiment_intro_figures = experiment_figures_by_owner.get(experiment_section_number, []) if experiment_section_number else []
-    technical_intro_figure_html = _render_figure_items(technical_intro_figures, slug, fig_counter)
-    if technical_intro_figure_html:
-        rendered_figure_sequence.extend(_asset_owner_key(item) for item in technical_intro_figures if item.get("path"))
     experiment_intro_figure_html = _render_figure_items(experiment_intro_figures, slug, fig_counter)
     if experiment_intro_figure_html:
         rendered_figure_sequence.extend(_asset_owner_key(item) for item in experiment_intro_figures if item.get("path"))
-    technical_intro_tables = technical_tables_by_owner.get(method_section_number, []) if method_section_number else []
     experiment_intro_tables = experiment_tables_by_owner.get(experiment_section_number, []) if experiment_section_number else []
-    technical_intro_table_html = _render_table_items(technical_intro_tables, docs_dir)
-    if technical_intro_table_html:
-        rendered_table_sequence.extend(_asset_owner_key(item) for item in technical_intro_tables)
     experiment_intro_table_html = _render_table_items(experiment_intro_tables, docs_dir)
     if experiment_intro_table_html:
         rendered_table_sequence.extend(_asset_owner_key(item) for item in experiment_intro_tables)
-    technical_structured_html = _render_structured_section(
-        method_detail,
-        docs_dir,
-        purpose="technical",
-        max_subsections=None,
-        max_subsubsections=4,
-        equations_by_owner={key: value for key, value in equations_by_owner.items() if key in structured_owner_keys},
-        recent_equation_explains=recent_equation_explains,
-        figures_by_owner={key: value for key, value in technical_figures_by_owner.items() if key in structured_owner_keys},
-        tables_by_owner={key: value for key, value in technical_tables_by_owner.items() if key in structured_owner_keys},
-        slug=slug,
-        fig_counter=fig_counter,
-        rendered_figure_sequence=rendered_figure_sequence,
-        rendered_table_sequence=rendered_table_sequence,
-    )
-    rendered_equation_keys = set(structured_owner_keys)
-    if intro_equation_html and method_section_number:
-        rendered_equation_keys.add(method_section_number)
-    allow_equation_tail_fallback = not structured_owner_keys and not method_section_number
+    technical_blocks: List[str] = []
+    rendered_equation_keys = set()
+    for heading, detail in technical_scope_details:
+        if not isinstance(detail, dict):
+            continue
+        scope_number = str(detail.get("number", "")).strip()
+        heading_cn = _translate_heading_to_zh(heading, docs_dir)
+        title = f"{scope_number} {heading_cn}".strip() if scope_number else (heading_cn or heading)
+        if title:
+            technical_blocks.append(f"    <h3>{html.escape(title)}</h3>")
+        section_text_en = str(detail.get("text") or source_sections.get(heading, ""))
+        section_text_cn = _translate_excerpt(section_text_en, docs_dir, char_limit=4800, purpose="technical") if section_text_en else ""
+        if section_text_cn:
+            technical_blocks.append(_cn_paragraphs(section_text_cn))
+        if scope_number:
+            top_level_equations = equations_by_owner.get(scope_number, [])
+            if top_level_equations:
+                technical_blocks.append(_render_equation_items(top_level_equations, docs_dir, recent_equation_explains))
+                rendered_equation_keys.add(scope_number)
+            top_level_figures = technical_figures_by_owner.get(scope_number, [])
+            if top_level_figures:
+                technical_blocks.append(_render_figure_items(top_level_figures, slug, fig_counter))
+                rendered_figure_sequence.extend(_asset_owner_key(item) for item in top_level_figures if item.get("path"))
+            top_level_tables = technical_tables_by_owner.get(scope_number, [])
+            if top_level_tables:
+                technical_blocks.append(_render_table_items(top_level_tables, docs_dir))
+                rendered_table_sequence.extend(_asset_owner_key(item) for item in top_level_tables)
+        local_structured_owner_keys: set[str] = set()
+        subsections = detail.get("subsections") if isinstance(detail.get("subsections"), list) else []
+        for subsection in subsections:
+            local_structured_owner_keys.add(str(subsection.get("number", "")).strip())
+            subsubsections = subsection.get("subsubsections") if isinstance(subsection.get("subsubsections"), list) else []
+            for subsub in subsubsections:
+                local_structured_owner_keys.add(str(subsub.get("number", "")).strip())
+        structured_owner_keys.update(local_structured_owner_keys)
+        structured_html = _render_structured_section(
+            detail,
+            docs_dir,
+            purpose="technical",
+            max_subsections=None,
+            max_subsubsections=4,
+            equations_by_owner={key: value for key, value in equations_by_owner.items() if key in local_structured_owner_keys},
+            recent_equation_explains=recent_equation_explains,
+            figures_by_owner={key: value for key, value in technical_figures_by_owner.items() if key in local_structured_owner_keys},
+            tables_by_owner={key: value for key, value in technical_tables_by_owner.items() if key in local_structured_owner_keys},
+            slug=slug,
+            fig_counter=fig_counter,
+            rendered_figure_sequence=rendered_figure_sequence,
+            rendered_table_sequence=rendered_table_sequence,
+            subsection_heading_level=4,
+        )
+        if structured_html:
+            technical_blocks.append(structured_html)
+        rendered_equation_keys.update(local_structured_owner_keys)
+    allow_equation_tail_fallback = (len(technical_scope_details) <= 1) or (not structured_owner_keys and not method_section_number)
     leftover_equations = [
         item for item in method_equation_items
         if _equation_owner_key(item) not in rendered_equation_keys and (allow_equation_tail_fallback or not _has_structured_owner(item))
     ]
     equation_html = _render_equation_items(leftover_equations, docs_dir, recent_equation_explains)
     rendered_owner_sequence: List[str] = []
-    if method_section_number:
+    for scope_number in technical_scope_numbers:
         rendered_owner_sequence.extend(
             _equation_owner_key(item)
-            for item in equations_by_owner.get(method_section_number, [])
+            for item in equations_by_owner.get(scope_number, [])
             if _normalize_equation_latex(item.get("latex", ""))
         )
-    if method_detail:
-        subsections = method_detail.get("subsections") if isinstance(method_detail.get("subsections"), list) else []
-        for subsection in subsections:
-            subsection_number = str(subsection.get("number", "")).strip()
-            rendered_owner_sequence.extend(
-                _equation_owner_key(item)
-                for item in equations_by_owner.get(subsection_number, [])
-                if _normalize_equation_latex(item.get("latex", ""))
-            )
-            subsubsections = subsection.get("subsubsections") if isinstance(subsection.get("subsubsections"), list) else []
-            for subsub in subsubsections:
-                subsub_number = str(subsub.get("number", "")).strip()
-                rendered_owner_sequence.extend(
-                    _equation_owner_key(item)
-                    for item in equations_by_owner.get(subsub_number, [])
-                    if _normalize_equation_latex(item.get("latex", ""))
-                )
+    for owner_key in structured_owner_keys:
+        rendered_owner_sequence.extend(
+            _equation_owner_key(item)
+            for item in equations_by_owner.get(owner_key, [])
+            if _normalize_equation_latex(item.get("latex", ""))
+        )
     rendered_owner_sequence.extend(
         _equation_owner_key(item)
         for item in leftover_equations
         if _normalize_equation_latex(item.get("latex", ""))
     )
     rendered_technical_asset_keys = set(structured_owner_keys)
-    if technical_intro_figure_html and method_section_number:
-        rendered_technical_asset_keys.add(method_section_number)
-    if technical_intro_table_html and method_section_number:
-        rendered_technical_asset_keys.add(method_section_number)
+    rendered_technical_asset_keys.update(scope_number for scope_number in technical_scope_numbers if scope_number)
     allow_technical_tail_fallback = not structured_owner_keys and not method_section_number
     leftover_technical_figures = [
         item for item in technical_figures
@@ -4953,10 +5251,7 @@ def _generic_deep_dive_post_body(doc, figures: List[Dict], related: List[Dict], 
     <h2 id='technical'>技术细节</h2>
 {method_paras}
 {_render_figure_items(tech_fallback_figs, slug, fig_counter)}
-{technical_intro_figure_html}
-{intro_equation_html}
-{technical_intro_table_html}
-{technical_structured_html}
+{''.join(technical_blocks)}
 {technical_leftover_figure_html}
 {technical_leftover_table_html}
 {equation_html}
@@ -5192,6 +5487,7 @@ def build_post_from_pdf(
                     docs_dir=docs,
                     source_dir=source_dir,
                     source_figures=source_figures,
+                    pdf_path=pdf_path,
                 )
             else:
                 figure_entries = _build_caption_aware_figures(
@@ -5231,6 +5527,9 @@ def build_post_from_pdf(
 
     with open(page_path, "w", encoding="utf-8") as f:
         body = _enable_lazy_images(body)
+        body = _normalize_tinysplat_figure_slots(body, asset_slug)
+        body = _sanitize_final_body_html(body)
+        body = _renumber_figure_captions_html(body)
         f.write(_render_page(post_title, body, include_mathjax=_page_needs_mathjax(body)))
 
     tags = _infer_tags(doc.title, text)
