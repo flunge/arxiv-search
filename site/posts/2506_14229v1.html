@@ -108,7 +108,7 @@
       requestAnimationFrame(applyPageScale);
     }
 
-    function applyPageScale() {
+    function applyPageScale {
       var stage = document.querySelector('.page-stage');
       var shell = document.getElementById('page-shell');
       if (!stage || !shell) return;
@@ -120,7 +120,7 @@
     window.addEventListener('orientationchange', applyPageScale);
     window.addEventListener('load', applyPageScale);
     document.addEventListener('DOMContentLoaded', applyPageScale);
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function {
       var shell = document.getElementById('page-shell');
       if (!shell) return;
       shell.querySelectorAll('img').forEach(function(img) {
@@ -130,20 +130,20 @@
         }
       });
       if ('ResizeObserver' in window) {
-        var resizeObserver = new ResizeObserver(function() {
+        var resizeObserver = new ResizeObserver(function {
           requestAnimationFrame(applyPageScale);
         });
         resizeObserver.observe(shell);
       }
     });
 
-    function setupImageLightbox() {
+    function setupImageLightbox {
       var lightbox = document.getElementById('page-lightbox');
       var lightboxImage = document.getElementById('page-lightbox-image');
       var lightboxCaption = document.getElementById('page-lightbox-caption');
       if (!lightbox || !lightboxImage || !lightboxCaption) return;
 
-      function closeLightbox() {
+      function closeLightbox {
         lightbox.setAttribute('hidden', 'hidden');
         lightbox.setAttribute('aria-hidden', 'true');
         lightboxImage.removeAttribute('src');
@@ -159,7 +159,7 @@
         var caption = figure ? figure.querySelector('figcaption') : null;
         lightboxImage.src = src;
         lightboxImage.alt = img.alt || '';
-        lightboxCaption.textContent = caption ? caption.textContent.trim() : (img.alt || '');
+        lightboxCaption.textContent = caption ? caption.textContent.trim : (img.alt || '');
         lightbox.removeAttribute('hidden');
         lightbox.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
@@ -174,13 +174,13 @@
           return;
         }
         if (target === lightbox || target.closest('.page-lightbox-close')) {
-          closeLightbox();
+          closeLightbox;
         }
       });
 
       document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape' && !lightbox.hasAttribute('hidden')) {
-          closeLightbox();
+          closeLightbox;
         }
       });
     }
@@ -202,8 +202,8 @@
       },
       svg: { fontCache: 'global' },
       startup: {
-        pageReady: () => {
-          return MathJax.startup.defaultPageReady().then(() => {
+        pageReady:  => {
+          return MathJax.startup.defaultPageReady.then( => {
             requestAnimationFrame(applyPageScale);
           });
         }
@@ -243,7 +243,7 @@
     
     <h2 id='technical'>技术细节</h2>
     <p>这种方法可以在有限的内存条件下实现精确的重建。为了重建场景表面，我们强制执行由预训练的单目深度神经网络预测的法线先验，以使用余弦损失来监督渲染的法线贴图。然后将优化的块连接起来形成最终的全局高斯表示，并通过新颖的视图合成（NVS）和表面重建任务进行验证。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
-<figure><img class='paper-fig' src='../assets/2506_14229v1/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：(a) 来自 Mip-NeRF 360 数据集的“自行车”场景的高分辨率（5K）渲染，以及来自 3DGS、Mip-Splatting 和我们的方法的结果；(c) 整个数据集的平均资源使用情况表明我们的方法保持了最小的内存和模型占用空间</figcaption></figure>
+<figure><img width='800' height='450' class='paper-fig' src='../assets/2506_14229v1/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：(a) 来自 Mip-NeRF 360 数据集的“自行车”场景的高分辨率（5K）渲染，以及来自 3DGS、Mip-Splatting 和我们的方法的结果；(c) 整个数据集的平均资源使用情况表明我们的方法保持了最小的内存和模型占用空间</figcaption></figure>
     <h3>3 方法</h3>    <p>这一节先处理的是 我们提出的 HRGS 可以有效地重建高分辨率场景。作者这样设计，是为了先把输入表示、约束条件或中间状态整理成后续模块能直接使用的形式。</p>
     <p>接着，论文还会处理 最后，本节描述了我们的方法中使用的损失函数。它的作用不是重复上一层计算，而是把这一阶段得到的结果继续传给后面的更新、渲染或决策步骤。</p>    <h4>3.1 初步的</h4>
     <p>我们首先简要概述 3D 高斯分布 (3DGS)。出于渲染目的，给定像素处多个高斯的组合颜色和不透明度贡献根据各自的不透明度进行加权。</p>
@@ -263,9 +263,7 @@
     <p>$$ H_i \;=\;\sum_{r\in\mathcal{R}_b}\mathbf{1}(p_i \cap r)\,T_{i,r}, \text{其中 } T_{i,r} =\prod_{\substack{p_k \cap r\\\mathrm{depth}(p_k)<\mathrm{depth}(p_i)}}\bigl(1 - \alpha_k\bigr). $$</p>
     <p>这条式子定义了高斯的重要性分数。它统计某个高斯在训练射线上的可见贡献：如果高斯经常出现在可见路径上，而且前面遮挡不强，它的分数就会更高；反之则可以被优先裁剪。这个分数正是 HRGS 在块级优化里做轻量剪枝的依据。</p>
     <h4>3.3 损失函数</h4>
-    <p>围绕 3.3 损失函数，为了优化粗略和细化阶段，损失函数定义如下。为了重建场景表面，我们强制执行由预训练的单目深度神经网络预测的法线先验，以使用余弦损失来监督渲染的法线贴图。D-法线是通过计算相邻点的水平和垂直有限差的叉积从渲染深度导出的。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
-<figure><img class='paper-fig' src='../assets/2506_14229v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：Mip-NeRF 360 数据集的定性比较；三个代表性场景表明，与 3DGS 和 Mip-Splatting 相比，我们的方法更忠实地保留了精细尺度结构并实现了卓越的视觉保真度</figcaption></figure>
-<figure><img class='paper-fig' src='../assets/2506_14229v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：TNT 数据集的定性比较。从左到右的重建——SuGar、NeuS、2DGS 和 VCR-Gaus——表明我们的方法提供了更完整的表面几何形状、增强了平面区域的平滑度以及出色地保留了精细结构数据</figcaption></figure>
+    <p>围绕 3.3 损失函数，为了优化粗略和细化阶段，损失函数定义如下。为了重建场景表面，我们强制执行由预训练的单目深度神经网络预测的法线先验，以使用余弦损失来监督渲染的法线贴图。D-法线是通过计算相邻点的水平和垂直有限差的叉积从渲染深度导出的。作者这样设计，是为了把这一节的输入<img width='800' height='450' class='paper-fig' src='../assets/2506_14229v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' />lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：Mip-NeRF 360 数据集的定性比较；三个代表性场景表明，与 3DGS 和 Mip-Splatting 相比，我们的方法更忠实地保留<img width='800' height='450' class='paper-fig' src='../assets/2506_14229v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' />alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：TNT 数据集的定性比较。从左到右的重建——SuGar、NeuS、2DGS 和 VCR-Gaus——表明我们的方法提供了更完整的表面几何形状、增强了平面区域的平滑度以及出色地保留了精细结构数据</figcaption></figure>
     <p>$$ \mathcal{L}_n = \| \hat{\mathbf{N}} - \mathbf{N} \|_1 + (1 - \hat{\mathbf{N}} \cdot \mathbf{N}). $$</p>
     <p>这条式子是法线监督损失：一方面用 L1 约束渲染法线接近先验法线，另一方面再用点积项约束两者方向一致。作者加入这项损失，是为了让 HRGS 在追求高分辨率细节时，不至于把表面几何优化成噪声化的薄片结构。</p>
     <p>$$ \overline{\mathbf{N}}_d = \frac{\nabla_v \mathbf{d} \times \nabla_h \mathbf{d}}{|\nabla_v \mathbf{d} \times \nabla_h \mathbf{d}|}, $$</p>
@@ -305,7 +303,7 @@
 </div>
 <div id='page-lightbox' class='page-lightbox' hidden aria-hidden='true'>
   <div class='page-lightbox-inner'>
-    <button type='button' class='page-lightbox-close' aria-label='关闭大图' title='关闭'>&times;</button>
+    <button type='button' cla<img decoding='async' loading='lazy' id='page-lightbox-image' class='page-lightbox-image' alt='' />on>
     <img id='page-lightbox-image' class='page-lightbox-image' alt='' />
     <div id='page-lightbox-caption' class='page-lightbox-caption'></div>
   </div>
