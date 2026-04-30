@@ -1,0 +1,23 @@
+\section{Budget Matching Algorithm}
+To efficiently determine the threshold $\tau_{\bar{N}_\mathcal{G}}$ that matches a target Gaussian budget $\bar{N}_\mathcal{G}$, we precompute a threshold--budget lookup table, $\tilde{\boldsymbol{\tau}}$ and $\tilde{\mathbf{N}}_\mathcal{G}$, from the predicted multi-level densification score maps $\{\{\hat{\mathbf{D}}_i^l\}_{i=1}^{N_\tec}\}_{l=1}^{L-1}$ using \cref{alg:threshold_budget_lookup}. 
+\input{Supplementary/Algorithms/budget_matching_lookup}
+
+Let $\tilde{\mathbf{N}}_\mathcal{G} = \big([\tilde{\mathbf{N}}_\mathcal{G}]_1,\dots,[\tilde{\mathbf{N}}_\mathcal{G}]_K\big)$
+denote the Gaussian-count lookup table sorted according to the threshold list
+$\tilde{\boldsymbol{\tau}}$. Under the assumption that all densification score values are unique,
+the difference between two adjacent entries is upper-bounded by $4^{L-1}-1$:
+\[
+[\tilde{\mathbf{N}}_\mathcal{G}]_{k+1} - [\tilde{\mathbf{N}}_\mathcal{G}]_{k} \le 4^{L-1}-1.
+\]
+This follows because lowering the threshold activates exactly one new score value, which changes the allocation at only one spatial position. The largest possible increase occurs when the activated position corresponds to the coarsest valid level and represents all unresolved descendants across finer levels. Since each finest-level position contributes $3$ Gaussians, the maximum increment becomes
+\[
+3\sum_{j=0}^{L-2}4^j = 4^{L-1}-1.
+\]
+Therefore, for any target budget $\bar{N}_\mathcal{G}$, there always exists an index $k^\star$ such that
+\[
+[\tilde{\mathbf{N}}_{\mathcal{G}}]_{k^\star} \le \bar{N}_\mathcal{G}
+< [\tilde{\mathbf{N}}_{\mathcal{G}}]_{k^\star} + (4^{L-1}-1),
+\]
+which implies that the threshold $\tau_{\bar{N}_\mathcal{G}}=\tilde{\boldsymbol{\tau}}_{k^\star}$ satisfies~\cref{eq:budget_condition} of the main paper.
+Ultimately, we can efficiently obtain the threshold $\tau_{\bar{N}_\mathcal{G}}$ via \cref{alg:find_budget_threshold}.
+\input{Supplementary/Algorithms/budget_matching_binary_search}

@@ -1,0 +1,229 @@
+\section{Experiments}
+\label{sec:exp}
+
+\subsection{Experimental Setup}
+% \subsubsection{Datasets.}
+% We evaluate our approach on a diverse set of public benchmarks to ensure robust performance across different environmental scales. Our indoor evaluation comprises 30 complex scenes, including 20 from ScanNet++~\cite{yeshwanth2023scannet++} and 10 from ScanNetV2~\cite{dai2017scannet}, which provide rich geometric details. For outdoor environments, we utilize 22 large-scale sequences, specifically 8 from KITTI~\cite{geiger2012we}, 9 from Waymo~\cite{sun2020scalability}, and 5 from FAST-LIVO2~\cite{zheng2024fast}, to test the framework's stability under challenging real-world conditions.
+\subsubsection{Datasets.}
+We evaluate our approach on a diverse set of public benchmarks covering both indoor and outdoor environments. 
+The indoor evaluation includes 38 scenes, consisting of 20 from ScanNet++~\cite{yeshwanth2023scannet++}, 10 from ScanNetV2~\cite{dai2017scannet} and 8 from VR-NeRF~\cite{xu2023vr}.
+For outdoor environments, we use 22 large-scale sequences, including 8 from KITTI~\cite{geiger2012we}, 9 from Waymo~\cite{sun2020scalability}, and 5 from FAST-LIVO2~\cite{zheng2024fast}.
+
+
+\begin{table}[t!]
+\centering
+\renewcommand{\arraystretch}{1.1} % 稍微微调行高
+\setlength{\tabcolsep}{3.5pt}
+\caption{\textbf{Tracking comparisons} in terms of ATE RMSE (m). 
+We compare against state-of-the-art SLAM frameworks on both indoor and outdoor datasets. 
+The best and second-best results are highlighted in \textbf{bold} and \underline{underline}, respectively.}
+\label{tab:tracking_ate_comparison}
+
+
+
+\resizebox{\linewidth}{!}{
+\begin{tabular}{l|cccccc|c}
+\toprule
+Dataset & DROID-SLAM & MASt3R-SLAM & VGGT-SLAM &	VGGT-SLAM 2.0 & ARTDECO & Ours \ & \ Pi3X  \\
+\midrule
+ScanNet++ & 0.623 & 0.346 & 1.081 & 0.182 & \underline{0.137} & \textbf{0.065} \ & \ - \\
+ScanNetV2       & 0.217 & 0.106 & 0.852 & \underline{0.073} & 0.141 & \textbf{0.051} \ & \ - \\
+Waymo     & 7.535 & 16.610 & 13.166 & \underline{1.295} & 2.410 & \textbf{0.773} \ & \  0.827\\
+KITTI     & 8.212 & 18.073 & 10.985 & \underline{2.521} & 2.938& \textbf{0.890} \ & \ 1.441 \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\begin{table}[t]
+\centering
+\renewcommand{\arraystretch}{1.1}
+\setlength{\tabcolsep}{2pt}
+\caption{\textbf{Rendering comparisons} across indoor and outdoor datasets. 
+We report visual quality metrics, the number of Gaussians, and average training time. 
+The best and second-best results are highlighted in \textbf{bold} and \underline{underline}, respectively.}
+
+% -------- Indoor Part (ScanNet++, ScanNetV2, VR-NeRF) --------
+\resizebox{\linewidth}{!}{
+\begin{tabular}{l|ccc|ccc|ccc|cc}
+\toprule
+Indoor-dataset & \multicolumn{3}{c|}{ScanNet++} & \multicolumn{3}{c|}{ScanNetV2} & \multicolumn{3}{c|}{VR-NeRF} & \multicolumn{2}{c}{Efficiency} \\
+Method & PSNR$\uparrow$ & SSIM$\uparrow$ & LPIPS$\downarrow$ 
+       & PSNR$\uparrow$ & SSIM$\uparrow$ & LPIPS$\downarrow$ 
+       & PSNR$\uparrow$ & SSIM$\uparrow$ & LPIPS$\downarrow$
+       & \#GS & Time \\
+\midrule
+MonoGS        & 18.56 & 0.732 & 0.582 & 21.88 & 0.827 & 0.508 & 14.69 & 0.565 & 0.728 & 25.2k & 10.2 min \\
+S3PO-GS       & 22.60 & 0.812 & 0.457 & 24.05 & 0.850 & 0.439 & 22.10 & 0.766 & 0.528 & 29.9k & 17.1 min \\
+HI-SLAM2       & 23.89 & 0.811 & 0.342 & 23.75 & 0.820 & 0.295 & 28.25 & 0.868 & 0.277 & 152.1k & 6.9 min \\
+\midrule
+OnTheFly-NVS  & 22.00 & 0.808 & 0.336 & 23.38 & 0.861 & 0.348 & 28.23 & \underline{0.888} & 0.257 & 210.5k & 1.4 min \\
+ARTDECO   & \underline{26.71} & \underline{0.864} & \underline{0.246} & \underline{26.03} & \underline{0.902} & \underline{0.278} & \underline{29.15} & 0.883 & \underline{0.231} & 936.7k & 5.1 min \\
+\midrule
+Ours    & \textbf{28.82} & \textbf{0.892} & \textbf{0.190} & \textbf{27.08} & \textbf{0.904} & \textbf{0.272} & \textbf{29.64} & \textbf{0.891} & \textbf{0.223} & 632.2k & 4.7 min \\
+\bottomrule
+\end{tabular}}		
+
+
+% -------- Outdoor Part (KITTI, Waymo, FAST-LIVO2) --------
+\resizebox{\linewidth}{!}{
+\begin{tabular}{l|ccc|ccc|ccc|cc}
+\toprule
+Outdoor-dataset & \multicolumn{3}{c|}{KITTI} & \multicolumn{3}{c|}{Waymo} & \multicolumn{3}{c|}{FAST-LIVO2} & \multicolumn{2}{c}{Efficiency} \\
+Method & PSNR$\uparrow$ & SSIM$\uparrow$ & LPIPS$\downarrow$ 
+       & PSNR$\uparrow$ & SSIM$\uparrow$ & LPIPS$\downarrow$ 
+       & PSNR$\uparrow$ & SSIM$\uparrow$ & LPIPS$\downarrow$
+       & \#GS & Time \\
+\midrule
+MonoGS        & 14.60 & 0.490 & 0.761 & 19.49 & 0.742 & 0.636 & 18.37 & 0.589 & 0.719 & 27.2k & 13.5 min \\
+S3PO-GS       & 18.45 & 0.609 & 0.416 & 25.09 & 0.809 & 0.437 & 20.62 & 0.645 & 0.499 & 109.7k & 24.4 min \\
+HI-SLAM2       & 20.97 & 0.690 & 0.330 & 23.61 & 0.765 & 0.287 & 22.40 & 0.728 & 0.354 & 190.7k & 7.7 min \\
+\midrule
+OnTheFly-NVS  & 17.09 & 0.583 & 0.429 & 26.86 & 0.853 & 0.300 & 19.22 & 0.621 & 0.470 & 214.3k & 1.6 min \\
+ARTDECO     & \underline{21.47} & \underline{0.709} & \underline{0.301} & \underline{28.63} & \underline{0.865} & \textbf{0.252} & \underline{24.71} & \underline{0.779} & \underline{0.294} & 1388.1k & 7.8 min \\
+\midrule
+Ours          & \textbf{22.47} & \textbf{0.727} & \textbf{0.288} & \textbf{28.94} & \textbf{0.880} & \underline{0.277} & \textbf{25.48} & \textbf{0.799} & \textbf{0.293} & 1098.9k & 7.2 min\\
+\bottomrule
+\end{tabular}}
+\label{tab:quantitative_results}
+\end{table}
+
+
+\begin{figure}[t]
+\includegraphics[width=\linewidth]{fig/Main.pdf}
+\caption{\textbf{Qualitative comparisons} of rendering against on-the-fly reconstruction baselines across diverse datasets. M$^3$ preserves high-fidelity rendering details in challenging environments, particularly in regions highlighted by white rectangles.
+}
+\label{fig:main_results}
+\end{figure}
+ 
+
+\subsubsection{Metrics.}
+We evaluate pose estimation accuracy, rendering quality, and efficiency. 
+Pose accuracy is measured using the Absolute Trajectory Error (ATE) RMSE. 
+Rendering quality is evaluated with PSNR, SSIM~\cite{wang2004image}, and LPIPS~\cite{zhang2018unreasonable}. 
+Efficiency is assessed using the number of Gaussians and the training time.
+
+\subsubsection{Baselines.}
+We compare our approach with two categories of methods. For pose estimation, we evaluate against several SLAM frameworks, including DROID-SLAM~\cite{teed2021droid}, MASt3R-SLAM~\cite{murai2024_mast3rslam}, VGGT-SLAM~\cite{maggio2025vggt}, VGGT-SLAM 2.0~\cite{maggio2026vggt}, and ARTDECO~\cite{artdeco}. 
+We also include the base model Pi3X~\cite{wang2025pi} without our enhancements as an additional baseline to evaluate the impact of proposed modifications.
+For scene reconstruction, we compare against Gaussian Splatting-based streaming methods, including MonoGS~\cite{matsuki2024gaussian}, S3PO-GS~\cite{cheng2025outdoor}, HI-SLAM2~\cite{zhang2025hi}, OnTheFly-NVS~\cite{meuleman2025fly}, and ARTDECO~\cite{artdeco}. 
+We further compare with feed-forward Gaussian Splatting approaches, including AnySplat~\cite{jiang2025anysplat} and Depth-Anything-3~\cite{lin2025depth}.
+% We compare our approach against two distinct categories of state-of-the-art methods. For pose estimation, we benchmark against leading SLAM frameworks, including DROID-SLAM~\cite{teed2021droid}, MASt3R-SLAM~\cite{murai2024_mast3rslam}, VGGT-SLAM~\cite{maggio2025vggt}, VGGT-SLAM 2.0~\cite{maggio2026vggt}, and ARTDECO~\cite{artdeco}. Furthermore, to validate the effectiveness of our fine-tuning strategy, we add our base model, Pi3X~\cite{wang2025pi}, as a direct baseline. For scene reconstruction, we evaluate against recent Gaussian Splatting-based streaming reconstruction approaches, such as MonoGS~\cite{matsuki2024gaussian}, S3PO-GS~\cite{cheng2025outdoor}, HI-SLAM2~\cite{zhang2025hi}, OnTheFly-NVS~\cite{meuleman2025fly}, and ARTDECO~\cite{artdeco}. Additionally, we compare our method with feed-forward Gaussian Splatting methods, specifically AnySplat and Depth-Anything-3.
+
+% \subsection{Implementation Details.}
+
+\subsection{Implementation Details.} We fine-tune the matching head of Pi3X for 200K iterations using the AdamW optimizer with a cosine learning rate schedule and a peak learning rate of $1\times10^{-4}$. Each training batch contains $N=8$ frames, and the balancing weight $\alpha$ in the training objective is set to $10.0$. In the M$^3$ framework, we use a sliding window of $L=8$ frames with up to four historical keyframes. The descriptor matching search radius is set to $r=4$, and the keyframe insertion threshold is defined as $\tau_k = \max(0.333W, 30)$. Following ARTDECO~\cite{artdeco} and OnTheFly-NVS~\cite{meuleman2025fly}, a 10k-iteration global refinement is performed after the streaming stage, while per-scene baselines are trained for 30k iterations. All experiments are conducted on an NVIDIA RTX 4090 GPU, while feed-forward baselines are evaluated on an NVIDIA H200 GPU due to memory requirements. For novel view synthesis evaluation, every eighth frame is held out and excluded from the mapper while its pose is optimized for evaluation. Additional training details are provided in the supplementary material.
+
+% \subsubsection{Details of Pi3X Finetuning.}
+% The matching head is trained for 200K iterations using the AdamW optimizer across the diverse datasets summarized in Table 2. We employ a cosine learning rate scheduler with a peak learning rate of $1 \times 10^{-4}$ and a linear warm-up phase of 1K steps.
+% During training, each input batch consists of $N=8$ frames. To enhance the model's multi-scale robustness, we apply random resolution scaling within a ratio of $[0.8, 1.2]$, while maintaining the long edge of the images at 518 pixels. For each source frame, we randomly sample 8,192 query points to compute the matching loss. The balancing hyper-parameter $\alpha$ in the total training objective is set to 10.0. The entire training process was conducted on 16 NVIDIA RTX 4090 GPUs, taking approximately 4 days to reach convergence. More training details are provided in the supplementary material.
+
+% \subsubsection{Details of M$^3$ Framework.}
+% For the sliding window, we employ $L=8$ frames, including $K = \min(N_k, 4)$ historical keyframes, where $N_k$ denotes the total keyframe count. We set the search radius for descriptor-based matching to $r=4$ and define the keyframe insertion threshold as $\tau_k = \max(0.333 \cdot W, 30)$. Loop closure is performed across $N_c = \min(23, N_k)$ candidate keyframes to ensure global consistency. Following the protocols of ARTDECO~\cite{artdeco} and OnTheFly-NVS~\cite{meuleman2025fly}, our framework undergoes a 10k-iteration global refinement after the streaming stage, whereas per-scene baselines are trained for 30k iterations.Our experiments are conducted on an NVIDIA RTX 4090 GPU, while feed-forward baselines are evaluated on an NVIDIA H200 GPU to avoid out-of-memory errors. Following standard novel view synthesis practices, every eighth frame is held out for evaluation, which are excluded from the mapper while their
+% poses are optimized for evaluation.
+
+
+\begin{table}[t]
+\centering
+\renewcommand{\arraystretch}{1.1}
+\setlength{\tabcolsep}{2pt}
+\caption{\textbf{Comparisons against feed-forward Gaussian Splatting methods.} 
+We evaluate reconstruction quality and efficiency on fixed-length sequences. 
+Our optimization-based approach consistently outperforms SOTA feed-forward models.}
+\label{tab:feed_forward_horizontal}
+\resizebox{\linewidth}{!}{
+\begin{tabular}{l|cccc|cccc|cccc}
+\toprule
+Method & \multicolumn{4}{c|}{Ours} & \multicolumn{4}{c|}{Depth-Anything-3} & \multicolumn{4}{c}{AnySplat} \\
+Dataset & PSNR$\uparrow$ & SSIM$\uparrow$ & LPIPS$\downarrow$ & GPU$\downarrow$ 
+            & PSNR$\uparrow$ & SSIM$\uparrow$ & LPIPS$\downarrow$ & GPU $\downarrow$ 
+            & PSNR$\uparrow$ & SSIM$\uparrow$ & LPIPS$\downarrow$ & GPU$\downarrow$ \\
+\midrule
+ScanNet++ & \textbf{27.789} & \textbf{0.873} & \textbf{0.211} & \textbf{22.4G} & 17.973 &  0.666 & 0.441 & 105.5G & \underline{22.337} & \underline{0.757} & \underline{0.236} & \underline{94.6G} \\
+Waymo     & \textbf{28.346} & \textbf{0.870} & \textbf{0.273} & \textbf{23.2G} & 21.760 & 0.701 & \underline{0.338} & 82.0G & \underline{21.974} & \underline{0.729} & 0.341 & \underline{73.1G} \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+
+\begin{figure}[t]
+\includegraphics[width=\linewidth]{fig/FFD.pdf}
+\caption{\textbf{Qualitative comparisons of rendering against feed-forward Gaussian Splatting methods.} M$^3$ consistently preserves fine-grained visual details.
+}
+\label{fig:qualitative_ff}
+\end{figure}
+
+
+
+\subsection{Comparison}
+\subsubsection{Pose Estimation Results Analysis}
+Tab.~\ref{tab:tracking_ate_comparison} reports the pose estimation results on four indoor and outdoor benchmarks, comparing our method with recent SLAM frameworks and the base foundation model Pi3X~\cite{wang2025pi}. Our method achieves the lowest ATE on most evaluated sequences. 
+This improvement can be attributed to the combination of strong geometric priors from the foundation model and geometric optimization within the SLAM framework, which together enable more accurate camera trajectory estimation. Additional qualitative trajectory visualizations are provided in the supplementary material.
+
+\subsubsection{Reconstruction Results Analysis.}
+In this section, we compare M$^3$ with two groups of reconstruction baselines: (i) SLAM-based Gaussian Splatting methods and (ii) feed-forward Gaussian Splatting methods. 
+Tab.~\ref{tab:quantitative_results} reports results on six indoor and outdoor benchmarks for the SLAM-based setting. M$^3$ achieves consistently strong novel view synthesis quality while maintaining competitive efficiency. In particular, our method attains favorable rendering quality with a compact Gaussian representation 
+% (i.e., fewer primitives) 
+and comparable training time. We attribute this improvement to improved pose estimation, which provides better-aligned camera trajectories and facilitates more stable and efficient 3DGS initialization. Fig.~\ref{fig:main_results} further shows qualitative comparisons, where M$^3$ produces sharper renderings with fewer artifacts and better preserves structural details. 
+
+We further compare with feed-forward Gaussian Splatting methods. 
+Tab.~\ref{tab:feed_forward_horizontal} and Fig.~\ref{fig:qualitative_ff} report results under the AnySplat protocol~\cite{jiang2025anysplat}: we randomly sample $256$ images from ScanNet++ and $199$ images from Waymo and apply the standard center-cropping procedure. 
+M$^3$ achieves better reconstruction quality than feed-forward baselines on both indoor and outdoor sets, and remains stable in large-scale scenes. Moreover, our method requires less memory than feed-forward baselines, facilitating deployment on commercial hardware. Additional results are provided in the supplementary material.
+
+% \subsubsection{Pose Estimation Results Analysis}
+% Table~\ref{tab:tracking_ate_comparison} presents a quantitative comparison across four representative indoor and outdoor benchmarks, encompassing state-of-the-art deep visual SLAM baselines and our proposed framework, with Pi3X~\cite{wang2025pi} serving as the primary reference. Leveraging our novel SLAM framework design, our method consistently outperforms contemporary feed-forward SLAM architectures in terms of localization accuracy. Specifically, through the integration of joint local and global optimization, our framework achieves a significant performance gain over the backbone Pi3X model. This improvement validates the efficacy of our optimization strategy in mitigating drift and refining camera trajectories. These results underscore the synergy between high-quality neural priors and robust geometric back-end optimization. Comprehensive qualitative trajectory visualizations are provided in the supplementary material to further illustrate the tracking stability of our approach.
+
+
+% \subsubsection{Reconstruction Results Analysis.}
+% Table~\ref{tab:quantitative_results} presents a quantitative comparison across six indoor and outdoor benchmarks. Our framework, along with ARTDECO~\cite{artdeco}, substantially surpasses early baselines by delivering robust geometric consistency across diverse scenes, effectively demonstrating significant resilience to scale variations. Despite achieving superior rendering fidelity, our method maintains a highly competitive training efficiency. Notably, our approach yields higher-quality novel view synthesis with a more compact Gaussian representation (i.e., fewer total primitives), which we primarily attribute to the precision of our pose estimation module. By providing more accurate trajectory priors, our framework facilitates a more efficient and well-aligned 3DGS initialization.
+
+% Qualitative evaluations (Fig.~\ref{fig:main_results}) further reveal that our method achieves near-photorealistic reconstruction even in high-complexity environments where existing baselines struggle to produce coherent results. In both indoor rooms and large-scale street views, our synthesized images appear sharper and more detailed, successfully eliminating common artifacts such as ghosting or blur. Our method particularly excels in preserving fine-grained structural details compared to other streaming competitors. Additional rendering results for various indoor and outdoor scenarios are provided in the supplementary material.
+
+% \subsubsection{Comparison with Feed-forward Methods}
+% Table~\ref{tab:feed_forward_horizontal} presents a comparative analysis of our framework against state-of-the-art feed-forward Gaussian Splatting methods in both indoor and outdoor environments. Following the evaluation protocol of AnySplat~\cite{jiang2025anysplat}, we randomly sample 256 images from ScanNet++ and 199 images from Waymo, applying the standard center-cropping procedure.
+
+% The quantitative results demonstrate that our method consistently outperforms feed-forward baselines in terms of both reconstruction fidelity and numerical stability, particularly under large-scale input regimes. Furthermore, our approach maintains a significantly lower memory footprint, which substantially enhances its practical deployability on standard hardware. As illustrated by the qualitative comparisons in Fig.~\ref{fig:qualitative_ff}, our method yields superior rendering quality with noticeably fewer ghosting artifacts in both indoor and outdoor scenes, while preserving finer geometric details than existing feed-forward alternatives.
+
+
+\begin{figure}[t]
+\includegraphics[width=\linewidth]{fig/Dynamic.pdf}
+\caption{\textbf{Effect of the Motion Map in dynamic environments.} 
+By detecting dynamic regions, the Motion Map enables moving objects to be excluded from the static reconstruction, thereby improving structural consistency in dynamic scenes.
+}
+\label{fig:dynamic}
+\end{figure}
+
+\subsection{Dynamic Scene Reconstruction}
+Fig.~\ref{fig:dynamic} illustrates the effect of the proposed Motion Map in dynamic environments. Without the Motion Map, dynamic objects are often reconstructed as blurry ghosting artifacts, which degrades both rendering quality and geometric accuracy. 
+By identifying and suppressing dynamic regions, the Motion Map allows moving objects (e.g., pedestrians) to be excluded from the static reconstruction process. 
+As a result, the reconstructed scene remains temporally consistent and less affected by transient motion.
+
+% Fig.~\ref{fig:dynamic} illustrates the impact of the proposed Motion Map on the reconstruction of dynamic environments. In the absence of the Motion Map, transient elements are incorrectly fitted as blurry ghosting artifacts, which severely compromises the overall reconstruction fidelity and geometric accuracy. However, by leveraging the Motion Map to decouple dynamic regions from the static background, moving entities—such as pedestrians—are effectively filtered out. This decoupling ensures a clean and temporally stable reconstruction of the static scene, preventing the underlying geometry from being corrupted by transient motion.
+ 
+
+
+
+\begin{table}[t!]
+\centering
+\renewcommand{\arraystretch}{1.1} % 稍微微调行高
+\setlength{\tabcolsep}{3pt}
+\caption{\textbf{Ablation studies on the ScanNet++ dataset} evaluating the effect of key design choices and hyperparameters.}
+\label{tab:ablation}
+
+\resizebox{\linewidth}{!}{
+\begin{tabular}{l|ccccccc}
+\toprule
+Metrics & Full  & w/o descriptor & w/o intr. align & w/o global opt. & $\rm{pi3x} \rightarrow \rm{pi3}$ & split front\&back-end & $L$=16  \\
+\midrule
+ATE$\downarrow$  & \textbf{0.065} & 0.094 & 0.236 & 0.130 & 0.068 & 0.098 & 0.077 \\
+PSNR$\uparrow$ & \textbf{28.82} & 27.73 & 26.14 & 28.49 & 28.77 & 28.41 & 28.57 \\
+SSIM$\uparrow$ & \textbf{0.892} & 0.874 & 0.851 & 0.886 & \textbf{0.892} & 0.886 & 0.888 \\
+LPIPS$\downarrow$ & \textbf{0.190} & 0.221 & 0.258 & 0.201 & 0.191 & 0.203 & 0.199 \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\subsection{Ablation Study}
+Tab.~\ref{tab:ablation} presents ablation results on the ScanNet++ dataset evaluating the effect of key design choices and hyperparameters. (i) Setting the descriptor search radius to $r=0$ degrades pose estimation and rendering quality due to the loss of fine-grained correspondences. (ii) Removing per-inference intrinsic alignment weakens coarse matching, leading to less consistent geometry between predictions and the global map. (iii) Disabling global optimization reduces localization accuracy, highlighting its role in mitigating drift. (iv) Replacing the Pi3X backbone with Pi3 results in a small performance drop across metrics, indicating the benefit of stronger Pi3X priors for reconstruction. (v) Decoupling frontend and backend introduces redundant inference passes, reducing stability and increasing training time compared with our integrated streaming framework. (vi) Finally, varying the sliding window size shows that $L=8$ provides a good balance between temporal stability and computational cost. More details are provided in the supplementary material.
+
+% Table~\ref{tab:ablation} provides a comprehensive ablation study to validate our design choices and hyper-parameter configurations. Specifically, (i) setting the descriptor search radius to r=0 significantly degrades pose estimation and subsequent rendering quality due to the loss of fine-grained correspondences. (ii) Omitting per-inference intrinsic alignment weakens coarse matching, leading to suboptimal geometric consistency between neural predictions and the global map. (iii) Disabling global optimization results in a marked decline in localization accuracy, underscoring its critical role in drift mitigation. (iv) Substituting the Pi3X backbone with Pi3 leads to marginal performance drops across all metrics, confirming the superiority of the Pi3X priors for complex reconstruction. (v) Decoupling the tracking and mapping components reduces stability and increases training time due to redundant inference passes, yielding overall inferior results compared to our integrated streaming framework. (vi) Finally, evaluating various sliding window sizes reveals that L=8 provides the optimal balance between temporal stability and computational overhead.
+

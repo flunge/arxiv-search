@@ -1,0 +1,277 @@
+\section{Method}
+\label{sec:method}
+
+\begin{figure}[t!]
+\centering
+\includegraphics[width=\linewidth]{fig/Method.pdf}
+\caption{
+\textbf{The M$^3$ Pipeline.} The framework consists of joint tracking and global optimization for pose estimation and a mapper for scene reconstruction. For monocular sequences, Pi3X processes retrieved historical keyframes and new frames in one inference to facilitate factor graph construction and keyframe selection. Following the Neural Gaussian and LOD architecture of ARTDECO~\cite{artdeco}, Gaussians are initialized via Laplacian norm and optimized jointly with camera poses.
+}
+\label{fig:method}
+\end{figure}
+
+Fig.~\ref{fig:method} illustrates the overall pipeline of M$^3$, an efficient streaming framework for scene reconstruction from uncalibrated monocular videos $\{I_i\}_{i=1}^{N}$. Specifically, our method jointly estimates camera intrinsics $\mathbf{K} \in \mathbb{R}^{3 \times 3}$ and camera poses $\{\mathbf{R}_i, \mathbf{t}_i\}_{i=1}^{N}$, while reconstructing a set of neural Gaussians $\{G_j\}_{j=1}^{M}$ representing the underlying static 3D scene. Recent works~\cite{maggio2025vggt, maggio2026vggt, murai2024_mast3rslam, artdeco} have attempted to improve SLAM efficiency, accuracy, and robustness by integrating foundation models~\cite{leroy2024grounding, wang2025vggt} into SLAM pipelines. However, these approaches either suffer from computational redundancy due to repeated pairwise model inferences or lack sufficient geometric precision because pixel-level correspondences are not explicitly established. To address these limitations, we propose M$^3$, which incorporates a variant of $\pi^3$~\cite{wang2025pi}, Pi3X, augmented with dense pixel-level matching, as detailed in Sec.~\ref{sec:densematching}. In addition, we explicitly filter dynamic transient regions to better adapt to complex real-world environments. We further integrate the foundation model into a unified and tightly coupled frontend--backend SLAM framework, as illustrated in Fig.~\ref{fig:method}. For notational brevity, we denote by $\mathbf{X}_i^j$ the point map of the $i$-th frame transformed into the coordinate frame of the $j$-th frame. In particular, $\mathbf{X}_i \triangleq \mathbf{X}_i^i$ denotes the point map in its own coordinate.
+
+% For notational brevity, we define $\mathbf{X}_i^j$ as the point map of frame $i$ expressed 
+% in the coordinate framework of frame $j$, where $\mathbf{X}_i \triangleq \mathbf{X}_i^i$ 
+% implicitly denotes the point map in its local coordinate.
+
+% \uml{Fig.~\ref{fig:method} depicts the overall pipeline of M$^3$, an efficient framework for joint camera parameter estimation (intrinsics $K \in \mathbb{R}^{3 \times 3}$ and poses $\{R_i, t_i\}_{i=1}^N$) and neural Gaussian-based reconstruction $\{G_j\}_{j=1}^M$ from uncalibrated monocular videos $\{I_i\}_{i=1}^N$. To make the SLAM task be efficent, accurate and robust, recent works~\cite{maggio2025vggt, maggio2026vggt, murai2024_mast3rslam, li2025artdeco} combine the foundation models~\cite{leroy2024grounding, wang2025vggt} and SLAM framework. However, they are either redundant with several pair-wise model inferences or inaccurate due to the lack of pixel-level correspondences. To deal with these issues, we proposed M$^3$, in which a variant of $\pi^3$~\cite{wang2025pi} with pixel-level correspondences is proposed and finetuned, as described in Sec.~\ref{sec:densematching}. We then applied the foundation model into an efficient joint frontend and backend SLAM framework illustrated in Fig.~\ref{fig:method}. Lastly, as described in then Sec.~\ref{sec:recon}, we reconstruct the static 3D scenes with neural Gaussians with the information given by the previous stage. Specifically, we moreover filters out dynamic transients to adapte the complexe environment. }
+
+% Fig.~\ref{fig:method} depicts the overall pipeline of M$^3$, an efficient framework for joint camera parameter estimation (intrinsics $K \in \mathbb{R}^{3 \times 3}$ and poses $\{R_i, t_i\}_{i=1}^N$) and neural Gaussian-based reconstruction $\{G_j\}_{j=1}^M$ from uncalibrated monocular videos $\{I_i\}_{i=1}^N$. The framework is structured into three primary stages: First, we develop a learned descriptor to provide accurate pixel correspondences, facilitating reliable tracking and global optimization (Sec. 3.1). Second, we introduce a novel joint front-end and back-end SLAM architecture centered on a keyframe-based sliding-window strategy (Sec. 3.2). Lastly, we perform static scene reconstruction by effectively filtering out dynamic transients, thereby producing clean and high-fidelity environment models (Sec. 3.3).
+
+\subsection{Dense Matching through Foundation Model}
+\label{sec:densematching}
+
+% \uml{1th para: Describing this foundation model highlevel
+% \paragraph{Model architecture.} Describing the architecture: based on Pi3X + a corresponding head (describing this head in detail).
+% \paragraph{Loss function and training.} How to calculate dense matching and the loss function.
+% \paragraph{Dense matching for SLAM} applying the trained model...}
+
+As demonstrated in~\cite{murai2024_mast3rslam, artdeco}, per-pixel dense matching is crucial for tightly integrating foundation models into SLAM frameworks. However, existing foundation models with dense matching capability~\cite{leroy2024grounding} operate primarily in a pairwise manner, processing only two images per inference. When extended to multi-view sequences, this design leads to substantial redundant computations. To address this limitation, we augment Pi3X with a dense matching module. Originally, Pi3X is designed for efficient camera pose and depth estimation from arbitrary video frames. For each input frame, it predicts a local point map $\mathbf{X}_i \in \mathbb{R}^{H \times W \times 3}$, a camera-to-world transformation $\mathbf{T}_i \in \mathbb{R}^{4 \times 4}$, and a geometric confidence map $\mathbf{C}_i \in \mathbb{R}^{H \times W \times 1}$. Compared to its previous version~\cite{wang2025pi}, the enhanced model produces smoother reconstructions and supports approximate metric scale, thereby providing a stronger geometric prior for the downstream SLAM framework. In the following, we describe the model architecture, training strategy, dense matching, and dynamic object handling.
+
+\subsubsection{Model Architecture.} 
+We extend the Pi3X architecture by incorporating a matching head inspired by MASt3R~\cite{leroy2024grounding} to concurrently predict dense feature descriptors $\mathbf{D} \in \mathbb{R}^{N \times H \times W \times d}$ and matching confidence maps $\mathbf{Q} \in \mathbb{R}^{N \times H \times W \times 1}$, where $d$ denotes the dimensionality of the descriptor, 24 by default.
+The matching head consists of a Dense Prediction Transformer block ($\mathrm{DPT_{desc}}$) and a 2-layer $\mathrm{MLP_{desc}}$ interleaved with a non-linear GELU activation function~\cite{hendrycks2016gaussian}. To ensure matching stability, each local feature is normalized to unit norm. The output of the matching head is formulated as:
+\begin{equation}
+(\mathbf{D}, \mathbf{Q}) = \mathrm{MLP_{desc}}(\mathrm{DPT_{desc}}(\mathbf{H})),
+\end{equation}
+where $\mathbf{H}$ represent the intermediate feature representations extracted from the Pi3X decoder. More architectural details can be found in the supplementary.
+
+\subsubsection{Loss function and training.}
+% To preserve the robust geometric priors and metric scale of the foundation model, we freeze the encoder and decoder while fine-tuning only the matching head. To facilitate efficient training, the DPT block of the mathing head is initialized with the pre-trained parameters from the point head. This strategy leverages the structural knowledge shared between geometry and matching, significantly accelerating convergence during training. 
+
+To preserve the geometric priors and metric scale of the foundation model, we freeze the encoder, decoder, and existing heads, and fine-tune only the matching head. 
+The $\mathrm{DPT}_{\text{desc}}$ module is initialized with the pre-trained parameters of the point head, exploiting the shared structural knowledge between geometric prediction and dense matching to accelerate convergence. Within a batch of $N$ images, we treat $I_1$ as the reference and establish ground-truth correspondences $\hat{\mathcal{M}}_k$ between $I_1$ and each subsequent frame $I_k$ ($k=2,\dots,N$) by identifying pixel pairs with coincident 3D coordinates:
+$
+\hat{\mathcal{M}}_k \;=\; \left\{ (u,v)\ \middle|\ \hat{\mathbf{X}}_{1,u}^{1} =\hat{\mathbf{X}}_{k,v}^{1}\right\},
+$
+where $u$ and $v$ denote pixel indices in $I_1$ and $I_k$, respectively. The overall training objective is a weighted combination of the matching loss and a confidence regularization term:
+\begin{equation}
+\mathcal{L}
+\;=\;
+-\frac{1}{N-1}\sum_{k=2}^{N}\Big( \mathbf{Q}_k\,\mathcal{L}^{k}_{\text{match}}-\alpha \log \mathbf{Q}_k \Big),
+\end{equation}
+where $\alpha$ is a balancing hyperparameter. For each image pair, $\mathcal{L}^{k}_{\text{match}}$ adopts a symmetric InfoNCE objective with bidirectional terms to encourage mutual descriptor consistency:
+\begin{equation}
+\mathcal{L}^{k}_{\text{match}}
+\;=\;
+-\sum_{(u,v)\in \hat{\mathcal{M}}_k}
+\left(
+\log \frac{s_{\tau}(u,v)}{\sum_{w \in \mathcal{P}_{1}} s_{\tau}(w,v)}
+\;+\;
+% \log \frac{s_{\tau}(v,u)}{\sum_{w \in \mathcal{P}_{k}} s_{\tau}(u,w)}
+\log \frac{s_{\tau}(u,v)}{\sum_{w \in \mathcal{P}_{k}} s_{\tau}(u,w)}
+\right),
+\end{equation}
+where the similarity score is computed as
+$
+s_{\tau}(u,v) \;=\; \exp\!\Big(-\tau\,\mathbf{D}_{1,u}^{\top}\mathbf{D}_{k,v}\Big).
+$ Here, $\tau$ denotes the temperature hyperparameter, and $\mathbf{D}_1$ and $\mathbf{D}_k$ are the predicted dense feature descriptors of images $I_1$ and $I_k$, respectively. The sets $\mathcal{P}_1$ and $\mathcal{P}_k$ denote the pixel sets in $I_1$ and $I_k$, respectively, that form the correspondence pairs in $\hat{\mathcal{M}}_k$.
+
+% Within a batch of $N$ images where $I_1$ serves as the reference, ground-truth correspondences $\hat{\mathcal{M}}_k$ are established between $I_1$ and each subsequent frame $I_k$ ($k=2, \dots, N$) by identifying pixels with coincident 3D coordinates: $\hat{\mathcal{M}}_k = \{ (\rm{u}, \rm{v}) \mid \hat{\mathbf{X}}^1_{1}(\rm{u}) = \hat{\mathbf{X}}^1_{k}(\rm{v}) \}$. The total training objective $\mathcal{L}$ is formulated as a weighted combination of the matching loss $\mathcal{L}_{\text{match}}$ and a confidence regularization term:
+% \begin{equation}\mathcal{L} = -\frac{1}{(N-1)} \sum_{k=2}^{N} (Q_k\mathcal{L}^k_{\text{match}} - \alpha\log Q_k),\end{equation}where $\alpha$ is a balancing hyper-parameter. For each frame pair, the matching loss $\mathcal{L}^k_{\text{match}}$ employs a symmetric InfoNCE objective, which is decomposed into bidirectional components to ensure mutual descriptor consistency:
+% \begin{equation}\mathcal{L}^k_{\text{match}} = -\sum_{(\rm{u},\rm{v}) \in \hat{\mathcal{M}}_k} \Big(\log \frac{\rm{s_{\tau}}(\rm{u},\rm{v})}{\sum_{\rm{w} \in \mathcal{P}_1} \rm{s_{\tau}}(\rm{w}, \rm{v})} + \log \frac{\rm{s_{\tau}}(\rm{v}, \rm{u})}{\sum_{\rm{w} \in \mathcal{P}_k} \rm{s_{\tau}}(\rm{w}, \rm{u})} \Big),\end{equation}
+% where the similarity score is computed as $s_{\tau}(\rm{u}, \rm{v}) = \exp(-\tau \mathbf{D}_{1}(\rm{u})^\top \mathbf{D}_{k}(\rm{v}))$, with $\tau$ denoting the temperature hyper-parameter. The sets $\mathcal{P}_1$ and $\mathcal{P}_k$ represent the pixel subsets in each frame that form the correspondences $\hat{\mathcal{M}}_k$.
+
+\subsubsection{Dense matching for SLAM.} After incorporating the matching head into Pi3X, we describe how pixel-wise correspondences across frames are computed for SLAM. Given $N$ input images $\{I_i\}_{i=1}^{N}$, the enhanced Pi3X outputs per-frame estimates $\{\mathbf{X}_i, \mathbf{T}_i, \mathbf{C}_i, \mathbf{D}_i, \mathbf{Q}_i\}$. For an image pair $(I_i, I_j)$, we define the pixel correspondence from $I_i$ to $I_j$ as $\mathcal{M}(I_i, I_j)$. 
+Using the predicted poses, we initialize matching by transforming $\mathbf{X}_i$ into the coordinate frame of $I_j$, given by
+$
+\mathbf{X}_i^j = \mathbf{T}_j^{-1} \mathbf{T}_i \mathbf{X}_i
+$,
+where $\mathbf{X}_i^j$ represents the points of frame $i$ expressed in the local coordinate framework of $I_j$. The pose-guided transformation provides a geometry-aware initialization that restricts the correspondence search to a small spatial region, eliminating the need for exhaustive global matching. 
+
+We then refine the correspondence by searching within a local neighborhood of radius $r$ around the projected location and selecting the pixel $\mathbf{p}^*$ that maximizes descriptor similarity:
+\begin{equation}
+\mathbf{p}^* = 
+\argmax_{\|\mathbf{p} - \phi(\mathbf{X}_i^j(\mathbf{q}))\| \le r}
+\langle \mathbf{D}_i(\mathbf{q}), \mathbf{D}_j(\mathbf{p}) \rangle,
+\label{eq:fine_match}
+\end{equation}
+where $\mathbf{q}$ denotes a pixel in $I_i$, 
+$\phi(\cdot)$ is the projection function from 3D coordinates to the image plane of $I_j$, 
+and $\langle \cdot, \cdot \rangle$ denotes cosine similarity. 
+
+By constraining matching to a pose-guided local neigborhood, the computational cost is reduced from quadratic global search to linear local refinement, while preserving high matching accuracy. This coarse-to-fine scheme enables efficient dense correspondence estimation for the downstream SLAM pipeline.
+
+% \subsubsection{Dense matching for SLAM.} After incorporating the matching head into Pi3X, we describe how pixel-wise correspondences are established across frames for SLAM. 
+% Given $N$ input images $\{I_i\}_{i=1}^{N}$, the enhanced Pi3X outputs per-frame estimates $\{\mathbf{X}_i, \mathbf{T}_i, \mathbf{C}_i, \mathbf{D}_i, \mathbf{Q}_i\}$. For an image pair $(I_i, I_j)$, we define the pixel correspondence from $I_i$ to $I_j$ as $\mathcal{M}(I_i, I_j)$. 
+% Using the predicted poses, we initialize matching by transforming $\mathbf{X}_i$ into the coordinate frame of $I_j$:
+% \begin{equation}
+% \mathbf{X}_i^j = \mathbf{T}_j^{-1} \mathbf{T}_i \mathbf{X}_i,
+% \end{equation}
+% where $\mathbf{X}_j^i$ represents the points of frame $i$ expressed in the local coordinate framework of $I_j$. The pose-guided transformation provides a geometry-aware initialization that restricts the correspondence search to a small spatial region, eliminating the need for exhaustive global matching. 
+% We then refine the correspondence by searching within a local neighborhood of radius $r$ around the projected location and selecting the pixel $\rm{p}^*$ that maximizes descriptor similarity:
+% \begin{equation}
+% \rm{p}^* = 
+% \argmax_{\|\rm{p} - \phi(\mathbf{X}_i^j(\rm{q}))\| \le r}
+% \langle \mathbf{D}_i(\rm{q}), \mathbf{D}_j(\rm{p}) \rangle,
+% \label{eq:fine_match}
+% \end{equation}
+% where $\rm{q}$ denotes a pixel in $I_i$, 
+% $\phi(\cdot)$ is the projection function from 3D coordinates to the image plane of $I_j$, 
+% and $\langle \cdot, \cdot \rangle$ denotes cosine similarity. 
+
+% By constraining matching to a pose-guided local window, the computational cost is reduced from quadratic global search to linear local refinement, while preserving high matching accuracy. This coarse-to-fine scheme enables efficient and reliable dense correspondence estimation for the downstream SLAM pipeline.
+
+{\subsubsection{Dynamic Region Estimation.} Dynamic objects in real-world videos may introduce geometric artifacts and degrade pose estimation accuracy. To enhance robustness, we introduce a descriptor-based motion estimation module that predicts a motion map $\mathbf{M}_i \in [0,1]^{H \times W \times 1}$ to suppress dynamic regions. Given a reference keyframe $k$, we project its descriptor map $\mathbf{D}_k$ into the current frame $i$ using the estimated transformation, obtaining the warped descriptor map $\mathbf{D}_k^i$. In static regions, the warped descriptors $\mathbf{D}_k^i$ should align well with the predicted descriptors $\mathbf{D}_i$, resulting in high feature similarity. 
+In contrast, dynamic objects or occlusions produce significant descriptor discrepancies. To maintain temporal consistency, we further modulate the similarity using the motion map of the reference frame. The motion map of frame $I_i$ is computed as:
+\begin{equation}
+\mathbf{M}_i = \langle \mathbf{D}_k^i, \mathbf{D}^i_i \rangle \odot \mathbf{M}_k^i,
+\end{equation}
+where $\langle \cdot, \cdot \rangle$ denotes pixel-wise dot product and $\mathbf{M}_k^i$ is the motion map of the last keyframe warped into frame $i$. Pixels with low consistency are down-weighted during optimization, reducing trajectory drift and reconstruction artifacts.
+
+% \uml{\subsubsection{Dynamic region estimation.} Dynamic objects are always captured in videos, which often introduce geometric artifacts for 3D static scene reconstruction and degrade pose estimation accuracy. To enhance robustness in arbitrary environments, we introduce a descriptor-based motion estimation module that yields a motion map $\mathbf{M}_i \in [0, 1]^{H \times W \times 1}$ to identify and mitigate the influence of dynamic entities. Our core insight is that while the learned descriptors $\mathbf{D}$ are viewpoint-invariant, their spatial alignment is strictly governed by the underlying scene geometry. We identify dynamic regions by measuring the consistency between observed and projected descriptors. Specifically, given the descriptors $\mathbf{D}_k$ of the reference keyframe, we project them into the current frame $i$ using the estimated transformation to obtain the warped descriptor map $\mathbf{D}_k^i$. In static regions, $\mathbf{D}_i^k$ and the predicted $\mathbf{D}_i$ should exhibit high feature similarity, whereas dynamic objects or occlusions lead to significant feature discrepancies. To ensure temporal coherence and suppress transient noise, the motion map $\mathbf{M}_i$ is identified based on the last keyframe's motion map:\begin{equation}\mathbf{M}_i = \langle \mathbf{D}_i^k, \mathbf{D}_i \rangle \odot \mathbf{M}_i^k,\end{equation}where $\langle \cdot, \cdot \rangle$ denotes the pixel-wise similarity (e.g., dot product) between descriptor maps, and $\mathbf{M}_i^k$ represents the motion map of the reference frame warped into the current view. By down-weighting pixels with low consistency scores, our framework effectively masks out dynamic outliers, thereby preventing trajectory drift and eliminating artifacts in the final reconstruction.}
+
+% \uml{\subsubsection{Dense matching for SLAM.} After adding the matching head to Pi3X, we then explain how to get the pixel-wise correspondings across frames for SLAM. Specifically, the enhanced Pi3X takes $N$ images as input and output per-frame a local point map $\mathbf{X}_i$, camera-to-world transformation $\mathbf{T}_i$, geometric confidence map $\mathbf{C}_i$, dense descriptors $\mathbf{D}_i$ and matching confidence maps $\mathbf{Q}_i$. For each paired images, we denote $m(I_i, I_j)$ as the pixel correspondences of $I_i$ represented in the coordinate frame of $I_j$. Leveraging the camera poses $\mathbf{T}_i$ and $\mathbf{T}_j$ provided by the backbone, we first compute a coarse matching by transforming the local point map $\mathbf{X}_i$ into the reference frame of $\mathbf{I}_j$:
+% \begin{equation}
+% \mathbf{X}_j^i = \mathbf{T}_j^{-1} \mathbf{T}_i \mathbf{X}_i, 
+% \end{equation}
+% where $\mathbf{X}_j^i$ denotes the pointmap of frame $i$ transformed into the local coordinate framework of $I_j$.
+% This geometric initialization allows us to bypass the computationally expensive brute-force search. Subsequently, we identify the optimal pixel $\mathbf{p}^*$ within a local neighborhood of radius $r$ that maximizes feature similarity:
+% \begin{equation}
+% \mathbf{p}^* = \argmax_{\|\mathbf{p} - \phi(\mathbf{X}_j^i)\| \le r} \langle \mathbf{D}_i, \mathbf{D}_j(\mathbf{p}) \rangle \label{eq:fine_match}
+% \end{equation}
+% where $\phi(\cdot)$ denotes the projection function that maps 3D points to pixel coordinates, and $\langle \cdot, \cdot \rangle$ represents the cosine similarity measure between the learned descriptors.  This coarse-to-fine strategy effectively reduces the matching complexity from quadratic to local linear, enabling efficient and high-precision dense correspondence estimation for the subsequent SLAM pipeline.}
+
+
+% \uml{As demonstrated in~\cite{murai2024_mast3rslam, li2025artdeco}, per-pixel dense matching is crucial for tightly integrating foundation models into SLAM frameworks. However, existing foundation models with dense matching capability~\cite{leroy2024grounding} operate primarily in a pairwise manner, processing only two images per reference. This design leads to redundant computations when extended to multi-view sequences. To address this limitation, we add dense matching capability to Pi3X, which is designed for efficient camera pose and depth map estimation from arbitrary video frames. Compared to its previous version~\cite{wang2025pi}, it produces smoother reconstructions and supports approximate metric scale, providing a superior geometric prior for our SLAM framework. In the following, we will detail the architecture of the model architecture, how it's trianed, and how to be used in a SLAM framework. }
+
+% we propose a foundation model equipped with a dense matching module that supports multi-image processing within a single reference. Specifically, we add a
+
+
+
+% To obtain accurate geometric constraints, we first aim to extract dense, discriminative features that are robust to significant viewpoint changes. We build this module upon Pi3X, a state-of-the-art foundation model designed for efficient camera pose and scene geometry estimation from arbitrary video frames $\{I_i\}_{i=1}^N \in \mathbb{R}^{H \times W \times 3}$. 
+% Building upon its predecessor $\pi_3$, Pi3X employs a convolutional output head to produce smoother reconstructions and supports approximate metric scale, providing a superior geometric prior for our SLAM framework.
+
+% \subsubsection{Fintuning.} 
+
+% We extend this architecture by integrating a matching head inspired by MASt3R~\cite{} to concurrently predict dense, $d$-dimensional feature descriptors $\mathbf{D}_i \in \mathbb{R}^{H \times W \times d}$ and matching confidence maps $\mathbf{Q}_i \in \mathbb{R}^{H \times W \times 1}$. These descriptors are learned to be viewpoint-invariant and discriminative, ensuring that pixels corresponding to the same 3D point exhibit minimal distance in the feature space. Consequently, for each frame, Pi3X predicts a local point map $\mathbf{X}_i \in \mathbb{R}^{H \times W \times 3}$, a camera-to-world pose $\mathbf{T}_i \in \mathbb{R}^{4 \times 4}$ and a geometric confidence map $\mathbf{C}_i \in \mathbb{R}^{H \times W \times 1}$.
+
+% By enforcing viewpoint invariance and high discriminability during training, we ensure that pixels anchored to the same 3D point exhibit minimal distance in the feature space, thereby facilitating precise data association across wide-baseline observations.
+
+% \subsubsection{Dense Matching.} 
+
+% After obtaining the learned descriptors and geometric priors, our next objective is to establish dense correspondences across views. We define $m(I_i, I_j)$ as the pixel correspondences of $I_i$ represented in the coordinate frame of $I_j$. Leveraging the camera poses $\mathbf{T}_i$ and $\mathbf{T}_j$ provided by the backbone, we first compute a coarse matching by transforming the local point map $\mathbf{X}_i$ into the reference frame of $\mathbf{I}_j$:
+% \begin{equation}
+% \mathbf{X}_j^i = \mathbf{T}_j^{-1} \mathbf{T}_i \mathbf{X}_i, 
+% \end{equation}
+% where $\mathbf{X}_j^i$ denotes the pointmap of frame $i$ transformed into the local coordinate framework of $I_j$.
+% This geometric initialization allows us to bypass the computationally expensive brute-force search. Subsequently, we identify the optimal pixel $\mathbf{p}^*$ within a local neighborhood of radius $r$ that maximizes feature similarity:
+% \begin{equation}
+% \mathbf{p}^* = \argmax_{\|\mathbf{p} - \phi(\mathbf{X}_j^i)\| \le r} \langle \mathbf{D}_i, \mathbf{D}_j(\mathbf{p}) \rangle \label{eq:fine_match}
+% \end{equation}
+% where $\phi(\cdot)$ denotes the projection function that maps 3D points to pixel coordinates, and $\langle \cdot, \cdot \rangle$ represents the cosine similarity measure between the learned descriptors.  This coarse-to-fine strategy effectively reduces the matching complexity from quadratic to local linear, enabling efficient and high-precision dense correspondence estimation for the subsequent SLAM pipeline.
+
+
+\subsection{M$^3$ Framework}
+\label{sec:framework}
+
+% \uml{1th: our slam framework is more efficient benifiting from the finetuned model can handle multiview images. Describing previous slam framework explicitly seperating frontend and backednd + what they do respectively. In contrast, +describing our designment in a high-level. And seperating the frame into: 1. Streaming image processing using sliding window; 2. frame identification; 3. local and Global optimization; 4. loop Closure.
+% \paragraph{Streaming image processing using sliding window.}
+% \paragraph{Intrinsic consistency.}
+% \paragraph{Tracking and Global BA} 
+% \paragraph{loop closure.} same as Artdeco? Simplify
+% }
+
+% 
+Conventional SLAM frameworks typically decouple frontend tracking from backend global optimization. As a result, the foundation model is invoked separately for frontend tracking and multiple times for backend global bundle adjustment, leading to redundant computation and potentially unstable tracking. In contrast, we leverage the multi-view processing capability of the enhanced Pi3X, which supports up to 16 frames in a single inference pass, to tightly couple the frontend and backend modules. In this section, we first describe how the enhanced Pi3X is incorporated into the SLAM framework. We further describe the optimization of camera parameters and the reconstruction of the Gaussian model in M$^3$.
+
+\subsubsection{Sliding Window Management.} To streamly process the incoming video, we maintain a sliding window of length $L$, which is partitioned into $K$ slots for historical keyframes and $L-K$ for incoming frames. Specifically, the $K$ historical keyframes contain the last keyframe $I_k$ and the else $K-1$ most relevant keyframes,  where the $K-1$ relevant keyframes retrieved via SALAD~\cite{izquierdo2024optimal} descriptors following the strategies in VGGT-SLAM~\cite{maggio2025vggt} and VGGT-Long~\cite{deng2025vggt}. Specifically, if the retrieved keyframes are temporally distant, a Pi3X-aided loop closure is triggered. By jointly feeding historical keyframes and incoming frames into the model, a single forward pass yields dual-purpose outputs: point maps and descriptors from historical frames are used to update the global factor graph, while predictions for new frames provide the initial poses, point maps, and descriptors required for real-time tracking and keyframe selection. The geometric priors of incoming frames attend to multiple keyframes through cross-attention, which enhances tracking stability by enforcing multi-view geometric consistency. Following the design of~\cite{artdeco}, we categorize incoming frames into \emph{keyframes}, \emph{mapper frames}, and \emph{common frames}. 
+Keyframes are used for pose estimation; keyframes and mapper frames are employed for 3D model initialization; and all frames contribute to the optimization of the reconstructed 3D model. A frame is identified as a keyframe if its correspondence ratio with the most recent keyframe $I_k$ falls below a threshold $\tau_k$. 
+For mapper frame selection, we compute the pixel displacement between the current frame and the latest keyframe; if the 70th percentile of the displacement exceeds a threshold $\tau_m$, the frame is promoted to a mapper frame. Frames that satisfy neither condition are treated as common frames. More details are provided in the supplementary material.}
+
+\subsubsection{Intrinsic Consistency.}
+For each inference, an intrinsic matrix $\mathbf{K}$ can be estimated via RANSAC using the predicted poses and point maps. However, the estimated intrinsics may vary slightly across different inferences due to the inherent scale ambiguity in Pi3X, which leads to inconsistent dense correspondences during streaming processing. To address this issue, we use the intrinsic estimated from the first inference as a reference and align the intrinsics of subsequent inferences accordingly. Specifically, the reference intrinsic $\mathbf{K}_r$ is obtained via RANSAC from the poses and point maps predicted in the first inference. For each subsequent inference $i$, we estimate its intrinsic $\mathbf{K}_i$ in the same manner and align it to $\mathbf{K}_r$. The corresponding point map is then rescaled according to the focal length ratio between $\mathbf{K}_i$ and $\mathbf{K}_r$. This alignment maintains consistent geometry across frames in the sliding window, enabling robust data association.
+
+% \subsubsection{Intrinsic Consistency.}
+% In uncalibrated settings, we estimate an initial intrinsic matrix $\mathbf{K}_{\text{init}}$ via RANSAC based on the poses and point maps from the first inference. However, we observe that applying a static $\mathbf{K}_{\text{init}}$ to subsequent frames leads to significant misalignments in the coarse correspondences established in Sec. 3.1.3, which subsequently degrades dense matching precision. This discrepancy arises because the implicit intrinsics associated with neural predictions often fluctuate slightly from $\mathbf{K}_{\text{init}}$ across different views.To resolve this, we perform per-inference local optimization via RANSAC to estimate the current intrinsic matrix $\mathbf{K}_i$. To maintain a unified geometric scale, we then align the local point map $\mathbf{X}_i$ by scaling its coordinates according to the ratio of focal lengths between $\mathbf{K}_i$ and $\mathbf{K}_{\text{init}}$. This adaptive alignment ensures that the geometric priors remain consistent within the sliding window, facilitating robust data association despite the lack of explicit camera calibration.
+% Note that, although the enhanced Pi3X provides an approximate metric prior, the inherent scale variance across different inferences can lead to accumulated drift. 
+\subsubsection{Tracking and Global Optimization.}After passing the enhanced Pi3X, we first track them for initialized poses before the global BA optimization. To ensure scale consistency between different inferences, we represent camera poses $\mathbf{T}$ within the $\mathbf{Sim}(3)$ group, which also optimizes scale $s \in \mathbb{R}$ besides rotation $\mathbf{R} \in \mathbf{SO}(3)$ and translation $\mathbf{t} \in \mathbb{R}^3$, given by
+% \begin{equation}
+% \mathbf{T} = \begin{bmatrix} s\mathbf{R} & \mathbf{t} \ \mathbf{0}^\top & 1 \end{bmatrix}.
+% \end{equation} 
+$
+\mathbf{T} = 
+\begin{bmatrix}
+s \mathbf{R} \quad& \mathbf{t} \\
+\mathbf{0}^\top \quad& 1
+\end{bmatrix}.
+$
+Updates are performed on the Lie algebra $\boldsymbol{\tau} \in \mathfrak{sim}(3)$ via a left-plus operator,
+$
+\mathbf{T} \leftarrow \boldsymbol{\tau} \oplus \mathbf{T} \triangleq \exp(\boldsymbol{\tau}) \circ \mathbf{T}.
+$
+% Building upon this manifold, we seperately track each incoming frame according to the last framework adopting the uncalibrated ray-based optimization from MASt3R-SLAM~\cite{murai2024_mast3rslam}. Specifically, the relative frame pose $\mathbf{T}_{kf} \in \mathbf{Sim}(3)$ estimated by minimizing the angular deviation between corresponding rays:
+% \begin{equation}
+% E_{t} = \sum_{(\rm{m},\rm{n}) \in \mathcal{M}(I_f, I_k)} \mathbf{M}_k\left\| \frac{\psi \left( \tilde{\mathbf{X}}^k_k(\rm{n}) \right) - \psi \left( \mathbf{T}_{kf}\mathbf{X}^f_f(\rm{m}) \right)}{w(\mathbf{q}_{\rm{m},\rm{n}}, \sigma_r^2)} \right\|_\rho
+% ,\end{equation}
+% where $\mathbf{q}_{\rm{m},\rm{n}} = \sqrt{\mathbf{Q}^f_f(\rm{m}) \mathbf{Q}^f_k(\rm{n}})$ and $\mathcal{M}(I_f, I_k)$ represents the dense matches established in Sec. 3.1,  and $\|\cdot\|_\rho$ denotes the Huber robust loss. The function $\psi(\mathbf{X}) = \mathbf{X}/\|\mathbf{X}\|$ normalizes the 3D point maps into unit-norm rays, allowing our framework to remain agnostic to specific camera models or distortions. After tracking each image pose, we perform a global optimization of all keyframe poses by minimizing the collective ray error according to a factor graph:
+% \begin{equation}
+% E_{g} = \sum_{(i,j) \in \mathcal{E}} \sum_{(\rm{m},\rm{n}) \in \mathcal{M}(I_j, I_i)} \mathbf{M}_i \left\| \frac{\psi \left( \tilde{\mathbf{X}}^i_i(\rm{n}) \right) - \psi \left( \mathbf{T}_{ij}\tilde{\mathbf{X}}^j_j(\rm{m}) \right)}{w(\mathbf{q}_{\rm{m},\rm{n}}, \sigma_r^2)} \right\|_\rho
+% \end{equation}
+% where $\mathbf{T}_{ij} = \mathbf{T}_i^{-1} \mathbf{T}_j$ is the relative transformation between frames $I_i$ and $I_j$ in the world coordinate. 
+
+Building upon this manifold, we track each incoming frame following the previous framework, adopting the pixel-based optimization from MASt3R-SLAM~\cite{murai2024_mast3rslam}. Specifically, the relative frame pose $\mathbf{T}_{kf} = \mathbf{T}_k^{-1} \mathbf{T}_f$ is estimated by minimizing the reprojection error:
+\begin{equation}
+E_{t} = \sum_{(m,n) \in \mathcal{M}(I_f, I_k)} \mathbf{M}_k
+\left\| 
+\frac{\mathbf{p}_{k,n} - \phi \left( \mathbf{T}_{kf}\mathbf{X}^f_{f,m} \right)}
+{w(q_{m,n})}
+\right\|_\rho ,
+\end{equation}
+where $\mathbf{p}_{k,n}$ denotes the coordinate of pixel $n$ in $I_k$, 
+$q_{m,n} = \sqrt{\mathbf{Q}_{f,m} \mathbf{Q}_{k,n}}$, and 
+$\mathcal{M}(I_f, I_k)$ denotes the dense correspondences established in Sec.~\ref{sec:densematching}. 
+$\|\cdot\|_\rho$ denotes the Huber kernel, and $w(\cdot)$ is a per-match weighting function following~\cite{murai2024_mast3rslam}.
+
+After tracking each image pose, we perform a global optimization of all keyframe poses by minimizing the collective reprojection error according to the factor graph maintained by our framework:
+\begin{equation}
+E_{g} = \sum_{(i,j) \in \mathcal{E}} \sum_{(m, n) \in \mathcal{M}(I_j, I_i)} \mathbf{M}_i \left\| \frac{\mathbf{p}_{i,n} - \phi \left( \mathbf{T}_{ij}\tilde{\mathbf{X}}^j_{j,m} \right)}{w(q_{m,n})} \right\|_\rho,
+\end{equation}
+where $\mathcal{E}$ is the set of edges in the factor graph, and $\tilde{\mathbf{X}}^j_{j}$ denotes the point map maintained by keyframe $j$, which is updated using a weighted average filter~\cite{murai2024_mast3rslam}.
+
+% Whenever a new keyframe is tracked or the process finishes, we add edges between the reference keyframe and related keyframes, and then perform a global optimization. We then select the top $N_c$ candidates retrieved by SALAD and leverage the Pi3X model to evaluate them, performing geometric verification to extract the newly validated relevant keyframes.
+\subsubsection{Neural Gaussian Reconstruction.} Each 3D Gaussian primitive is parameterized by its spatial center $\boldsymbol{\mu} \in \mathbb{R}^3$, rotation $\mathbf{r} \in \mathbf{SO}(3)$, scale $\mathbf{s} \in \mathbb{R}^3$, opacity $\alpha \in [0, 1]$, spherical harmonics (SH) coefficients and $\mathbf{d}_{max}$ for LoD rendering. To promote global consistency while preserving local distinctiveness, we further incorporate an individual feature $\mathbf{f}_l$ and a region-wise feature $\mathbf{f}_g$ that encodes local voxel context. Inspired by~\cite{meuleman2025fly, artdeco}, these primitives are initialized from \emph{keyframes} and \emph{mapper frames} by applying a Laplacian-of-Gaussian (LoG) probability map to prioritize high-frequency details and poorly reconstructed areas, while strictly excluding dynamic pixels via a motion map $\mathbf{M}$.
+To mitigate overfitting, 80\% of the training views are sampled from historical frames before processing the next incoming frames. Upon sequence completion, a global optimization jointly refines all camera poses and Gaussian parameters to ensure trajectory consistency. More details are provided in the supplementary material. 
+
+% we apply $K$ densification iterations to keyframes and $K/2$ refinement iterations to \emph{common frames},
+
+
+% Previous SLAM frameworks typically decouple front-end tracking from back-end global optimization. In contrast, we exploit the multi-view processing capability of Pi3X, which can handle up to 16 frames in a single batch, to unify these tasks into a synchronized pipeline. By partitioning each input batch into historical keyframes and incoming frames, a single model inference provides dual-purpose observations: geometric priors from historical frames are used to update the global factor graph, while outputs from new frames provide the initial poses and point maps required for immediate tracking and keyframe selection. The detailed implementation of this integrated process is elaborated as follows.
+
+% \subsubsection{Sliding-window Management.} 
+% We maintain a sliding window of length $L$, partitioned into $K$ slots for historical keyframes and $L-K$ for incoming frames, where the historical segment comprises the last keyframe $I_k$ and $K-1$ relevant keyframes retrieved via SALAD [10] descriptors following the strategies in VGGT-SLAM and VGGT-Long. Upon a joint inference pass with Pi3X and the establishment of dense correspondences $m(I_i, I_k)$ based on the predicted local point maps $\mathbf{X}_i$, incoming frames are immediately classified into keyframes, mapper frames, or common frames to govern the subsequent tracking and mapping updates. Specifically, a frame is designated a keyframe if its correspondence ratio with the reference $I_k$ drops below $\tau_k$, triggering global refinement and structural expansion, whereas a mapper frame is identified if the 70th percentile of pixel displacement exceeds $\tau_m$ to facilitate 3D Gaussian initialization. Otherwise, frames are treated as common frames for local detail refinement. Whenever a new keyframe is identified, it replaces the reference keyframe, triggering an update of the relevant historical frames from the retrieval database. This ensures that the sliding window remains anchored to the most relevant spatiotemporal context for the continuous processing of incoming frames.
+
+% \subsubsection{Local and Global Optimization.} 
+
+% Although Pi3X provides an approximate metric prior, the inherent scale variance across disjoint neural predictions can lead to accumulated drift. To ensure cross-frame consistency, we represent camera trajectories within the $\mathbf{Sim}(3)$ group, parameterizing each pose $\mathbf{T}$ to account for similarity transformations. Updates are performed on the Lie algebra $\boldsymbol{\tau} \in \mathfrak{sim}(3)$ via a left-plus operator:\begin{equation}\mathbf{T} = \begin{bmatrix} s\mathbf{R} & \mathbf{t} \ \mathbf{0}^\top & 1 \end{bmatrix}, \quad \mathbf{T} \leftarrow \boldsymbol{\tau} \oplus \mathbf{T} \triangleq \exp(\boldsymbol{\tau}) \circ \mathbf{T},\end{equation}where $\mathbf{R} \in \mathbf{SO}(3)$, $\mathbf{t} \in \mathbb{R}^3$, and $s \in \mathbb{R}$ denote rotation, translation, and scaling, respectively.Building upon this manifold, we adopt the uncalibrated ray-based optimization from MASt3R-SLAM to achieve robust tracking. For each incoming frame, the relative pose $\mathbf{T}_{kf} \in \mathbf{Sim}(3)$ is estimated by minimizing the angular deviation between corresponding rays:\begin{equation}E_{\text{track}} = \sum_{(m,n) \in \mathbf{M}_{kf}} \rho \left( \left| \frac{\psi([\mathbf{X}k^k]n) - \psi(\mathbf{T}{kf} [\mathbf{X}f^f]m)}{w{mn}} \right|^2 \right),
+% \end{equation}
+% where $\mathbf{M}{kf}$ represents the dense matches established in Sec. 3.1, $w{mn}$ is the matching confidence, and $\rho(\cdot)$ denotes the Huber robust loss. The function $\psi(\mathbf{X}) = \mathbf{X}/\|\mathbf{X}\|$ normalizes the 3D point maps into unit-norm rays, allowing our framework to remain agnostic to specific camera models or distortions.To maintain global consistency, the backend performs a joint optimization of all keyframe poses by minimizing the collective ray error across the factor graph:\begin{equation}E_{\text{global}} = \sum_{(i,j) \in \mathcal{E}} \sum_{(m,n) \in \mathbf{M}_{ij}} \rho \left( \left| \frac{\psi([\mathbf{X}_i^i]n) - \psi(\mathbf{T}{ij} [\mathbf{X}j^j]m)}{w{mn}} \right|^2 \right),
+% \end{equation}
+% where $\mathbf{T}{ij} = \mathbf{T}_i^{-1} \mathbf{T}_j$ is the relative transformation between frames in the global trajectory. This second-order optimization effectively anchors the reconstruction to a consistent metric scale while suppressing cumulative trajectory error.
+
+% \todo{moving to how to update factor graph\subsubsection{Loop Closure.} 
+
+% To maintain global consistency and mitigate cumulative drift, we implement a hierarchical loop closure strategy. Potential candidates are first identified via SALAD descriptors by selecting historical keyframes that exceed a similarity threshold and satisfy a minimum temporal distance. Since 2D retrieval is susceptible to perceptual aliasing, we employ Pi3X to perform multi-view geometric verification inspired by~\cite{}. Specifically, the current keyframe and the top $N_a$ candidates are processed jointly to generate point maps in a unified coordinate frame. Following the angular error metric, a loop is validated if the proportion of geometrically consistent pixels exceeds a specific threshold. The three most consistent candidates are subsequently integrated into the factor graph. This integration of SALAD for efficient filtering and Pi3X for 3D validation achieves high-precision loop closures while preserving real-time performance.}
+
+% \subsection{Motion-Aware Scene Reconstruction}
+% \label{sec:recon}
+% \uml{1th para: Dynamic objects are always be captured in videos, to deal with this, we blabla. Note that, in stead of reconstruct the dynamic object using 4D models, this paper focuses on 3D static scene reconstruction by detecting and removing the dynamic objects. Obtaining the infor from the previous stages, we first estimate the static area, then initializing the Gaussian primitives in the static areas and optimizing the neural Gaussians.
+% \paragraph{Dynamic area estimation.}
+% \paragraph{Gaussian Primitive Initialization.} Same as artdeco-V1?
+% \paragraph{Training Strategy.} Same as artdeco-V1? + using masked static images to optimize.
+% }
+% Dynamic objects are always captured in videos, which often introduce geometric artifacts for 3D static scene reconstruction and degrade pose estimation accuracy, yet this challenge remains largely unaddressed in recent frameworks such as MASt3R-SLAM and VGGT-SLAM. To enhance robustness in non-static environments, we introduce a descriptor-based motion estimation module that yields a motion map $\mathbf{M}_i \in [0, 1]^{H \times W \times 1}$ to identify and mitigate the influence of dynamic entities.
+
+% \subsubsection{Dynamic Area Estimation.} 
+
+% Our core insight is that while the learned descriptors $\mathbf{D}$ are viewpoint-invariant, their spatial alignment is strictly governed by the underlying scene geometry. We identify dynamic regions by measuring the consistency between observed and projected descriptors. Specifically, given the descriptors $\mathbf{D}_k$ of the reference keyframe, we project them into the current frame $i$ using the estimated transformation to obtain the warped descriptor map $\mathbf{D}_k^i$. In static regions, $\mathbf{D}_i^k$ and the predicted $\mathbf{D}_i$ should exhibit high feature similarity, whereas dynamic objects or occlusions lead to significant feature discrepancies.To ensure temporal coherence and suppress transient noise, the motion map $\mathbf{M}_i$ is updated iteratively:\begin{equation}\mathbf{M}_i = \langle \mathbf{D}_i^k, \mathbf{D}_i \rangle \odot \mathbf{M}_i^k,\end{equation}where $\langle \cdot, \cdot \rangle$ denotes the pixel-wise similarity (e.g., dot product) between descriptor maps, and $\mathbf{M}_i^k$ represents the motion map of the reference frame warped into the current view.This motion map serves as a confidence-aware weight in both the tracking optimization (Sec. 3.2.2) and the initialization of 3D Gaussians. By down-weighting pixels with low consistency scores, our framework effectively masks out dynamic outliers, thereby preventing trajectory drift and eliminating artifacts in the final reconstruction.
+
+% \todo{move to sup:\subsubsection{Gaussian Primitive Initialization.} 
+
+% Each 3D Gaussian primitive is parameterized by its spatial center $\boldsymbol{\mu} \in \mathbb{R}^3$, rotation $\mathbf{r} \in \mathbf{SO}(3)$, scale $\mathbf{s} \in \mathbb{R}^3$, opacity $\alpha \in [0, 1]$, and spherical harmonics (SH) coefficients. To promote global consistency while preserving local distinctiveness, we further incorporate an individual feature $\mathbf{f}_l$ and a region-wise feature $\mathbf{f}_g$ that encodes local voxel context. Following~\ref{}, these primitives are initialized from keyframes and mapper frames at pixels $(u, v)$ identified by a Laplacian-of-Gaussian (LoG) probability map, which prioritizes high-frequency details and poorly reconstructed areas.Specifically, the center $\boldsymbol{\mu}$ and base SH are derived from the pointmap $\mathbf{X_i}$ and pixel color. The opacity is regularized by the predicted geometric confidence, $\alpha = 0.2 \cdot \mathbf{C}_i(u, v)$, to suppress the influence of low-confidence regions. While the latent features $\mathbf{f}_l$ and $\mathbf{f}_g$ are initialized as zero vectors, the final geometric extent and orientation are refined through MLPs conditioned on their concatenation:\begin{equation}\mathbf{s_f} = \mathbf{s} \cdot \text{MLP}_s(\mathbf{f}_l \oplus \mathbf{f}_g), \quad \mathbf{r_f} = \mathbf{r} \cdot \text{MLP}_r(\mathbf{f}_l \oplus \mathbf{f}_g),\end{equation}where the base scale $\mathbf{s}$ determined by the local image-space density and depth. To ensure scalability in extensive environments, primitives are organized into a multi-level Levels-of-Detail (LoD) structure. This design employs distance-dependent visibility and smooth opacity fading to maintain stable rendering quality and computational efficiency across varying viewing distances.
+
+% \subsubsection{Training Strategy.} 
+
+% We employ a staged optimization scheme to balance reconstruction fidelity and computational efficiency. Upon the arrival of a keyframe or mapper frame, the scene undergoes $K$ iterations of densification and parameter tuning, while common frames trigger only $K/2$ iterations for refinement without introducing new primitives. To mitigate local overfitting, training samples are drawn from a distribution of 20\% current and 80\% past frames. After the streaming sequence is processed, a final global optimization pass is conducted over all frames. In this stage, camera poses $\mathbf{T}$ and Gaussian parameters are jointly refined through differentiable rendering, ensuring global trajectory consistency and high-fidelity scene reconstruction.}

@@ -1,0 +1,63 @@
+\section{Introduction}
+\label{sec:introduction}
+
+% \begin{table}[t]
+% \centering
+% \caption{.}
+% \label{tab:method_category}
+% \scalebox{0.63}{
+% \begin{tabular}{lcccc}
+% \toprule
+% \textbf{Methods} & \makecell{\textbf{Intrinsics-}\\\textbf{Free}} & \makecell{\textbf{Extrinsics-}\\\textbf{Free}} & \makecell{\textbf{View}\\\textbf{Synthesis}} & \makecell{\textbf{Direct Depth }\\\textbf{Estimation}} \\ \midrule
+% MVSplat~\cite{chen2024mvsplat}, pixelSplat~\cite{charatan2024pixelsplat}, ZPressor~\cite{wang2025zpressor}, Long-LRM~\cite{ziwen2025long} & \xmark & \xmark & \xmark & \xmark \\
+%  DepthSplat~\cite{xu2025depthsplat} & \xmark & \xmark & \xmark & \cmark\\
+% NoPoSplat~\cite{ye2024no}, SPFSplat~\cite{huang2025no}, EcoSplat~\cite{park2026ecosplat} & \xmark & \cmark & \cmark & \xmark\\
+% VGGT~\cite{wang2025vggt}, Mast3r~\cite{mast3r_eccv24}, $\pi^3$~\cite{wang2025pi3} & \cmark & \cmark  & \xmark & \cmark\\ \midrule
+% AnySplat~\cite{jiang2025anysplat}, WorldMirror~\cite{liu2025worldmirror}, \textbf{VFM-Splat (ours)} & \textbf{\cmark} & \textbf{\cmark} & \textbf{\cmark} & \textbf{\cmark}\\ \bottomrule
+% \end{tabular}}
+% \end{table}
+
+% \begin{figure*}[t]
+%     \centering
+%     \includegraphics[width=\linewidth]{figures/teaser.png}
+%     \vspace{-5mm}
+%     \caption{Our proposed AirSplat adapts 3D-VS-VFMs using Self-Consistent Pose Alignment (SCPA) and Rating-based Opacity Matching (ROM) to resolve inherent pose-geometry discrepancies and multi-view inconsistencies. Our AirSplat effectively eliminates `floaters' (red boxes) and blurry artifacts (dashed yellow boxes) produced by the baseline DA3 \cite{lin2025da3}, rendering sharp, structurally consistent novel views.}
+%     \vspace{-3mm}
+%     \label{fig:teaser}
+% \end{figure*}
+
+
+The field of Novel View Synthesis (NVS) has undergone a paradigm shift with the advent of 3D Gaussian Splatting (3DGS) \cite{kerbl20233d} and its subsequent advancements \cite{Wu_2024_CVPR, park2024splinegs, lin2025longsplat, bui2025mobgsmotiondeblurringdynamic, fu2024colmap, yu2024mip}. 
+To overcome the bottleneck of time-intensive per-scene optimization, recent feed-forward architectures \cite{charatan2024pixelsplat, chen2024mvsplat, xu2025depthsplat, ziwen2025long} directly predict 3D scene parameters from sparse context views. 
+However, dependence on calibrated poses limits `in-the-wild' applicability, while several pose-free feed-forward methods \cite{hong2023unifying, smart2024splatt3r,kang2025selfsplat, zhang2025flarefeedforwardgeometryappearance} remain fundamentally constrained to sparse-view inputs. 
+To address this, recent works \cite{ye2024no, huang2025no, park2026ecosplat, jiang2025anysplat, ye2026yonosplat} leverage the robust, zero-shot depth and pose estimation capabilities of 3D Vision Foundation Models (3DVFMs) such as Mast3r \cite{mast3r_eccv24}, VGGT \cite{wang2025vggt}, and $\pi^3$ \cite{wang2025pi3}. 
+These approaches fine-tune or distill 3DVFMs to jointly infer scene 3D Gaussian primitives and camera parameters directly from raw input images. 
+Nevertheless, this biases the networks toward the view synthesis objective, resulting in performance degradation on foundational geometry estimation tasks. 
+More recent unified frameworks, which we refer to as 3DVFMs with view synthesis (3D-VS-VFMs), such as WorldMirror \cite{liu2025worldmirror} and DepthAnything3 \cite{lin2025da3}, incorporate 3DGS heads to perform both geometry estimation and NVS. 
+% We refer to these architectures as 3D Vision Foundation Models equipped with view synthesis head (3D-VS-VFMs). 
+% 3D-VS-VFMs establish a unified framework that seamlessly integrates robust geometry estimation with high-fidelity novel view synthesis. 
+Despite this integration, generating high-fidelity novel views from completely uncalibrated context images remains challenging.
+
+We identify two fundamental obstacles that inherently hinder 3D-VS-VFMs from achieving high-fidelity NVS. First, there exists a critical \textit{pose-geometry discrepancy} during the training process. 
+As illustrated in Fig.~\ref{fig:pose_corr}-(a) and (b), current NVS fine-tuning strategies either fail to generalize due to a lack of direct supervision for novel viewpoints (context-only~\cite{jiang2025anysplat}) or suffer from coordinate misalignment (context-target~\cite{huang2025no}).
+Specifically, in the context-target setting, target camera poses are inferred using features from both the context and target images, whereas the scene geometry is conditioned strictly on the context views to maintain feed-forward generalizability \cite{huang2025no}.
+However, this asymmetric information flow induces a latent coordinate misalignment between the \textit{predicted target poses} and the \textit{context 3D Gaussian primitives}, leading to degraded optimization (Fig.~\ref{fig:pose_corr_diff}). 
+Second, as shown in Fig.\ref{fig:teaser}, the renderings of current 3D-VS-VFMs often contain local multi-view inconsistencies. Specifically, corresponding primitives generated from different context views lack precise spatial consensus. This deficiency leads to local geometric inconsistencies and the generation of `floaters' that severely degrade spatial stability. 
+
+% Second, \textbf{as shown in Fig.\ref{fig:teaser}}, current 3D-VS-VFMs often lack the rigorous multi-view consistency required for dense 3D reconstruction.
+
+To bridge these fundamental gaps, we introduce \textbf{AirSplat}, a pose-free feedforward 3DGS training framework driven by self-consistent pose \textbf{A}l\textbf{i}gnment and \textbf{R}ating-based feedback that adapts state-of-the-art (SOTA) 3D-VS-VFMs. 
+First, we present \textbf{Self-Consistent Pose Alignment (SCPA)} to dynamically anchor the predicted target poses to the scene geometry derived from the context views, thereby providing geometrically-consistent reconstruction supervision. 
+By re-estimating the camera pose from a rendered proxy image, we isolate the systematic geometric bias between the initial pose prediction and the network's 3D Gaussian primitives prediction. We then apply an inverse correction to the initial target pose, aligning it with the estimated 3D primitives, as in Fig.~\ref{fig:pose_corr}-(c). This entirely decouples the scene reconstruction from the coordinate frame drift during training. 
+Next, we introduce \textbf{Rating-based Opacity Matching (ROM)}, a novel optimization strategy designed to enforce multi-view consistency among predicted primitives and eliminate geometrically insconsistent artifacts. This approach is inspired by the paradigm of \textit{learning from rating-based feedback} \cite{10.5555/3305890.3305917, arumugam2019deep, white2024rating, luu2025enhancing}, where an agent's behavior is refined using positive and negative evaluations from an external teacher. In standard rating-based frameworks, an agent is optimized to ensure that its predicted ratings accurately align with the collected feedback from a human or AI evaluator. Adapting this paradigm to 3D reconstruction learning, we utilize a lightweight, sparse-view feed-forward 3DGS model as an algorithmic `teacher oracle' to provide geometric ratings for the primitives estimated by our network. This feedback effectively partitions the predicted 3D space into preferred (geometrically consistent) and rejected (inconsistent) states. Crucially, we directly formulate a primitive's predicted rating as its opacity. By strictly matching the predicted opacity to the teacher's geometric rating, \textbf{AirSplat} implicitly prunes spatial artifacts. 
+In summary, our core \textbf{contributions} are as follows:
+\begin{itemize}
+  \setlength\itemsep{0.1cm}
+  \item We introduce \textbf{AirSplat}, a novel framework that fine-tunes 3D-VS-VFMs to generate high-fidelity novel views, while preserving the robust geometry estimation performance.
+  \item We propose \textbf{Self-Consistent Pose Alignment (SCPA)} to resolve pose-geometry discrepancies, thereby preventing model degradation caused by misaligned photometric supervision.
+  \item We design \textbf{Rating-based Opacity Matching (ROM)}, an optimization strategy that learns from geometric rating-based feedback from a lightweight teacher model to seamlessly filter inconsistent and floating primitives.
+  \item Our AirSplat achieves the state-of-the-art NVS performance \textit{with large margins} on dense-view benchmarks, including RealEstate10K \cite{zhou2018stereo}, DL3DV \cite{ling2024dl3dv}, and ACID \cite{infinite_nature_2020}, demonstrating robustness in pose-free settings.
+\end{itemize}
+
+
+% Experimental results on large-scale benchmarks, including DL3DV \cite{ling2024dl3dv}, RealEstate10K \cite{zhou2018stereo}, and ACID \cite{infinite_nature_2020}, demonstrate that our framework significantly outperforms state-of-the-art feed-forward NVS methods across a diverse range of input views and scene scales. Furthermore, our fine-tuning strategy successfully preserves the foundational geometric priors of the 3DVFM, allowing VFM-Splat to jointly produce highly accurate geometry estimations alongside photorealistic NVS.

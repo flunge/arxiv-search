@@ -1,0 +1,123 @@
+\section{Experiments}
+\label{sec:exp}
+\subsection{Dataset and Evaluation Metric}
+\noindent\textbf{Dataset.}
+We evaluate Splat2BEV on the nuScenes dataset \cite{caesar2020nuscenes} and the argoverse1 dataset \cite{chang2019argoverse}.
+NuScenes is a comprehensive benchmark for autonomous driving, including 1000 driving scenes collected in Boston and Singapore under diverse weather and lighting conditions, with 700 scenes used for training, 150 for validation, and 150 for testing. 
+Argoverse 1 is another large-scale autonomous driving dataset collected in Pittsburgh and Miami. 
+It contains 113 driving logs with synchronized multi-view camera images and LiDAR point clouds.
+All training is conducted on the training split, and all quantitative results are reported on the validation set.
+We first conduct experiments on three categories separately on nuScenes, \ie, \textit{vehicle}, \textit{pedestrian}, and \textit{lane} segmentation, following the settings of \cite{chambon2024pointbev, lu2025toward}.
+We then conduct multi-class BEV segmentation experiments on both nuScenes and Argoverse 1, following the settings of \cite{zou2024diffbev, zhao2024improving}.
+
+
+
+\noindent\textbf{Metric.}
+We report the Intersection-over-Union (IoU) as the primary evaluation metric across all tasks, following the well-established practice of prior works. 
+
+\subsection{Implementation Details}
+\noindent\textbf{Input Image.}
+In our experiments, the multi-view input images are resized to either 224 $\times$ 480 or 448 $\times$ 800 resolution, depending on the experiment setting.
+Unless otherwise specified, the default input resolution is 224 $\times$ 480.
+
+\noindent\textbf{Loss Coefficient.}
+For the loss term coefficients, in $\mathcal{L}_{\text{total}}$ (\cref{eq:loss_total}), we empirically set $\lambda_1 = 0.2$, $\lambda_2 = 0.8$, and $\lambda_3 = 0.1$. 
+In $\mathcal{L}_{\text{BEV}}$ ( \cref{eq:bev_loss}), we set $\lambda_4 = 2.0$ and $\lambda_5 = 0.1$.
+
+\noindent\textbf{BEV Projection.}
+In the BEV projection stage, 
+the BEV representation has a spatial resolution of $200 \times 200$, and the BEV feature map output by the BEV encoder maintains the same resolution. 
+The BEV focal lengths are set to $f_x = f_y = 2$, computed as the ratio between the BEV pixel resolution (200) and the BEV spatial range (100\,m). 
+The pixel offsets are set to $c_x = c_y = 100$, corresponding to half of the BEV pixel resolution.
+For the extrinsics, the BEV camera is positioned at $+3$\,m along the $z$-axis in the vehicle coordinate frame.
+
+\noindent\textbf{Training Strategy.}
+During Gaussian generator pre-training, learning rate of the multi-view branch is set to $2\times10^{-4}$.
+For the monocular branch, we initialize from the pretrained Depth Anything V2 \cite{depth_anything_v2} weights and adopt a smaller learning rate of $2\times10^{-6}$ to preserve pretrained knowledge.
+In stage 2, we freeze the Gaussian generator and only optimize BEV encoder and segmentation head with a learning rate of $2\times10^{-4}$.
+During joint finetuning, the learning rate of the monocular branch remains $2\times10^{-6}$, while all other components are trained with a learning rate of $2\times10^{-6}$. 
+We pre-train the Gaussian generator for 10 epochs, perform task head-only finetuning for 10 epochs, and finally joint finetuning for an additional 20 epochs.
+
+\subsection{Quantitative Comparison}
+We mainly conduct experiment on three key tasks: vehicle segmentation, pedestrian and lane segmentation. We compare the performance of Splat2BEV with a collection of BEV segmentation methods.
+
+\noindent\textbf{Vehicle Segmentation.}
+Following the evaluation setting of previous works \cite{chambon2024pointbev, kerbl20233d}, we utilize two different input resolutions: 224x480 and 448x800. 
+And we also include experiments with visibility filtering (\ie only consider objects with $> 40\%$ visibility).
+The quantitative results for vehicle segmentation is shown in \cref{tab:vehicle_segmentation}. 
+Splat2BEV outperforms all the baseline methods under various experiment settings.
+\input{tab/vehicle_seg}
+
+\noindent\textbf{Pedestrian Segmentation.}
+For pedestrian segmentation, following the evaluation protocol of previous works, we consider only pedestrians with visibility $>40\%$.
+The comparison results are shown in \cref{tab:pedestrian_segmentation}.
+Splat2BEV achieves an 8\% improvement compared to baseline methods.
+Since pedestrians occupy smaller regions compared to vehicles, accurate 2D-3D correspondence is critical, even minor projection errors can lead to completely non-overlapping segmentation results.
+The superior performance of our method demonstrates its ability to achieve more accurate geometric mapping through explicit 3D reconstruction.
+% \input{tab/ped_seg}
+
+\noindent\textbf{Lane Segmentation.}
+The quantitative results for lane segmentation are presented in \cref{tab:lane_segmentation}.
+Splat2BEV achieves a 21.4\% improvement over previous methods.
+Lanes are one of the largest and most structured components in autonomous driving scenes, making lane segmentation a task that particularly benefits from explicit 3D reconstruction.
+\input{tab/combined_ped_lane}
+
+\noindent\textbf{Multi-class Segmentation}
+We then evaluate Splat2BEV on multi-class segmentation on both nuScenes and argoverse1 to showcase the generalization ability and robustness of our method, the results are show in \cref{tab:multiclass_nuscenes} and \cref{tab:multiclass_argoverse}.
+\input{tab/multiclass_nuscenes}
+\input{tab/multiclass_argoverse}
+
+Overall, Splat2BEV consistently outperforms existing BEV segmentation frameworks across all evaluated tasks. 
+These improvements highlight the effectiveness of incorporating explicit 3D reconstruction to learn geometry-aligned representations. 
+Such representations enable Splat2BEV to achieve more accurate and interpretable feature alignment, providing benefits for both small-scale objects (\ie, pedestrians) and large-scale structural elements (\ie, lanes).
+\begin{figure*}
+    \centering
+    \includegraphics[width=1\linewidth]{figures/reconstruction_vis.pdf}
+    \vspace{-1em}
+    \caption{
+    \textbf{Visualization of reconstruction quality.}
+    The left side shows the 3D reconstruction, its feature field, and the corresponding BEV map and projected BEV feature.
+    The right side provides zoomed-in views that highlight fine-grained details, such as the zebra crossing in View~1, the dustbin in View~2, the person in View~3, and the no-parking line in View~4.
+}
+    \label{fig:reconstruction}
+    \vspace{-1em}
+\end{figure*}
+\begin{figure*}
+    \centering
+    \includegraphics[width=1\linewidth]{figures/learned_representation.pdf}
+    \vspace{-1.5em}
+    \caption{\textbf{Visual comparison of features learned with and without explicit reconstruction.} 
+    The \textit{BEV feature} refers to the feature map produced by the BEV encoder, while the \textit{projected feature} denotes the feature directly projected from the 3D representation.}
+    \label{fig:feature_vis}
+    % \vspace{-1em}
+\end{figure*}
+\subsection{Qualitative Results on Reconstruction}
+To qualitatively evaluate the reconstruction quality of our Gaussian generator, we visualize a reconstructed scene in \cref{fig:reconstruction}. Additional visualizations are provided in the supplementary materials. 
+On the left side, we show the reconstructed 3D scene together with its corresponding feature field. 
+On the right side, we highlight several fine-grained details in the reconstruction to further demonstrate the fidelity and quality of the recovered scene.
+
+\subsection{Analysis of Learned BEV Representation}
+\input{tab/frozen_backbone_finetune}
+To examine the quality of the features learned during Gaussian generator pre-training (\ie, \cref{subsec:GS_generator}), we directly evaluate the performance of the Splat2BEV without joint fine-tuning, where the Gaussian generator is kept frozen.
+The quantitative results are presented in \cref{tab:frozen_backbone_finetuning}.
+Surprisingly, even without joint optimization, our method already attains performance comparable to several baselines, indicating that the geometry-aligned features produced by Gaussian generator pre-training and feature distillation are both meaningful and of high quality. 
+After enabling joint fine-tuning, the performance further improves, validating the benefits of integrating the learned explicit 3D representation into downstream BEV segmentation.
+Since our method incorporates an explicit reconstruction process, the learned features are naturally aligned with the underlying scene geometry.
+We further visualize the BEV feature maps in \cref{fig:feature_vis}.
+For comparison, we select GaussianLSS \cite{lu2025toward}, another 3DGS-based framework, to highlight how explicit reconstruction leads to more structured and geometry-aware BEV features.
+We visualize both the features obtained by directly projecting the 3D representation and the BEV feature maps produced by the BEV encoder.
+
+\subsection{Ablation Study}
+
+We conduct ablation studies on two design strategies: the proposed 3-stage training scheme (compared with a 2-stage variant without \cref{subsec:task_head}), and DINO feature distillation. 
+The results are shown in \cref{tab:ablation_module}.
+
+Since our method explicitly reconstructs and projects the scene into a virtual BEV space, the choice of BEV camera height is crucial. 
+Placing the BEV camera too low may lead to missing geometry or objects in the scene, whereas placing it too high may introduce extraneous distractors (\eg, trees and poles) that harm downstream task performance.
+Therefore, we conduct an ablation study in \cref{tab:height_ablation} to investigate the impact of different BEV camera heights on overall perception accuracy.
+Our results show that setting the virtual BEV camera height to 3 meters achieves the best trade-off, effectively capturing essential ground-level geometry while suppressing irrelevant high-altitude structures.
+\input{tab/combined_ablation}
+
+
+
+

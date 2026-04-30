@@ -1,0 +1,69 @@
+
+% Column type that highlights the entire "Ours" column
+\newcolumntype{O}{>{\columncolor{lime!12}\centering\arraybackslash\bfseries}c}
+
+\begin{table*}[t!]
+\centering
+\renewcommand{\arraystretch}{1.12}
+\setlength{\tabcolsep}{5.2pt}
+\resizebox{0.99\linewidth}{!}{
+\begin{tabular}{l|cc|cccccc|O}
+\toprule
+& \multicolumn{2}{c|}{\textit{SfM}} & \multicolumn{7}{c}{\textit{Feedforward}} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-10}
+Capability &
+\footnotesize StreetGS~\cite{yan2024street} &
+\footnotesize OmniRe~\cite{chen2024omnire} &
+VGGT~\cite{vggt} &
+DVGT~\cite{zuo2025dvgt} &
+DGGT~\cite{chen2025dggt} &
+\footnotesize STORM~\cite{yang2024storm} &
+\scriptsize EVolSplat$^\text{4D}$~\cite{miao2026evolsplat4d} &
+Flux4D~\cite{wangflux4d} &
+~~~\textbf{Ours}~~~ \\
+\midrule
+% 3D novel view synthesis         & \yesmark & \yesmark & \yesmark & \yesmark & \yesmark & \yesmark & \yesmark & \yesmark & \yesmark \\
+Novel View Synthesis (3DGS)         & \yesmark & \yesmark & \nomark  & \nomark  & \yesmark & \yesmark & \yesmark & \yesmark & \yesmark \\
+No camera poses needed          & \nomark  & \nomark  & \yesmark & \yesmark & \yesmark & \nomark  & \yesmark & \yesmark & \yesmark \\
+No per-scene optimization       & \nomark  & \nomark  & \yesmark & \yesmark & \yesmark & \yesmark & \yesmark & \yesmark & \yesmark \\
+No LiDAR needed                 & \yesmark & \yesmark & \yesmark & \yesmark & \yesmark & \yesmark & \yesmark & \nomark & \yesmark \\
+\midrule
+Models objects motions          & \yesmark & \yesmark & \nomark  & \nomark  & \yesmark & \yesmark & \yesmark & \yesmark & \yesmark \\
+\hspace*{0.2em}$\triangleright$ No tracker needed   & \nomark & \nomark & — & — & \nomark & \yesmark & \nomark & \yesmark & \yesmark \\
+\hspace*{0.2em}$\triangleright$ Rigid-object & \yesmark & \yesmark & — & — & \yesmark & \yesmark & \yesmark & \yesmark & \yesmark \\
+\hspace*{0.2em}$\triangleright$ Deformable-object & \nomark & \yesmark & — & — & \yesmark & \yesmark & \nomark & \nomark & \yesmark \\
+\bottomrule
+\end{tabular}}
+\vspace{0.2cm}
+\caption{\textbf{Dynamic 3D street reconstruction approaches.} Approaches are grouped into Structure from Motion (SfM) and Feedforward. \yesmark~ indicates the capability is supported while \nomark~ is not; “No tracker needed” means no instance-level tracker is required to synthesize views at novel timestamps. 
+Our method is highlighted in the last column, which satisfies all listed capabilities.}
+\vspace{-0.8cm}
+\label{tab:dynamic-3d-approaches}
+\end{table*}
+
+\section{Introduction}
+\label{sec:intro}
+
+
+Dynamic scene reconstruction is essential for closed-loop autonomous driving simulation, which requires accurate modeling  both static structure and moving agents.
+% to support planning, prediction, and safety-critical evaluation.
+Despite strong progress in 3D reconstruction and neural rendering, most established solutions, ranging from classical SfM (e.g., COLMAP~\cite{schoenberger2016mvs}) to Neural Radiance Fields (NeRFs)~\cite{mildenhall2021nerf, wang2021neus,chen2026periodic} and 3D Gaussian Splatting (3DGS)~\cite{kerbl3Dgaussians, yan2024street, chen2024omnire}, depend on iterative, scene-specific optimization. This process is computationally expensive and impractical for autonomous-driving simulation where large-scale, diverse, and frequently updated environments must be reconstructed rapidly.
+
+To address efficiency, recent works~\cite{charatan2024pixelsplat,mvsplat,depthsplat,hong2023lrm,yang2024storm,chen2025dggt,worldsplat} exploit learned priors from large-scale datasets to reduce or eliminate optimization, enabling fast feedforward inference. DUSt3R~\cite{wang2024dust3r} predicts relative pose and depth from a pair of image in seconds, and VGGT~\cite{vggt} extends this paradigm to unordered multi-view inputs, producing camera poses and reconstructed point cloud in a single forward pass. Follow up works~\cite{murai2025mast3r,cut3r,vggtlong,pi3,streamVGGT} further extend these capacities, but focus on static scenes and do not solve 4D reconstructions. 
+
+Feedforward reconstruction in 4D scenes is bottlenecked by two main challenges. The first one is \textbf{geometry degregation under motion}. 
+Recent works (Page4D~\cite{page4d}, VGGT4D~\cite{hu2025vggt4d}) show that the Alternating Attention (AA) features of VGGT contain implicit motion cues and they improve geometry by deriving dynamic masks from intermediate features and amplifying motion cues. 
+The second challenge is \textbf{motion modeling}. Recent attempts~\cite{lin2025movies, karhade2025any4d} attach a lightweight head to AA features to predict scene flow or object motion, but this typically requires explicit 4D supervision, which is limited in scale. It is also constrained by the structure of AA layer in VGGT: as AA is designed for unordered images, it treats tokens from all frames equally in global attention, which weakens its ability to represent directed motion (from source frame to target frame). Other works such as DGGT~\cite{chen2025dggt} leverage an external tracker to model object motion, which introduces extra dependencies and potential failure modes.
+
+We introduce \StreetForward, a feedforward 4D reconstruction framework to address both geometry and motion estimation limitations of VGGT. Building on VGGT AA, we add causal masked attention that explicitly models source $\to$ target attention to strengthen motion-aware features. We additionally predict Gaussian attributes and optimize geometry and motion jointly via cross-frame rendering. As shown in Fig.~\ref{fig:teaser}, our model reconstructs sharp geometry under spatial extrapolation, produces a dynamic map for static/dynamic separation without an external segmentation model, and enables rendering at novel timestamps through predicted motion. This yields high-fidelity view synthesis at both novel poses and novel times, supporting closed-loop autonomous-driving simulation.
+
+In Summary, our contributions are:
+\begin{itemize}
+\item We present a pose-/tracker-/segmentation-free feedforward 4D reconstruction framework with support for novel-view and novel-time rendering.  A detailed comparison to existing approaches is provided in Table~\ref{tab:dynamic-3d-approaches}.
+\item We introduce a simple yet effective causal masked attention mechanism that enhances motion modeling in VGGT without explicit 4D supervision.
+\item Extensive experiments demonstrate the competitive performance of our approach on dynamic street scene reconstruction and strong out-of-domain generalization..
+\end{itemize} 
+
+The remainder of this paper is organized as follows. Sec.~\ref{sec:related} reviews related work on dynamic urban modeling and feedforward reconstruction. Sec.~\ref{sec:method} details our approach, including input tokenization, pose and static layout estimation, causal dynamics modeling with velocity decoding, and spatio‑temporal consistency regularization. 
+Sec.~\ref{sec:train} and Sec.~\ref{sec:impl} provide training and implementation details.
+Sec.~\ref{sec:experiments} presents quantitative and qualitative results on Waymo and Carla, along with ablations and evaluation protocols.

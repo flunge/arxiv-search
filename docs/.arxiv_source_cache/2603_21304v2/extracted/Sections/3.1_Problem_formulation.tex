@@ -1,0 +1,21 @@
+\subsection{Problem Formulation} 
+\label{sec3.1:problem_formulation}
+Given $N_\tec$ input context images $\{\mathbf{I}^\tec_i\}^{N_\tec}_{i=1}$, where $\mathbf{I}^\tec_i \in \mathbb{R}^{3\times H\times W}$, most prior feed-forward 3D Gaussian Splatting (3DGS) works~\cite{chen2024mvsplat, xu2025depthsplat, ye2024nopo, li2025vicasplat, zhang2025flare, huang2025spfsplat, jiang2025anysplat} uniformly allocate one Gaussian per pixel, resulting in a fixed number of Gaussians,
+$N_\tec HW$, to represent the scene. In contrast, our goal is to develop a feed-forward network $\mathbf{F}_\theta$ that enables control over the number of Gaussians.
+Specifically, $\mathbf{F}_\theta$ takes as input not only the context images but also a user-specified target Gaussian budget $\bar{N}_{\mathcal{G}}$, and predicts a set of 3D Gaussian primitives $\mathcal{G} = \{\mathbf{g}_g\}^{N_{\mathcal{G}}}_{g=1}$ and camera parameters $\{\hat{\mathbf{P}}^\tec_i\}^{N_\tec}_{i=1}$:
+\begin{equation}
+    \left( \{\mathbf{g}_g\}_{g=1}^{N_{\mathcal{G}}},\ \{ \hat{\mathbf{P}}^\tec_i\}^{N_\tec}_{i=1} \right) = \mathbf{F}_\theta\left(\{\mathbf{I}^\tec_i\}^{N_\tec}_{i=1},\ 
+    \bar{N}_{\mathcal{G}} \right).
+\end{equation}
+Each Gaussian primitive ${\mathbf{g}_g} \in \mathbb{R}^{d_\mathcal{G}}$ is parameterized by center $\boldsymbol{\mu}_g\in\mathbb{R}^3$, opacity ${\sigma}_g \in \mathbb{R}$, rotation in quaternion ${\mathbf{q}}_g \in \mathbb{R}^4$, scale ${\mathbf{s}}_g \in \mathbb{R}^3$, and spherical harmonics (SH) ${\mathbf{h}}_g \in \mathbb{R}^\nu$.
+Each camera parameter tuple is denoted as $\hat{\mathbf{P}}^\tec_i = (\hat{\mathbf{K}}^\tec_i, \hat{\mathbf{T}}^\tec_i)$,
+where $\hat{\mathbf{K}}^\tec_i \in \mathbb{R}^{3\times3}$ is the intrinsic matrix and $\hat{\mathbf{T}}^\tec_i \in \mathbb{R}^{4\times4}$ is the camera-to-world pose.
+We use $\hat{f}^\tec_i$ to denote the focal length encoded in $\hat{\mathbf{K}}^\tec_i$. Throughout the paper, $\hat{(\cdot)}$ denotes quantities predicted by our network.
+
+It is not enough to merely control the number of Gaussians; it is also important to use them efficiently to generate a high-quality scene representation.
+To this end, Gaussians should be allocated non-uniformly across the scene according to local characteristics, assigning more capacity to geometrically or visually complex regions.
+In the case of AnySplat~\cite{jiang2025anysplat}, the number of Gaussians can be adjusted by changing the voxel size.
+However, due to the inherent limitation of uniformly assigning a single Gaussian primitive to each voxel, it represents the scene less faithfully even under the same Gaussian count.
+Uniform-Gaussian-allocation methods~\cite{charatan2024pixelsplat, chen2024mvsplat, xu2025depthsplat, ye2024nopo, li2025vicasplat, zhang2025flare, huang2025spfsplat, jiang2025anysplat} ignore the fact that different regions require different Gaussian densities, yielding redundant Gaussians in simple regions while under-allocating complex ones.
+Consequently, the Gaussian budget is not spent where it is most needed for faithful scene representation.
+To address this, we introduce a spatially adaptive Gaussian allocation framework that allocates Gaussians more effectively within a given budget.

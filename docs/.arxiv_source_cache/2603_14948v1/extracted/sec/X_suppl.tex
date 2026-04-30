@@ -1,0 +1,113 @@
+\clearpage
+\setcounter{page}{1}
+\maketitlesupplementary
+
+\section{Further Implementation Details}
+\subsection{Trajectory-aware Driving World Model}
+A comprehensive overview of the architecture and data flow of the trajectory-aware driving world model is illustrated in Figure~\ref{fig:sup1}~(a). The pipeline first encodes both the historical context frames and the future target frames into a compact latent space using a pre-trained and frozen 3D Causal VAE. The historical latent features are further processed by a learnable Visual Adapter, which refines spatial-temporal representations for effective conditioning. The target for the diffusion process is constructed by concatenating the latent representations of both the historical and future frames along the temporal axis. Following the standard diffusion framework, we inject Gaussian noise to obtain $z_t$. The Trajectory-Aware Diffusion Transformer (TA-DiT) is then optimized to predict the noise, conditioned on the adapted historical context, the diffusion timestep $t$, and the multi-modal trajectory embedding. Specifically, the trajectory embedding $c$ is injected into the transformer blocks, functioning analogously to text prompts in the original CogVideoX framework to provide high-level guidance for the generation process. The internal structure of the TA-DiT block is illustrated in Figure~\ref{fig:sup1}~(b).
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=1.0\linewidth]{sup_imgs/supp_dit.pdf}
+    \vspace{-3mm}
+    \caption{The details of (a)~Trajectory-aware Driving World Model and (b)~Trajectory-aware Diffusion Transformer block.}
+    \label{fig:sup1}
+\vspace{-5mm}
+\end{figure}
+
+\subsection{Multi-modal Trajectory Planner}
+Adhering to the protocol proposed in~\cite{li2025wote}, we adopt two types of supervision for each trajectory anchor. The imitation reward supervision $r_{\text{im}}$ measures the distance between the trajectory anchors and the expert trajectory, while the simulation reward supervision $r_{\text{sim}}$ assesses the trajectory quality based on safety and efficiency rules as:
+\begin{equation}
+    r_{\text{sim}} = \{r_{\text{sim}}^{\text{NC}},r_{\text{sim}}^{\text{DAC}}, r_{\text{sim}}^{\text{TTC}}, r_{\text{sim}}^{\text{Comf}}, r_{\text{sim}}^{\text{EP}} \},
+\end{equation}
+where the sub-metrics represent no collisions (NC), drivable area compliance (DAC), time-to-collision (TTC), comfort (Comf), and ego progress (EP). The final reward is defined as the weighted log-sum of these rewards as:
+\begin{equation}
+\begin{split}
+    r_{\text{plan}} = - \big( & \omega_1 \text{log}r_{\text{im}} + \omega_2 \text{log}r_{\text{sim}}^{\text{NC}} + \omega_3\text{log} r_{\text{sim}}^{\text{DAC}} +\\ &
+    \omega_4 \text{log}(5r_{\text{sim}}^{\text{TTC}} 
+     +  2r_{\text{sim}}^{\text{Comf}} +  5r_{\text{sim}}^{\text{EP}}) \big),
+\end{split}
+\label{eq:reward_plan}
+\end{equation}
+where $\omega_i$ are the hyper-parameters and are set as $\omega_1 = 0.1$, $\omega_2 = \omega_3 = 0.5$, $\omega_4 = 1$. For the supervision, the target of the imitation reward is calculated based on the \text{L2} distance $d_i$ between the trajectory anchor and expert trajectory and the softmax function as $r_\text{im}^* = \frac{\text{exp}(-d_i)}{\sum_{j=1}^N\text{exp}(-d_j)}$. The predicted imitation scores are supervised using the Cross-Entropy (CE) loss against this target. Regarding the simulation rewards, we use the simulator to produce five rewards for evaluating a trajectory and use the Binary Cross-Entropy loss to supervise the predicted simulation rewards. For the offset regression, we identify the positive anchor, which is the closest to the expert and supervise its predicted offset using an \text{L1} regression loss.
+
+\subsection{Future-aware Rewarder}
+\label{sup:FAR}
+A critical aspect of training the FAR is the construction of effective preference pairs. To strike a balance between training efficiency and hard-negative mining, we adopt a sampling strategy. For each scenario, we first run the planner in inference mode to generate the top-16 candidate trajectories. From this candidate set, we select the top-1 trajectory, which is the one with the highest planner score. Three trajectories with the lowest simulation scores are selected as hard negatives, and three randomly sampled trajectories from the remaining pool are selected to increase sample diversity.
+
+These selected trajectories form preference pairs for optimization via the Bradley--Terry (BT) model loss. During the inference phase, the trajectory candidate with the highest reward score is chosen as the final output.
+
+\subsection{Training Details}
+\noindent\textbf{Driving World Model Pretrain.}~The trajectory-aware driving world model is pre-trained in two sequential stages. In the first stage, the model is trained for 200,000 iterations on the nuPlan training dataset at a $256 \times 512$ resolution. The objective is to predict 17 future frames from a context of 8 historical frames, with all video clips sampled at 10Hz. In the second stage, we fine-tune the model on the nuScenes dataset for an additional 100k iterations under the same resolution and frame rate settings. A constant learning rate of $1 \times 10^{-4}$ is employed throughout both stages. All generation metrics reported in the main paper are evaluated using this nuScenes-adapted model.
+
+\noindent\textbf{Planner and Rewarder Training.}~The training process for the planner and rewarder module involves three distinct steps. The process begins with a representation fine-tuning stage, where the pre-trained TA-DWM, including vision and motion encoders, is further trained on the NAVSIM dataset for 100k iterations at a higher resolution of $512 \times 1024$ with a learning rate of $5 \times 10^{-5}$, following the setting in~\cite{epona}. The model takes 4 historical frames (2s) to predict a 4.5s horizon (9 frames), with padding applied to meet the 3D Causal VAE's spatial constraints. Initialized with the adapted encoder weights, which are kept frozen, the Multi-modal Planner is trained for 50 epochs on the NAVSIM navtrain training set using a cosine learning rate scheduler with a peak learning rate of $6 \times 10^{-4}$. Finally, the Future-aware Rewarder (FAR) is trained for 10 epochs with a learning rate of $3 \times 10^{-4}$. The training samples are constructed using the sampling strategy detailed in Sec.~\ref{sup:FAR}.
+
+\begin{table}[t]
+    \centering
+    \setlength{\tabcolsep}{10pt}
+    \resizebox{0.465\textwidth}{!}{
+    \begin{tabular}{c|c c c c | c}
+    \toprule[1.5pt]
+    Top-K & NC & DAC & TTC & EP & PDMS\\
+    \midrule
+    1 & 98.4 & 95.1 & 94.7 & 80.4 & 86.9  \\
+    3 & 98.4 & 96.0 & 95.2 & 81.5 & 87.9 \\
+    5 & 98.4 & 96.2 & 95.1  & 81.9 & 88.1  \\ 
+    10 & 98.0 & 95.9 & 94.4  & 81.9 & 87.6 \\
+    \bottomrule[1.5pt]
+\end{tabular}}
+\caption{\textbf{Ablation on the number of trajectory candidates for Future-aware Rewarder.}~Top-K indicates the trajectories with the K highest predicted scores from the multi-modal planner.}
+\label{tab:topk}
+\end{table}
+
+
+
+\section{Further Ablation Study}
+\noindent\textbf{Top-K Candidates in FAR.}~Table~\ref{tab:topk} investigates the sensitivity of the Future-aware Rewarder to the number of input trajectory candidates. Increasing K from 1 to 5 yields consistent improvements in PDMS, suggesting that a larger candidate set covers more diverse driving modes and enables the rewarder to select more efficient and compliant trajectories.
+However, further increasing K to 10 leads to a performance drop. This indicates that an excessive number of trajectory candidates may introduce more low-quality trajectories, which can distract the rewarder and compromise safety metrics. Therefore, we set K=5 as the default choice, which provides the best trade-off between diversity and precision.
+
+
+\noindent\textbf{Feasibility Analysis.}~We present the detailed latency of each part of WorldDrive in Table~\ref{talbe:latency}. We set the batch size to 1 and the trajectory candidate number used in FAR to 5. Both the multi-modal planner and the FAR module are designed for architectural efficiency, comprised primarily of lightweight transformer decoders and MLP layers. This design facilitates exceptionally low-latency execution.  The results confirm that when operating in the planning inference mode, WorldDrive meets real-time requirements, making it suitable for practical deployment.
+
+\begin{table}[t]
+    \centering
+    \setlength{\tabcolsep}{9.5pt}
+    \resizebox{0.465\textwidth}{!}{
+    \begin{tabular}{c|c c c |c}
+    \toprule[1.5pt]
+    Module & Encoders & Planner & FAR & Total\\
+
+    \midrule
+    latency & 17.9ms & 18.9ms & 16.2ms & 53ms \\
+    \bottomrule[1.5pt]
+\end{tabular}}
+\caption{\textbf{Inference latency comparison}. Latency is measured on a single NVIDIA A800 GPU for the full forward pipeline of WorldDrive. ``Encoders'' include the 3D Causal VAE, visual adapter, and trajectory encoder.}
+\label{talbe:latency}
+\vspace{-5mm}
+\end{table}
+
+% \
+
+\section{Further Qualitative Comparison}
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=0.97\linewidth]{sup_imgs/supp_planning_result_v1.pdf}
+    \caption{Qualitative results of planning and future scene generation with WorldDrive on the NAVSIM navtest split.}
+    \vspace{-3mm}
+    \label{fig:sup2}
+\end{figure*}
+
+\begin{figure*}[!ht]
+    \centering
+    \includegraphics[width=0.99\linewidth]{sup_imgs/supp_simulation_result_v3.pdf}
+    \caption{Qualitative results of action-controllable future scene generation with WorldDrive on the nuScenes validation set.}
+    \label{fig:sup3}
+\end{figure*}
+
+\noindent\textbf{Visualization of Planning and Scene Generation.}~Fig.~\ref{fig:sup2} provides additional qualitative results demonstrating the planning and generation capabilities of WorldDrive on the NAVSIM dataset. Benefiting from the unified representation, the planner initially proposes a set of high-quality trajectory candidates that closely align with the expert's decision. However, deviations may occur in complex scenarios. FAR effectively mitigates these risks by identifying and selecting the most favorable behavior, which demonstrates better alignment with the expert trajectory. In addition, we feed the selected trajectory into TA-DiT and present the generated future scene sequence. The results show that TA-DiT can synthesize realistic future videos that remain consistent with the planned trajectory.
+
+\noindent\textbf{Visualization of Action-Controllable Scene Simulation.}~Fig.~\ref{fig:sup3} demonstrates the controllability of Trajectory-aware Driving World Model (TA-DWM). Specifically, we feed the different trajectories into TA-DWM to synthesize the corresponding expected future outcomes. As observed in the generated sequences, the synthesized scenes exhibit remarkable geometric consistency with the input motion commands. This confirms that TA-DWM does not merely memorize video textures but captures motion-consistent scene dynamics, enabling it to serve as a high-fidelity simulator for evaluating diverse planning decisions.
+
+
+

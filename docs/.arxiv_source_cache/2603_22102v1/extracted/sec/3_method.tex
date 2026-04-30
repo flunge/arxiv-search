@@ -1,0 +1,239 @@
+\section{Method}
+\begin{figure*}
+    \centering
+    \includegraphics[width=1.0\linewidth]{fig2_6.pdf}
+    \caption{Overview of FreeArtGS. It consists of three modules: (1) Part Segmentation from free-moving video; (2) Joint Estimation with estimated part transforms; (3) End-to-end Optimization for articulated Gaussian Splatting.}
+    \label{fig:pipeline}
+\end{figure*}
+\subsection{Overview}
+% hongwei: What is free-moving art recon?
+Given a monocular RGB-D video of 
+a free-moving articulated object with two rigid parts $\mathcal{V} = \{\mathcal{I}_i, \mathcal{D}_i\}_{i=1}^N$ and foreground masks $\{\mathcal{M}_i^{fg}\}_{i=1}^N$, obtained using Segment Anything Model~\cite{ravisam}, our goal is to reconstruct its canonical Gaussians $\mathcal{G}_c = \{\mathcal{G}_c^0, \mathcal{G}_c^1\}$ 
+of the two parts and joint parameters $\mathcal{J}$. 
+Thus, the object can be represented as $\mathcal{G} = \mathcal{G}_c \circ \mathcal{J}$.
+
+As shown in Fig.~\ref{fig:pipeline}, our framework includes three modules: part segmentation, joint estimation, and end-to-end optimization. In Sec.~\ref{sec:seg}, our method leverages the point tracking results of the two parts to obtain their 2D part segmentation $\mathcal{M} = \{\mathcal{M}^0_i, \mathcal{M}^1_i\}_{i=1}^N$ within the foreground masks. In Sec.~\ref{sec:3.3}, we reconstruct the Gaussians of the two parts $\mathcal{G}_{ori}^0$ and $\mathcal{G}_{ori}^1$ respectively, coarsely estimate the joint parameters $\mathcal{J}$, and calibrate $\{\mathcal{G}_{ori}^0, \mathcal{G}_{ori}^1\}$ and $\mathcal{J}$ to the canonical Gaussians $\{\mathcal{G}_c^0, \mathcal{G}_c^1\}$. In Sec.~\ref{sec:opt}, we perform blended rendering and fine-tune the Gaussians and joint parameters with an end-to-end optimization.
+
+ % we regard segmenting the two free-moving parts as an optimization problem of finding the optimal part weight $w_{t,p}$ and spatial transforms ${T}^0_{t\to t'}$ and ${T}^1_{t\to t'}$ of the two parts, to explain the motion pattern of the free-moving articulated object. 
+
+
+% For the input video $\mathcal{V}$ we use, we do not assume any moving patterns of the object. 
+% The articulated object is free-moving, 
+% which means the two parts can be moving relative to not only each other 
+% but the background as well.
+
+\subsection{Free-moving Part Segmentation}
+\label{sec:seg}
+% hongwei: part seg, T1 T2 assumption.
+\noindent\textbf{Setting.} We first aim to segment the articulated object into two rigid parts purely from motion. Our key assumption is that within a short temporal window, the motion of each part is well-approximated by an independent rigid transform. Specifically, for a frame pair $(t, t')$ in the window and a tracked pixel $p$ with valid depth, 
+we obtain the corresponding 3D points $X_{t,p}$ and $X_{t',p}$. 
+We seek two rigid transforms $T^0_{t\to t'}$ 
+and $T^1_{t\to t'}$ and a soft part weight $w_{t,p}\in[0,1]$ per point, 
+where $w_{t,p}\!\approx\!1$ and $w_{t,p}\!\approx\!0$ denote the two different parts. We initialize the part weight by clustering with a feature map from DINOv3~\cite{simeoni2025dinov3}, where the semantically similar points are assigned the same part label.
+
+\noindent\textbf{Part Solver.} We process the RGB-D video $\mathcal{V}$ with a sliding window of size $n$. 
+For each window, assume $t=0$ for the first frame of the window, AllTracker~\cite{alltracker} provides pixel-level 2D trajectories through $n$ frames
+$\{u_{t,p}\}_{t\in[0,n-1]}\in \mathbb{R}^2$, 
+where $p\in\mathbb{Z}^2$ is the pixel index of the tracked points in the first frame of the window
+and $u_{t,p}$ denotes its 2D position at the frame $t$ in the window.
+Then we lift them to 3D trajectories $\{X_{t,p}\}\in \mathbb{R}^3$ with depth and camera intrinsics. 
+With these trajectories, we further optimize the rigid transform and part weight $w_{t,p}$ for each part: 
+\[
+\begin{aligned}
+\mathcal{L}_{\mathrm{main}} &= \sum_{p} (1-w_{t,p})\rho\left(\frac{\big\|T^0_{0\to t}X_{0,p}-X_{t,p}\big\|}{\big\|X_{0,p}-X_{t,p}\big\|+\epsilon}\right) \\
+&\quad+ w_{t,p}\rho\left(\frac{\big\|T^1_{0\to t}X_{0,p}-X_{t,p}\big\|}{\big\|X_{0,p}-X_{t,p}\big\|+\epsilon}\right),
+\end{aligned}
+\]
+where $\rho(\cdot)$ is Huber loss and $\epsilon$ is a small constant to avoid division by zero.
+
+\noindent\textbf{Regularization.} Jointly optimizing the transform and part weight may fall into a sub-optimal solution. To this end, we regularize $w_{t,p}$ to be confident and spatially coherent. First, an entropy penalty encourages near-binary assignments,
+\[
+\mathcal{L}_{\mathrm{ent}}=-\sum_{p}\Big[w_{t,p}\log w_{t,p}+(1-w_{t,p})\log(1-w_{t,p})\Big].
+\]
+Second, to prevent the model from fitting the unstable point tracking results, we build a feature-space neighbor graph $\mathcal{N}(p)$ by sampling per-pixel image features at tracked points and connecting radius-based neighbors with weights $\alpha_{pq}$. A smoothness term enforces local consistency,
+\[
+\mathcal{L}_{\mathrm{smooth}}=\sum_{p}\sum_{q\in\mathcal{N}(p)}\alpha_{pq}\,\big|w_{t,p}-w_{t,q}\big|.
+\]
+Finally, we discourage part weights from being too different from the initial weights $w_{0,p}$ with BCE loss $\mathcal{L}_{\mathrm{init}}$,
+\[
+\mathcal{L}_{\mathrm{init}}=\sum_{p}\mathrm{BCE}\!\left(w_{t,p},\,w_{0,p}\right).
+\]
+Our objective per window is
+\[
+\mathcal{L}=\lambda_m\mathcal{L}_{\mathrm{main}}
++\lambda_s\mathcal{L}_{\mathrm{smooth}}
++\lambda_e\mathcal{L}_{\mathrm{ent}}
++\lambda_{\mathrm{init}}\mathcal{L}_{\mathrm{init}}.
+\]
+% \noindent\textbf{Optimization.} During the optimization, we adopt a two-stage solver. 
+% The first stage is Robust EM-style initialization. From the initial $w_{0,p}$, 
+% we estimate ${T}^0,{T}^1$ by alternating hard assignments and weighted Kabsch fits~\cite{kabsch1976solution} under adaptive thresholds. 
+% (ii) Joint refinement: we first optimize only $\{w_{i,p}\}$ with ${T}^0,{T}^1$ fixed, 
+% then jointly refine both transforms and weights end-to-end with the full loss. 
+
+\noindent\textbf{Part Segmentation.} We propagate the optimized part weights $\{w_{i,p}\}$ across windows, fill the unobserved pixels via feature-space~\cite{simeoni2025dinov3} neighbors, and obtain the binary part masks $\{\mathcal{M}^0_i,\mathcal{M}^1_i\}_{i=1}^N$ by thresholding the part weights at $0.5$. Refer to the supplementary materials for the details.
+
+% \begin{algorithm}[t]
+% \caption{Two-Part Tracking with Sliding-Window Joint Optimization}
+% \label{alg:full}
+% \begin{algorithmic}[1]
+
+% \Require Input image sequence $I$, tracker parameters $\Theta$
+% \Ensure Dense two-part segmentation for all frames
+
+% \State $args \gets \text{ParseArgs}()$
+% \State $images \gets \text{LoadImages}(args.input\_dir)$
+% \State $tracker \gets \text{BuildTracker}(\text{LoadCfg}(args.tracker\_config))$
+
+% \State $first \gets images[0]$
+% \State $args.scale\_obj \gets \text{EstimateObjectScale}(first.depth, first.K, first.mask)$
+% \State $args.projection\_normalizer \gets \max(\text{image\_height}, \text{image\_width})$
+
+% \State $(seg\_prev, mask\_prev) \gets \text{InitSeg}(first)$
+% \State $current \gets 0$
+
+% \vspace{2mm}
+% \While{$current < \text{num\_frames} - 1$}
+%     \State $W \gets images[current : current + args.window\_size]$
+%     \If{$|W| = 2$}
+%         \State $W \gets \text{DuplicateLastFrame}(W)$
+%     \EndIf
+
+%     % ============================ Window Processing ===========================
+%     \State $\triangleright$ \textbf{Extract dense trajectories}
+%     \State $traj \gets tracker.\text{GetTrackMaps}(W)$
+%     \State $coords \gets tracker.\text{Get4DTracks}(W, traj)$
+%     \State $seg\_ref \gets seg\_prev$
+
+%     \State Initialize lists $pairs\_T, pairs\_w, pairs\_idx$
+
+%     \For{$k = 1 \to |W|-1$}
+%         \State $(T, (ys,xs)) \gets \text{ExtractValidTrajs}(coords, k)$
+%         \State $w \gets seg\_ref[ys, xs]$
+
+%         \State $\triangleright$ \textbf{Solve two-part rigid transforms (EM style)}
+%         \For{$iter = 1 \to N$}
+%             \State $T_1 \gets \text{RigidFit}(T^{ref}, T^{k}, 1-w)$
+%             \State $T_2 \gets \text{RigidFit}(T^{ref}, T^{k}, w)$
+%             \State $w \gets \text{UpdateWeights}(T, T_1, T_2)$
+%         \EndFor
+
+%         \State Append $(T, w, (ys,xs))$ to lists
+%         \State $seg\_ref \gets \text{UpdateSeg}(seg\_ref, w, (ys,xs), W[0])$
+%     \EndFor
+
+%     % ======================== Window-Level Joint Optimization ========================
+%     \State $actual \gets |pairs\_T| + 1$
+
+%     \State $\triangleright$ \textbf{Merge all pairwise trajectories}
+%     \State $dict \gets \text{AggregatePairs}(pairs\_T, pairs\_w, pairs\_idx)$
+
+%     \State $\triangleright$ \textbf{Joint optimization of segment weights and transforms}
+%     \State $(w^{opt}, T1\_all, T2\_all) \gets \text{JointOptimize}(dict)$
+%     \State $dict \gets \text{UpdateDict}(dict, w^{opt})$
+
+%     % ======================== Propagate Dense Segmentation ========================
+%     \State $(seg\_list, mask\_list) \gets \text{PropagateSeg}(traj, dict, W, actual)$
+
+%     \State $(seg\_prev, mask\_prev) \gets (seg\_list_{last}, mask\_list_{last})$
+%     \State $current \gets current + (actual - 1)$
+
+% \EndWhile
+% \end{algorithmic}
+% \end{algorithm}
+
+\subsection{Joint Estimation}
+\label{sec:3.3}
+% get T1, T2, and T1-->T2
+ 
+\noindent\textbf{Part-level Reconstruction.} With $\mathcal{I}_i$, $\mathcal{D}_i$ and $\{\mathcal{M}_i^k\}_{k\in\{0,1\}}$, where $i$ and $k$ are the frame and part index,
+we leverage off-the-shelf pose estimators~\cite{bundlesdf,arun1987least} 
+to calibrate each frame's part-to-camera transformations $\{{E}_i^k\}\in \mathrm{SE}(3)$ for each part. We note that, though we have obtained $T^k_{t\to t'}$ in part segmentation, solving the part-to-camera transformations from all the pairs is not trivial~\cite{wang2024dust3r}, since the motion tracking labels $\{u_{t,p}\}$ contain noise and outliers. In contrast, off-the-shelf pose estimators are robust to sudden visual changes while preserving multi-view consistency. With part masks $\{\mathcal{M}_i^k\}$ and transformations $\{{E}_i^k\}$, we reconstruct each part $\mathcal{G}_{ori}^k$ and optimize their poses with 3DGS~\cite{kerbl20233d}.
+
+\noindent\textbf{Pose Calibration.} To unify the object-to-camera poses, we calibrate the poses of two parts to a canonical coordinate system by a rigid transform $A^k \in \mathrm{SE}(3)$, which is given as the inverse of ${E}_0^k$ in the first frame. We choose the part with the least average moving as the reference part (denoted as part 0) and the other part as the relative moving part (denoted as part 1). After calibration, we obtain the canonical Gaussians $\mathcal{G}_c^k = \mathcal{G}_{ori}^k \circ A^k$, transformation $E^{ref}_i = {E}_i^0 \circ {A}^0$ of the reference part and ${E}^{rel}_i = {E}_i^1 \circ {A}^1$ of the relative part. By aligning both parts, their trajectories share the same axes in the first frame, and the relative transformation of ${E}^{ref}_i$ and ${E}^{rel}_i$ represents the combination of joint state and axes.
+% At this time, relative motion is all included in ${T}^{rel}_i$.
+
+% After separate reconstruction and blending mentioned in \ref{sec3.4.1}, 
+\noindent\textbf{Joint Type Estimation.} We estimate the kinematic joint that explains the relative transformation between the two reconstructed parts. From $\{{E}^{ref}_i\}$ and $\{{E}^{rel}_i\}$, we obtain a sequence of relative part poses $\{{T}_i\}_{i=1}^N\in\mathrm{SE}(3)$ of one part w.r.t. the other, and implement a light-weight solver that determines the joint type and estimates joint parameters. We decide the joint type by two cues: the overall rotation span across frames and whether translations lie nearly on a single line. A small span with strong linearity indicates a prismatic joint; otherwise, we regard the joint as revolute.
+
+\noindent \textbf{Joint Axis Estimation.} For a \textbf{revolute} joint, we solve the \textit{closed-form rotation axis} from pairwise relative rotations, recover the per-frame angle by fitting pairwise angle differences with the first frame, and solve the pivot only on the plane orthogonal to the axis to avoid degeneracy. For a \textbf{prismatic} joint, we recover the translation axis with \textit{PCA} from $\{{T}_i\}_{i=1}^N$, project each translation onto the axis to obtain the displacement sequence, and keep a constant rotation. 
+
+\noindent \textbf{Noise Resistance.} The part poses estimated inevitably contain noise from the off-the-shelf methods. To ensure robustness, there are two key designs in joint estimation. First, instead of directly estimating the joint from the absolute ${T}_i$, we solve the pairwise relative transform ${T}_{i \to (i+1)}$ between neighboring frames. Second, we filter the outlier transforms with a threshold of $2\sigma$, where $\sigma$ is the standard deviation of the translations of poses in 3D space. These choices make the solver stable under small tracking errors and occasional outlier frames, while remaining fast and light-weight.
+
+% part pose 叠加了两个part的误差。为了抵抗噪声，按常理来说应该
+
+% To be robust to noise, we project rotations to $\mathrm{SO}(3)$, clamp unstable trigonometric inputs, group relative pairs by temporal lag and discard outliers, use IQR-trimmed statistics for the rotation span, estimate the pivot only in the axis-orthogonal plane, combine offsets with a median, unwrap angles to remove discontinuities, and formulate the estimation from pairwise differences so unknown global rigid transforms cancel out. 
+\begin{table*}[t]
+    \centering
+    \caption{Results and Ablation Studies on FreeArt-21. Metrics are reported as mean $\pm$ std over all test videos. Lower ($\downarrow$) is better for the joint and geometry metrics, higher ($\uparrow$) is better for the rendering metric. The best results are highlighted in \textbf{bold}.}
+    \label{tab:results_free}
+    \renewcommand\tabcolsep{7pt}
+    % \setlength{\tabcolsep}{3pt}
+    % \scriptsize
+    \resizebox{\linewidth}{!}{%
+    \begin{tabular}{llcccccccc}
+    \toprule
+    \textbf{Joint Type} & \textbf{Method} & \textbf{Axis (deg)$\downarrow$} & \textbf{Position (cm)$\downarrow$} & \textbf{State (deg/cm)$\downarrow$} & \textbf{CD-w (cm)$\downarrow$} & \textbf{CD-m (cm)$\downarrow$} & \textbf{CD-s (cm)$\downarrow$} & \textbf{PSNR (dB)$\uparrow$} \\
+    \midrule
+    \multirow{6}{*}{\centering Revolute} 
+    & {ArticulateAnything~\cite{articulateanything}} & 42.00$\pm$46.48 & 59.38$\pm$62.19 & - & - & - & - & - \\
+    & {Video2Articulation~\cite{video2articulation}} & 20.00$\pm$28.81 & 16.31$\pm$28.78 & 27.37$\pm$19.06 & 2.29$\pm$3.40 & 10.74$\pm$16.35 & 1.87$\pm$1.59 & - \\
+    & Ours w/o Smooth Loss & 28.01$\pm$29.23 & 17.73$\pm$30.79 & 18.74$\pm$20.96 & 5.72$\pm$7.39 & 14.37$\pm$15.89 & 5.64$\pm$9.17 & 10.60$\pm$4.61 \\
+    & Ours w/o Init Loss & 9.35$\pm$13.50 & 19.58$\pm$39.17 & 14.64$\pm$19.90 & 0.75$\pm$0.90 & 1.90$\pm$3.11 & 1.14$\pm$2.60 & 13.07$\pm$7.26 \\
+    & Ours w/o Noise Resistance & 4.75$\pm$7.83 & 2.22$\pm$6.89 & \textbf{1.30$\pm$1.09} & 0.17$\pm$0.15 & 0.48$\pm$0.79 & 1.10$\pm$2.72 & 22.65$\pm$3.13 \\
+    & Ours w/o Blended Rendering & 1.72$\pm$2.38 & 1.88$\pm$6.23 & 1.88$\pm$2.54 & \textbf{0.12$\pm$0.07} & 0.34$\pm$0.52 & 1.05$\pm$2.61 & 22.23$\pm$2.64 \\
+    & \textbf{Ours} & \textbf{1.04$\pm$1.03} & 
+    \textbf{0.29$\pm$0.36} & 1.43$\pm$1.20 & 0.14$\pm$0.13 & \textbf{0.28$\pm$0.36} & \textbf{0.97$\pm$2.69} & \textbf{24.02$\pm$3.15} \\
+    \midrule
+    \multirow{6}{*}{\centering Prismatic} 
+    & {ArticulateAnything~\cite{articulateanything}} & 45.00$\pm$49.30 & - & - & - & - & - & - \\
+    & {Video2Articulation~\cite{video2articulation}} & 18.47$\pm$22.83 & - & 13.98$\pm$21.47 & 1.51$\pm$2.23 & 8.41$\pm$14.57 & 5.31$\pm$15.37 & - \\
+    & Ours w/o Smooth Loss & 26.97$\pm$23.75 & - & 46.91$\pm$58.06 & 8.21$\pm$11.16 & 11.82$\pm$11.37 & 10.16$\pm$13.62 & 12.63$\pm$6.46 \\
+    & Ours w/o Init Loss & 28.72$\pm$27.83 & - & 38.31$\pm$38.81 & 22.3$\pm$50.18 & 23.73$\pm$44.37 & 21.62$\pm$45.33 & 13.86$\pm$4.48 \\
+    & Ours w/o Noise Resistance & 11.90$\pm$26.93 & - & 16.78$\pm$38.86 & 0.87$\pm$1.02 & 5.85$\pm$13.24 & 0.90$\pm$1.50 & 20.18$\pm$3.36 \\
+    & Ours w/o Blended Rendering & 2.04$\pm$3.01 & - & 0.97$\pm$0.39 & 0.45$\pm$0.24 & \textbf{0.50$\pm$0.42} & \textbf{0.28$\pm$0.13} & 20.24$\pm$2.64 \\
+    & \textbf{Ours} & \textbf{1.85$\pm$2.75} & \textbf{-} & \textbf{0.90$\pm$0.53} & \textbf{0.41$\pm$0.22} & 0.67$\pm$0.34 & 0.30$\pm$0.13 & \textbf{22.92$\pm$2.65} \\
+    \bottomrule
+    \end{tabular}%
+    }
+    \end{table*}
+
+    
+\subsection{End-to-end Optimization}
+\label{sec:opt}
+\noindent\textbf{Joint Formulation.} Starting from an estimated joint on the canonical poses detailed in \ref{sec:3.3}, we perform an axis-aware end-to-end optimization that jointly refines appearance, geometry, cameras, and articulation. Denoting $I$ as the identity matrix, we parameterize the target part by either a revolute joint with unit axis $u$, pivot $o$, and per-frame angle $\theta_i$, or a prismatic joint with axis $u$ and displacement $d_i$:
+\[
+T_i=
+\begin{cases}
+T(\theta_i;u,o)
+= \big[R(u,\theta_i)\mid(I-R(u,\theta_i))o\big],\\[6pt]
+T(d_i;u)
+= \big[I\mid d_i u\big].
+\end{cases}
+\]
+
+% Let $\mathcal{J}_i={T}(\theta_i)$ or ${T}(d_i)$. 
+
+% todo: chat with hang about the details
+\noindent\textbf{Blended Rendering and Optimization.} We apply the rigid part transformations on the canonical Gaussians $\mathcal{G}_c$ for frame $i$, and then perform alpha-blend on the Gaussians according to part weights $w=\{w_i\}\in [0,1]$ which represent the the probability of each Gaussian belonging to both parts
+\[\textstyle \mathcal{G}_i = w(\mathcal{G}_c \circ I)\cup(1-w)(\mathcal{G}_c\circ\mathcal{J}_i).\]
+Finally, we render frame~$i$ with a differentiable renderer
+\[\textstyle \hat{\mathcal{I}}_i=\mathcal{R}\big(\mathcal{G}_i,{K}_i,{E}_i^{ref}\big)\]
+where $K_i$ is the camera intrinsics.\\
+Supervised with RGB, depth, and foreground masks, we optimize Gaussian parameters for both parts, camera poses, part weights and articulation variables $\{{u},{o},\{\theta_i\}\}$ or $\{{u},\{d_i\}\}$ together. The full objective is
+\[\textstyle \mathcal{L}_{E2E}=\sum_i\big(\mathcal{L}_{\mathrm{rgb}}^i+\lambda_{\mathrm{depth}}\,\mathcal{L}_{\mathrm{depth}}^i+\lambda_{\mathrm{mask}}\,\mathcal{L}_{\mathrm{mask}}^i\big)\]
+where
+\[
+\mathcal{L}_{\mathrm{rgb}}^i
+=(1-\lambda_{\mathrm{ssim}})\,\mathcal{L}_{1}(\hat{\mathcal{I}}_i, \mathcal{I}_i)
+  + \lambda_{\mathrm{ssim}}\,\mathcal{L}_{ssim}(\hat{\mathcal{I}}_i, \mathcal{I}_i)
+\]
+\[
+\mathcal{L}_{\mathrm{depth}}^i
+= \left| \hat{\mathcal{D}}_i - \mathcal{D}_i \right|
+\]
+\[
+\mathcal{L}_{\mathrm{mask}}^i
+= \left| A_i - {\mathcal{M}}_i \right|
+\]
+$\mathcal{L}_{1}$ and $\mathcal{L}_{ssim}$ follow the definitions in~\cite{kerbl20233d}. This stage tightly couples appearance with kinematics and corrects small biases from the coarse joint, producing a high-fidelity articulated 3DGS.

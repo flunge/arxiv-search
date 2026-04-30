@@ -1,0 +1,68 @@
+
+\section{Experiments}
+\subsection{Settings}
+\label{sec:eval-in-the-wild}
+% \paragraph{Datasets and Metrics.} We train on a random selection of 80\% of scenes (112 out of a total of 140) from the DL3DV~\cite{ling2024dl3dv} benchmark dataset. We generate 80,000 noisy-clean image pairs using the dataset curation strategies listed in \cref{tab:data_curation}, and simulate NeRF and 3DGS-based artifacts in a 1:1 ratio.
+
+% \paragraph{Baselines.} We evaluate  with Nerfacto~\cite{tancik2023nerfstudio} and 3DGS~\cite{kerbl3Dgaussians} backbones on the 28 held out scenes from the DL3DV~\cite{ling2024dl3dv} benchmark and the 12 captures in the Nerfbusters~\cite{warburg2023nerfbusters} dataset. We partition each scene into a set of reference views used during training and evaluate on the left-out target views. We generate these splits for DL3DV by partitioning frames into two clusters based on camera position, ensuring a substantial deviation between reference and target views. We select reference and target views in the Nerfbusters dataset following their recommended protocol~\cite{warburg2023nerfbusters}.
+\noindent\textbf{Datasets and Metrics.}
+We generate training data from DL3DV~\cite{ling2024dl3dv} (10,510 scenes) and ScanNet++~\cite{yeshwanth2023scannet++} (1,006 scenes), randomly selecting 80\% of scenes to produce $\sim$100,000 noisy-clean image pairs. All baselines are tested on unseen datasets: MipNeRF360~\cite{barron2022mip} and VRNeRF~\cite{xu2023vr} for novel-view synthesis, TartanAir~\cite{wang2020tartanair} (synthetic indoor/outdoor), and ScanNet~\cite{dai2017scannet} (real-world indoor) for novel-view depth estimation.  We conduct all experiments using the common metrics such as PSNR, SSIM, and LPIPS for NVS. In terms of depth estimation, we use Abs Rel, RMSE, $\delta<1.25$ following~\cite{wang2025pi3}, and further apply Met3R~\cite{asim25met3r} for generative multi-view 3D consistency evaluation. Results are averaged over the extrapolated novel views rendered from the feed-forward 3DGS representation after refinement. for each dataset. All experiments are conducted in the sparse two-view input setting, except for different numbers of inputs. More details are available in the supplementary.
+\\
+\\
+\noindent\textbf{Baselines.} We evaluate our method against state-of-the-art diffusion-based enhancement pipelines, categorized into image-diffusion and video-diffusion approaches. For the former, we compare against {Difix3D+}~\cite{wu2025difix3d+} and {GSFix3D}~\cite{wei2025gsfix3d}; for the latter, we adopt {GSFixer}~\cite{yin2025gsfixer} and {ViewExtrapolator}~\cite{viewextrapolator} as our primary baselines. All methods are evaluated on both novel-view synthesis and novel-view depth estimation tasks. To ensure a fair comparison, all diffusion-based baselines utilize AnySplat as the underlying pose-free 3DGS feed-forward framework.
+% For both training and testing, we sample image sequences with start/end frames as inputs and 4--$N$ intermediate frames (with ground-truth poses) from a single scene. Inputs are processed by Anysplat~\cite{} to initialize Gaussian primitives and render initial novel views. Besides, we will use the first input image and its corresponding VGGT transformer tokens as the reference of this sequence.
+% During training, the rendered (noisy) and ground-truth (clean) intermediate images form paired data to supervise the Geometry-Aware Leveling Adapter with the input of reference data, which learns to refine Anysplat’s initial outputs.
+% At inference, we apply iterative refinement: Anysplat generates initial views $\to$ the trained adapter refines them $\to$ refined views are fed back with original inputs into Anysplat for final optimization, producing high-quality novel views and depth.
+\\
+\\
+\noindent\textbf{Implementation Details.} We train the model on 8× NVIDIA A6000 GPUs with 2 batch size for each using the AdamW optimizer (learning rate: 1e-4, weight decay: 1e-2) for 20 epochs. During training, we freeze both AnySplat and Diffusion Model, optimizing only the parameters of the Leveling Adapter. Additional details for extrapolated poses sampling and experiments for the palette filtering are in the supplementary.
+
+
+\input{tables/table_novel_img}
+\input{figures/qualitative_image}
+
+\subsection{Main Results}
+\noindent\textbf{Novel-View Image Synthesis.} We evaluate Leveling3D on real-world sparse captures from the subset of the unseen MipNeRF360~\cite{barron2022mip} and VRNeRF~\cite{xu2023vr} dataset. As shown in Table~\ref{tab:main_results}, our method achieves all SOTA results of all metrics, outperforming AnySplat~\cite{jiang2025anysplat} by 7.5\% on MipNeRF360 / 15.5\% on VRNeRF, Image-Diffusion based method (Difix3D+~\cite{wu2025difix3d+} and GSFix3D~\cite{wei2025gsfix3d}) by at least 6.8\% on MipNeRF360 / 13.1\% on VRNeRF and Video-Diffusion based method (GSFixer~\cite{yin2025gsfixer} and ViewExtrapolator~\cite{viewextrapolator}) by at least 6.7\% on MipNeRF350 / 9.7\% on VRNeRF. Qualitative results in Fig.~\ref{fig:NVS_mip_VR} show robust recovery of texture-rich surfaces for challenging extrapolation views. Here, we conduct an additional step update for all above methods. While achieving high accuracy, Leveling3D maintains an inference speed comparable to image-based diffusion methods and significantly faster than video-based diffusion counterparts, demonstrating a favorable accuracy-efficiency trade-off.
+\\
+\\
+\input{tables/table_depth}
+\input{figures/qualitative_depth}
+\noindent\textbf{Novel-View Depth Estimation.} We also evaluate the novel-view depth estimation with sparse two-view inputs setting. As shown in Table~\ref{tab:depth_results}, our method reduces AbsRel by 9\% on TartanAir / 34\% on ScanNet compared with AnySplat~\cite{jiang2025anysplat}, at least 5.3\% on TartanAir / 12.4\% compared with image-diffusion based methods (Difix3D+~\cite{wu2025difix3d+} and GSFix3D~\cite{wei2025gsfix3d}) and at least 4.9\% on TartanAir / 17.4\% on ScanNet compared with video-diffusion based methods (GSFixer~\cite{yin2025gsfixer} and ViewExtrapolator~\cite{viewextrapolator}). Furthermore, our method achieves the lowest Met3R~\cite{asim25met3r} scores on both datasets (0.0614 on TartanAir and 0.0376 on ScanNet), indicating that our method achieves a superior multi-view geometric consistency across generated views. Fig.~\ref{fig:depth_result} shows sharper object boundaries and plausible completion in the artifact regions of the extrapolated view instead of over-smoothed or erroneous depth from Difix3D+. The results indicate that the Leveling Adapter refines novel views to provide denser geometric cues for a more complete feed-forward 3D reconstruction.
+
+\input{tables/table_input_num}
+% \input{tables/table_mix_views_num_kernel}
+
+
+\subsection{Comparison on Different Number of Sparsities.} To evaluate the robustness of Leveling3D to varying sparsity levels, we conduct experiments on the ScanNet~\cite{dai2017scannet} dataset with 2-10 sparse input views per scene. Table~\ref{tab:num_input_views_results} summarizes the results. For each sparsity level, we evaluate all metrics averaged on all extrapolated views rendered from the refined feed-forward 3DGS. Our method demonstrates improvement across all sparsities compared with the baseline. With 2 views (extremely sparse), Leveling3D achieves 12.296 PSNR, a 22.6\% improvement over 9.50. As inputs increase to 10 views, gaps narrow, but ours still leads by 14.606 PSNR, which is 12\% over 12.951 PSNR of the baseline, highlighting the adapter's lightweight efficiency and superior generalization ability across different sparsities.
+
+
+
+
+
+
+% \input{tables/table_pose}
+
+% \input{tables/table_mix_diffusion_ablation}
+
+\input{tables/table_mix_kernel_diffusion_ablation}
+
+\input{figures/qualitative_mask}
+\input{figures/qualitative_palette}
+
+
+\subsection{Ablation Study}
+\noindent\textbf{Mask Refinement Kernel Size.} To investigate the impact of the mask refinement module, we conduct an ablation study on ScanNet~\cite{dai2017scannet} for the kernel sizes of closing and dilation operations ($\mathbf{K}_{close}$ and $\mathbf{K}_{dilat}$). As reported in Table ~\ref{tab:ablation_kernel}, the refinement performance is highly sensitive to the spatial extent of the mask. A small kernel ($\mathbf{K}_5$) is sufficient for the closing operation to fill internal holes within the artifact areas. However, for the dilation process, a moderate kernel size ($\mathbf{K}_{20}$) is essential to ensure that the diffusion model's guidance covers the entire artifacts at the boundaries. Crucially, we observe that an overly aggressive dilation  (e.g., $n > 30$) leads to a decline in reconstruction quality. This is because a large kernel causes the mask to encroach upon the high-fidelity regions originally rendered by the feed-forward 3DGS, resulting in the unnecessary replacement of accurate geometric structures with generated content. We evaluated this across diverse testing scenes under various conditions, identifying the optimal combination for the 448 × 448 resolution. Our optimal configuration strikes a balance between eliminating artifacts and preserving the integrity of the initial 3D reconstruction.
+\\
+\\
+\noindent\textbf{Different Generation Control Methods.} We compare Leveling3D against different generation control methods on the ScanNet~\cite{dai2017scannet} dataset. Quantitative results are shown in Table~\ref{tab:different_diffusion}. On the ScanNet dataset, our method achieves 16.89 PSNR, outperforming ControlNet~\cite{zhang2023ControlNet}'s PSNR 15.51 and T2I~\cite{mou2024t2i} Adapter's PSNR 16.58. In terms of cross-view generation ability, our method achieves the lowest FID. These results demonstrate the superiority of geometry prior with sparse inputs, highlighting the robustness for extrapolated-view refinement.
+\\
+\\
+\noindent\textbf{Proposed Components.} We ablate each proposed key component on VRNeRF~\cite{xu2023vr}: (a) geometry-aware leveling adapter, (b) geometry token fusion, (c) palette filtering, and (d) test-time mask refinement. As shown in Table~\ref{tab:ablation_stages}, without this mask refinement, the SSIM experiences a severe drop compared to the baseline, because the unconstrained diffusion process overwrites the high-fidelity structural details as shown in \cref{fig:mask_refine}. Without palette filtering, model collapse reduces SSIM by 3\%, failing on complex patterns. Disabling geometry token fusion lowers SSIM by 2\%. Finally, omitting the leveling adapter decreases PSNR by 14\%.
+Qualitative results for geometry tokens and palette filtering are in \cref{fig:token_palette}.
+
+
+% \input{tables/table_diffusion}
+% \input{tables/table_ablation}
+
+
+

@@ -1,0 +1,58 @@
+\section{Introduction}
+\label{sec:introduction}
+
+\begin{table}[t]
+\centering
+\caption{.}
+\label{tab:method_category}
+\scalebox{0.63}{
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Methods} & \makecell{\textbf{Intrinsics-}\\\textbf{Free}} & \makecell{\textbf{Extrinsics-}\\\textbf{Free}} & \makecell{\textbf{View}\\\textbf{Synthesis}} & \makecell{\textbf{Direct Depth }\\\textbf{Estimation}} \\ \midrule
+MVSplat~\cite{chen2024mvsplat}, pixelSplat~\cite{charatan2024pixelsplat}, ZPressor~\cite{wang2025zpressor}, Long-LRM~\cite{ziwen2025long} & \xmark & \xmark & \xmark & \xmark \\
+ DepthSplat~\cite{xu2025depthsplat} & \xmark & \xmark & \xmark & \cmark\\
+NoPoSplat~\cite{ye2024no}, SPFSplat~\cite{huang2025no}, EcoSplat~\cite{park2026ecosplat} & \xmark & \cmark & \cmark & \xmark\\
+VGGT~\cite{wang2025vggt}, Mast3r~\cite{mast3r_eccv24}, $\pi^3$~\cite{wang2025pi3} & \cmark & \cmark  & \xmark & \cmark\\ \midrule
+AnySplat~\cite{jiang2025anysplat}, WorldMirror~\cite{liu2025worldmirror}, \textbf{VFM-Splat (ours)} & \textbf{\cmark} & \textbf{\cmark} & \textbf{\cmark} & \textbf{\cmark}\\ \bottomrule
+\end{tabular}}
+\end{table}
+
+% 1 about nvs and GS
+The field of Novel View Synthesis (NVS) has undergone a paradigm shift with the advent of 3D Gaussian Splatting (3DGS) \cite{kerbl20233d} and its following works \cite{Wu_2024_CVPR, park2024splinegs, lin2025longsplat, bui2025mobgsmotiondeblurringdynamic, fu2024colmap, yu2024mip}, enabling high-fidelity reconstruction and real-time rendering on static dynamic or abnormal  photmetric input condition. 
+
+% 2 about unconstrainted NVS, direct gemometry estimation (isolate), abitrary views (but can learn from sparse views)
+To move beyond the limitations of time-intensive per-scene optimization, recent feed-forward NVS methods~\cite{charatan2024pixelsplat, chen2024mvsplat, xu2025depthsplat, wang2025zpressor} have been proposed to directly predict 3D scene parameters from a set of context views.
+While these methods achieve instant synthesis, they predominantly rely on calibrated camera poses, which are often unavailable in "in-the-wild" scenarios. 
+To handle this, pose-free feed-forward NVS methods \cite{ye2024no, huang2025no, jiang2025anysplat} jointly infer both the scene geometry and camera extrinsics for NVS.
+Despite this progress, jointly estimating precise camera parameters and synthesizing novel views from sparse, uncalibrated context images remains a formidable challenge.
+% why 3DVFM and why 3DVFM with small finetuning
+Recently, 3D Vision Foundation Models (3DVFMs), such as and VGGT \cite{wang2025vggt}, $\pi^3$ \cite{wang2025pi3}, and DepthAnything-V3 \cite{lin2025da3}, have demonstrated remarkable zero-shot capabilities in depth and pose estimation. 
+However, directly leveraging these models for NVS often yields suboptimal results, characterized by structural blurring and floating artifacts.
+
+
+
+
+
+We identify two fundamental obstacles that hinder 3DVFMs from achieving high-fidelity NVS. 
+First, 3DVFMs often lack the multi-view consistency required for dense 3D reconstruction, leading to local geometric inconsistencies and persistent "floaters" that degrade temporal stability.
+
+% Verify the context, target training strategy. Can we just cite spfsplat?
+Next, there exists a \textit{pose-geometry discrepancy} during training. 
+While target poses are inferred using features from both context and target images, the scene geometry is conditioned strictly on context views to maintain generalizability. 
+This asymmetric information flow leads to a misalignment between the predicted pose and the rendered 3D structure. 
+When supervised by standard photometric losses, this misalignment propagates noisy gradients that force the model to average out spatial errors, resulting in blurred textures. 
+% TTO is not appropriate for training loop
+
+% Why dont we joint training like other (can ablate this, this should be broken)
+To bridge this gap, we propose a novel training framework that elevates 3DVFMs from passive initialization tools to active geometric supervisors. 
+Our framework introduces two key technical contributions designed to enforce global alignment and local structural integrity.
+First, we present \textbf{Self-Consistent Pose Alignment (SCPA)} to align predicted target poses to the scene geometry constructed by context views and give accurate reconstruction supervision. 
+By re-estimating the target poses of the rendered proxy images, we identify the geometric bias between the initial prediction and the re-estimated poses.
+Then, we back-extrapolate the initial target poses using the geometric bias to be aligned with the scene geometry constructed by the context views.
+This ensures that the photometric gradients are backpropagated through a pixel-aligned path, preserving the sharpness of the scene geometry.
+Next, we introduce \textbf{Geometry-Guided Opacity Distillation (GGOD)} to enforce multi-view consistency. 
+GGOD distills knowledge from a pre-trained two-view teacher model using an optimization strategy. 
+We resolve spatial discrepancies through a geometric alignment loss while simultaneously suppressing fundamentally inconsistent floaters via a dynamic opacity ceiling. 
+This ceiling responds exponentially to the relative geometric error between the student and the teacher, effectively pruning artifacts that lack multi-view support.
+
+Experimental results on large-scale benchmarks \cite{ling2024dl3dv} demonstrate that our framework significantly outperforms other state-of-the-art NVS methods. By synergizing global photometric alignment with local geometric distillation, our approach achieves the state-of-the-art reconstruction quality, highlighting the potential of foundation models as robust active supervisors for complex 3D synthesis tasks.

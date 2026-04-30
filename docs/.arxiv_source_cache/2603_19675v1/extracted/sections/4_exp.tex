@@ -1,0 +1,259 @@
+\section{Experiment}
+
+\subsection{Dataset and Metrics}
+For comprehensive evaluations, we train and evaluate our DynFlowDrive on two benchmarks, including the open-loop nuScenes~\cite{caesar2020nuscenes} and the closed-loop NavSim~\cite{dauner2024navsim}.
+
+\noindent{\textbf{Open-Loop nuScenes Benchmark.}} The nuScenes dataset contains 1000 driving scenes across different driving scenarios in Singapore and Boston. In line with previous studies~\cite{li2024law, li2024ssr, li2024ego}, we make use of the calculated displacement error ($L_2$) with the ground truth and collision rate (CR) for performance evaluation. Displacement error is calculated by $L_2$ error between the prediction and the GT trajectory, while CR quantifies the collision probability with surrounding objects following the predicted trajectories. All metrics are calculated within the 3s future with a 0.5s interval and evaluated at 1s, 2s, and 3s. We utilize the VAD evaluation metrics~\cite{jiang2023vad} that compute the average across all previous frames.
+
+\noindent{\textbf{Closed-loop NavSim Benchmark.}} NavSim provides a closed-loop benchmark built on the OpenScene dataset. It contains 103K keyframes with 1192 training scenarios and 136 test scenarios. During evaluation, the predicted trajectories are interpolated using an LQR controller sampled at 2 Hz over a 4-second horizon. It is evaluated by a simulator to get the rule-based simulation metric score, which is calculated based on five key metrics, including No at-fault Collisions (NC),
+Drivable Area Compliance (DAC), Time to Collision with
+bounds (TTC), Ego Progress (EP), and Comfort (C). Thus, the final
+PDM Score (PDMS) is derived by aggregating these metrics as follows
+$
+    \text{PDMS} = \text{NC} \times \text{DAC} \times \frac{5 \times (\text{EP} + \text{TTC}) + 2 \times \text{C}}{12}
+$.
+\subsection{Implementation Details}
+
+\noindent{\textbf{nuScenes.}} For open-loop evaluation, our DynFlowDrive is trained for 12 epochs on 8 NVIDIA RTX 4090 GPUs with a batch size of 1 per GPU, which is built on the open-sourced LAW~\cite{li2024law}, SSR~\cite{li2024ssr}. The driving commands align with previous works~\cite{hu2023planning}, including left, right, and go straight. For the SSR-based approaches, we adopt
+ResNet50~\cite{he2016deep} as image backbone operating at an image resolution of 640 × 360. We utilize the AdamW optimizer~\cite{loshchilov2017decoupled} with a learning rate set to $1 \times 10^{-4}$. The weights $\lambda_{score}$ for scoring loss, $\lambda_{rec}$ for latent reconstruction loss, and $\lambda_{flow}$ for flow loss are set to 0.5, 0.2, and 0.1, respectively.  
+
+\noindent{\textbf{NavSim.}} We further conduct the closed loop evaluation of DynFlowDrive on the NavSim benchmark. Our model is trained for 30 epochs with a batch size of 16 per GPU. Following the setting of WoTE~\cite{li2025wote}, we concatenate the front-view image with center-cropped
+front-left and front-right images, resulting in a combined resolution of 256 × 1024 pixels. For LiDAR, the 64m × 64m point cloud surrounding the ego vehicle is used. For network architecture, we employ ResNet34~\cite{he2016deep} as the backbone for image feature extraction. The number of trajectory anchors is set to $N=256$. We utilize the Adam optimizer with a learning rate of $1 \times 10^{-4}$.
+
+\begin{table}[!t]
+    \begin{center}
+    \setlength{\tabcolsep}{6pt} 
+    \renewcommand{\arraystretch}{1.1}
+    \resizebox{\linewidth}{!}{
+    \begin{tabular}{l|c|c|cccc|cccc}
+        \toprule
+        \multirow{2}{*}{\textbf{Method}} & \multirow{2}{*}{\textbf{Pub.}} & \multirow{2}{*}{\textbf{BEV}} & \multicolumn{4}{c}{\textbf{$\mathbf{L_2}$ (m) $\downarrow$}} & \multicolumn{4}{c}{\textbf{Collision Rate (\%) $\downarrow$}}  \\
+        \cmidrule(lr){4-7} \cmidrule(lr){8-11}
+        & & & \textbf{1s} & \textbf{2s} & \textbf{3s} & \textbf{Avg.} & \textbf{1s} & \textbf{2s} & \textbf{3s} & \textbf{Avg.}  \\
+        \midrule
+       
+        \multicolumn{11}{c}{\textit{Perception-based Approaches}}\\
+        \midrule
+        ST-P3~\cite{hu2022st} & ECCV 2022 & \ding{51} & 1.33 & 2.11 & 2.90 & 2.11 & 0.23 & 0.62 & 1.27 & 0.71  \\
+        UniAD~\cite{hu2023planning} & CVPR 2023  &\ding{51}  & 0.48 & 0.96 & 1.65 & 1.03 & 0.05 & 0.17 & 0.71 & 0.31  \\
+        VAD-Tiny~\cite{jiang2023vad} & ICCV 2023 & \ding{51} & 0.46 & 0.76 & 1.12 & 0.78 & 0.21 & 0.35 & 0.58 & 0.38  \\
+        VAD-Base~\cite{jiang2023vad} & ICCV 2023 &\ding{51}  & 0.41 & 0.70 & 1.05 & 0.72 & 0.07 & 0.17 & 0.41 & 0.22  \\
+        BEV-Planner~\cite{li2024ego} & CVPR 2024 &\ding{51}  & 0.28 & 0.42 & 0.68 & 0.46 & 0.04 & 0.37 & 1.07 & 0.49  \\
+        PARA-Drive~\cite{weng2024paradrive} & CVPR 2024 & \ding{51} & 0.25 & 0.46 & 0.74 & 0.48 & 0.14 & 0.23 & 0.39 & 0.25  \\
+        GenAD~\cite{zheng2024genad} & ECCV 2024 &\ding{51}  & 0.28 & 0.49 & 0.78 & 0.52 & 0.08 & 0.14 & 0.34 & 0.19  \\
+        SparseDrive~\cite{sun2025sparsedrive} & ICCV 2025 & \ding{55} & 0.29 & 0.58 & 0.96 & 0.61 & 0.01 & 0.05 & 0.18 & 0.08  \\
+        Drive-OccWorld~\cite{yang2025drivingoccworld} & AAAI 2025 & \ding{55}& 0.25 & 0.44 & 0.72 & 0.47 & 0.03 & 0.08 & 0.22 & 0.11  \\
+        MomAD~\cite{song2025momoad} & CVPR 2025 &\ding{55} & 0.31 & 0.57 & 0.91 & 0.60 & 0.01 & 0.05 & 0.22 & 0.09 \\
+        DiffusionDrive~\cite{liao2025diffusiondrive} & CVPR 2025 &\ding{55} & 0.27 & 0.54 & 0.90 & 0.57 & 0.03 & 0.05 & 0.16 & 0.08\\
+        \midrule
+       
+        \multicolumn{11}{c}{\textit{Latent World Model Approaches}}\\
+        \midrule
+        LAW~\cite{li2024law} & ICLR 2025 &\ding{55} & 0.26 & 0.57 & 1.01 & 0.61 & 0.14 & 0.21 & 0.54 & 0.30  \\
+        \textbf{DynFlowDrive}(LAW) & - & \ding{55}& \textbf{0.24} & \textbf{0.54} & \textbf{0.92} & \textbf{0.57} & \textbf{0.11} & \textbf{0.12} & \textbf{0.48} & \textbf{0.22} \\
+        \midrule
+        
+        SSR$^\ast$~\cite{li2024ssr} & ICLR 2025 &\ding{51} & 0.18 & 0.35 & 0.63 & 0.39 & 0.08 & 0.12 & 0.24 & 0.15 \\
+        \textbf{DynFlowDrive} (SSR) & - &\ding{51} & 0.16 & 0.32 & 0.57 & 0.35 & 0.07 & 0.09 & 0.21 & 0.14 \\
+        \textbf{DynFlowDrive}$\diamond$ (SSR) & - &\ding{51} & \textbf{0.13} & \textbf{0.27} & \textbf{0.52} & \textbf{0.31} & \textbf{0.06} & \textbf{0.09} & \textbf{0.18} & \textbf{0.11} \\
+        \bottomrule
+    \end{tabular}
+    }
+     \end{center}
+     \vspace{-2mm}
+    \caption{\textbf{Comparison of the SOTA methods on the nuScenes dataset.} ``$\ast$'' denotes the re-implemented result from SSR~\cite{li2024ssr} by official public codes. ``$\diamond$'' denotes using ego status in the planning module following BEVPlanner++~\cite{li2024ego}. Evaluations are conducted in the same way as the settings in VAD~\cite{jiang2023vad}. Our DynFLowDrive are implemented based on LAW~\cite{li2024law} and SSR. LAW adopts Swin-Tiny~\cite{liu2021swin} as image backbone, while others adopt ResNet-50~\cite{he2016deep}.
+    }
+    \label{tab:nuscenes}
+   \vspace{-10mm}
+\end{table}
+
+
+
+
+\subsection{Main Results}
+
+\noindent{\textbf{Open-Loop Evaluation.}} On the nuScenes~\cite{caesar2020nuscenes} benchmark, we compare our proposed DynFlowDrive with the prior approaches following the evaluation metrics in VAD~\cite{jiang2023vad}. As shown in Table~\ref{tab:nuscenes}, our method consistently achieves superior results in both the $L_2$ distance error and collision rate. We implement our DynFlowDrive based on two representative latent world model baselines. For the approaches without BEV representation, compared with LAW~\cite{li2024law}, our DynFlowDrive reduces the $L_2$ displacement error by 0.4m and lowers the collision rate by 26\%. Based on the BEV representation, we replace the latent world model in SSR~\cite{li2024ssr} with our DynFlowDrive design, which yields nearly a 20\% reduction on $L_2$ distance by 0.08m and achieves 0.11\% collision rate. It indicates that our approach can be seamlessly integrated into existing frameworks and consistently improve planning quality. Compared to the perception-based approaches, without the incorporation of any auxiliary tasks, our dynamic latent world model still achieves comparable performance.
+
+
+\begin{figure}[!t]
+    \centering
+    \includegraphics[width=\textwidth]{figs/visual.pdf}
+    \vspace{-4mm}
+    \caption{\textbf{Visualization of Planning Results on nuScenese dataset.} The perception representations are rendered from annotations. Surrounding light lines denote the maps of the scene, while black boxes represent the object detection. The ego vehicle is drawn by the green box in the center.}%
+    \vspace{-4mm}
+    \label{fig:visual} %
+\end{figure}
+
+\noindent{\textbf{Qualitative Result.}} In Figure~\ref{fig:visual}, we present the qualitative comparisons between our DynFlowDrive and the baseline SSR with three different commands. As illustrated in both the BEV space and front-view camera perspectives, our planning results exhibit stronger alignment with the ground truth of the scene structure. In particular, our method produces smoother and more coherent trajectories that better follow lane geometry and surrounding dynamics, indicating improved consistency between predicted motions and the underlying environment. More visualizations are provided in our supplementary materials.
+
+
+\noindent{\textbf{Closed-Loop Evaluation.}} 
+We further evaluate DynFlowDrive under closed-loop settings on the NavSim benchmark~\cite{dauner2024navsim}. 
+The comparison results are summarized in Table~\ref{tab:sota_NavSim}. 
+As shown, DynFlowDrive achieves competitive performance across closed-loop metrics and reaches the state-of-the-art planning accuracy of 88.7\% PDMS, surpassing the baseline world model approach WoTE~\cite{li2025wote}. 
+Notably, without relying on auxiliary tasks such as object detection or online mapping, our method also outperforms previous world model-based approaches, including LAW~\cite{li2024law} and World4Drive~\cite{zheng2025world4drive}. 
+These results demonstrate that incorporating the flow-based latent world model together with the stability-aware selection mechanism enables the model to better capture trajectory-conditioned world dynamics, leading to safer and more reliable planning behavior in closed-loop driving scenarios.
+
+\begin{table*}[!t]
+    \begin{center}
+    \renewcommand{\arraystretch}{1.1}
+        \resizebox{\linewidth}{!}{
+            \begin{tabular}{l|c|c|c|ccccc|c}
+                \toprule
+                \textbf{Method} & \textbf{Input} & \textbf{\#Traj.} & \textbf{Traj. Eval.} & \textbf{NC} $\uparrow$ & \textbf{DAC} $\uparrow$ & \textbf{EP} $\uparrow$ & \textbf{TTC} $\uparrow$ & \textbf{Comf.} $\uparrow$ & \textbf{PDMS} $\uparrow$ \\ 
+                \midrule
+                Human & - & - & - & 100 & 100 & 87.5 & 100 & 99.9 & 94.8 \\ 
+                \midrule
+                Constant Velocity & - & 1 & \ding{55} & 69.9 & 58.8 & 49.3 & 49.3 & 100.0 & 21.6 \\ 
+                
+                Ego Status MLP & - & 1 & \ding{55} & 93.0 & 77.3 & 62.8 & 83.6 & 100.0 & 65.6 \\ 
+                VADv2~\cite{chen2024vadv2} & C & 8192 & Rule-based & 97.9 & 91.7 & 77.6 & 92.9 & 100.0 & 83.0 \\  
+                UniAD~\cite{hu2023planning} & C & 1 & Rule-based & 97.8 & 91.9 & 78.8 & 92.9 & 100.0 & 83.4 \\ 
+                LTF~\cite{prakash2021multi} & C & 1 & \ding{55} & 97.4 & 92.8 & 79.0 & 92.4 & 100.0 & 83.8 \\ 
+                PARA-Drive~\cite{weng2024paradrive} & C & 1 & Rule-based & 97.9 & 92.4 & 79.3 & 93.0 & 99.8 & 84.0 \\ 
+                TransFuser~\cite{chitta2022transfuser} & C \& L & 1 & \ding{55} & 97.7 & 92.8 & 79.2 & 92.8 & 100.0 & 84.0 \\
+                LAW~\cite{li2024law} & C & 1 & \ding{55} & 96.4 & 95.4 & 81.7 & 88.7 & 99.9 & 84.6 \\
+                World4Drive~\cite{zheng2025world4drive}&C&6&\ding{55}&97.4&94.3&79.9&92.8&100.0&85.1\\
+                DRAMA~\cite{yuan2024drama} & C \& L  & 1 & \ding{55} & 98.0 & 93.1 & 80.1 & 94.8 & 100.0 & 85.5 \\
+                Hydra-MDP~\cite{li2024hydra} & C \& L  & 8192 & Model-free & 98.3 & 96.0 & 78.7 & 94.6 & 100.0 & 86.5 \\
+                DiffusionDrive~\cite{liao2025diffusiondrive}&C \& L&20&\ding{55}&98.2&96.2&82.2&94.7&100.0&88.1\\
+                WoTE~\cite{li2025wote} & C \& L  & 256 & Model-based & 98.5 & 96.8 & 81.9 & 94.9 & 99.9 & 88.3 \\ 
+                \midrule
+                \textbf{DynFlowDrive (Ours)}&C \& L  & 256 & Model-based  &  \textbf{98.7} & \textbf{96.8}  & \textbf{82.5}  & \textbf{95.5}  &  \textbf{100.0} &  \textbf{88.7} \\ 
+                \bottomrule
+            \end{tabular}
+        }
+    \vspace{1mm}
+    \caption{\textbf{Comparison with the SOTA approaches on the NavSim test set.} 
+    C: Camera.
+    L: LiDAR.
+    Rule-based means that trajectory evaluation follows specific rules.
+    Model-free represents the evaluation without world modeling.
+    Model-based denotes evaluating the trajectory with the assistance of the world model.
+    }
+     \label{tab:sota_NavSim}
+     \vspace{-8mm}
+    \end{center}
+\end{table*}
+
+
+
+\subsection{Ablation Study}
+In this section, we conduct comprehensive ablation studies to investigate the effectiveness of our DynFlowDrive designs. For fair comparison, all ablations are conducted on the nuScenes benchmark. More ablations and analyses on NavSim benchmark are provided in our supplementary materials.
+
+\noindent{\textbf{Verification of Component Designs.}}
+In this section, we conduct ablation studies to evaluate the contribution of each component and the combinations. As shown in Table~\ref{Component-Ablation}, starting from the vanilla end-to-end autonomous driving paradigm without BEV representation or world modeling modules, incorporating the static transformer-based world model yields only marginal improvement. By introducing the proposed dynamic latent world model, we achieve an average $L_2$ error reduction of 0.1\,m and a 11\% decrease in collision rate, demonstrating the benefit of dynamic simulation of world evolution. Furthermore, when combined with the stability-aware multi-mode selection, DynFlowDrive achieves the best overall performance, reaching an $L_2$ error of 0.57\,m and a collision rate of 0.22\%. These results validate that dynamic evolution modeling and stability-guided mode selection jointly contribute to safer and more accurate trajectory planning. For inference, no additional computational burdens are introduced, as the flow-based world model is only used during training and does not participate in the forward prediction pipeline. 
+\begin{table}[t]
+    \centering
+    \setlength{\tabcolsep}{8pt} 
+    \resizebox{0.98\linewidth}{!}{
+    \begin{tabular}{ccc cccc cccc c}
+        \toprule
+        \multicolumn{3}{c}{\textbf{Modules}} & \multicolumn{4}{c}{$L_2$ (m) $\downarrow$} & \multicolumn{4}{c}{CR (\%) $\downarrow$}&\multirow{2}{*}{FPS $\uparrow$} \\
+        Static-WM&Dyn-WM & MS & 1s & 2s & 3s & Avg. & 1s & 2s & 3s & Avg.& \\
+        \midrule
+        -&-&-&0.31&0.63&1.12&0.69&0.19&0.27&0.64&0.37&13.8\\
+        $\checkmark$&- &  - &  0.26 & 0.57  & 1.01  & 0.61  & 0.14  &0.21 & 0.54 & 0.30 &13.8\\ 
+        -&$\checkmark$ & -  &  0.26 &  0.55 & 0.94  & 0.59  & 0.11  & 0.16 & 0.51  & 0.26& 13.8\\
+        -&- & $\checkmark$ &  0.25  &  0.55 & 0.93  & 0.58  & 0.11  &0.15  & 0.49  &0.25&13.6\\ 
+        -& $\checkmark$& $\checkmark$ & \textbf{0.24} &  \textbf{0.54} &  \textbf{0.92} & \textbf{0.57}  & \textbf{0.10} & \textbf{0.12} & \textbf{0.45} & \textbf{0.22}&13.6\\ 
+        \bottomrule
+    \end{tabular}}
+    \vspace{1mm}
+    \caption{\textbf{Component-wise Ablation.} Static-WM and Dyn-WM mean the existing stable world model design and our flow-based dynamic modeling. MS denotes the strategy of stability-aware multi-mode selection. FPS are measured on one RTX 4090.}
+    \vspace{-8mm}
+    \label{Component-Ablation}
+\end{table}
+
+
+
+\noindent{\textbf{Ablations on the Dynamic Latent World Model Design.}}
+We evaluate different world model designs in Table~\ref{ablation-wm}. 
+Replacing the static transformer-based world model with the proposed flow-based formulation consistently improves long-horizon prediction. 
+In particular, the 3s $L_2$ error is reduced from 1.01\,m to 0.94\,m and the collision rate decreases from 0.54\% to 0.51\%. 
+This improvement indicates that flow-based modeling better captures the dynamic evolution of the driving scene in latent space, resulting in smoother and more coherent trajectory predictions.
+Furthermore, applying the flow-based dynamics on world features extracted by the pretrained encoder brings additional gains.
+By decoupling representation learning from dynamic evolution modeling, the model achieves more stable latent transitions, reducing the average $L_2$ error to 0.57\,m and the collision rate to 0.22\%. 
+These results demonstrate that combining flow-based dynamics with stable latent representations leads to more reliable trajectory-conditioned world modeling.
+
+\begin{table}[t]
+    \centering
+    \setlength{\tabcolsep}{8pt} 
+    \resizebox{0.95\linewidth}{!}{
+    \begin{tabular}{l|cccc|cccc}
+        \toprule
+        \multirow{2}{*}{\textbf{World Model Design}} & \multicolumn{4}{c|}{$L_2$ (m) $\downarrow$} & \multicolumn{4}{c}{CR (\%) $\downarrow$} \\
+        &  1s & 2s & 3s & Avg. & 1s & 2s & 3s & Avg. \\
+        \midrule
+        Static WM &  0.26 & 0.57  & 1.01  & 0.61  & 0.14  &0.21 & 0.54 & 0.30 \\ 
+        Flow WM & 0.26  & 0.55  & 0.94  & 0.59  & 0.11  & 0.16  & 0.51  & 0.26 \\ 
+        \quad + World Feat. Design & \textbf{0.24}  & \textbf{0.54}  & \textbf{0.92}  & \textbf{0.57}  & \textbf{0.10}  &  \textbf{0.12} & \textbf{0.45}  & \textbf{0.22} \\ 
+        \bottomrule
+    \end{tabular}}
+    \vspace{1mm}
+    \caption{\textbf{Ablations on the Dynamic Latent World Model Design.}}
+    \vspace{-8mm}
+    \label{ablation-wm}
+\end{table}
+
+
+
+\noindent{\textbf{Ablations on Flow Integration Steps.}}
+We study the impact of the number of integration steps used to approximate the continuous flow dynamics. 
+As shown in Table~\ref{ablation-diffusion}, increasing the number of steps from 1 to 5 consistently improves both trajectory accuracy and safety, reducing the $L_2$ error from 0.60\,m to 0.57\,m and the collision rate from 0.28\% to 0.22\%. 
+This demonstrates that a finer discretization better captures the underlying trajectory-conditioned dynamics.
+However, further increasing the number of steps to 10 yields no additional gains and even slightly degrades performance. 
+We attribute this to accumulated numerical errors and over-smoothing during integration. 
+Overall, a moderate number of integration steps of 5 achieves the best trade-off between accuracy and stability.
+
+\begin{table}[!h]
+\vspace{-4mm}
+    \centering
+    
+    
+    \begin{subtable}{0.48\linewidth}
+        \centering
+        \setlength{\tabcolsep}{6pt} 
+        \resizebox{\linewidth}{!}{
+        \begin{tabular}{c|cccc}
+            \toprule
+            \textbf{\# Steps} &1& 3 & 5 & 10  \\
+            \midrule
+            $L_2$ (m) Avg.$\downarrow$ & 0.60 & 0.59&  \textbf{0.57} & 0.59 \\
+            CR (\%) Avg.$\downarrow$ & 0.28 & 0.23 & \textbf{0.22} & 0.24 \\
+            \bottomrule
+        \end{tabular}}
+        \caption{Ablations on Flow Integration Steps.}
+        \label{ablation-diffusion}
+    \end{subtable}
+    \hfill
+    \begin{subtable}{0.48\linewidth}
+        \centering
+        \setlength{\tabcolsep}{6pt} 
+        \resizebox{\linewidth}{!}{
+        \begin{tabular}{c|cc}
+            \toprule
+            \textbf{Selection Strategy} &  $L_2$ (m) Avg. $\downarrow$ & CR (\%) Avg. $\downarrow$ \\
+            \midrule
+            / & 0.61 & 0.30 \\
+            $L_2$ Only & 0.59 & 0.24 \\
+            + Recons. & 0.58 & 0.22 \\
+            + Flow Stab. & \textbf{0.57} & \textbf{0.22} \\
+            \bottomrule
+        \end{tabular}}
+        \caption{Ablations on Mode Selection Criteria.}
+        \label{ablation-select}
+    \end{subtable}
+
+    \vspace{-2mm}
+    \caption{\textbf{Ablations on Flow Steps and Multi-Mode Selection Strategies.}}
+    \vspace{-8mm}
+    \label{ablation-diffusion-select}
+\end{table}
+
+\noindent{\textbf{Ablations on Multi-Mode Selection.}}
+We study different multi-mode selection strategies in Table~\ref{ablation-select}. Selecting modes solely based on $L_2$ distance is suboptimal, as it emphasizes point-wise accuracy while neglecting temporal consistency and physical plausibility, leading to higher collision rates. 
+Incorporating reconstruction similarity improves latent alignment and trajectory coherence, yielding consistent gains. Further introducing flow direction as a stability-aware criterion encourages modes to follow the learned dynamic evolution, resulting in the lowest collision rate of 0.22\% with competitive $L_2$ distance of 0.57 m. 
+These results show that combined with the reconstruction similarity, flow-based stability provides a more reliable selection criterion for safe and robust trajectory planning.
+
+

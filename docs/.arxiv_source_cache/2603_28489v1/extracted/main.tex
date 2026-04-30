@@ -1,0 +1,769 @@
+\documentclass[lettersize,journal]{IEEEtran}
+\usepackage{amsmath,amsfonts}
+\usepackage{algorithmic}
+\usepackage{algorithm}
+\usepackage{array}
+\usepackage[caption=false,font=normalsize,labelfont=sf,textfont=sf]{subfig}
+\usepackage{textcomp}
+\usepackage{stfloats}
+\usepackage{url}
+\usepackage{verbatim}
+\usepackage{graphicx}
+% \usepackage[colorlinks=true, linkcolor=blue, citecolor=blue, urlcolor=blue]{hyperref}
+\usepackage[table]{xcolor}
+\usepackage{tikz}
+\usepackage[edges]{forest}
+\usepackage{adjustbox}
+\definecolor{myred}{RGB}{217,83,79}
+\definecolor{myblue}{RGB}{66,139,202}
+\definecolor{myorange}{RGB}{240,173,78}
+\definecolor{mygreen}{RGB}{92,184,92}
+\definecolor{mygrey}{RGB}{119,119,119}
+\definecolor{hidden-draw}{RGB}{20,68,106}
+\usepackage{cite}
+\hyphenation{op-tical net-works semi-conduc-tor IEEE-Xplore}
+\usepackage{booktabs}
+\usepackage{makecell} 
+\usepackage{tabularx}
+\usepackage{hyperref}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}m{#1}}
+% updated with editorial comments 8/9/2021
+
+\begin{document}
+
+\title{Video Generation Models as World Models: Efficient Paradigms, Architectures and Algorithms}
+
+\author{Muyang He$^{\star}$, Hanzhong Guo$^{\star}$, Junxiong Lin$^{\star}$, 
+Yizhou Yu$^{\dagger}$,~\IEEEmembership{Fellow,~IEEE}
+
+
+\thanks{Muyang He and Yizhou Yu are with School of Computing and Data Science, The University of Hong Kong, Hong Kong SAR, China and Hong Kong Generative AI Research and Development Center, Hong Kong SAR, China (E-mail: muyanghe@connect.hku.hk; yizhouy@acm.org).}% <-this % stops a space
+\thanks{Hanzhong Guo and Junxiong Lin are with School of Computing and Data Science, The University of Hong Kong, Hong Kong SAR, China (E-mail: hanzhong@connect.hku.hk; junxionglin26@outlook.com).}
+\thanks{$^{\star}$ Equal Contribution}
+\thanks{$^{\dagger}$ Corresponding Author}
+
+}
+
+
+% The paper headers
+\markboth{}%
+{ \MakeLowercase{\textit{}}: Video Generators as World Models}
+
+% \IEEEpubid{0000--0000/00\$00.00~\copyright~2021 IEEE}
+% Remember, if you use this you must call \IEEEpubidadjcol in the second
+% column for its text to clear the IEEEpubid mark.
+
+\maketitle
+
+\begin{abstract}
+The rapid evolution of video generation has enabled models to simulate complex physical dynamics and long-horizon causalities, positioning them as potential world simulators. However, a critical gap still remains between the theoretical capacity for world simulation and the heavy computational costs of spatiotemporal modeling. To address this, we comprehensively and systematically review video generation frameworks and techniques that consider efficiency as a crucial requirement for practical world modeling. We introduce a novel taxonomy in three dimensions: efficient modeling paradigms, efficient network architectures, and efficient inference algorithms. We further show that bridging this efficiency gap directly empowers interactive applications such as autonomous driving, embodied AI, and game simulation. Finally, we identify emerging research frontiers in efficient video-based world modeling, arguing that efficiency is a fundamental prerequisite for evolving video generators into general-purpose, real-time, and robust world simulators.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Video Generation, World Models, Interactive Simulation, Diffusion Models, Embodied AI.
+\end{IEEEkeywords}
+
+
+\section{Introduction}
+
+In the rapidly evolving landscape of generative artificial intelligence, video generation has received remarkable attention due to its potential to simulate complex world dynamics. This field has undergone a transformative journey, progressing from early generative adversarial networks (GANs)~\cite{goodfellow2014generative, saito2017temporal} and pixel-level auto-regressive (AR) models~\cite{kalchbrenner2017video, yan2021videogpt} to high-fidelity diffusion-based approaches~\cite{ramesh2021zero,rombach2022high,saharia2022photorealistic,ho2022video,song2020score, blattmann2023align,betker2023improving,podellsdxl,esser2024scaling}, and more recently to large-scale architectures that function as "World Simulators" capable of modeling physical laws and long-horizon causalities~\cite{videoworldsimulators2024, peebles2023scalable}. This progression marks a substantial leap in generative capabilities, enabling models not only to synthesize visual content but to understand and predict the underlying physics of the environment, thereby paving the way for AGI~\cite{ha2018world, yang2024learning}.
+
+To fully appreciate this leap, it is essential to understand video generation has the potential to achieve world modeling. The concept of \textit{world modeling} seeks to move beyond simple pattern matching toward a fundamental understanding of environmental dynamics. A world model is generally defined as an internal representation of environmental dynamics that enables the prediction of future states based on historical contexts and, optionally, actions~\cite{ha2018world}. In the context of visual synthesis, \textit{video-based world models} treat the generative process as a simulation of the physical world, where the objective is to model the underlying causal mechanisms such as gravity, collision, and object permanence rather than just pixel transitions. Mathematically, this can be viewed as learning the transition function $\mathcal{P}(s_{t+1} | s_t, a_t)$, where $s$ represents the state (video frames or latents) and $a$ represents the conditions or actions (e.g., text prompts or camera trajectories). As emphasized in the development of {Sora}~\cite{videoworldsimulators2024}, scaling video generation models leads to the emergence of simulation capabilities, where the model demonstrates an initial comprehension of physical laws without explicit hard-coding. 
+
+This alignment between video generation and world modeling offers several advantages:
+
+\textbf{Emergent Physics:} Large-scale training on diverse video data allows models to learn complex interactions, such as agent-environment interactions or fluid dynamics, which are difficult to model via traditional analytical engines.
+
+\textbf{Latent Imagination:} Modern world models often operate in compact latent spaces~\cite{ha2018world, yang2024learning}, allowing the imagination of future scenarios to occur at a lower computational cost than high-resolution pixel rendering. This inherently links the concept of world modeling to computational efficiency.
+
+\textbf{Unified Reasoning:} By treating video generation as world modeling, the same architecture can be applied to diverse domains ranging from media production to autonomous driving~\cite{hu2023gaia, wang2024drivedreamer} and robotic manipulation~\cite{du2023learning}, where the model acts as a general-purpose simulator for decision-making.
+
+
+Despite these immense conceptual potentials, realizing the capabilities of video-based world models needs to overcome severe hardware limitations. Video generators serving as world simulators are required to possess diverse capabilities, such as maintaining long-term spatiotemporal consistency, adhering to physical constraints, and supporting high-resolution interactive generation~\cite{du2023learning, deepmind_genie3_models}. However, due to the high dimensionality of video data and the complexity of physically based dynamics, these models are faced with massive computational cost and memory consumption. For example, autoregressive models must manage growing key-value (KV) caches to prevent memory explosion during long-sequence generation~\cite{li2025stable, oshima2025worldpack}. Diffusion models, while powerful, require efficient sampling strategies to overcome the latency of iterative denoising. In addition, the vast redundancy in video frames must be reduced so that useful semantic information can be retained without overwhelming hardware costs~\cite{li2024vidtome, chen2025dc}. Moreover, under high-resolution settings, parallel computing topologies should be determined that enable devices to distribute workload effectively. Without efficiency optimization, traditional video generators struggle to scale or interact in real time. Therefore, due to the abundant redundancy in video data, \textit{efficient architectures and algorithms} emerge as promising ways to address the aforementioned challenges, transforming heavy and slow generative processes into agile and scalable forms that are amenable to practical deployment.
+
+\input{taxonomy}
+
+\textbf{Taxonomy.} As shown in Figure~\ref{fig:taxonomy}, this article systematically investigates the role of efficiency in the aspects of modeling, architectures, and algorithms for video-based world models, covering the spectrum between AR-based and Diffusion-based paradigms. Our discussion is structured around three core dimensions: \textit{Efficient Modeling} (covering efficiency-oriented modeling paradigms), \textit{Efficient Architectures} (designs such as VAEs, memory mechanisms, and efficient attention), and \textit{Efficient Inference} (system deployment considerations including parallelism, caching, pruning, and quantization). Furthermore, this article also explores how these efficient models are used in downstream application scenarios, such as autonomous driving, embodied AI and games/interactive simulations. By reviewing comprehensive insights in this rapidly evolving field, we aim to catalyze new advances in video-based world models that leverage efficient computing to tackle increasingly sophisticated simulation challenges.
+
+Within the existing literature, previous studies have primarily explored general video generation or specific diffusion model based techniques. More recently, amidst the significant advances in Sora-like models~\cite{videoworldsimulators2024}, some works have begun to address the computational demands of video generation. However, a systematic review specifically elucidating how \textit{efficiency improvement techniques} can benefit a video-based world model is notably absent. To the best of our knowledge, this article presents the first systematic exploration dedicated to the intersection of efficiency improvement techniques and the multiple facets of video-based world models. The main contributions of this paper are summarized as follows:
+
+\begin{itemize}
+\item We provide the first comprehensive review of the critical intersection between efficiency improvement techniques and video-based world models.
+\item We introduce a novel taxonomy that provides a structured perspective on efficiency across three dimensions: modeling paradigms, architectural designs, and inference optimizations.
+\item We detail how these efficiency improvement techniques empower critical applications such as autonomous driving, embodied AI, and interactive simulation.
+\item We further discuss key challenges and future opportunities in efficient video-based world modeling.
+\end{itemize}
+
+The remainder of this paper is organized as follows. We introduce background knowledge in video generative paradigms and foundations in Section~\ref{sec:background}. Next, a review of efficient modeling paradigms is given in Section~\ref{sec:efficient_modeling}. Efficient architectures and inference algorithms are presented in detail in Section~\ref{sec:efficient_arch} and Section~\ref{sec:efficient_inference}, respectively. In addition, promising applications and more related works are discussed in Section~\ref{sec:applications} and Section~\ref{sec:more_related}. Finally, the summary of this paper is presented in Section~\ref{sec:conclusions}.
+
+
+
+
+
+\section{Background}
+\label{sec:background}
+The field of video generation has evolved from modeling short, low-resolution transitions to simulating complex world dynamics. To understand the challenges of efficient video modeling, it is essential to first comprehend the foundational paradigms of image generation and how these paradigms are extended to the temporal dimension to generate videos. This chapter outlines the mathematical principles and architectural innovations that define modern video generation.
+
+\subsection{Generative Paradigms}
+Modern video generation models are largely built upon paradigms established in image synthesis. We introduce the mathematical formulations of these generative models, focusing on Diffusion Models and Flow Matching as the current dominant approaches, followed by Auto-regressive models.
+
+\subsubsection{Denoising Diffusion Probabilistic Models (DDPM)}
+Diffusion models~\cite{ho2020denoising} formulate generation as a denoising process. To improve efficiency, most state-of-the-art models operate in the latent space of a pre-trained variational autoencoder (VAE), known as Latent Diffusion Models (LDMs)~\cite{rombach2022high}.
+
+\noindent \textbf{Forward Process.} Given a data sample $x_0 \sim q(x_0)$ (or its latent representation $z_0$), the forward process is a fixed Markov chain that gradually adds Gaussian noise according to a variance schedule $\beta_t \in (0,1)$. The transition probability is defined as:
+\begin{equation}
+q(x_t | x_{t-1}) = \mathcal{N}(x_t; \sqrt{1-\beta_t}x_{t-1}, \beta_t \mathbf{I})
+\end{equation}
+Using the notation $\alpha_t = 1 - \beta_t$ and $\bar{\alpha}_t = \prod_{s=1}^t \alpha_s$, we can sample $x_t$ at any timestep $t$ directly from $x_0$:
+\begin{equation}
+\label{fwd_ddpm}
+x_t = \sqrt{\bar{\alpha}_t}x_0 + \sqrt{1-\bar{\alpha}_t}\epsilon, \quad \text{where } \epsilon \sim \mathcal{N}(0, \mathbf{I})
+\end{equation}
+\noindent \textbf{Reverse Process and Training.} The generative process reverses this noise addition. Since the true posterior $q(x_{t-1}|x_t)$ is intractable, we approximate it with a parameterized distribution $p_\theta(x_{t-1}|x_t)$. In practice, the model is trained to predict the added noise $\epsilon$ or the velocity $v$. The simplified training objective is often the mean squared error (MSE) between the actual noise $\epsilon$ and the predicted noise $\epsilon_\theta$:
+\begin{equation}
+\mathcal{L}_{\text{simple}} = \mathbb{E}_{x_0, t, \epsilon} \left[ \| \epsilon - \epsilon_\theta(x_t, t) \|^2 \right]
+\end{equation}
+Once trained, the model generates data by iteratively denoising pure Gaussian noise $x_T$ to $x_0$.
+
+% \subsubsection{Flow Matching}
+% While DDPMs rely on a pre-defined forward process in Eq.~\eqref{fwd_ddpm}, which transports samples through a fixed and typically curved noising trajectory, Flow Matching (FM)~\cite{lipman2023flow,liu2024instaflow} instead models generation as a continuous-time probability path governed by ordinary differential equations (ODEs).
+% FM defines a probability density path $p_t$ transforming a simple prior $p_0$ (noise) to the data distribution $p_1$ (data). The flow is governed by a time-dependent vector field $v_t(x)$:
+% \begin{equation}
+% \frac{d}{dt} \phi_t(x) = v_t(\phi_t(x)), \quad \phi_0(x) = x
+% \end{equation}
+% where $\phi_t$ maps samples from $t=0$ to $t$. In principle, flow matching aims to learn a vector field $v_\theta(x,t)$ that matches the target velocity field associated with the probability path $p_t$. 
+% However, directly regressing the marginal velocity field is generally intractable for complex data distributions. Therefore, flow matching is commonly implemented in a conditional form. Specifically, given a source sample $x_0$ and a target sample $x_1$, one defines a conditional probability path $p_t(x | x_0, x_1)$ together with a tractable conditional target vector field $u_t(x | x_0, x_1)$. The resulting conditional flow matching (CFM) objective is
+% \begin{equation}
+% \small
+% \mathcal{L}_{\text{CFM}}
+% =
+% \mathbb{E}_{x_0,x_1, x_t \sim p_t(\cdot \mid x_0,x_1)}
+% \left[
+% \| v_\theta(x_t,t)-u_t(x_t \mid x_0,x_1)\|^2
+% \right].
+% \end{equation}
+% In Flow Matching, the conditional path is simplified to a straight line between noise $x_0$ and data $x_1$ with $x_t = t x_1 + (1-t) x_0$. Consequently, the target velocity vector is a constant, i.e., $u_t = x_1 - x_0$. The loss function therefore, reduces to
+% \begin{equation}
+% \mathcal{L}_{CFM} = \mathbb{E}_{t,x_0,x_1} \left[ \| v_\theta(x_t, t) - (x_1 - x_0) \|^2 \right]
+% \end{equation}
+
+\subsubsection{Flow Matching}
+While DDPMs rely on a pre-defined forward process in Eq.~\eqref{fwd_ddpm}, which transports samples through a fixed and typically curved noising trajectory, Flow Matching (FM)~\cite{lipman2023flow,liu2024instaflow} instead models generation as a continuous-time probability path governed by ordinary differential equations (ODEs). FM defines a probability density path $p_t$ that transforms a simple prior distribution into the data distribution through a time-dependent vector field $v_t(x)$:
+\begin{equation}
+\frac{d}{dt} \phi_t(x) = v_t(\phi_t(x)), \quad \phi_0(x) = x
+\end{equation}
+where $\phi_t$ maps samples from $t=0$ to $t$. The goal is to learn a parameterized vector field $v_\theta(x,t)$ that matches the target velocity field associated with the chosen probability path.
+
+Since directly regressing the marginal target velocity field is generally intractable for complex data distributions, flow matching is commonly implemented in a conditional form. Given a source sample $z_0$ and a target data sample $x_1$, one defines a conditional probability path $p_t(x \mid z_0, x_1)$ together with a tractable conditional target vector field $u_t(x \mid z_0, x_1)$. The resulting conditional flow matching (CFM) objective is
+\begin{equation}
+\small
+\mathcal{L}_{\text{CFM}}
+=
+\mathbb{E}_{t, z_0, x_1, x_t \sim p_t(\cdot \mid z_0,x_1)}
+\left[
+\| v_\theta(x_t,t)-u_t(x_t \mid z_0,x_1)\|^2
+\right].
+\end{equation}
+In common straight-line path formulations, the conditional path is chosen as a linear interpolation between noise $z_0$ and data $x_1$, namely $x_t = t x_1 + (1-t) z_0$. In this case, the target velocity becomes a constant, i.e., $u_t = x_1 - z_0$, and the objective reduces to
+\begin{equation}
+\mathcal{L}_{\text{CFM}} = \mathbb{E}_{t,z_0,x_1} \left[ \| v_\theta(x_t, t) - (x_1 - z_0) \|^2 \right].
+\end{equation}
+
+% where $\phi_t$ maps samples from $t=0$ to $t$. The objective is to regress the parameterized vector field $v_\theta$ to a target field $u_t$ that generates the desired path. In Rectified Flow, the path is simplified to a straight line between noise $x_0$ and data $x_1$: $x_t = t x_1 + (1-t) x_0$. Consequently, the target velocity vector is constant $u_t = x_1 - x_0$. The loss function minimizes the difference between the model output and this target drift:
+% \begin{equation}
+% \mathcal{L}_{FM} = \mathbb{E}_{t, x_0, x_1} \left[ \| v_\theta(x_t, t) - (x_1 - x_0) \|^2 \right]
+% \end{equation}
+% Straightening the trajectory enables high-quality sampling with significantly fewer steps than standard diffusion, enhancing inference efficiency.
+
+% \subsubsection{Auto-regressive (AR) Models}
+% AR models decompose the joint probability distribution of a sequence $x$ into a product of conditional probabilities. For visual generation, $x$ represents a flattened sequence of discrete visual tokens derived from a VQ-VAE codebook~\cite{esser2021taming}. For a sequence of length $N$:
+% \begin{equation}
+% p(x) = \prod_{i=1}^{N} p(x_i | x_{<i})
+% \end{equation}
+% Training maximizes the log-likelihood of the next token given the previous context. While efficient in training (via parallelism), inference is sequential and computationally expensive for long videos ($O(N)$). Recent works~\cite{weng2024art, yin2025slow} often combine AR priors with diffusion decoders to balance consistency and quality.
+
+\subsubsection{Auto-regressive (AR) Models}
+AR models decompose the joint probability distribution of a sequence $x$ into a product of conditional probabilities. In a canonical visual generation formulation, $x$ represents a flattened sequence of discrete visual tokens derived from a VQ-VAE-style tokenizer~\cite{esser2021taming}, where an encoder maps patches or frames to continuous latents that are snapped to a learned finite codebook via nearest-neighbor vector quantization (VQ), although more general autoregressive video models may also operate on other compressed latent token sequences. For a sequence of length $N$:
+\begin{equation}
+p(x) = \prod_{i=1}^{N} p(x_i \mid x_{<i})
+\end{equation}
+Training maximizes the log-likelihood of the next token given the previous context. While training is efficient due to parallel teacher forcing, inference is inherently sequential and can become computationally expensive for long videos ($O(N)$). 
+
+\subsection{From Image to Video Generation}
+Transitioning from image to video generation involves extending 2D spatial modeling to the 3D spatiotemporal domain ($T \times H \times W$). Efficient techniques largely focus on how to manage the cubic growth in complexity.
+
+\noindent \textbf{Inflation} Early approaches directly inflated 2D kernels into 3D kernels (e.g., $3 \times 3 \to 3 \times 3 \times 3$)~\cite{ho2022video}. While preserving spatial priors from pre-trained image models, this drastically increases parameter count and computational load.
+
+\noindent \textbf{Factorization} To improve efficiency, modern architectures factorize 3D operations into separate 2D spatial and 1D temporal operations. For instance, Video LDM~\cite{blattmann2023align} inserts temporal attention layers after spatial blocks in a pre-trained image U-Net. This allows the model to learn motion dynamics without catastrophic forgetting of spatial concepts and reduces computational complexity in attention mechanisms from $\mathcal{O}((THW)^2)$ to $\mathcal{O}(T(HW)^2 + HW(T)^2)$.
+
+\noindent \textbf{Spacetime Tokenization} Emerging Transformer-based video models (e.g., Latte~\cite{ma2025latte}) treat video as a unified volumetric sequence. Instead of processing frames individually, they extract 3D spacetime cubes (``tubelets'') as tokens, utilizing a spatial and temporal downsampling mechanism by encapsulating a local spatial region across multiple consecutive frames into a single token. Consequently, the model allows for jointly capturing spatial semantics and temporal evolution within a unified attention layer, although this necessitates sophisticated positional embeddings (e.g., 3D RoPE) to accurately preserve spatiotemporal geometry.
+
+\subsection{Architectures}
+% Modern video generative frameworks typically follow a modular pipeline consisting of three core components.
+
+% \noindent \textbf{Latent Compression Module (usually a VAE)}   To mitigate the high dimensionality of video, VAEs compress pixel data into a latent space~\cite{rombach2022high}. Modern video generators utilize {3D Causal VAEs}~\cite{yu2023magvit, yang2025cogvideox}.
+
+% \noindent \textbf{Generative Backbone} The central component performs the denoising or prediction process within the latent space. This backbone is primarily implemented using either a convolutional {U-Net}~\cite{ronneberger2015u} or a {Diffusion Transformer (DiT)}~\cite{peebles2023scalable}. DiT utilizes 3D patchification and self-attention to capture long-range dependencies.
+
+% \noindent \textbf{Conditioning Module} Semantic guidance is typically provided by text encoders such as CLIP~\cite{radford2021learning} or T5-XXL~\cite{raffel2020exploring}. Recent trends leverage the text encoder of multimodal large language models (MLLMs) to extract superior text embeddings. Due to visual instruction fine-tuning and zero-shot reasoning capabilities, MLLMs provide stronger image-text alignment and richer detail descriptions. The text embeddings are injected into the generative backbone via cross-attention layers, guiding the synthesis of visual content.
+
+Modern video generative frameworks typically follow a modular pipeline consisting of three core components.
+
+\noindent \textbf{Latent Compression Module (usually a VAE)} To mitigate the high dimensionality of video, VAEs compress pixel data into a latent space~\cite{rombach2022high}. Modern video generators often utilize {3D causal VAEs}~\cite{yu2023magvit, yang2025cogvideox} to jointly reduce spatial and temporal redundancy.
+
+\noindent \textbf{Generative Backbone} The central component performs denoising or next-step prediction within the latent space. This backbone is primarily implemented using either a convolutional {U-Net}~\cite{ronneberger2015u} or a {Diffusion Transformer (DiT)}~\cite{peebles2023scalable}. DiT adopts 3D patchification and self-attention to capture long-range spatiotemporal dependencies.
+
+\noindent \textbf{Conditioning Module} Modern video generators, especially video-based world models, are no longer conditioned by text alone, but increasingly support multimodal inputs such as reference images, video clips, audio, actions, trajectories, layouts, and other structured control signals. 
+Textual guidance is commonly encoded by CLIP~\cite{radford2021learning} or T5-XXL~\cite{raffel2020exploring} and other vision-language models (VLMs)~\cite{kong2024hunyuanvideo,gao2025seedance,wan2025wan,wu2025hunyuanvideo}.
+Beyond text prompts, structured conditions such as bounding boxes, road layouts, and ego trajectories can be injected to constrain scene geometry and motion, as demonstrated in driving-oriented models such as MagicDrive-V2~\cite{gao2025magicdrive}. 
+In interactive world models, action signals can be represented as discrete tokens, latent actions, or control embeddings, and integrated into generation to obtain action-conditioned rollouts, as in Genie~\cite{bruce2024genie}, Matrix-Game 2.0~\cite{he2025matrix}, and Cosmos-Predict~\cite{ali2025world}. 
+Audio conditions are typically encoded by a speech or motion encoder and used to guide temporal dynamics such as lip motion, facial expression, or speech rhythm~\cite{tian2024emo,li2025ditto, shen2025soulx, yang2025infinitetalkaudiodrivenvideogeneration,zheng2024memo,yi2025magicinfinite}. 
+These conditions are injected into the generative backbone through cross-attention, adaptive normalization, or token merging. For example, autoregressive frameworks such as iVideoGPT~\cite{wu2024ivideogpt} serialize heterogeneous conditions into a unified sequence, whereas diffusion-based models more often fuse them through cross-attention layers or a token merging mechanism~\cite{kong2024hunyuanvideo,gao2025seedance}. 
+Overall, the conditioning module determines not only \emph{what} should be generated, but also \emph{how} the generated world should evolve under external instructions or interactions.
+
+
+\section{Efficient Modeling}
+\label{sec:efficient_modeling}
+
+% Efficient modeling is central to scaling video generation from short clips to long-horizon, high-resolution sequences under practical latency and memory constraints. This section reviews two major efficiency-oriented paradigms: (i) Diffusion Model Distillation, which focuses on reducing the sampling steps required for high-fidelity generation, and (ii) hybrid approaches, a class of advanced autoregressive and efficient diffusion models designed to handle infinite context, real-time interaction, and massive-scale world simulation.
+Efficient modeling is central to scaling video generation from short clips to long-horizon, high-resolution sequences under practical latency and memory constraints. This section reviews two major directions: (i) diffusion model distillation, which reduces the number of sampling steps required for high-fidelity generation, and (ii) long-horizon interactive modeling paradigms, including autoregressive, hybrid AR-diffusion, and streaming causal diffusion approaches that aim to support real-time interaction and persistent world simulation.
+
+\subsection{Diffusion Model Distillation for Efficient Sampling}
+\label{subsec:diffusion_distillation}
+While architectural and system optimizations reduce wall-clock latency per step, a complementary direction is \emph{post-training acceleration} that directly reduces the number of denoising steps. In diffusion-based video generation, the sampling cost scales linearly with the step count $K$. Distillation aims to train a \emph{student} model that matches the teacher diffusion model's sampling behavior with significantly fewer steps---down to few-step or even one-step generation.
+\subsubsection{Step-Reduction Distillation}
+A direct approach distills a $K$-step teacher sampler into a $K'$-step student sampler ($K'\ll K$)~\cite{salimans2022progressive,frans2024one}. 
+Let $\mathcal{T}$ denote a fixed teacher solver. Starting from $x_t$, the teacher produces a target $x_{t-\Delta}$ after $\Delta$ steps. The student is trained to match this result in one macro-step:
+\begin{equation}
+\mathcal{L}_{\text{step}}(\theta)=
+\mathbb{E}\left[\left\| \hat{x}^{(S)}_{t-\Delta}-\hat{x}^{(T)}_{t-\Delta}\right\|_2^2\right],
+\label{eq:step_distill}
+\end{equation}
+where $\hat{x}^{(T)}_{t-\Delta}=\mathcal{T}^\Delta(x_t,c)$ is the teacher rollout target. Progressive variants halve the step count iteratively. In video generation, GPD~\cite{liang2026gpd} provides a representative example of this direction by progressively guiding the student model to operate with larger step sizes, reducing the sampling steps of Wan~\cite{wan2025wan} from 48 to 6 while maintaining competitive quality.
+\subsubsection{Consistency Distillation}
+Consistency-style objectives learn a mapping $f_\theta(x_t, t)$ that maps any point on the trajectory to the origin $x_0$. Consistency training enforces that predictions from two timepoints along the same trajectory agree~\cite{song2023consistency,luo2023latent}:
+\begin{equation}
+\mathcal{L}_{\text{cons}}(\theta)=
+\mathbb{E}\left[\left\|
+f_\theta(x_t,t,c)-f_\theta(x_s,s,c)
+\right\|_2^2\right], \quad s<t,
+\label{eq:consistency_loss}
+\end{equation}
+where $x_s$ is obtained by advancing from $x_t$. This enables one-step generation. VideoLCM~\cite{wang2024videolcm} and AnimateLCM~\cite{wang2024animatelcm} extend this to latent video models, enabling real-time synthesis. 
+% Furthermore, InstaFlow~\cite{liu2024instaflow} utilizes Rectified Flow to straighten the probability flow trajectory into a line, simplifying the ODE solving process to a single step.
+TurboDiffusion~\cite{zhang2025turbodiffusion} introduces a unified framework that combines consistency models with reward-guided distillation, significantly enhancing the visual quality of one-step outputs. Similarly, open-source initiatives like FastVideo~\cite{fastvideo2025} provide optimized pipelines for distilling large-scale video models into few-step or one-step variants, democratizing real-time video generation capabilities.
+% \subsubsection{Adversarial Distillation}
+% To ensure perceptual quality at very low step counts, adversarial training is often combined with distillation. A generic distribution-matching objective can be written as:
+% \begin{equation}
+% \min_\theta \; D\!\left(p_S(\cdot|c)\,\|\,p_T(\cdot|c)\right),
+% \label{eq:dmd_generic}
+% \end{equation}
+% where $D$ represents a divergence metric minimized via adversarial feedback. T2V-Turbo~\cite{li2024t2vturbo} integrates consistency distillation with adversarial feedback from a video discriminator to break the quality bottleneck of standard MSE-based distillation. Similarly, DMD~\cite{yin2024one}, AVDM2D~\cite{zhu2024accelerating}, and DMD2~\cite{yin2024improved} minimizes the divergence between the student's one-step distribution and the teacher's multi-step trajectory.
+
+% Recent advancements have increasingly relied on pure adversarial post-training to achieve state-of-the-art one-step generation. Seaweed-APT\cite{lin2025seaweedapt} proposes Adversarial Post-Training (APT) against real data following diffusion pre-training, utilizing an approximated R1 regularization to generate 720p videos in real-time using a single forward evaluation. Extending this to streaming generation, AAPT~\cite{lin2025aapt} introduces Autoregressive Adversarial Post-Training, which trains the model in a student-forcing manner to reduce error accumulation, enabling 24fps interactive streaming generation on a single GPU.
+
+\subsubsection{Adversarial Distillation}
+
+To maintain perceptual fidelity under extremely small step budgets, recent distillation methods increasingly optimize the student at the \emph{distribution level} rather than relying only on pointwise regression targets. A generic objective can be written as
+
+\begin{equation}
+\min_\theta \; D\!\left(p_S(\cdot|c)\,\|\,p_T(\cdot|c)\right),
+\label{eq:dmd_generic}
+\end{equation}
+
+where $D$ denotes a generic discrepancy between the student distribution $p_S$ and the teacher distribution $p_T$. Such discrepancies can be instantiated in three ways. First, $D$ can be an explicit statistical divergence or its score-based surrogate, such as approximate KL divergence or Fisher-type score matching. Second, $D$ can be an implicitly learned discrepancy induced by a discriminator, as in GAN-style adversarial training. Third, practical systems often combine the two, using distribution/score matching to preserve teacher alignment while introducing adversarial supervision to improve realism and perceptual sharpness.
+
+Representative examples of the first direction include DMD~\cite{yin2024one} and related DMD-style methods, which match the student to the teacher at the distribution level without enforcing a strict one-to-one correspondence with the teacher's sampling trajectory. In the hybrid regime, DMD2~\cite{yin2024improved} further augments distribution matching with a GAN loss on real data, and AVDM2D~\cite{zhu2024accelerating} can also be viewed within this broader family of perceptually enhanced distribution-matching distillation.
+
+For video generation, recent work increasingly moves toward pure adversarial post-training. Seaweed-APT~\cite{lin2025seaweedapt} applies adversarial post-training against real data after diffusion pre-training, together with an approximated R1 regularization, enabling real-time one-step video generation.
+
+% However, the efficient modeling approaches discussed above can only achieve real-time video generation, rather than generating interactive, infinitely long videos.
+
+However, these distillation-based approaches primarily improve step efficiency and wall-clock latency. They are usually insufficient to support persistent, long-horizon generation, which requires explicit mechanisms for causal inference, memory retention, and error control over long horizons.
+
+
+\subsection{Auto-Regressive and Hybrid Approaches}
+\label{subsec:hyperapproach}
+% The auto-Regressive (AR) approach or hybrid approach, which combines video generation with AR and efficient diffusion models, aims to overcome the limitations of traditional "one clip generation" in video diffusion models. 
+Autoregressive and hybrid approaches aim to overcome the limitation of traditional video diffusion models as mainly clip-based generators. By combining autoregressive temporal rollout with efficient video synthesis, these methods move toward persistent, interactive, and long-horizon world modeling.
+These methods focus on infinite-length generation with real-time interactivity by strategically combining AR scalability with diffusion fidelity.
+
+\subsubsection{Auto-Regressive Modeling}
+Treating video generation as a discrete token prediction problem allows models to inherit the scalability of autoregressive language models. A representative early work is VideoGPT~\cite{yan2021videogpt}, which employs a VQ-VAE to learn discrete spatiotemporal latent tokens from raw videos and then uses a GPT-like transformer to autoregressively model these tokens. This formulation establishes a clean and reproducible baseline for transformer-based video generation. More recent work extends this idea to large-scale multimodal and long-horizon generation. VideoPoet~\cite{kondratyuk2023videopoet} adopts a decoder-only transformer architecture that processes multimodal inputs, including text, images, videos, and audio, in a unified autoregressive framework. By following an LLM-style pretraining and adaptation pipeline, it demonstrates strong capability in zero-shot video generation and high-fidelity motion synthesis. 
+Loong~\cite{wang2024loong} further pushes autoregressive generation toward minute-level long videos by modeling text tokens and video tokens as a unified sequence for autoregressive language models, together with progressive short-to-long training and inference strategies to mitigate error accumulation.
+
+Pure autoregressive modeling is also highly relevant to interactive world modeling. Genie~\cite{bruce2024genie} introduces a generative interactive environment model composed of a spatiotemporal video tokenizer, an autoregressive dynamics model, and a latent action model. This design enables frame-by-frame controllable generation and shows that autoregressive world models can support interactive environment simulation. Along a similar direction, iVideoGPT~\cite{wu2024ivideogpt} formulates world modeling as next-token prediction over a unified sequence of visual observations, actions, and rewards. Its scalable autoregressive transformer architecture supports action-conditioned video generation, visual planning, and model-based reinforcement learning, making it a strong representative of autoregressive video-based world models.
+
+
+\subsubsection{Hybrid AR-Diffusion Modeling}
+Hybrid AR-diffusion modeling aims to combine the long-horizon rollout capability of autoregressive generation with the high-fidelity synthesis ability of diffusion models. In this paradigm, temporal dependencies are modeled autoregressively along the time dimension, such that previously generated frames or chunks serve as the context for predicting subsequent content, while the current frame or chunk is still generated by a diffusion model rather than directly decoded by a pure AR backbone. Progressive Autoregressive Video Diffusion Models~\cite{xie2024progressive} is a representative work in this direction. It revisits autoregressive long video generation by assigning progressively increasing noise levels across frames and performing denoising together with temporal shifting in small intervals, thereby improving information propagation and generation fidelity over long horizons. FramePack~\cite{zhang2025frame} further develops this paradigm for next-frame or next-frame-section prediction by compressing historical frame contexts according to frame-wise importance, allowing much longer effective contexts under a fixed context length while introducing drift prevention strategies to reduce long-horizon error accumulation. Overall, this hybrid paradigm provides a practical compromise between temporal scalability and visual fidelity, making it an important direction for efficient long-horizon video world modeling.
+
+
+% \subsubsection{Streaming Causal Diffusion Modeling}
+% Streaming causal diffusion modeling can be viewed as a complementary line of work to token-level autoregressive models and hybrid AR-diffusion pipelines. Instead of explicitly predicting discrete future tokens or assigning a separate AR backbone, it causalizes the diffusion backbone itself so that frames or chunks can be generated incrementally in a streaming manner.
+
+% By enforcing temporal causality in the attention mechanism, these methods allow the model to generate frames or chunks incrementally without waiting for future context, thereby converting offline clip-wise generation into a streaming-friendly paradigm. For example, CausVid~\cite{yin2025slow} reformulates video diffusion with causal attention masks, enabling frame-by-frame generation and making diffusion models more suitable for autoregressive streaming scenarios.
+
+\subsubsection{Streaming Causal Diffusion Modeling}
+Streaming causal diffusion modeling can be viewed as a complementary line of work to token-level autoregressive models and hybrid AR-diffusion pipelines. Instead of explicitly predicting discrete future tokens or introducing a separate autoregressive module or algorithm, it causalizes the diffusion model itself---typically through temporal causal attention or block-causal design, so that frames or chunks can be generated incrementally without relying on future context. In this way, conventional offline clip-wise diffusion is transformed into a streaming-friendly generation paradigm. For example, CausVid~\cite{yin2025slow} reformulates video diffusion with causal attention masks, enabling frame-by-frame generation and making diffusion models more suitable for autoregressive streaming scenarios.
+
+However, causal attention alone is insufficient for stable long-horizon rollout, since continuous autoregressive generation still suffers from severe train-test mismatch and error accumulation. Diffusion Forcing~\cite{chen2024diffusionforcing} provides a representative training paradigm for this setting by combining causal next-token prediction with full-sequence diffusion and allowing different tokens to be denoised under independent noise levels. Building on this idea, Self Forcing~\cite{huang2025selfforcing} explicitly bridges the train-test gap by conditioning training on self-generated histories rather than only on ground-truth contexts, thereby improving long-horizon stability. Rolling Forcing~\cite{rollingforcing2025} further extends this principle with a rolling-window denoising strategy that jointly generates multiple future frames, substantially reducing long-range drift while enabling real-time multi-minute video generation.
+Follow-up work pushes the same forcing-based streaming line toward longer horizons and sharper training objectives. Self-Forcing++~\cite{cui2025selfforcingplus} scales self-generated guidance to minute-scale video generation far beyond the original teacher horizon, while Reward Forcing~\cite{lu2025rewardforcing} enhances motion dynamics through Rewarded Distribution Matching Distillation, biasing the model toward high-reward dynamic regions and thereby allocating limited generation capacity more effectively to behaviorally important events.
+Closely related to few-step interactive streaming, Causal Forcing~\cite{zhu2026causalforcing} studies autoregressive diffusion distillation from pretrained bidirectional video diffusion models. It argues that initializing the causal student via ODE distillation from a \emph{bidirectional} teacher can violate frame-level injectivity under the probability-flow ODE, leading to a biased conditional-expectation solution rather than the teacher's flow map, and instead performs ODE initialization using an \emph{autoregressive} teacher to align the distillation objective with causal generation.
+Orthogonal to further training-time refinements, Rolling Sink~\cite{li2026rollingsink} targets the mismatch between \emph{finite} clip-length training and \emph{open-ended} test-time horizons, and proposes a training-free test-time procedure for autoregressive cache maintenance that scales autoregressive video diffusion models trained with Self Forcing to minute-scale generation while improving long-horizon fidelity and temporal consistency.
+Beyond likelihood- or distillation-based causal diffusion training, AAPT~\cite{lin2025aapt} further extends adversarial post-training to autoregressive streaming generation, reducing error accumulation through student-forcing and demonstrating that diffusion-based video generators can move closer to interactive real-time rollout.
+%Finally, orthogonal to these training-time refinements.
+
+
+% However, causal attention alone is insufficient for stable long-horizon rollout, since continuous autoregressive generation still suffers from severe train-test mismatch and error accumulation. Diffusion Forcing~\cite{chen2024diffusionforcing} provides a representative training paradigm for this setting by combining causal next-token prediction with full-sequence diffusion and allowing different tokens to be denoised under independent noise levels. Building on this idea, Self Forcing~\cite{huang2025selfforcing} explicitly bridges the train-test gap by conditioning training on self-generated histories rather than only on ground-truth contexts, thereby improving long-horizon stability. Rolling Forcing~\cite{rollingforcing2025} further extends this principle with a rolling-window denoising strategy that jointly generates multiple future frames, substantially reducing long-range drift while enabling real-time multi-minute video generation.
+% Complementary to these training-time remedies, Rolling Sink~\cite{li2026rollingsink} targets a different mismatch---between \emph{finite} clip-length training and \emph{open-ended} test-time horizons---and proposes a training-free test-time procedure for autoregressive cache maintenance that scales Self Forcing--style models to minute-scale generation while improving long-horizon fidelity and temporal consistency.
+
+% Recent extensions continue to improve the quality and scalability of forcing-based causal diffusion. Self-Forcing++~\cite{cui2025selfforcingplus} scales self-generated guidance to minute-scale video generation far beyond the original teacher horizon. Causal Forcing~\cite{zhu2026causalforcing} further improves autoregressive diffusion distillation by using an autoregressive teacher for ODE initialization, bridging the gap between bidirectional teachers and causal students. 
+% Reward Forcing~\cite{lu2025rewardforcing} instead enhances motion dynamics in streaming generation through Rewarded Distribution Matching Distillation, biasing the model toward high-reward dynamic regions and thereby allocating limited generation capacity more effectively to behaviorally important events.
+% % Reward Forcing~\cite{lu2025rewardforcing} instead enhances motion dynamics in streaming generation through Rewarded Distribution Matching Distillation, biasing the model toward high-reward dynamic regions. 
+% Beyond likelihood- or distillation-based causal diffusion training, AAPT~\cite{lin2025aapt} further extends adversarial post-training to autoregressive streaming generation, reducing error accumulation through student-forcing and demonstrating that diffusion-based video generators can move closer to interactive real-time rollout.
+
+
+\subsection{Discussion}
+Efficient modeling methods are driven by two equally fundamental objectives: \emph{per-step efficiency} and \emph{long-horizon interactivity}.
+Distillation-based approaches are highly effective at straightening the denoising trajectory and reducing latency from tens of steps to only a few or even a single step, making real-time generation increasingly practical. However, most of these methods remain centered on accelerating fixed-length generation, and therefore do not by themselves resolve the challenges of persistent rollout and long-term error accumulation. In contrast, autoregressive, hybrid AR-diffusion, and causal streaming diffusion paradigms, based on efficient per-step inference, explicitly target these world-model requirements by introducing causal generation interfaces.
+
+For video-based world models, per-step efficiency and long-horizon interactivity are two essential requirements. A more critical future goal is to optimize consistency, stability, and spatial understanding in long-duration scenarios. Specifically, this involves designing algorithms to mitigate cumulative errors in long-term interactions and memory mechanisms to ensure spatial, logical, and physical consistency.
+
+
+
+\section{Efficient Architecture}
+\label{sec:efficient_arch}
+Efficient architecture design is the most direct and effective method for enhancing video generation from short clips to persistent, high-fidelity world models with long spatiotemporal contexts. Given that the primary bottleneck stems from spatiotemporal redundancy and the quadratic cost of attention, research has turned to intuitive yet powerful structural optimizations. This section reviews these high-impact paradigms, categorized into four dimensions: (i) Hierarchical and VAE Designs, which offer a straightforward path to efficiency by compressing the world’s state into a coarse-to-fine hierarchy or a compact representation; (ii) Long Context and Memory Mechanisms, which provide scalable alternatives to full-context modeling for long-horizon consistency; (iii) Efficient Attention, which directly prunes the computational backbone to enable fast reasoning via a sparse, windowed or linear mechanism; and (iv) Extrapolation and RoPE, which serve as cost-effective and often training-free solutions for simulating horizons far beyond the training window.
+\subsection{Hierarchical \& VAE Designs}
+The common framework for efficient video-based world modeling involves decomposing the high-dimensional spatiotemporal signal into a coarse-to-fine hierarchy or a compact latent space, reducing the state complexity that the model must simulate.
+\subsubsection{Hierarchical and Pyramidal Generation}
+This approach is a multi-stage refinement process where a base module establishes a general world model followed by specialized modules for detail enhancement. Pyramidal Flow Matching~\cite{jin2025pyramidal} and TPDiff~\cite{ran2025tpdiff} establish multiple stages with increasing frame rate; the former extends the flow matching algorithm to an efficient spatial pyramid representation and proposes a temporal pyramid design to further improve training efficiency, while the latter introduces a temporal pyramid to increase frame rate along the diffusion process. Waver~\cite{zhang2025waver} (Figure~\ref{fig:cascade_arch}) and FlashVideo~\cite{zhang2026flashvideo} adopt a cascade paradigm to upsample low-resolution videos generated by the DiT to a final resolution of 1080p. Compared to flat architectures, these hierarchical designs significantly reduce the redundant computation of details during the early semantic planning phase. SUPERGEN~\cite{ye2025supergen} also follows this two-stage paradigm, where a sketch provides an overview and iterative fine-grained tile-based refinement enriches details. PatchVSR~\cite{du2025patchvsr} introduces inter-patch modulation during the detail generation process. In addition, on the parameter dimension, SRDiffusion~\cite{cheng2025srdiffusion} uses a large model during the early high-noise steps to generate higher-quality structures and motion while using a small model during the late low-noise steps to generate finer details, thus accelerating the overall diffusion process. This method offers a more flexible efficiency-quality trade-off than fixed hierarchical cascades, and switches models during different stages of the diffusion process. Conversely, on the spatial dimension, FlexiDiT~\cite{anagnostidis2025flexidit} applies a reversed compute strategy. Observing that the early denoising steps focus on low-frequency structures, it uses larger patch sizes (lower compute) for the initial denoising steps and switches to smaller patches (higher compute) for later refinement.
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{figure/waver-cascade-v2.pdf}
+    \caption{Pipeline of cascaded video generation. Figure courtesy of~\cite{zhang2025waver}.}
+    \label{fig:cascade_arch}
+\end{figure}
+\subsubsection{Efficient VAE and Latent Compression}
+To model a persistent world, the world state must be compressed into a manageable latent representation. DC-VideoGen~\cite{chen2025dc} introduces a deep compression video autoencoder with a chunk-causal design to achieve up to 64$\times$ spatial compression and 4$\times$ temporal compression. REGEN~\cite{zhang2025regen} further expands this by relaxing the criterion for decoding from exact reproduction to plausible reconstruction. The decoder itself is generative, allowing the encoder to store ultra-compact semantic tokens only, achieving a temporal compression ratio of up to 32$\times$. Considering that VAE's fixed compression rates cannot capture the temporal non-uniformity of real-world video contents, DLFR-VAE~\cite{yuan2025dlfr} proposes a dynamic VAE that dynamically adjusts the optimal latent frame rate according to the content complexity. In addition, VGDFR~\cite{yuan2025vgdfr} adaptively merges frames in the latent space, allowing subsequent denoising steps to be executed in a smaller latent space, significantly reducing computational costs.
+Recent works such as Turbo-VAED~\cite{zou2025turbo} distill heavy decoders into lightweight versions.
+
+
+
+\subsection{Long Context \& Memory Mechanisms}
+Video-based world modeling relies on maintaining consistency over long horizons. The common method augments the generative backbone with an external or implicit memory that serves as a persistent storage of the simulated world.
+
+\subsubsection{Visual Memory}
+Visual Memory retains raw or semi-compressed keyframes as distinct reference points to anchor the generation. FramePack~\cite{zhang2025frame} compresses historical frames according to their relative importance to encode more frames within a fixed context length limit. Following this, WorldPack~\cite{oshima2025worldpack} combines trajectory packing, which enables efficient utilization of long-term history within a fixed-length context by hierarchically compressing and allocating frames, and memory retrieval, which selectively recalls past scenes that share substantial visual overlap with the target scene. This design allows recent frames and frames recalled by memory retrieval to be stored at a high resolution, and the remaining frames to be stored at a lower resolution, enabling the model to retain long-term history while keeping computation efficient.
+Related works such as StoryMem~\cite{zhang2025storymem} maintain a compact and dynamically updated memory bank of keyframes from historically generated shots. Astra~\cite{zhu2026astra} also adopts frame packing and uses a noise-augmented history memory to avoid over-reliance on past frames.
+
+\subsubsection{Spatial Memory}
+Spatial Memory utilizes explicit geometric representations (e.g., point clouds, meshes) to enforce strict physical consistency. EvoWorld~\cite{wang2025evoworld} maintains an evolving panoramic world using a spherical 3D memory, while VMem~\cite{li2025vmem} constructs a surfel-indexed global map for camera-pose queries. These works shift the model's role from pixel generation to rendering from a consistent memory. Following these, HunyuanWorld-Voyager~\cite{huang2025voyager} and~\cite{wu2025video} align frames with persistent point clouds for spatial consistency. Memory Forcing~\cite{huang2025memory}  combines spatial and temporal memory for maintaining long-term geometric consistency.
+
+\subsubsection{Compressed Contexts}
+These approaches focus on reducing historical information into compact latent vectors. SVI~\cite{li2025stable} utilizes an Error Replay Memory that dynamically banks and selectively resamples self-generated diffusion errors across discretized timesteps to simulate and correct accumulation artifacts during fine-tuning. MemFlow~\cite{ji2025memflow} also dynamically updates the memory bank by retrieving the most relevant historical frames with the text prompt of the current chunk. VideoSSM~\cite{yu2025videossm} introduces a global memory to absorb tokens evicted from the local window and relies on a state space model to recurrently compress them into a compact, fixed-size state. Other works such as Context as Memory~\cite{yu2025context}, LoViC~\cite{jiang2025lovic} (Figure~\ref{fig:lovic}), and Mixture of Contexts~\cite{cai2025mixture} refine how contexts are retrieved. Compared to spatial maps, compressed contexts are more flexible, but may struggle with precise geometric grounding.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{figure/lovic_model.pdf}
+    \caption{LoViC~\cite{jiang2025lovic} introduces FlexFormer, a flexible encoder that compresses context of arbitrary length under an adaptive compression ratio. The resulting compressed context features are fed into a DiT-based decoder to generate the current video chunk. Figure courtesy of~\cite{jiang2025lovic}.}
+    \label{fig:lovic}
+\end{figure}
+
+\subsubsection{Implicit Model Memory}
+Implicit Model Memory embeds historical contexts directly into the model's weights via online updates (test-time training, TTT). TTT\cite{sun2025learning} has emerged as a promising approach for efficient sub-quadratic sequence modeling, which extends the concept of recurrent states in RNNs to a small, adaptive sub-network. The weights of this sub-network are rapidly adapted online via self-supervised objectives to memorize in-context information.~\cite{dalal2025one} incorporate TTT layers into DiT to capture global narrative dependencies for minute-long generation. Addressing the hardware inefficiency of frequent updates, LaCT~\cite{zhang2025test} performs weight updates for massive token blocks rather than individual steps, enabling scalable autoregressive modeling with contexts exceeding 50k tokens. Although this paradigm offers the memorization of very long contexts, it incurs higher inference latency due to the cost of online optimization.
+
+
+
+\subsection{Efficient Attention}
+Full attention accounts for major end-to-end runtime in video generation. Due to the quadratic computational complexity with respect to context length, attention can be much more dominant as the resolution and number of frames increase.
+To handle this quadratic complexity of high-resolution or long-horizon world simulation, efficient architectures approximate full attention with sparse attention, window attention, or linear attention, or even replace the attention mechanism with linear-complexity alternatives (e.g., SSMs).
+\subsubsection{Sparse Attention}
+Attention in transformers is inherently sparse~\cite{zhang2023ho}, which offers a great opportunity to reduce computation. Sparse attention selectively restricts computation to highly relevant or local token pairs. SVG~\cite{xi2025sparse} and SVG2~\cite{yang2025sparse} pioneer this direction; the former reveals inherent sparse patterns (e.g., temporal and spatial heads focusing on critical tokens), while the latter leverages semantics-aware permutation to maximize efficiency. Following this paradigm, several works identify similar structural sparsity patterns~\cite{chen2025sparse, li2025compact}, or directly unify SVG's heads into scalable radial attention~\cite{li2025radial}. To address the costly dynamic detection overhead of SVG, VMoBA~\cite{wu2025vmoba} adapts text-centric MoBA~\cite{lu2025moba} to capture spatiotemporal locality via layer-wise recurrent block partitions. Figure~\ref{fig:vmoba_compare} compares the inference time of some of the aforementioned methods. The aforementioned methods, along with several other variants~\cite{gu2025blade, zhang2025spargeattention, zhang2026spargeattention2, zhang2025trainingfree}, rely primarily on standard block sparse attention, which partitions queries/keys into blocks with a fixed size and computes attention for selected blocks only, skipping entire blocks to leverage hardware-efficient GPU kernels. However, recent advances explore new dimensions. For instance, FG-Attn~\cite{durvasula2025fg} challenges the block paradigm with finer-grained slice-level sparsity; to address overlooked query-side redundancy, BSA~\cite{zhan2025bidirectional} and Astraea~\cite{liu2025astraea} propose mechanisms to selectively prune queries alongside or instead of key-value pairs.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{figure/VMoBA-compare.pdf}
+    \caption{Comparison of inference time among full attention, SVG\cite{xi2025sparse}, MoBA~\cite{lu2025moba} and VMoBA\cite{wu2025vmoba} as sequence length increases. Figure courtesy of~\cite{wu2025vmoba}.}
+    \label{fig:vmoba_compare}
+\end{figure}
+
+\subsubsection{Windowed Attention}
+Exploiting inherent spatiotemporal locality, window-based attention restricts computation to local neighborhoods to mitigate the complexity of full 3D attention. To address potential quality degradation caused by limited receptive fields, various works propose combining local windows with global context mechanisms. For instance, DiTFastAttn~\cite{yuan2024ditfastattn} caches the residual difference between full and windowed attention, while LongLive~\cite{yang2025longlive} combines short window attention with a frame sink mechanism as shown in Figure~\ref{fig:longlive} that permanently caches initial frames as global anchors to maintain long-range coherence during infinite-length streaming generation. Alternatively, several approaches explicitly decompose attention into local and global branches. Specifically, UltraGen~\cite{hu2025ultragen} enables native 4K generation via spatially compressed global attention alongside hierarchical cross-window local attention. Similarly, VORTA~\cite{sun2025vorta} and VideoNSA~\cite{song2025videonsa} employ learnable routing or gating mechanisms to dynamically fuse local sliding windows with global sparse or compressed tokens. Beyond receptive field limitations, standard sliding windows often suffer from hardware inefficiencies. To resolve this, STA~\cite{zhang2025fast} proposes a hardware-aware Sliding Tile Attention that aligns window strides with GPU tile sizes, successfully translating the theoretical FLOP reduction into significant wall-clock speedup.
+
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{figure/LongLive_framework.pdf}
+    \caption{LongLive~\cite{yang2025longlive} processes sequential user prompts and generates a corresponding long video using efficient short window attention and frame sink. Figure courtesy of~\cite{yang2025longlive}.}
+    \label{fig:longlive}
+\end{figure}
+
+
+\subsubsection{Linear Attention}
+Linear attention mitigates the $O(N^2)$ complexity of standard self-attention by employing a kernel feature map $\phi(\cdot)$ and the associative property of matrix multiplication: $O = \phi(Q) (\phi(K)^\top V)$. This decoupling avoids the explicit $N \times N$ matrix, reducing complexity to $O(N)$. Recent video generation models integrate linear attention through various structural paradigms. At the global level, {SANA-Video}~\cite{chen2026sanavideo} entirely replaces vanilla attention with ReLU-based linear attention, enabling efficient block-wise autoregressive generation. At the layer level (serial integration), {LinVideo}~\cite{huang2025linvideo} adapts pre-trained models by selectively substituting a subset of quadratic attention layers with linear ones, optimizing via distribution matching. At the token level (parallel routing), {SLA}~\cite{zhang2025sla} decomposes attention weights to apply exact sparse attention to critical tokens and linear attention to the marginal majority. Building on these efficient formulations, models like {Yume-1.5}~\cite{mao2025yume} further apply linear attention to interactive long-video generation.
+
+\subsubsection{State Space Models (SSMs)}
+SSMs, particularly Mamba~\cite{gu2024mamba}, offer a linear-complexity $O(N)$ alternative to Transformers by modeling sequences through recurrent state transitions. LaMamba-Diff~\cite{Fu_2025_BMVC} designs a novel backbone for diffusion models for image generation.
+LinGen~\cite{Wang_2025_CVPR} introduces a hybrid linear-complexity block that couples a bidirectional Mamba2~\cite{dao2024transformers} branch with a Temporal Swin Attention branch, achieving stable minute-length video generation with strictly linear scaling.
+
+
+
+
+\subsection{Extrapolation and RoPE}
+A true world model must simulate the future beyond its seen horizon, requiring modifications to Rotary Positional Embeddings (RoPE) to prevent distribution drift.
+\subsubsection{Frequency-Based Extrapolation}
+Early adaptations focused on RoPE frequency scaling. RIFLEx~\cite{zhao2025riflex} identifies that high-frequency components cause temporal repetition and proposes frequency shifting to enable 3$\times$ length extrapolation. This remains a simple, training-free baseline for extending temporal horizons.
+\subsubsection{Mitigating Attention Dispersion}
+UltraViCo~\cite{zhao2025ultravico} identifies "attention dispersion"—where distant tokens dilute learned patterns—as the root cause of quality decay, introducing a constant decay factor to suppress distant scores. Compared to frequency-only scaling, this maintains better imaging quality at larger extrapolation limits.
+\subsubsection{From Long to Infinite}
+To enable effectively infinite simulation, Infinity-RoPE~\cite{yesiltepe2025infinity} proposes Block-Relativistic RoPE, rotating new latent blocks relative to a moving local reference frame. This shifts from "extending a window" to a "sliding world" paradigm.
+Related works like FreeNoise~\cite{qiu2024freenoise} and Align your Latents~\cite{blattmann2023align} explore complementary tuning-free noise and attention rescheduling strategies.
+% Meanwhile, large-scale long-video systems such as LoL~\cite{cui2026lol} show that practical generation has already begun to extend from minute-level to hour-scale durations, suggesting that future progress toward effectively infinite world simulation will depend not only on scaling, but also on extrapolation mechanisms that prevent temporal drift and collapse over extreme horizons.
+
+
+
+
+
+% \subsection{Controllable Architectures}
+
+% Controllable video generation mainly differs in how control signals are injected into the generative backbone. Early conditional diffusion models rely on feature modulation, while transformer-based generators such as DiT inject global conditions through adaptive layer normalization~\cite{peebles2023scalable}; for sequential conditions such as text, video models typically adopt cross-attention, as exemplified by Imagen Video~\cite{ho2022imagen}. In interactive video world models, control is often injected more explicitly at the frame or chunk level: GameGen-X introduces dedicated control experts for game-related multimodal signals~\cite{che2024gamegen}, Matrix-Game 2.0 embeds keyboard and mouse actions into DiT blocks~\cite{he2025matrix}, Genie models controllable environment dynamics through latent actions~\cite{bruce2024genie}, and Ditto conditions diffusion generation in motion space for fine-grained real-time avatar control~\cite{li2025ditto}. 
+
+\subsection{Discussion}
+Despite significant advances, existing efficient architectures face fundamental trade-offs between computational cost and spatiotemporal/causal integrity. Specifically, hierarchical compression often sacrifices long-term semantic consistency for visual refinement, while training-free extrapolation techniques fail to maintain causal progression over long horizons, inevitably leading to motion decay or temporal loops. Furthermore, memory mechanisms face the stability-plasticity dilemma: how to retain a persistent global map (stability) while rapidly adapting to new, unexpected environmental changes (plasticity).  At the operational level, efficient attention variants frequently fail to translate theoretical complexity reduction into wall-clock acceleration. To overcome these bottlenecks, future research must shift toward physics-aware and adaptive paradigms. Promising directions include exploring physically constrained latent spaces, designing hybrid memory hierarchies that couple slowly updated global maps with agile working memories, and using interactive causal chains to replace absolute frame indices. Ultimately, realizing real-time, physics-compliant generation will necessitate hardware-software co-designed mechanisms that dynamically allocate compute based on semantic importance and motion dynamics.
+
+\section{Efficient Inference}
+\label{sec:efficient_inference}
+
+As video generation models scale to billions of parameters and become capable of generating videos with extended durations (e.g., Seedance 1.0~\cite{gao2025seedance} with 30B parameters), running inference on a single GPU often faces severe memory bottlenecks and unacceptable latency. To address these challenges, 
+efficient inference strategies focus on distributing the computational load, reducing redundant calculations and quantization. This section reviews four critical strategies: (i) Parallelism, which distributes inference across multiple devices via spatial, sequence, and pipeline partitioning; (ii) Caching, which exploits spatial and temporal redundancy to accelerate generation; (iii) Pruning, which directly mitigates sequence length explosion and architectural redundancy by merging tokens and streamlining networks; and (iv) Quantization, which lowers the precision of weights and activations to reduce computational resource and memory cost.
+
+\subsection{Parallelism}
+Parallel inference is critical for scaling video generation to high resolution, long duration, and real-time inference, since the computational and memory costs of diffusion transformers grow rapidly with sequence length. In practice, existing systems mainly improve inference efficiency through sequence-level partition, pipeline-style execution, and hybrid parallel frameworks, making it possible to generate in real-time with multi-GPUs.
+A straightforward strategy is to split spatial or temporal tokens across multiple devices so that memory and computation can be distributed. In diffusion inference, DistriFusion~\cite{li2024distrifusion} shows that patch-wise distributed inference can be made efficient by reusing features from the previous denoising step, thereby overlapping communication with computation. For long-form video generation, Video-Infinity~\cite{chen2024videoinfinity} further extends this idea with clip parallelism and dual-scope attention, enabling distributed long-video generation across multiple GPUs.
+
+% Another complementary strategy is to partition model execution into a pipeline so that different devices process different parts of the workload concurrently. Rather than fully relying on one type of parallelism, recent DiT inference systems increasingly exploit pipeline-style execution at the patch level to improve device utilization and reduce end-to-end latency.
+
+Another complementary strategy is to partition model execution into a pipeline so that different devices process different parts of the workload concurrently. Rather than fully relying on one type of parallelism, recent DiT inference systems increasingly exploit pipeline-style execution at the patch level to improve device utilization and reduce end-to-end latency. Related system-oriented designs also appear in streaming avatar generation. For example, LiveAvatar~\cite{huang2025live} introduces timestep-forcing pipeline parallelism, which assigns different denoising timesteps to different devices and converts the diffusion chain into a high-throughput streaming pipeline.
+
+Since no single parallel strategy is optimal under all hardware and model settings, unified frameworks have recently emerged to combine multiple forms of parallelism. xDiT~\cite{fang2024xdit} is a representative example, which integrates sequence parallelism, PipeFusion-style pipeline parallelism, and classifier-free guidance (CFG)~\cite{ho2022classifier} parallelism into a scalable inference engine for diffusion transformers.
+
+
+\subsection{Caching}
+\label{subsec:caching}
+
+% Caching methods accelerate video generation by exploiting the redundancy across adjacent denoising steps. As diffusion inference proceeds through a sequence of denoising timesteps, the intermediate activations at neighboring steps often change only gradually, making it unnecessary to recompute all features from scratch at every step.
+
+% The first approach is fixed or heuristic cross-step feature reuse. DeepCache~\cite{ma2023deepcache} is a representative early method in this direction. Its key observation is that adjacent denoising steps exhibit substantial redundancy, so a subset of intermediate features computed at one step can be cached and reused at nearby steps instead of being fully recomputed. In practice, DeepCache directly reuses relatively stable features while updating the remaining ones in a lightweight manner, thereby reducing redundant computation without noticeably harming generation quality.
+
+% An improved approach is adaptive cache scheduling, which makes the reuse policy depend on the denoising stage rather than applying a uniform rule to all steps or all layers. 
+% Learning-to-Cache~\cite{ma2024learning} introduces a layer-wise adaptive caching strategy for diffusion transformers, based on the observation that different layers become stable at different stages of denoising and therefore should follow different reuse schedules. TeaCache~\cite{liu2024teacache} instead adopts a timestep-aware adaptive policy for video diffusion models: rather than using a fixed cache interval, it estimates the output variation from timestep-related signals and reuses cached outputs when the predicted change is sufficiently small. 
+
+Caching methods accelerate video generation by exploiting redundancy across adjacent denoising steps. As diffusion inference proceeds through a sequence of timesteps, intermediate activations often evolve gradually, making it unnecessary to recompute all features from scratch at every step. In recent video generation systems, this direction has rapidly evolved from coarse feature reuse to more adaptive and fine-grained caching strategies.
+
+Representative recent methods include PAB~\cite{zhao2025pab}, TeaCache~\cite{liu2024teacache}, FasterCache~\cite{lv2025fastercache}, and PreciseCache~\cite{wang2026precisecache}. PAB~\cite{zhao2025pab} accelerates video generation by broadcasting attention outputs in a pyramid manner across timesteps, based on the observation that attention redundancy varies across different stages and attention types. TeaCache~\cite{liu2024teacache} instead adopts a timestep-aware policy for video diffusion models rather than using a fixed cache interval. It estimates output variation from timestep-related signals and selectively reuses cached outputs when the predicted change is sufficiently small. FasterCache~\cite{lv2025fastercache} further improves training-free acceleration by combining dynamic feature reuse with classifier-free guidance (CFG)~\cite{ho2022classifier}-aware caching, reducing redundancy both across timesteps and between conditional and unconditional branches. More recently, PreciseCache~\cite{wang2026precisecache} combines step-wise and block-wise caching to skip only truly redundant computations, using low-frequency difference to identify step-level redundancy and then performing additional block-level reuse within non-skipped steps.
+Table~\ref{tab:cache_perf} summarizes a compact comparison under the unified 4 A800 GPU setting.
+
+While Table~\ref{tab:cache_perf} focuses on cache-based acceleration results for general video generation models, recent work has also begun to explore caching mechanisms for video-based world models. 
+HERO~\cite{song2025hero} proposes a hybrid acceleration scheme for video generation based on multimodal data, such as depth and RGB views. It figures out that shallow layers, which exhibit larger variation, should be recomputed more frequently, whereas deeper and more stable layers can be accelerated through linear extrapolation from preceding timesteps, effectively reducing attention computation. 
+More recently, WorldCache~\cite{feng2026worldcache} explicitly targets video-based world models and identifies two world-model-specific obstacles for caching, namely heterogeneous token behavior caused by multimodal coupling and non-uniform temporal dynamics where a small subset of hard tokens dominates error accumulation. To address these issues, it introduces curvature-guided heterogeneous token prediction together with chaotic-prioritized adaptive skipping, achieving up to 3.7$\times$ end-to-end speedup while maintaining 98\% rollout quality. 
+\begin{table}[t]
+\centering
+\renewcommand{\arraystretch}{1.15}
+\setlength{\tabcolsep}{4pt}
+\caption{Compact comparison of representative cache-based acceleration methods under the unified 4 A800 GPU setting, reported by PreciseCache~\cite{wang2026precisecache}.}
+\resizebox{0.48\textwidth}{!}{
+\begin{tabular}{L{0.14\textwidth}|L{0.13\textwidth}|L{0.10\textwidth}|L{0.10\textwidth}|L{0.10\textwidth}}
+\toprule
+Benchmark Block & Method & VBench~\cite{Huang_2024_VBench} $\uparrow$ & Speedup $\uparrow$ & Latency (s) $\downarrow$ \\
+\midrule
+Open-Sora 1.2~\cite{zheng2024open}
+& Original & 78.79\% & 1.00$\times$ & 47.23 \\
+& PAB~\cite{zhao2025pab} & 78.15\% & 1.26$\times$ & 38.40 \\
+& TeaCache~\cite{liu2024teacache} & 78.23\% & 1.95$\times$ & 24.73 \\
+& FasterCache~\cite{lv2025fastercache} & 78.46\% & 1.67$\times$ & 29.15 \\
+& PreciseCache-Flash~\cite{wang2026precisecache} & 78.19\% & 2.60$\times$ & 18.38 \\
+\midrule
+HunyuanVideo~\cite{kong2024hunyuanvideo}
+& Original & 80.66\% & 1.00$\times$ & 73.64 \\
+& PAB~\cite{zhao2025pab} & 79.37 & 1.35$\times$ & 54.54 \\
+& TeaCache~\cite{liu2024teacache} & 80.51\% & 1.64$\times$ & 44.90 \\
+& FasterCache~\cite{lv2025fastercache} & 80.59\% & 1.43$\times$ & 51.50 \\
+& PreciseCache-Turbo~\cite{wang2026precisecache} & 80.49\% & 1.95$\times$ & 37.76 \\
+\bottomrule
+\end{tabular}}
+\label{tab:cache_perf}
+\end{table}
+
+
+\subsection{Pruning}
+Pruning techniques in video diffusion models aim to reduce computational burden by eliminating redundant information at the token, channel, or layer level. To tackle the huge computational overhead introduced by the spatial resolution and temporal depth of video data, recent approaches exploit redundancies across both the video content and the diffusion generation process. We categorize these techniques into two primary paradigms: token-level reduction, which addresses sequence length explosion by merging or dropping redundant visual tokens, and structural pruning, which streamlines the model architecture by removing network components or reallocating compute based on layer roles.
+
+
+\subsubsection{Token-Level Reduction}
+The high resolution and temporal depth of video data result in an explosion of tokens in diffusion models. To address this, early representative work such as {VidToMe}~\cite{li2024vidtome} utilizes ToMe~\cite{bolya2023token}'s bipartite matching algorithm to merge redundant self-attention tokens across video frames (Figure~\ref{fig:vidtome})). The algorithm partitions the tokens into a pair of source (\textit{src}) and destination (\textit{dst}) sets, and the source tokens are linked to their most similar tokens in the destination set. Specifically, VidToMe divides the video into frame chunks, mapping temporally correlated tokens from adjacent frames into a single target frame (intra-chunk local merging), and further links them with a persistent set of tokens across different chunks (inter-chunk global merging). Building on this foundation, importance-based token merging~\cite{wu2025importance} argues that \textit{dst} tokens are chosen randomly within predefined regions in existing methods, degrading generation quality due to the elimination of critical semantic details. To explicitly preserve informative regions, it leverages classifier-free guidance (CFG)~\cite{ho2022classifier} magnitudes as a cost-free indicator to construct a dynamic pool of important tokens and samples destination tokens from this pool.
+To overcome the distortion and pixelation caused by extending ToMe methods, {AsymRnR}~\cite{sun2025asymrnr} introduces a training-free asymmetric reduction strategy that independently merges Q,K,V tokens at adaptive rates tailored for specific network blocks and denoising timesteps. Designed for resource-constrained mobile environments, On-device Sora~\cite{kim2025device} introduces temporal dimension token merging (TDTM) that explicitly averages consecutive tokens along the temporal axis to effectively halve the sequence length for attention computation.
+
+
+
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{figure/vidtome_pipeline.pdf}
+    \caption{VidToMe~\cite{li2024vidtome} first merges tokens locally and then combines the merged tokens with the maintained global tokens. Figure courtesy of~\cite{li2024vidtome}.}
+    \label{fig:vidtome}
+\end{figure}
+
+
+\subsubsection{Structural Pruning}
+Beyond reducing token counts, structural pruning directly targets the model architecture to reduce computation.
+Early representative strategies target macro-level depth and temporal redundancy. For static architectural pruning, MobileVD~\cite{yahia2024mobile} introduces a learnable gating mechanism to prune redundant temporal blocks alongside a channel funneling strategy to compress layer widths during inference. {VDMini}~\cite{wu2025individual} empirically observes that shallow layers primarily focus on individual frame content, while deeper layers dictate temporal motion dynamics; consequently, it selectively prunes redundant shallow blocks and restores generation quality through a loss based on individual content and motion dynamics (ICMD). SnapGen-V~\cite{wu2025snapgen} also performs a lot of architecture searches.
+Contrasting with VDMini's macro-level block removal, {Mobile Video DiT}~\cite{wu2025taming} executes a sensitivity-aware tri-level static pruning, simultaneously targeting blocks, attention heads, and FFN channels. Concurrently, {UniCP}~\cite{sun2025unicp} introduces finer dynamic pruning at the attention-matrix level. 
+
+% \textcolor{red}{Extending insights from both static hierarchical layers and token redundancy, {HERO}~\cite{song2025hero} proposes a hybrid acceleration scheme for world models. Observing shallow layers exhibit greater variability and benefit from feature recomputation while deeper layers are more stable and better suited for reuse, it recomputes tokens in shallow layers while utilizing linear extrapolation from two preceding timesteps to completely bypass attention computations in deep layers.}
+
+
+\subsection{Quantization}
+Quantization reduces the precision of weights and activations to accelerate inference and lower memory usage, which is critical for deploying large-scale video-based world models. We categorize recent advances into attention-centric optimization, post-training quantization, quantization-aware training, and dynamic scheduling strategies.
+\begin{table*}[t]
+\footnotesize
+\vspace{-2.5mm}
+\centering
+\caption{Performance comparison of quantization methods on VBench~\cite{Huang_2024_VBench} across multiple base models. Reported by DVD-Quant~\cite{li2025dvd}, {LRQ-DiT}~\cite{yang2025lrq} and {QVGen}~\cite{huang2026qvgen}.}
+\vspace{-2mm}
+\renewcommand{\arraystretch}{0.98} 
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{l c c c c c c c c c} 
+\toprule
+Method & \makecell{Bit-width \\ (W/A)} & \makecell{Aesthetic \\ Quality} $\uparrow$ & \makecell{Imaging \\ Quality} $\uparrow$ & \makecell{Overall \\ Consistency} $\uparrow$ & \makecell{Scene \\ Consistency} $\uparrow$ & \makecell{Background \\ Consistency} $\uparrow$ & \makecell{Subject \\ Consistency} $\uparrow$ & \makecell{Dynamic \\ Degree} $\uparrow$ & \makecell{Motion \\ Smoothness } $\uparrow$ \\
+
+\midrule \midrule
+\multicolumn{10}{c}{\cellcolor{gray!15}{Base Model: HunyuanVideo~\cite{kong2024hunyuanvideo}}} \\
+\midrule
+BF16 Baseline    & 16/16 & 62.53 & 64.78 & 25.86 & 42.81 & 97.01 & 96.05 & 51.39 & 99.30 \\
+\midrule
+ViDiT-Q~\cite{zhao2025viditq}     & 4/8  & 57.01 & 59.74 & 24.77 & 27.11 & 97.37 & 95.16 & 48.61 & 99.06 \\
+DVD-Quant~\cite{li2025dvd}   & 4/6  & 62.27 & 64.22 & 25.83 & 33.07 & 97.89 & 96.57 & 58.33 & 99.05 \\
+\midrule
+ViDiT-Q~\cite{zhao2025viditq}     & 4/4  & 45.36 & 40.10 & 19.66 & 7.85 & 97.19 & 97.29 & 0.00 & 99.43 \\
+DVD-Quant~\cite{li2025dvd}                  & 4/4  & 61.96 & 61.82 & 25.68 & 29.94 & 97.82 & 96.61 & 56.94 & 99.15 \\
+
+\midrule \midrule
+\multicolumn{10}{c}{\cellcolor{gray!15}{Base Model: Open-Sora 1.2~\cite{zheng2024open}}} \\
+\midrule
+ViDiT-Q~\cite{zhao2025viditq}    & 4/6  & 50.89 & 55.57 & 25.98 & 36.77 & 96.52 & 94.83 & 52.77 & 98.66 \\
+LRQ-DiT~\cite{yang2025lrq}                 & 4/6  & 52.25 & 56.57 & 26.68 & 41.28 & 96.90 & 95.28 & 48.62 & 98.85 \\
+\midrule
+ViDiT-Q~\cite{zhao2025viditq}        & 4/4  & 47.30 & 51.60 & 25.84 & 35.61 & 95.27 & 92.01 & 54.16 & 98.14 \\
+LRQ-DiT~\cite{yang2025lrq}                 & 4/4  & 47.95 & 51.79 & 25.87 & 37.80 & 95.56 & 92.87 & 55.56 & 98.34 \\
+
+\midrule \midrule
+\multicolumn{10}{c}{\cellcolor{gray!15}{Base Model: CogVideoX-2B~\cite{yang2025cogvideox}}} \\
+\midrule
+BF16 Baseline    & 16/16 & 54.49 & 59.15 & 25.06 & 36.24 & 94.79 & 92.82 & 67.78 & 97.43 \\
+\midrule
+ViDiT-Q~\cite{zhao2025viditq}     & 4/6  & 43.01 & 54.72 & 20.41 & 26.25 & 90.76 & 81.02 & 43.22 & 92.18 \\
+QVGen~\cite{huang2026qvgen}   & 4/4  & 54.61 & 60.16 & 24.61 & 31.42 & 94.38 & 93.01 & 67.22 & 98.06 \\
+
+\bottomrule
+\end{tabular}%
+}
+\label{tab:ptq_comparison}
+\end{table*}
+
+
+\subsubsection{Attention-Centric Quantization}
+Attention mechanisms dominate the computational cost in video generation models, driving a rapid evolution from 8-bit to 4-bit precision. 
+Early representative works such as {SageAttention}~\cite{zhang2025sageattention} and {FPSAttention}~\cite{liu2025fpsattention} established the baseline; SageAttention employs 8-bit quantization with smooth matrix to handle outliers, while FPSAttention co-designs FP8 quantization with sparsity constraints.
+Building on this, the \textit{SageAttention} series has pushed the limits of low-bit inference: {SageAttention2}~\cite{zhang2025sageattention2} achieves INT4 precision by introducing per-thread quantization and thorough outlier smoothing; {SageAttention2++}~\cite{zhang2025sageattention2++} further optimizes kernel performance by utilizing faster FP8 matrix multiplication instructions accumulated in FP16.
+The most recent member in this series, {SageAttention3}~\cite{zhang2025sageattention3}, introduces FP4 microscaling attention tailored for next-generation hardware (e.g., RTX 5090), effectively achieving extreme compression with negligible quality loss.
+
+\subsubsection{Post-Training Quantization}
+Quantizing DiTs is challenging due to significant outliers in activations, requiring robust post-training quantization (PTQ) techniques.
+{ViDiT-Q}~\cite{zhao2025viditq} serves as a representative method in this domain, which addresses oscillating activations in video models through specialized metric-aware rounding.
+Subsequent work further refines these methods: {DVD-Quant}~\cite{li2025dvd} extends quantization to a data-free setting by reconstructing calibration data to handle temporal dependencies, and {LRQ-DiT}~\cite{yang2025lrq} tackles the dual challenges of long-tailed, Gaussian-like weight distributions and diverse activation outliers by introducing twin-log quantization along with an adaptive rotation scheme. 
+These methods collectively pave the way for the deployment of INT4-level DiTs in production environments.
+
+\subsubsection{Quantization-Aware Training}
+While PTQ methods offer efficient deployment, they often suffer from severe performance degradation when pushing video generation models to ultra-low precision (e.g., $\le 4$-bit). To bridge this performance gap, quantization-aware training (QAT) has emerged as a promising direction.
+As a pioneering work in this paradigm, {QVGen}~\cite{huang2026qvgen} introduces a novel QAT framework tailored for video diffusion models under extremely low-bit settings (e.g., W4A4 and W3A3). Table~\ref{tab:ptq_comparison} shows a performance comparison of some PTQ and QAT methods.
+
+\subsubsection{Dynamic and Temporal Quantization Strategies}
+Video generation involves temporal redundancy and multi-step denoising, offering opportunities for adaptive precision.
+Focusing on the temporal dimension, {QuantCache}~\cite{Wu_2025_ICCV} advances this concept by implementing an adaptive importance-guided quantization specifically for the KV cache and hierarchical latents, effectively exploiting the similarity between video frames to reduce memory bandwidth.
+Conversely, addressing the temporal heterogeneity across denoising timesteps, {AdaTSQ}~\cite{zhang2026adatsq} introduces a timestep-dynamic quantization framework. By leveraging Fisher information to evaluate the varying sensitivity of different diffusion phases, AdaTSQ dynamically allocates bit-widths via Pareto-aware beam search. Coupled with a Fisher-guided temporal calibration mechanism, this strategy pushes the Pareto frontier of efficiency and quality for video generation models.
+
+
+% \subsection{Discussion}
+% Efficient video inference is focusing on reducing per-step latency and scaling to high-resolution, long-horizon generation. While pruning, caching, and quantization effectively exploit spatiotemporal redundancy, they still face tensions between computational cost and generation fidelity. Specifically, aggressive pruning and caching often sacrifice high-frequency details, inevitably causing cumulative errors and temporal flickering in dynamic scenes. Meanwhile, ultra-low-bit quantization struggles with extreme activation outliers, and parallel execution frequently shifts bottlenecks to inter-device communication, failing to yield linear wall-clock acceleration. To overcome these limitations, future research must shift from isolated, static heuristics toward synergistic, content-adaptive paradigms. A critical future direction is dynamically allocating compute based on semantic complexity and motion dynamics rather than pre-defined heuristics. Besides, realizing real-time, high-fidelity generation will necessitate a fundamental shift toward intrinsically exploiting the spatiotemporal redundancies of video-based world modeling, thereby fully unlocking the potential for seamless deployment on resource-constrained edge devices.
+
+\subsection{Discussion}
+Efficient video inference focuses on reducing per-step latency and scaling to high-fidelity, long-horizon generation. 
+The four directions reviewed in this section address this problem from complementary perspectives: parallelism distributes computation across devices, caching reuses intermediate features across denoising steps, pruning removes redundant tokens or network components, and quantization reduces the precision cost of weights and activations. 
+However, these techniques are not independent. For instance, aggressive caching or pruning may amplify approximation or accumulation errors in dynamic regions, while low-bit quantization can further destabilize activations already altered by token reduction or feature reuse. 
+For video-based world models, this problem is more challenging because inference must support not only short clips, but also long-horizon and interactive generation. In practice, this means that parallelism, caching, pruning, and quantization should work together rather than be applied separately. Future methods should therefore improve both efficiency and stability, especially for long-duration interactive scenarios.
+
+% For video generation-based world models, these trade-offs become even more stringent because inference efficiency must be maintained not only for single-clip generation but also for long-horizon, long spatiotemporal contexts. This means that future progress should move beyond isolated acceleration heuristics toward jointly optimized inference stacks that adapt computation to semantic importance, motion intensity, and rollout uncertainty. Promising directions include communication-aware hybrid parallel frameworks, content-adaptive combinations of caching and pruning, and quantization strategies that remain robust under highly non-uniform activation dynamics. Ultimately, practical world-model deployment will require inference algorithms that are not only faster on paper, but also stable under long-duration interaction and efficient on real hardware.
+
+\begin{table*}[t]
+\centering
+\renewcommand{\arraystretch}{1.5}
+\setlength{\tabcolsep}{10pt}      
+\caption{Applications of Video-Based World Models}
+\resizebox{0.95\textwidth}{!}{
+\begin{tabular}{L{0.14\textwidth}|L{0.27\textwidth}|L{0.27\textwidth}|L{0.27\textwidth}}
+\toprule
+Application & Data Synthesis & Interactive Simulation & Generative Planning \\
+\midrule
+Autonomous Driving &
+GAIA~\cite{hu2023gaia,russell2025gaia,wayve_gaia3_2025}, DriveDreamer4D~\cite{zhao2025drivedreamer4d}, InfinityDrive~\cite{guo2024infinitydrive}, Glad~\cite{xie2025glad}, STAGE~\cite{wang2025stage}, UniScene~\cite{li2025uniscene}, WorldSplat~\cite{zhu2025worldsplat}, EOT-WM~\cite{zhu2025other}, WoVoGen~\cite{lu2024wovogen},Cosmos-Drive-Dreams~\cite{ren2025cosmosdrivedreamsscalablesyntheticdriving} &
+Drive-WM~\cite{wang2024driving}, Vista~\cite{gao2024vista}, MiLA~\cite{wang2025mila}, ADriver-I~\cite{jia2023adriverigeneralworldmodel},~\cite{santana2016learning}, Drivedreamer~\cite{wang2024drivedreamer}, MagicDrive-V2~\cite{gao2025magicdrive}, DriveArena~\cite{yang2025drivearena}, MAD~\cite{rahimi2026mad} &
+Epona~\cite{zhang2025epona}, GenAD~\cite{yang2024genadgeneralizedpredictivemodel}, DriveLaW~\cite{xia2025drivelaw}, DrivingGPT~\cite{chen2025drivinggpt}, VaVAM~\cite{bartoccioni2025vavim}\\
+\midrule
+Embodied AI &
+Vidar~\cite{feng2025vidar}, DreamGen~\cite{jang2025dreamgen},  GenMimic~\cite{ni2025generated}, RBench~\cite{deng2026rethinking}, GigaWorld-0~\cite{team2025gigaworld}, RIGVid~\cite{patel2025robotic}, LuciBot~\cite{qiu2025lucibot}, Gen2Act~\cite{bharadhwaj2024gen2act}, Dreamitate~\cite{liang2024dreamitate} &
+World-Env~\cite{xiao2025world}, EVAC~\cite{jiang2025enerverse}, Ctrl-World~\cite{guo2025ctrl}, VideoAgent~\cite{soni2024videoagent}, VIPER~\cite{escontrela2023video}, WorldEval~\cite{li2025worldeval}, Genie Envisioner~\cite{ge2025}, World-Gymnast~\cite{sharma2026world}, DreamDojo~\cite{gao2026dreamdojogeneralistrobotworld} &
+GR-1~\cite{wu2023unleashing}, VILP~\cite{xu2025vilp}, UVA~\cite{li2025unified}, RoboEnvision~\cite{yang2025roboenvision}, GEVRM~\cite{zhang2025gevrm},  EnerVerse~\cite{huang2025enerverseenvisioningembodiedfuture}, LingBot-VA~\cite{lingbotva2026}, Cosmos Policy~\cite{kim2026cosmospolicyfinetuningvideo},Fast-WAM~\cite{yuan2026fastwam},LeWorldModel~\cite{maes2026leworldmodel}\\
+\midrule
+Game \& Interactive World Simulation &
+\multicolumn{3}{L{0.81\textwidth}}{%
+GameGen-X~\cite{che2024gamegen}, GameFactory~\cite{yu2025gamefactory},
+MineWorld~\cite{guo2025mineworld}, Matrix-Game~\cite{zhang2025matrixgame,he2025matrix},
+GenieRedux-G~\cite{savov2025exploration}, Hunyuan-GameCraft
+\cite{li2025hunyuangamecrafthighdynamicinteractivegame,tang2025hunyuan}, PlayGen~\cite{yang2024playablegamegeneration}, WorldPlay~\cite{sun2025worldplay}, Yume1.5~\cite{mao2025yume}, LingBot-World~\cite{robbyantteam2026advancingopensourceworldmodels}, Cosmos-Predict2.5~\cite{ali2025world}, Dreamer 4~\cite{hafner2025dreamerv4}, Genie 3~\cite{deepmind_genie3_models}
+}\\
+\bottomrule
+\end{tabular}%
+}
+% \vspace{-5mm}
+\label{tab:application}
+\end{table*}
+% ----- table ----
+\section{Applications}
+\label{sec:applications}
+World modeling via efficient video generation has been widely applied to domains including autonomous driving, embodied AI, and interactive game simulation, supporting tasks such as data synthesis, interactive simulation, and generative planning (Table~\ref{tab:application}). In such applications, online generation is often used to facilitate reinforcement learning, while offline data are more commonly used for supervised training.
+\subsection{Autonomous Driving}
+\subsubsection{Data Synthesis}
+In autonomous driving, video-based world models improve coverage of long-tail and safety-critical scenarios by generating realistic, controllable driving videos that can be used as synthetic training data for perception, prediction, and planning, as well as evaluation data for testing robustness and safety under rare or hazardous conditions (Figure~\ref{fig:MagicDrive}). The GAIA series~\cite{hu2023gaia,russell2025gaia,wayve_gaia3_2025} advances generative world modeling for autonomous driving: GAIA-1 demonstrated that models can learn from video, text, and actions to generate realistic driving scenarios; GAIA-2 added stronger controllability, broader geographic coverage, and multi-camera scene generation across diverse vehicle embodiments. GAIA-3 combines the realism of real-world driving data with the controllability of simulation, allowing authentic driving sequences to be replayed with modifications-—for example, altering the trajectory of the ego vehicle while making every other element in the scene consistent. DriveDreamer4D~\cite{zhao2025drivedreamer4d} leverages world-model priors to enhance 4D driving scene representations. InfinityDrive~\cite{guo2024infinitydrive} introduces a spatiotemporal co-modeling module and an extended temporal training strategy, producing high-resolution spatiotemporally consistent videos.
+% \begin{figure}
+%     \centering
+%     \includegraphics[width=1\linewidth]{figure/MagicDrive-V2-diverse.pdf}
+%     \caption{MagicDrive-V2}
+%     \label{fig:placeholder}
+% \end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{figure/MagicDrive-V2-main_results.pdf}
+    \caption{Examples of street-scene videos generated by MagicDrive-V2, which supports conditional generation with multiple types of control signals (e.g., road maps, object boxes, ego trajectories, and text). Figure courtesy of~\cite{gao2025magicdrive}.}
+    \label{fig:MagicDrive}
+    % \vspace{-5mm}
+\end{figure}
+\subsubsection{Interactive Simulation}
+Some works integrate video-based world models into closed-loop interaction pipelines, rolling out action-conditioned generation for interactive simulation and evaluation. Vista~\cite{gao2024vista} generates realistic and temporally continuous videos at high spatiotemporal resolution and supports diverse behavior-conditioned control. MiLA~\cite{wang2025mila} adopts a coarse-to-fine approach to stabilize video generation and correct distortions in dynamic objects. ADriver-I~\cite{jia2023adriverigeneralworldmodel} enables infinite autonomous driving within a virtual world created by a video generation model.
+
+\subsubsection{Generative Planning}
+Some works explore generative planning by using video-based world models to assist action selection during inference, while others leverage them as an auxiliary training objective. Drive-WM~\cite{wang2024driving} can roll out multiple trajectories under different driving actions and select the best trajectory using image-based rewards. As an auxiliary training signal, Epona~\cite{zhang2025epona} explicitly integrates trajectory prediction into a video generation framework, using a dual-branch diffusion model to separately generate trajectories and video frames, and supports trajectory-only planning to improve real-time performance. GenAD~\cite{yang2024genadgeneralizedpredictivemodel} can generalize in a zero-shot manner to diverse unseen driving datasets, and be adapted into a motion planner or an action-conditioned generation model for future frames, highlighting its great value for real-world autonomous driving applications. By sharing a latent space, DriveLAW~\cite{xia2025drivelaw} treats the video model as a feature generator by directly injecting the latent representation produced by the Video DiT into the Action DiT. This chained design allows the planner (Action DiT) to better exploit the world modeling capability of the video model.
+\begin{figure}
+    \centering
+    \includegraphics[width=0.99\linewidth]{figure/embodied_ai-World-Gymnast.pdf}
+    \caption{Comparison of videos generated by video-based world models on the same robot action sequence. Figure courtesy of~\cite{sharma2026world}.}
+    \label{fig:rollouts}
+% \vspace{-5mm}
+\end{figure}
+\subsection{Embodied AI}
+\subsubsection{Data Synthesis}
+In embodied AI, video world models can serve as a data engine to augment training data, covering broader distributions and rare cases to improve policy generalization in dynamic and long-tail tasks (Figure~\ref{fig:rollouts}). GigaWorld-0~\cite{team2025gigaworld} modifies real-world videos through text-guided editing and promotes sim-to-real transfer, helping bridge the simulation-to-reality gap. DreamGen~\cite{jang2025dreamgen} forms a synthetic-data loop by turning world-model rollouts into trajectory-style supervision, enabling diverse sample generation based on data from a single real environment. To mitigate the sim-to-real gap, GenMimic~\cite{ni2025generated} first lifts videos of human movements to 4D reconstructions, then retargets the extracted human motion to humanoid embodiments, and finally trains reinforcement learning policies for robust motion imitation. 
+
+\subsubsection{Interactive Simulation}
+As an interactive environment simulator, a video-based world model can support stable action-conditioned rollout generation for reinforcement learning and facilitate real-time evaluation of generated trajectories, allowing safe and reproducible policy testing and improvement. World-Env~\cite{xiao2025world} couples a video simulator with VLM-guided reflection to provide dense rewards and completion-based termination; EVAC~\cite{jiang2025enerverse} generates multi-view, controllable observations as a low-cost evaluation proxy. Ctrl-World~\cite{guo2025ctrl} provides a world simulator that enables robots to evaluate and improve their manipulation skills in a virtual environment. DreamDojo~\cite{gao2026dreamdojogeneralistrobotworld} is pretrained on 44k hours of human videos to learn physical dynamics without explicit action labels, and is then post-trained on robot data for downstream adaptation.
+
+\subsubsection{Generative Planning}
+Video world models can be used to learn and generate robot policies. One line of work jointly models future video frames and actions, leveraging shared representations between video generation and action prediction to improve policy learning and enhance the model's understanding of scene dynamics. GR-1~\cite{wu2023unleashing} is pretrained on large-scale video datasets through a video prediction task and subsequently fine-tuned on robot data to enable multi-task manipulation. UVA~\cite{li2025unified} models video frames and actions in a shared latent space with two lightweight diffusion decoders, enabling action-only inference and flexible task switching via random masking. Fast-WAM~\cite{yuan2026fastwam} provides controlled evidence that the gains of video world models stem primarily from the video co-training objective shaping physical representations during training, rather than from explicit future imagination at test time. Based on JEPA~\cite{lecun2022path}, LeWorldModel~\cite{maes2026leworldmodel} proposes a stable end-to-end latent world model that avoids representation collapse using only a prediction loss and a SIGReg regularizer enforcing Gaussian-distributed embeddings, enabling efficient latent planning with only 15M parameters. The other line of work predicts actions from generated videos. VILP~\cite{xu2025vilp} learns action prediction from generated videos via imitation learning, while enabling real-time receding-horizon control. RoboEnvision~\cite{yang2025roboenvision} generates keyframes via instruction decomposition plus interpolation for long-horizon consistency, then regresses joint controls with a lightweight policy. 
+
+\subsection{Game \& Interactive World Simulation}
+Efficient video generation provides critical support for interactive world simulation, and games have become a common deployment setting because of their well-defined interaction interfaces and controllable closed-loop evaluation. 
+%In practice, deployment is mainly constrained by three factors: control generalization, long-horizon consistency, and low-latency inference.
+
+Among representative works, GameGen-X~\cite{che2024gamegen} targets open-world game videos, injecting keyboard actions and multimodal instructions into the generation process to improve interactive responsiveness over long sequences. GameFactory~\cite{yu2025gamefactory} models action control independently of the game genre to enable action-conditioned interactive video generation for diverse open-world scenarios. Focusing on Minecraft, MineWorld~\cite{guo2025mineworld} increases interactive frame rates by alleviating the throughput bottleneck of autoregressive tokens via parallel decoding. Matrix-Game 2.0~\cite{he2025matrix}, trained on data from GTA5 and Unreal Engine, reports interactive generation at around 25 frames per second and supports minute-level long rollouts. 
+%GenieRedux-G~\cite{savov2025exploration} provides a systematic baseline with multi-environment training and automatic exploration to facilitate transfer and comparison, while Hunyuan-GameCraft-2~\cite{tang2025hunyuan} is oriented toward production workflows, enabling interactive generation and editing under gameplay and asset constraints. 
+DreamerV4~\cite{hafner2025dreamerv4} uses a video-based world model as an interactive environment for reinforcement learning, allowing the agent to practice complex long-horizon tasks.
+
+Toward more general interactive world generation, existing methods typically combine streaming generation with contextual memory to support long-term exploration, and rely on architectural choices and inference acceleration to meet real-time requirements. WorldPlay~\cite{sun2025worldplay} emphasizes high-resolution real-time generation and long-term consistency under action conditioning. Yume1.5~\cite{mao2025yume} focuses on text controllability and event editing, reducing long-context latency through context compression and distillation. LingBot-World~\cite{robbyantteam2026advancingopensourceworldmodels} is an open-source world simulator that combines a hierarchical semantic data engine with multi-stage training for low-latency interaction and long-term memory. 
+
+\subsection{Discussion}
+Video generation models, empowered by strong world modeling capabilities, can predict future observations conditioned on actions or instructions. In autonomous driving and embodied AI, a clear trend is the gradual convergence of data generation and interactive simulation: during closed-loop interaction and rollout-based prediction, the model continuously produces new samples and hard cases, forming a “generate–evaluate–retrain” loop for policy training and shifting data provisioning from offline augmentation to online iteration. Meanwhile, video-based world models are also moving toward supporting the full pipeline of data, model, and evaluation. Representative works such as Genie Envisioner~\cite{ge2025}, Cosmos~\cite{ali2025world}, and LingBot~\cite{lingbotva2026,robbyantteam2026advancingopensourceworldmodels} attempt to integrate data generation, interactive simulation, feedback, and policy optimization within a single generative framework, reducing cross-platform adaptation costs and enabling more systematic and reproducible evaluation and training paradigms.
+
+% ---- figure ---- 
+\begin{figure}[]
+    \centering
+    \includegraphics[width=0.99\linewidth]{figure/talkinghead.pdf}
+    \caption{Comparison of videos generated by methods designed for real-time talking head generation. Existing methods generally preserve identity consistency well, but failure cases remain: Ditto tends to produce limited facial motion, while LiveAvatar may introduce local factual inconsistencies or artifacts (highlighted in red). Figure courtesy of~\cite{shen2025soulx}.}
+    \label{fig:talkinghead}
+    % \vspace{-4mm}
+\end{figure}
+% --------
+\section{More Related Work}
+\label{sec:more_related}
+\subsection{Interactive Talking Head Generation}
+Recent advances in talking head generation have increasingly focused on interaction, streaming, and long-horizon conversation rather than traditional offline portrait synthesis. 
+
+An early representative method, INFP~\cite{zhu2024infp}, explicitly models speaker–listener interaction in dyadic conversations, capturing speaking and listening behaviors within a shared motion latent space. In parallel, efficiency-oriented methods aim to reduce diffusion cost rather than redesign generation paradigms. For instance, Ditto~\cite{li2025ditto} performs diffusion in a compact motion space to achieve controllable real-time synthesis, while OSA-LCM~\cite{guo2024real} compresses multi-step diffusion into a one-step latent consistency model to further accelerate expressive portrait generation. More recent work extends beyond portrait-level interaction toward streaming diffusion frameworks. InfiniteTalk~\cite{yang2025infinitetalkaudiodrivenvideogeneration} adopts a sparse-frame paradigm, where key reference frames anchor identity and motion style, while context frames enable stable long-horizon synthesis. Similarly, SoulX-FlashTalk~\cite{shen2025soulx} adopts self-correcting bidirectional distillation to preserve temporal coherence during long-form avatar streaming. At the system and architecture level, LiveAvatar~\cite{huang2025live} demonstrates that algorithm–system co-design by exploiting timestep-forcing pipeline parallelism and the rolling sink mechanism can enable large-scale diffusion models to operate in real-time streaming settings, while StreamAvatar~\cite{sun2025streamavatarstreamingdiffusionmodels} proposes a two-stage autoregressive adaptation framework that converts non-causal human video diffusion models into block-causal streaming generators with improved long-term stability.
+
+As illustrated in Figure~\ref{fig:talkinghead}, recent advances mark a clear paradigm shift from traditional offline portrait synthesis to causal and streaming real-time talking head generation, although challenges such as limited motion diversity or local artifacts still remain in existing approaches.
+
+\subsection{Interactive Content Creation}
+For AI content creation~\cite{guoedit}, creators often iterate rapidly by repeatedly refining prompts or other input to rewrite structure, swap characters, or adjust shot pacing, making efficient video generation crucial for shifting from offline processing to interactive workflows. 
+
+For video editing, Edit-Your-Interest~\cite{zuo2025edit} caches and dynamically updates spatial attention feature tokens from previous frames, enabling cross-frame information utilization without explicit temporal modeling, thereby effectively reducing computational cost and memory consumption. DiTCtrl~\cite{cai2025ditctrl} performs tuning-free controllable editing using mask-guided KV sharing and latent blending for smooth transitions across semantic segments. For story generation, TaleCrafter~\cite{gong2023talecrafter} modularizes story visualization into four interconnected components—story-to-prompt generation, text-to-layout generation, controllable text-to-image generation, and image-to-video animation—enabling interactive edits on intermediate representations and avoiding repeated end-to-end resampling. Animate-A-Story~\cite{he2023animate} adopts retrieval-augmented narrative synthesis to offload complex motion structure to retrieved priors. For controllable production such as virtual try-on, ViViD~\cite{fang2024vivid} extends diffusion to video with garment/pose encoders and hierarchical temporal modules to strengthen spatiotemporal coherence. PlayerOne~\cite{tu2025PlayerOne} formulates egocentric video generation as motion-conditioned world modeling, introducing a joint reconstruction framework for 4D scenes and video frames that supports real-time first-person exploration while ensuring scene consistency and temporal continuity.
+
+\subsection{Video-Driven Scene Generation}
+Video-driven scene generation methods leverage the spatial priors embedded in video generation models to synthesize more coherent and realistic 3D/4D environments.
+
+Some approaches decompose the pipeline into two stages: video generation and 3D optimization. They first use a video model to synthesize a reference video or multi-view sequence, and then recover scene structure via techniques such as 4D Gaussians. VividDream~\cite{lee2024vividdreamgenerating3dscene} introduces a novel pipeline that first constructs and expands a static 3D scene according to an input image, then generates dynamic multi-view videos with a video diffusion model, and finally makes use of them to optimize an explorable 4D scene. Similarly, 4Real~\cite{yu2024real} and Free4D~\cite{liu2025free4dtuningfree4dscene} first generate a temporally consistent reference video and then expand the viewpoint range through frame-conditioned video generation. These methods benefit from a stable modular pipeline; however, because video generation and geometric reconstruction are decoupled, errors can accumulate progressively.
+
+Other approaches aim to jointly model spatiotemporal information within a unified model, directly generating representations that are consistent across time and viewpoints. A promising direction is to combine the geometric priors of feed-forward 3D reconstruction models with the generative capability of video diffusion models. Gen3R~\cite{huang2026gen3r3dscenegeneration} unifies feed-forward 3D reconstruction with video diffusion in a shared latent space, enabling the joint generation of temporally consistent RGB videos and their 3D geometry within a single framework. Other approaches, such as CAT4D~\cite{wu2024cat4dcreate4dmultiview}, address dynamic scene generation by first expanding a monocular video into dynamic multi-view videos with a video diffusion model and then optimizing a deformable 3D Gaussian representation to recover the final 4D scene. StarGen~\cite{zhai2025stargenspatiotemporalautoregressionframework} conditions each temporal sliding window on the overlapping frame from the preceding sliding window to maintain temporal consistency, and on images covering the largest common spatial area in the scene with the current sliding window to improve spatial consistency during long-range generation. Due to their potential advantages in consistency and generation efficiency, these unified approaches are increasingly becoming an important direction for video-driven scene generation.
+
+\section{Conclusions}
+\label{sec:conclusions}
+In this paper, we provide a comprehensive and systematic review of the critical intersection between efficiency improvement techniques and video-based world models. We explore how efficiency-oriented designs empower video-based world simulators in three primary dimensions: efficient modeling paradigms, efficient architectures, and efficient algorithms. In addition, we investigate how these efficient video generation frameworks directly enhance downstream applications such as autonomous driving, embodied AI, and gaming. Based on this review, we summarize challenges and future opportunities in this rapidly developing field, offering potential solutions for next-generation models facing increasingly complex physical dynamics and substantial computational demands. 
+%We hope this survey has demonstrated that bridging the efficiency gap is a fundamental prerequisite for evolving video generators into general-purpose, real-time, and robust world simulators.
+
+
+
+
+%\section*{Acknowledgments}
+
+
+\bibliographystyle{IEEEtran}
+\bibliography{main}
+
+
+%\newpage
+
+%\section{Biography Section}
+%If you have an EPS/PDF photo (graphicx package needed), extra braces are needed around the contents of the optional argument to biography to prevent the LaTeX parser from getting confused when it sees the complicated $\backslash${\tt{includegraphics}} command within an optional argument. (You can create your own custom macro containing the $\backslash${\tt{includegraphics}} command to make things simpler here.)
+ 
+%\vspace{11pt}
+
+%\bf{If you include a photo:}\vspace{-33pt}
+%\begin{IEEEbiography}[{\includegraphics[width=1in,height=1.25in,clip,keepaspectratio]{fig1}}]{Michael Shell}
+%Use $\backslash${\tt{begin\{IEEEbiography\}}} and then for the 1st argument use $\backslash${\tt{includegraphics}} to declare and link the author photo.
+%Use the author name as the 3rd argument followed by the biography text.
+%\end{IEEEbiography}
+
+%\vspace{11pt}
+
+%\bf{If you will not include a photo:}\vspace{-33pt}
+%\begin{IEEEbiographynophoto}{John Doe}
+%Use $\backslash${\tt{begin\{IEEEbiographynophoto\}}} and the author name as the argument followed by the biography text.
+%\end{IEEEbiographynophoto}
+
+
+
+\vfill
+
+\end{document}
+
+

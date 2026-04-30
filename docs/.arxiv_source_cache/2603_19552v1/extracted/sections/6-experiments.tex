@@ -1,0 +1,184 @@
+\section{Experiments}\label{sec:experiments}
+
+We evaluate \StreetForward~ on the Waymo Open Dataset~\cite{waymo2020} and the Carla dataset. Baselines include recent feedforward methods STORM~\cite{yang2024storm}, DGGT~\cite{chen2025dggt}, AnySplat~\cite{jiang2025anysplat}, and DepthAnythingv3~\cite{depthanythingv3}, as well as the optimization-based PVG~\cite{chen2026periodic}. For depth estimation, we additionally compare with VGGT~\cite{vggt} and Pi3~\cite{pi3}. Unless otherwise noted, best, second-best, and third-best results in the tables are marked with \best{best}, \second{second}, and \third{third}, respectively.
+
+\subsection{Waymo}\label{sec:exp-waymo}
+We follow the evaluation protocol of STORM~\cite{yang2024storm}. The Model is trained on the training split (798 scenes, approximately 190--200 frames each) and evaluated on the test split (202 scenes), covering diverse scenarios such as dense traffic, nighttime scenes, and rainy weather.
+Each evaluation video clip consists of 20 images, and the 1st, 5th, 10th, and 15th frames are provided as context images, and the remaining frames are treated as target views for evaluation.
+We report standard metrics including Peak Signal-to-Noise Ratio (PSNR), Structure Similarity Index Measure (SSIM) for rendering quality and Depth Root Mean Square Error (RMSE) for geometry accuracy.
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=\linewidth]{images/sf-qual.pdf}
+\caption{Qualitative comparision on Waymo Open Datasets. 
+}
+\label{fig:qual}
+\end{figure*}
+
+\subsubsection{View synthesis.}
+
+We report PSNR/SSIM on (i) dynamic-only regions and (ii) the full image in Table~\ref{tab:waymo-original}.
+Our proposed method StreetForward achieves the best performance on dynamic regions, indicating more faithful synthesis of moving content without relying on tracking or segmentation at inference time. On the full-frame metrics, our approach remains highly competitive and is close to the leading baseline. We highlight the best and second-best values in each column. Baseline results for PVG~\cite{chen2026periodic}, STORM~\cite{yang2024storm} and DGGT~\cite{chen2025dggt} are sourced from their published reports.
+Fig.~\ref{fig:qual} provides qualitative results on challenging cases. For each example, the two subfigures correspond to temporal interpolation and extrapolation respectively. AnySplat~\cite{jiang2025anysplat} explicitly model object motion, which leads to ghosting artifacts on dynamic objects and opacity collapse in some cases that creates visible holes. STORM~\cite{yang2024storm} produces blurred dynamic objects due to inaccurate velocity estimation. DGGT~\cite{chen2025dggt} relies on tracker~\cite{tapip3d} to predict dynamic motion and can yield implausible trajectories under extrapolation, such as vehicle drifting in the sky, collisions, or partially missing objects. Our method produces more coherent motion and geometry under both interpolation and extrapolation.
+
+
+\begin{figure*}[!t]
+\centering
+\begin{minipage}[t]{0.46\linewidth}
+    \vspace{0pt}
+    \centering
+    \resizebox{\linewidth}{!}{%
+    \begin{tabular}{l|cc|cc}
+    \toprule
+    & \multicolumn{2}{c}{Dynamic only} & \multicolumn{2}{c}{Full image}\\
+    Method & PSNR$\uparrow$ & SSIM$\uparrow$ & PSNR$\uparrow$ & SSIM$\uparrow$ \\
+    \midrule
+    PVG ~\cite{chen2026periodic} &15.51 &0.128 &22.38 &0.661\\
+    AnySplat~\cite{jiang2025anysplat} &15.99 &0.418 &23.32 &0.687\\
+    DA3 w/ GS Head~\cite{depthanythingv3} &15.96 &0.429 &23.27 &0.686\\
+    STORM~\cite{yang2024storm} & \second{22.10} & \third{0.624} & \third{26.38} & \third{0.794}  \\
+    DGGT~\cite{chen2025dggt}  & \third{20.99} & \second{0.821} & \best{27.41} & \best{0.846} \\
+    \midrule
+    \textbf{Ours} & \best{24.30} & \best{0.827} & \second{27.01} & \second{0.818}   \\
+    \bottomrule
+    \end{tabular}
+    }
+    \captionof{table}{Waymo original-view (intrapolation) synthesis in PSNR and SSIM. Best and second-best per column are indicated by color boxes. Values for STORM and DGGT are transcribed from the cited papers.}
+    \label{tab:waymo-original}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.46\linewidth}
+    \vspace{0pt}
+    \resizebox{\linewidth}{!}{%
+    \begin{tabular}{l|cc|c}
+    \toprule
+    Method & Static Only & Dynamic Only & Full Image \\
+    \midrule
+    VGGT~\cite{vggt} & \third{3.84} & \second{6.36} & \second{4.07} \\
+    Pi3~\cite{pi3} & 5.46 & 7.93 & 5.61 \\
+    DA3~\cite{depthanythingv3} & 11.25 & 12.20 & 11.66 \\
+    \midrule
+    PVG ~\cite{chen2026periodic} &- &15.91 & 13.01 \\
+    STORM~\cite{yang2024storm} & -   & 7.50             & 5.48 \\
+    AnySplat~\cite{jiang2025anysplat} &9.83 &10.45 &10.31\\
+    DGGT~\cite{chen2025dggt}   & \second{3.47} & \third{6.37} &  \third{4.08} \\
+    \midrule
+    \textbf{Ours}                       &\best{3.09} &\best{3.45} &\best{3.14} \\
+    \bottomrule
+    \end{tabular}
+    }
+    \captionof{table}{Waymo sparse-depth RMSE $\downarrow$ (LiDAR). 
+    Values for STORM and DGGT are transcribed from the cited papers.
+    }
+    \label{tab:waymo-depth}
+\end{minipage}
+\vspace{-0.5cm}
+\end{figure*}
+
+
+
+
+\subsubsection{Depth estimation.}
+Geometry accuracy is evaluated using per-pixel depth RMSE against sparse LiDAR depth projected into each camera view, and the results are reported in Table~\ref{tab:waymo-depth}.
+We report errors on static-only regions, dynamic-only regions and full image (all pixels with valid LiDAR depth). StreetForward consistently yields the lowest error, with especially strong improvements on moving vehicles, highlighting the benefit of causal motion encoding and velocity-aware fusion for maintaining dynamic geometry. Fig.~\ref{fig:qual} shows consistent qualitative gains, including cleaner reconstruction of thin structures (poles, traffic lights, cables) and sharper geometry and renderings for dynamic vehicles.
+
+
+
+\subsection{Carla}\label{sec:exp-carla}
+For domain-transfer validation, we render a Carla test set of 100 clips with matched camera intrinsics and fixed extrinsics, ensuring controlled geometry and viewpoint distribution. 
+We additionally render shifted viewpoints (left/right lane offsets) from the original camera views, enabling a controlled evaluation of novel-view synthesis.
+Our model is trained on Waymo training set and evaluate on Carla in a zero-shot manner without any fine-tuning. 
+Following the same protocol as above, we report novel-view synthesis quality (PSNR/SSIM) on both dynamic-only regions and full images, as well as dense depth accuracy (RMSE) in Table~\ref{tab:carla-original-rgb} and Table~\ref{tab:carla-depth}. Across all metrics and evaluation regimes, StreetForward outperforms the strongest baseline, with particularly clear advantages on dynamic regions. These results indicate improved robustness to domain shift in both appearance reconstruction and motion-consistent geometry.
+
+
+
+\begin{figure*}[h]
+\centering
+\begin{minipage}[t]{0.42\linewidth}
+    \vspace{0pt} 
+    \centering
+    \resizebox{\linewidth}{!}{%
+    \begin{tabular}{l|cc|cc}
+    \toprule
+    & \multicolumn{2}{c|}{Dynamic Only} & \multicolumn{2}{c}{Full Image}\\
+    Method & PSNR$\uparrow$ & SSIM$\uparrow$ & PSNR$\uparrow$ & SSIM$\uparrow$ \\
+    \midrule
+    AnySplat~\cite{jiang2025anysplat} & 13.18 & 0.339 & 19.57 & 0.552 \\
+    DA3 w/ GS Head~\cite{depthanythingv3} & \third{14.11} & \third{0.399} & \third{20.41} & \third{0.591} \\
+    STORM~\cite{yang2024storm} &12.80  &0.313  &18.23  &0.542   \\
+    DGGT~\cite{chen2025dggt} & \second{21.32} & \second{0.691} & \second{23.91} & \second{0.747} \\
+    \midrule
+    \textbf{Ours} & \best{22.37} & \best{0.741} & \best{24.62} & \best{0.759} \\
+    \bottomrule
+    \end{tabular}
+    }
+    \captionof{table}{Carla original-view RGB synthesis under zero-shot transfer from Waymo (no fine-tuning on Carla). We report PSNR$\uparrow$ and SSIM$\uparrow$ for dynamic-only regions (vehicle masks from SAMv3~\cite{carion2025sam3segmentconcepts} used for evaluation only) and for the full image.}
+    \label{tab:carla-original-rgb}
+
+    \vspace{1em}
+
+    \resizebox{\linewidth}{!}{%
+    \begin{tabular}{l|c|c|c}
+    \toprule
+    Method & Static Only & Dynamic Only & Full Image \\
+    \midrule
+    VGGT~\cite{vggt} & \second{6.11} & \third{8.55} & \second{6.24} \\
+    Pi3~\cite{pi3} & 9.85 & 12.76 & 9.22 \\
+    \midrule
+    AnySplat~\cite{jiang2025anysplat} & 8.29 & 13.12 & 9.14 \\
+    DGGT~\cite{chen2025dggt}   & \third{6.53} & \second{7.93} & \third{6.56} \\
+    \midrule
+    \textbf{Ours}                       & \best{6.01} & \best{7.16} & \best{6.01} \\
+    \bottomrule
+    \end{tabular}
+    }
+    \captionof{table}{Carla dense-depth RMSE$\downarrow$ under zero-shot transfer from Waymo (no fine-tuning on Carla). The static-only score excludes dynamic pixels; dynamic-only is computed on vehicle regions; full-image uses all valid pixels.}
+    \label{tab:carla-depth}
+    
+
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.52\linewidth}
+\vspace{0pt}
+    \centering
+    \includegraphics[width=\linewidth]{images/sf-fig-qual-carla.pdf}
+    \captionof{figure}{Qualitative comparison on Carla Datasets.}
+    \label{fig:qual}
+\end{minipage}
+\end{figure*}
+
+
+
+\subsection{Ablation Study}\label{sec:ablation}
+We ablate key components on the Waymo Open Dataset~\cite{waymo2020} and report PSNR and SSIM on dynamic-only and full-image partitions (Table~\ref{tab:ablation}). The full model consistently outperforms all variants. In brief, causal masked attention is crucial for temporally directed motion encoding; local rigidity and forward–backward consistency stabilize trajectories (see qualitative evidence in Fig.~\ref{fig:exp_rigid} and Fig.~\ref{fig:forward_backward}; and opacity stabilization prevents a common failure under multi-frame fusion where primitives reduce opacity instead of aligning geometrically, which otherwise produces low-opacity artifacts in novel views in Fig.~\ref{fig:vel}.
+
+\begin{table}[!ht]
+\resizebox{\linewidth}{!}{
+\begin{tabular}{l|cc|cc}
+\toprule
+& \multicolumn{2}{c}{Dynamic Only} & \multicolumn{2}{c}{Full Image}\\
+Method / Variant & PSNR$\uparrow$ & SSIM$\uparrow$ & PSNR$\uparrow$ & SSIM$\uparrow$ \\
+\midrule
+\textbf{Ours}                       & \best{24.30} & \best{0.827} & \best{27.01} & \best{0.818} \\
+\midrule
+\quad w/o causal attention                & 22.36 & 0.714 & 24.07 & 0.781 \\
+\quad fixed causal horizon $k{=}1$        & 22.96 & 0.722 & 24.66 & 0.760 \\
+\quad w/o $\mathcal{L}_\text{rigid}$      & 22.64 & 0.743 & 26.21 & 0.786 \\
+\quad w/o $v^-$ (forward-only)            & 23.26 & 0.786 & 26.88 & 0.809 \\
+\quad w/o $\mathcal{L}_\text{fb}$         & 23.03 & 0.721 & 26.43 & 0.794 \\
+\quad w/o $\mathcal{L}_\alpha$            & 21.02 & 0.659 & 25.85 & 0.683 \\
+\bottomrule
+\end{tabular}
+}
+\caption{Ablation on causal modeling and regularization (Waymo). Variants: w/o causal attention; fixed horizon ($k{=}1$); w/o $\mathcal{L}_{\text{rigid}}$; w/o backward velocity ($v^-$); w/o $\mathcal{L}_{\text{fb}}$; w/o $\mathcal{L}_{\alpha}$.}
+\label{tab:ablation}
+\end{table}
+
+\subsubsection{Causal dynamic modeling.}
+Removing causal masked attention or fixing the horizon ($k{=}1$) weakens temporal discrimination in motion tokens, leading to inconsistent velocities under varying sampling rates and noticeable drops on dynamic-only PSNR/SSIM. These failures manifest as ghosting and temporal blur in interpolation, as seen in Fig.~\ref{fig:forward_backward}, and reduced robustness to false-positive motion prompts in Fig.~\ref{fig:vel}.
+
+\subsubsection{Motion regularization.}
+Local rigidity ($\mathcal{L}_{\text{rigid}}$) reduces velocity drift and preserves multi-frame aggregation; without it, structural floaters and collapsed proposals appear (Fig.~\ref{fig:exp_rigid}), consistent with the quantitative drop in Table~\ref{tab:ablation}. Forward-only motion (w/o $v^-$) remains competitive numerically but loses occlusion-recovery details on dynamic regions; dropping $\mathcal{L}_{\text{fb}}$ further reduces temporal coherence, as reflected in Fig.~\ref{fig:forward_backward}.
+
+\subsubsection{Geometric regularization.}
+Opacity stabilization ($\mathcal{L}_{\alpha}$) is essential under cross-frame fusion. Without it, primitives tend to lower opacity instead of aligning in 3D, yielding low-opacity artifacts and degraded PSNR/SSIM; Fig.~\ref{fig:vel} illustrates how the regularizer prevents such “black holes” and keeps splats participating in rendering so the RGB loss refines geometry rather than masking errors.

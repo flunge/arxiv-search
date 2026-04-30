@@ -1,0 +1,253 @@
+\clearpage
+\setcounter{page}{1}
+\maketitlesupplementary
+% {
+%     \newpage
+%     \twocolumn[
+%         \centering
+%         \Large
+%         \textbf{Supplementary Material}\\
+%         \vspace{0.5em}
+%         \vspace{1.0em}
+%     ]
+% }
+
+\renewcommand{\thefigure}{S\arabic{figure}}
+\setcounter{figure}{0}
+\renewcommand{\thetable}{S\arabic{table}}
+\setcounter{table}{0}
+\renewcommand{\thesection}{\Alph{section}}
+\setcounter{section}{0}
+
+\section{Additional Implementation Details}
+
+\noindent\textbf{Palette Filtering Strategy.}
+To ensure dataset quality, we apply a palette-consistency filter defined as $\mathcal{S}_{\text{palette}} > \eta_{\text{palette}}$, where $\mathcal{S}_{\text{palette}}$ measures intensity distribution of the ground truth image, where pixels are inside the masked region (from rendering). Here we set $\eta_{\text{palette}} = 0.68$, following the proportion of samples within one standard deviation of the mean under a normal distribution. We also test other combinations of the standard and mean and test their performance, which is shown in Table~\ref{tab:pallete_std}. This threshold achieves the best trade-off: it removes visually inconsistent samples while retaining high-fidelity renderings, thereby significantly improving training stability and final perceptual quality without overly shrinking the dataset.
+\\
+
+\noindent\textbf{Mask Refinement with Morphological Operations.}
+The refined mask is obtained through a two-stage morphological post-processing of the initial segmentation mask. 
+We first apply closing with a $5 \times 5$ disk kernel ($\mathbf{K}_{5}$) to eliminate small holes and connects nearby regions. 
+Subsequently, we perform dilation with a $20 \times 20$ dilation kernel ($\mathbf{K}_{20}$) to recover the main object contour while still suppressing noise. 
+This asymmetric design compensates for the systematic under-segmentation tendency of the off-the-shelf segmenter on our data, yielding masks that are both clean and sufficiently tight for the refinement task.
+\\
+
+\noindent\textbf{Details for Diffusion Condition.}
+We employ multiple conditioning signals in the diffusion model, including the coarse image, binary mask, text prompt, reference image, and geometry tokens. These conditions are injected at different stages of the pipeline following the setting in T2I~\cite{mou2024t2i}.
+\\
+
+\noindent\textbf{Coarse Renderings and Mask.}
+The coarse image is first resized to $512 \times 512$ pixels and then encoded by the VAE encoder into a $64 \times 64$ latent representation (4 channels). 
+The binary mask is converted to a single-channel grayscale image and resized to $64 \times 64$. 
+After spatial alignment, the coarse image latent and the mask are concatenated channel-wise with the noised latent from the Stable Diffusion scheduler, forming the initial input to the Diffusion UNet.
+\begin{equation}
+\mathbf{Z}_{\text{input}} = \underbrace{\text{concat} \Big( \mathbf{Z}_t,\; \underbrace{\text{VAE}(\bar{I}),\; {M}^{refine}}_{\text{5 channels (condition)}} \Big)}_{\text{9 channels total}},
+\end{equation}
+\\
+
+\noindent\textbf{Reference Image and Geometry Tokens.}
+The reference image and geometry tokens are fed into the Leveling Adapter. 
+They are first fused via a cross-attention module to produce a joint conditioning feature. 
+This feature is subsequently processed by the adapter blocks to generate conditioning vectors that are injected into the Diffusion UNet through cross-attention layers.
+\\
+
+\noindent\textbf{Text Prompt.}
+The text prompt guides the denoising process. We use \textit{"inpaint the image and remove degradation"} as our text prompt.
+The text prompt is first encoded into a fixed-length embedding by the CLIP text encoder.
+The resulting text embeddings are then used in the cross-attention layers of the Diffusion UNet to condition the generation at every denoising step.
+\\
+
+\section{Evaluation Details}
+\noindent\textbf{Data Selection.} We choose to evaluate on the MipNeRF360~\cite{barron2022mip}, VRNeRF~\cite{xu2023vr}, TartanAir~\cite{wang2020tartanair}, and ScanNet~\cite{dai2017scannet} datasets since they are unseen in the training process of both~\cite{wang2025vggt, jiang2025anysplat} and our method. Similar to the data selection criterion of AnySplat~\cite{jiang2025anysplat}. 
+For each dataset, we randomly select 5 distinct scenes. 
+In each scene, we first determine an inter-image sparsity (sampling step) from \{5, 10, 20\} according to the characteristics of that scene. 
+Using the chosen sparsity, we uniformly sample frames from the entire image sequence. 
+From these sampled frames, we then randomly select two as training anchor views such that there are 4 to 6 frames between them. 
+All frames lying strictly between these two anchors (under the same sparsity) are used as novel views for evaluation. 
+Additionally, we include one extra frame immediately before the first anchor and one immediately after the last anchor within the range of step \{1, 4\}, both sampled with the same sparsity.
+\\
+
+
+\section{Additional Ablation on Palette Filtering}
+\input{tables/table_palette_std}
+Table~\ref{tab:pallete_std} studies the effect of different palette thresholds on VRNeRF~\cite{xu2023vr}. We vary the concentration range used to compute the palette score, namely mean $\pm 0.5$ std, mean $\pm 1$ std, and mean $\pm 1.5$ std, which correspond to thresholds of 0.38, 0.68, and 0.86, respectively. Among these settings, mean $\pm 1$ std achieves the best overall performance, improving PSNR/SSIM to 18.362/0.610 and reducing LPIPS/FID/Met3R to 0.314/141.15/0.0242. In comparison, a narrower range is overly sensitive and yields inferior visual quality, while a wider range is too permissive and allows more low-information samples into training. These results indicate that the mean $\pm 1$ std criterion provides the best trade-off between filtering masked regions and preserving sufficiently diverse supervision.
+
+\section{Additional Qualitative Results with Different Diffusion Condition Methods}
+
+\begin{figure*}[t]
+  \centering
+  % \fbox{\rule{0pt}{1.5in} \rule{0.9\linewidth}{0pt}}
+   \includegraphics[width=\linewidth]{figures/supp_diff.pdf}
+
+   \caption{\textbf{Qualitative Results with Different Diffusion Condition Methods.} Our method outperforms other diffusion condition methods.}
+   \label{fig:quali_diff}
+\end{figure*}
+In this section, we evaluate several diffusion condition methods and compare their qualitative performance in Fig.~\ref{fig:quali_diff}.
+We utilize the standard Stable Diffusion 2~\cite{Rombach_2022_SD2} pipeline (image encoding, masked-region denoising, and latent merging). Stable Diffusion 2 (SD2) concatenates the noisy latent, the resized mask, and the masked original latents into a 9-channel UNet input for progressive denoising. The naive SD2 generally yields reasonable results but lacks explicit control conditions, often leading to implausible or artifact-prone outputs.
+ControlNet and T2I-Adapter build upon the SD2 inpainting pipeline and inject a reference image as additional conditioning. While they provide stronger control over content and layout, they still struggle with precise geometric alignment and fine-grained pixel-level coherence. Our model fills this gap by generating 3D accurate extrapolated areas with geometry condition.
+
+
+\input{tables/table_mix_driving_surg}
+\input{tables/table_depth_sup}
+\section{Additional Experiments on Driving Scenes}
+To further demonstrate the generalization capability of Leveling3D, we directly apply our method, without any fine-tuning, to the challenging large-scale autonomous driving benchmark nuScenes~\cite{nuscenes2019}. As shown in Fig.~\ref{fig:nuscenes_fig} and Table~\ref{tab:nuscene_tab}, Leveling3D achieves satisfactory scene completion and refinement quality under extremely sparse input conditions (as few as 1–2 input images), substantially outperforming previous specialized methods specifically designed and trained on this dataset. These results highlight Leveling3D’s unique ability to generate complete and degradation-free 3D scenes from sparse input views. As world models are rapidly emerging as a core paradigm for embodied intelligence, our approach shows considerable potential as an effective and versatile component for future autonomous agents and general scene understanding systems.
+
+
+\begin{figure}[t!]
+  \centering
+  % \fbox{\rule{0pt}{1.5in} \rule{0.9\linewidth}{0pt}}
+   \includegraphics[width=\linewidth]{figures/nuscenes.pdf}
+
+   \caption{\textbf{Qualitative results on nuScenes dataset.} Our method outperforms other methods on novel view synthesis.}
+   \label{fig:nuscenes_fig}
+\end{figure}
+
+
+\begin{figure*}[t!]
+  \centering
+  % \fbox{\rule{0pt}{1.5in} \rule{0.9\linewidth}{0pt}}
+   \includegraphics[width=\linewidth]{figures/scared.pdf}
+
+   \caption{\textbf{Qualitative results on SCARED dataset.} Leveling3D achieves the best results for cross-domain surgical-scene novel-view synthesis and depth estimation, demonstrating robust generalization.}
+   \label{fig:scared_NVS}
+\end{figure*}
+
+
+\section{Additional Experiments on Surgical Scenes}
+We also validate the generalization of Leveling3D on even more challenging cross-domain SCARED~\cite{allan2021stereo_scared} dataset (Stereo Correspondence and Reconstruction of Endoscopic Data Challenge), a benchmark for surgical scene understanding. We assess both novel view synthesis and depth estimation under sparse input conditions. Quantitative results, reported in Table~\ref{tab:scared_NVS} for novel view synthesis and Table~\ref{tab:depth_sup} for depth estimation, demonstrate that Leveling3D achieves highly competitive performance compared to existing methods (see Fig.~\ref{fig:scared_NVS} for visual comparisons). These results highlight Leveling3D’s ability to effectively reconstruct surgical scenes by completing missing regions and reducing artifacts, even with limited input views and limited brightness. This capability underscores its significant potential for real-world surgical robotics applications, where acquiring input data is often challenging.
+
+
+
+
+\section{Number of Parameters and Inference Time}
+
+Table~\ref{tab:param_and_inference} reports the number of trainable parameters and inference time of baseline and all other diffusion control methods, as well as our method. The inference time is measured on the same device and averaged over 100 independent runs.
+\\
+
+\noindent\textbf{StableDiffusion2~\cite{Rombach_2022_SD2}.}
+The Stable Diffusion 2 contains the VAE Model, CLIP Text Model, and UNet. Here we only finetune the parameters of UNet, which totally contains \textbf{865.83M} parameters. The averaged single inference time for StableDiffusion2 is \textbf{1.071s}.
+\\
+\input{tables/table_param_inference_time}
+
+\noindent\textbf{T2I Adapter~\cite{mou2024t2i}.}
+T2I Adapter training will freeze the Stable Diffusion components, focus mainly on the ResBlock-based T2I Adapter, and contain a total \textbf{83.51M} parameters. The averaged single inference time is \textbf{1.186s}.
+\\
+
+\noindent\textbf{Leveling3D.}
+Our Leveling3D utilizes part of the T2I Adapter structure and adds a cross-attention module for the fusion of the geometry features and the reference images. We still freeze the Stable Diffusion components during the training, and the total number of trainable parameters is \textbf{68.74M} parameters. The averaged single inference time for our method is \textbf{1.167s}.
+\\
+
+\noindent\textbf{ControlNet~\cite{zhang2023ControlNet}.}
+The ControlNet training also freezes the Stable Diffusion components, and the total number of training parameters in ControlNet is \textbf{369.34M}. The averaged single inference time is \textbf{1.548s}.
+
+\section{Metrics}
+\subsection{Image Metrics}
+
+\noindent\textbf{LPIPS~\cite{johnson2016perceptual}}
+We use the Learned Perceptual Image Patch Similarity (LPIPS) both as a training objective and as an evaluation metric. 
+Unlike pixel-wise measures (e.g., MSE), LPIPS assesses perceptual similarity by computing distances between deep features from a pre-trained VGG network. 
+It is defined as
+\begin{equation}
+\mathcal{L}_{\text{LPIPS}} = \frac{1}{L} \sum_{l=1}^{L} \alpha_l \Big\| \phi_l(\hat{I}) - \phi_l(I) \Big\|_2^2,
+\end{equation}
+where \(\phi_l(\cdot)\) denotes the feature map from the \(l\)-th layer of the network, and \(\alpha_l\) are learned weighting coefficients. 
+Lower LPIPS scores indicate higher perceptual similarity.
+\\
+
+\noindent\textbf{PSNR}
+Peak Signal-to-Noise Ratio (PSNR) measures pixel-level fidelity between generated and ground-truth images. 
+It is defined as
+\begin{equation}
+\text{PSNR} = 10 \cdot \log_{10} \left( \frac{\text{MAX}^2}{\text{MSE}} \right),
+\end{equation}
+where \(\text{MAX}\) is the maximum possible pixel value (255 for 8-bit images) and \(\text{MSE}\) is the mean squared error. 
+Higher PSNR values correspond to better reconstruction quality.
+\\
+
+\noindent\textbf{FID~\cite{heusel2017gans_FID}}
+We employ the Fréchet Inception Distance (FID) to quantify the distributional similarity between generated and real images. 
+FID computes the Wasserstein-2 distance between Gaussian distributions fitted to Inception-v3 feature embeddings:
+\begin{equation}
+\text{FID} = \|\mu_{\text{gen}} - \mu_{\text{gt}}\|_2^2 + \operatorname{Tr}\!\left( \Sigma_{\text{gen}} + \Sigma_{\text{gt}} - 2(\Sigma_{\text{gen}} \Sigma_{\text{gt}})^{1/2} \right),
+\end{equation}
+where \(\mu_{\text{gen}}, \mu_{\text{gt}}\) and \(\Sigma_{\text{gen}}, \Sigma_{\text{gt}}\) are the respective means and covariances of the feature distributions. 
+Lower FID scores indicate better alignment with the real data distribution.
+\\
+
+\noindent\textbf{SSIM~\cite{wang2004image_ssim}}
+Structural Similarity Index Measure (SSIM) evaluates perceptual quality by comparing luminance, contrast, and structural information. 
+For images \(I_{\text{gen}}\) and \(I_{\text{gt}}\), it is defined as
+\begin{equation}
+\text{SSIM}(I_{\text{gen}}, I_{\text{gt}}) = \frac{(2\mu_{\text{gen}}\mu_{\text{gt}} + C_1)(2\sigma_{\text{gen,gt}} + C_2)}{(\mu_{\text{gen}}^2 + \mu_{\text{gt}}^2 + C_1)(\sigma_{\text{gen}}^2 + \sigma_{\text{gt}}^2 + C_2)},
+\end{equation}
+where \(\mu\) and \(\sigma^2\) are the mean and variance of pixel intensities, \(\sigma_{\text{gen,gt}}\) is the covariance, and \(C_1\), \(C_2\) are small constants for numerical stability. 
+Higher SSIM values (closer to 1) reflect greater structural similarity.
+\\
+
+\subsection{Depth and Geometry Metrics}
+We evaluate monocular depth estimation and 3D reconstruction quality using the following standard metrics.
+
+\noindent\textbf{Abs Rel} \quad Absolute relative error measures the average relative difference:
+\begin{equation}
+\text{Abs Rel} = \frac{1}{N}\sum_{i=1}^{N} \frac{|d_{\text{pred}}^{(i)} - d_{\text{gt}}^{(i)}|}{d_{\text{gt}}^{(i)}},
+\end{equation}
+\\
+
+\noindent\textbf{RMSE} \quad Root mean squared error quantifies absolute deviation in metric units:
+\begin{equation}
+\text{RMSE} = \sqrt{\frac{1}{N}\sum_{i=1}^{N} (d_{\text{pred}}^{(i)} - d_{\text{gt}}^{(i)})^2},
+\end{equation}
+\\
+
+\noindent\textbf{$\text{RMSE}_{log}$} \quad Root mean squared error in log space, more robust to scale variations:
+\begin{equation}
+\text{RMSE}_{log} = \sqrt{\frac{1}{N}\sum_{i=1}^{N} \bigl(\log d_{\text{pred}}^{(i)} - \log d_{\text{gt}}^{(i)}\bigr)^2},
+\end{equation}
+\\
+
+\noindent\textbf{{$\delta < 1.25$}} \quad Threshold accuracy: fraction of pixels where the ratio (or inverse) is within $1.25$:
+\begin{equation}
+\delta < 1.25 = \frac{1}{N}\sum_{i=1}^{N} 
+\mathbf{1}\left(
+\max\left(\frac{d_{\text{pred}}^{(i)}}{d_{\text{gt}}^{(i)}}, \frac{d_{\text{gt}}^{(i)}}{d_{\text{pred}}^{(i)}}\right) < 1.25
+\right)
+\end{equation}
+Higher values are better for $\delta < 1.25$; lower values are better for the others. Here, $d_{\text{pred}}^{(i)}, \log d_{\text{gt}}^{(i)}$ are the corresponding pixel depths for the prediction and the ground truth, $N$ is the number of valid pixels used for depth evaluation.
+\\
+
+
+\noindent\textbf{Met3R~\cite{asim25met3r}} \quad The original Met3R score is used to compute the multi-view 3D consistency of generated images. A lower Met3R score $ \mathrm{MEt3R}(\cdot, \cdot)\in[0,2]$ indicates better image consistency. It is defined as:
+\begin{equation}
+\mathrm{MEt3R}(\mathbf{I}_1, \mathbf{I}_2) = 1 - \frac{1}{2} \Bigl( S(\mathbf{I}_1, \mathbf{I}_2) + S(\mathbf{I}_2, \mathbf{I}_1) \Bigr)
+\end{equation}
+where $S(\cdot, \cdot)$ means similarity calculation as in~\cite{asim25met3r}, and $\mathbf{I}$ means input image.
+To extend this metric to image sequences, we first arrange the generated images in spatial order and then form consecutive pairs from the sequence, computing the average of their Met3R scores. This is defined as:
+\begin{equation}
+\mathrm{MEt3R}_{\text{seq}} \left( \{\mathbf{I}_i\}_{i=0}^{N-1} \right)
+= \frac{1}{N-1} \sum_{i=0}^{N-2} \mathrm{MEt3R}(\mathbf{I}_i, \mathbf{I}_{i+1})
+\end{equation}
+
+
+
+
+
+
+\begin{figure*}[t]
+  \centering
+  % \fbox{\rule{0pt}{1.5in} \rule{0.9\linewidth}{0pt}}
+   \includegraphics[width=0.9\linewidth]{figures/failure_cases.pdf}
+
+   \caption{\textbf{Failure cases.} The highlighted areas are the key to failure.}
+   \label{fig:failure_cases}
+\end{figure*}
+
+\section{Failure Cases Analysis}
+Our method still exhibits failure cases, mainly due to two limitations. 
+First, the generative model often generates artifacts when the target object is small or its reference features are overlooked. 
+Second, the reconstruction baseline~\cite{jiang2025anysplat} suffers from issues in challenging regions~\cite{jiang2025anysplat} (e.g., textureless surfaces and large viewpoint changes), which directly impact the quality of our generated scenes.
+
+
+
+We show representative failure cases in Fig.~\ref{fig:failure_cases}.
+Cases (a) and (b) stem from inherent limitations of the baseline AnySplat initialization. In (a), AnySplat introduces unexpected artifacts (e.g., dark streaks) outside the mask, which our method cannot correct since they lie beyond the designated refinement region. In (b), severe degradation or collapse of the initial Gaussian primitives results in extremely noisy and unstructured representations, leading to rough and unreasonable novel views. Cases (c) and (d) highlight a current limitation of Leveling3D itself: when extrapolation boundaries or object terminations lie very close to the mask border, our model sometimes fails to detect that the structure has already been fully revealed. Consequently, it either slightly over-extends existing objects (c, continuing a mural beyond its true endpoint) or overlooks clear termination cues (d, ignoring an exposed room corner and erroneously extending the geometry farther than it should). These cases typically occur under extremely aggressive extrapolation settings and suggest promising directions for future improvements, such as boundary-aware regularization or explicit modeling of termination signals.
+

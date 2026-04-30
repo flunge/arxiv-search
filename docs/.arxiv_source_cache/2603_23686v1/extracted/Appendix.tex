@@ -1,0 +1,183 @@
+\section{Algorithm Details}
+In the main paper, we present only the core components of our method. Therefore, in the appendix, we provide pseudocode for both the gradient-based and gradient-free variants to help readers better understand the algorithm. Moreover, the gradient-free variant described in the main paper is a simplified version; in this section, we provide the full version in detail.
+
+\begin{algorithm}[h]
+\caption{Gradient-Based Frequency-Domain Black-Box Attack}
+\label{alg:freq_nes_pgd}
+\textbf{Input:} Original image $\bm{I}\in \mathbb{R}^{H \times W \times 3}$, victim feed-forward 3DGS model $f(\cdot)$, adversarial loss $\mathcal{L}$, DCT block size $n$, low-frequency sub-block size $s$, PGD iterations $T$, step size $\eta$, $L_\infty$ perturbation bound $\epsilon$, number of NES noise samples $M$, NES search variance $\sigma$, zero-padding operator $\text{pad}_{s \to n}(\cdot)$ mapping $\mathbb{R}^{s \times s \times 3} \to \mathbb{R}^{n \times n \times 3}$, element-wise sign function $\text{sign}(\cdot)$. \\
+\textbf{Output:} Adversarial example $\bm{I}'\in \mathbb{R}^{H \times W \times 3}$
+\begin{algorithmic}[1] % [1] enables line numbers
+\State Initialize adversarial example: $\bm{I}' \leftarrow \bm{I}$
+\For{$t = 0$ \textbf{to} $T-1$}
+    \State Divide $\bm{I}'$ into $J$ blocks of equal size $n \times n$: $\{\bm{I}_b^{\prime 0}, \bm{I}_b^{\prime 1}, \dots, \bm{I}_b^{\prime J-1}\}$
+    \State Extract current DCT coefficients: $\bm{F}^j = \bm{C}^j \bm{I}_b^{\prime j} \bm{C}^{j\top}, \quad \forall j \in \{0, \dots, J-1\}$
+    \State Initialize gradient accumulators: $\mathbf{g}^j = \mathbf{0} \in \mathbb{R}^{s \times s \times 3}, \quad \forall j$
+    \vspace{0.05cm}
+    % \State \textcolor{gray}{\# 1. NES Gradient Estimation}
+    \For{$m = 0$ \textbf{to} $M-1$} 
+        \State Sample standard Gaussian noise in frequency domain:
+        \Statex \hspace{4em}$\mathbf{u}_m^j \sim \mathcal{N}(0, \mathbf{I}_{s \times s \times 3}), \quad \forall j$
+        \State Construct perturbed low-frequency coefficients:
+        \State \quad $\bm{F}_{ss, m}^{j, +} = \bm{F}_{0:s-1, 0:s-1}^j + \sigma \mathbf{u}_m^j$
+        \State \quad $\bm{F}_{ss, m}^{j, -} = \bm{F}_{0:s-1, 0:s-1}^j - \sigma \mathbf{u}_m^j$
+        \State Apply iDCT and concatenate to generate probe images $\bm{I}_m^{\prime +}, \bm{I}_m^{\prime -}$ (Eq. (10))
+        \State Obtain rendered images: $\bm{I}_{r, (m)}^{\prime +} = f(\bm{I}_m^{\prime +}), \; \bm{I}_{r, (m)}^{\prime -} = f(\bm{I}_m^{\prime -})$
+        \State Accumulate gradients: $\mathbf{g}^j \leftarrow \mathbf{g}^j + [\mathcal{L}(\bm{I}_m^{\prime +}, \bm{I}_{r, (m)}^{\prime +}) - \mathcal{L}(\bm{I}_m^{\prime -}, \bm{I}_{r, (m)}^{\prime -})] \mathbf{u}_m^j$
+    \EndFor
+    \vspace{0.05cm}
+    % \State \textcolor{gray}{\# 2. PGD Update on Frequency Domain} 
+    \State Compute spatial block gradients: $\mathbf{g}_{img}^j = \bm{C}^{j\top} \text{pad}_{s \to n}(\mathbf{g}^j) \bm{C}^j, \quad \forall j$
+    \State Concatenate all spatial blocks $\mathbf{g}_{img}^j$ to form global spatial gradient 
+    \Statex \hspace{3em}$\mathbf{G} \in \mathbb{R}^{H \times W \times 3}$
+    \State Estimate global spatial gradient: $\nabla_{\bm{I}'} \mathcal{L} \approx \frac{1}{2 M \sigma} \mathbf{G}$
+    \State Sign gradient update in pixel space: $\bm{I}' \leftarrow \bm{I}' + \eta \cdot \text{sign}(\nabla_{\bm{I}'} \mathcal{L})$
+    \State Spatial domain $L_\infty$ projection around clean image: $\bm{I}' \leftarrow \text{Clip}(\bm{I}', \bm{I} - \epsilon, \bm{I} + \epsilon)$
+    \State Ensure valid pixel range: $\bm{I}' \leftarrow \text{Clip}(\bm{I}', 0, 1)$
+\EndFor
+\State \Return $\bm{I}'$
+\end{algorithmic}
+\end{algorithm}
+
+
+
+\begin{algorithm}[h]
+\caption{Gradient-Free Frequency-Domain Black-Box Attack}
+\label{alg:freq_cmaes_full}
+\fontsize{9}{9.8}\selectfont
+\textbf{Input:} Original image $\bm{I}\in \mathbb{R}^{H \times W \times 3}$, victim model $f(\cdot)$, adversarial loss $\mathcal{L}$, DCT block size $n$, low-frequency subset size $s$, total image blocks $J$, iterations $T$, population size $\mathcal{B}$, initial step size $\sigma_{init}$, $L_\infty$ bound $\epsilon$, zero-padding operator $\text{pad}_{s \to n}(\cdot)$. \\
+\textbf{Output:} Adversarial example $\bm{I}'\in \mathbb{R}^{H \times W \times 3}$
+\begin{algorithmic}[1] % [1] enables line numbers
+\State Let $D = s \times s \times 3$ be the sub-block dimension in the frequency domain, and $D_{total} = J \times D$ be the global dimension
+\State Initialize block distributions $\forall j \in \{0, \dots, J-1\}$: mean $\bm{a}^j \leftarrow \mathbf{0} \in \mathbb{R}^D$, diagonal covariance $\bm{V}^j \leftarrow \mathbf{1} \in \mathbb{R}^D$
+\State Initialize global step size $\sigma \leftarrow \sigma_{init}$, and block evolution paths $\bm{p}_c^j \leftarrow \mathbf{0} \in \mathbb{R}^D, \bm{p}_s^j \leftarrow \mathbf{0} \in \mathbb{R}^D, \forall j$
+\vspace{0.05cm}
+\State Set $\mu = \mathcal{B}/2$. Calculate weights: $w'_\beta = \ln(\mu + 0.5) - \ln(\beta + 1)$ and normalize $w_\beta = \frac{w'_\beta}{\sum_{i=0}^{\mu-1} w'_i}$
+\State Compute variance effective selection mass: $\mu_{eff} = 1 \big/ \sum_{\beta=0}^{\mu-1} w_\beta^2$
+\State Evolution path rates: $c_c = \frac{4 + \mu_{eff}/D_{total}}{D_{total} + 4 + 2\mu_{eff}/D_{total}}$, \quad $c_s = \frac{\mu_{eff} + 2}{D_{total} + \mu_{eff} + 5}$
+\State Covariance update rates: $c_1 = \frac{2}{(D_{total} + 1.3)^2 + \mu_{eff}}$, \quad $c_\mu = \min\left(1 - c_1, 2\frac{\mu_{eff} - 2 + 1/\mu_{eff}}{(D_{total} + 2)^2 + \mu_{eff}}\right)$
+\State Step-size damping $d_\sigma = 1 + 2\max\left(0, \sqrt{\frac{\mu_{eff} - 1}{D_{total} + 1}} - 1\right) + c_s$, expected norm $\chi_N \approx \sqrt{D_{total}}\left(1 - \frac{1}{4D_{total}} + \frac{1}{21D_{total}^2}\right)$
+\vspace{0.05cm}
+\For{$t = 0$ \textbf{to} $T-1$}
+    \vspace{0.05cm}
+    % \State \textcolor{gray}{\# 1. Population Sampling \& Forward Evaluation}
+    \For{$\beta = 0$ \textbf{to} $\mathcal{B}-1$}
+        \State Sample noise and generate candidate sub-blocks: $\bm{z}_\beta^j \sim \mathcal{N}(\mathbf{0}, \bm{I}_D)$ and \Statex \hspace{4em}$\bm{\delta}_\beta^j = \bm{a}^j + \sigma \sqrt{\bm{V}^j} \odot \bm{z}_\beta^j, \;\; \forall j$
+        \State Compute spatial blocks via padding \& iDCT: $\mathbf{p}_\beta^j = \bm{C}^{j\top} \text{pad}_{s \to n}(\bm{\delta}_\beta^j) \bm{C}^j, \;\; \forall j$
+        \State Concatenate blocks $\mathbf{p}_\beta^j$ to form global spatial perturbation $\mathbf{P}_\beta$
+        \State Apply $L_\infty$ and valid pixel range clipping: \State\hspace{1em}$\bm{I}_\beta^{\prime} \leftarrow \text{Clip}(\text{Clip}(\bm{I} + \mathbf{P}_\beta, \bm{I} - \epsilon, \bm{I} + \epsilon), 0, 1)$
+        \State Compute fitness: $L_\beta = \mathcal{L}(\bm{I}_\beta^{\prime}, f(\bm{I}_\beta^{\prime}))$
+    \EndFor
+    \vspace{0.05cm}
+    % \State \textcolor{gray}{\# 2. Ranking \& Block-wise Mean Update}
+    \State Sort descending by fitness: $L_{(0)} \ge L_{(1)} \ge \dots \ge L_{(\mathcal{B}-1)}$ and select top $\mu$ 
+    \Statex\hspace{2em}candidates
+    \State Update per-block means: $\bm{a}_{old}^j \leftarrow \bm{a}^j$ and $\bm{a}^j \leftarrow \sum_{\beta=0}^{\mu-1} w_\beta \bm{\delta}_{\beta}^j, \;\; \forall j$
+    \vspace{0.05cm}
+    % \State \textcolor{gray}{\# 3. Evolution Paths \& Step Size Adaptation}
+    \State Compute normalized mean differences: $\bm{y}^j \leftarrow (\bm{a}^j - \bm{a}_{old}^j) / \sigma, \;\; \forall j$
+    \State Update conjugate paths: $\bm{p}_s^j \leftarrow (1-c_s)\bm{p}_s^j + \sqrt{c_s(2-c_s)\mu_{eff}} (\bm{V}^j)^{-1/2} \odot \bm{y}^j, \;\; \forall j$
+    \State Evaluate global Heaviside function $h_\sigma \in \{0, 1\}$ based on the concatenated global 
+    \Statex\hspace{2em}path norm $\|\bm{p}_s\|_{global}$ and $\chi_N$
+    \State Update covariance paths: $\bm{p}_c^j \leftarrow (1-c_c)\bm{p}_c^j + h_\sigma \sqrt{c_c(2-c_c)\mu_{eff}} \bm{y}^j, \;\; \forall j$
+    \State Update global step size: $\sigma \leftarrow \sigma \exp \left( \frac{c_s}{d_\sigma} \left( \frac{\|\bm{p}_s\|_{global}}{\chi_N} - 1 \right) \right)$
+    \vspace{0.05cm}
+    % \State \textcolor{gray}{\# 4. Block-wise Diagonal Covariance Update}
+    \State Update diagonal covariance vectors $\bm{V}^j, \;\; \forall j$:
+    \State \quad $\bm{V}^j \leftarrow (1 - c_1 - c_\mu)\bm{V}^j + c_1 \big((\bm{p}_c^j)^{\odot 2} + (1-h_\sigma)c_c(2-c_c)\bm{V}^j\big) +$ \Statex\hspace{3em}$c_\mu \sum_{\beta=0}^{\mu-1} w_\beta \big( (\bm{V}^j)^{-1/2} \odot \frac{\bm{\delta}_{\beta}^j - \bm{a}_{old}^j}{\sigma} \big)^{\odot 2}$
+\EndFor
+\vspace{0.05cm}
+% \State \textcolor{gray}{\# 5. Output Adversarial Image from Converged Mean}
+\State Extract converged spatial blocks via padding \& iDCT: $\mathbf{p}_{final}^j = \bm{C}^{j\top} \text{pad}_{s \to n}(\bm{a}^j) \bm{C}^j, \;\; \forall j$
+\State Concatenate blocks $\mathbf{p}_{final}^j$ to form $\mathbf{P}_{final}$
+\State \Return $\bm{I}' \leftarrow \text{Clip}(\text{Clip}(\bm{I} + \mathbf{P}_{final}, \bm{I} - \epsilon, \bm{I} + \epsilon), 0, 1)$
+\end{algorithmic}
+\end{algorithm}
+
+\clearpage
+\section{Additional Results of White-Box Attack}
+We provide additional quantitative and qualitative results for the white-box setting in this section. All hyperparameter settings follow the main paper, except that the number of attack iterations is set to 50. Since white-box attacks assume access to model weights and gradients, the resulting renderings are typically worse than the corresponding black-box results reported in the main paper. For pose-free models such as NoPoSplat and AnySplat, evaluating reconstructions requires not only checking for large-scale artifacts but also examining whether the scene coordinate system has shifted. As shown in the second row of the right half of \cref{fig:pgd}, under the target pose, the rendered viewpoint can deviate substantially from the ground-truth viewpoint.
+
+\begin{table}[h]
+\centering
+\caption{Quantitative comparison of victim model performance with vs. without our white-box attack on the RE10K dataset. Percentages measure the degree of performance degradation.}
+\label{tab:re10k_new}
+{\fontsize{7pt}{8pt}\selectfont
+\begin{tabular}{l ccccc}
+\toprule
+Victim Models & \cellcolor{gray!20}PSNR $\downarrow$ & \cellcolor{gray!20}SSIM $\downarrow$ & \cellcolor{gray!20}LPIPS $\uparrow$ & \cellcolor{gray!20}CLIP $\downarrow$ & \cellcolor{gray!20}DINO $\downarrow$ \\
+\midrule
+DepthSplat           & 21.09 & 0.710 & 0.228 & 0.956 & 0.930 \\
+DepthSplat+Ours      & 6.82\textcolor[HTML]{B7282E}{\tiny($-67.7\%$)} & 0.223\textcolor[HTML]{B7282E}{\tiny($-68.6\%$)} & 0.594\textcolor[HTML]{B7282E}{\tiny($+160.5\%$)} & 0.677\textcolor[HTML]{B7282E}{\tiny($-29.2\%$)} & 0.370\textcolor[HTML]{B7282E}{\tiny($-60.2\%$)} \\
+\midrule
+NoPoSplat            & 22.50 & 0.781 & 0.165 & 0.957 & 0.938 \\
+NoPoSplat+Ours       & 8.82\textcolor[HTML]{B7282E}{\tiny($-60.8\%$)} & 0.268\textcolor[HTML]{B7282E}{\tiny($-65.7\%$)} & 0.692\textcolor[HTML]{B7282E}{\tiny($+319.4\%$)} & 0.780\textcolor[HTML]{B7282E}{\tiny($-18.5\%$)} & 0.598\textcolor[HTML]{B7282E}{\tiny($-36.2\%$)} \\
+\midrule
+AnySplat             & 18.94 & 0.672 & 0.271 & 0.928 & 0.938 \\
+AnySplat+Ours        & 10.20\textcolor[HTML]{B7282E}{\tiny($-46.1\%$)} & 0.422\textcolor[HTML]{B7282E}{\tiny($-37.2\%$)} & 0.658\textcolor[HTML]{B7282E}{\tiny($+142.8\%$)} & 0.763\textcolor[HTML]{B7282E}{\tiny($-17.8\%$)} & 0.450\textcolor[HTML]{B7282E}{\tiny($-52.0\%$)} \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{Quantitative comparison of victim model performance with vs. without our white-box attack on the DL3DV dataset. Percentages measure the degree of performance degradation.}
+\label{tab:dl3dv}
+{\fontsize{7pt}{8pt}\selectfont
+\begin{tabular}{l ccccc}
+\toprule
+Victim Models & \cellcolor{gray!20}PSNR $\downarrow$ & \cellcolor{gray!20}SSIM $\downarrow$ & \cellcolor{gray!20}LPIPS $\uparrow$ & \cellcolor{gray!20}CLIP $\downarrow$ & \cellcolor{gray!20}DINO $\downarrow$ \\
+\midrule
+DepthSplat           & 22.21 & 0.785 & 0.165 & 0.963 & 0.909 \\
+DepthSplat+Ours      & 6.54\textcolor[HTML]{B7282E}{\tiny($-70.6\%$)} & 0.202\textcolor[HTML]{B7282E}{\tiny($-74.3\%$)} & 0.625\textcolor[HTML]{B7282E}{\tiny($+278.8\%$)} & 0.665\textcolor[HTML]{B7282E}{\tiny($-30.9\%$)} & 0.205\textcolor[HTML]{B7282E}{\tiny($-77.4\%$)} \\
+\midrule
+NoPoSplat            & 21.91 & 0.745 & 0.173 & 0.960 & 0.903 \\
+NoPoSplat+Ours       & 11.44\textcolor[HTML]{B7282E}{\tiny($-47.8\%$)} & 0.249\textcolor[HTML]{B7282E}{\tiny($-66.6\%$)} & 0.634\textcolor[HTML]{B7282E}{\tiny($+266.5\%$)} & 0.787\textcolor[HTML]{B7282E}{\tiny($-18.0\%$)} & 0.527\textcolor[HTML]{B7282E}{\tiny($-41.6\%$)} \\
+\midrule
+AnySplat             & 19.34 & 0.639 & 0.285 & 0.950 & 0.923 \\
+AnySplat+Ours        & 14.43\textcolor[HTML]{B7282E}{\tiny($-25.4\%$)} & 0.427\textcolor[HTML]{B7282E}{\tiny($-33.2\%$)} & 0.523\textcolor[HTML]{B7282E}{\tiny($+83.5\%$)} & 0.860\textcolor[HTML]{B7282E}{\tiny($-9.5\%$)} & 0.849\textcolor[HTML]{B7282E}{\tiny($-8.0\%$)} \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.8\textwidth]{Figures/PGD_Results.pdf}
+  \caption{Qualitative results for white-box attack on RE10K and DL3DV ($\epsilon = 8/255$). The left half shows scenes from RE10K, while the right half shows scenes from DL3DV. The clean reconstruction results are shown in \cref{fig:result1}.}
+  \label{fig:pgd}
+\end{figure}
+
+\section{Cross Validation of Transfer-Based Attack}
+In this section, we empirically demonstrate that transfer-based attacks are infeasible for feed-forward 3DGS models. We only use the RE10K dataset because, on DL3DV, the three victim models adopt different preprocessing pipelines; naively unifying image sizes via resizing and cropping would substantially shift the data distribution, making a fair comparison impossible. We perform an exhaustive cross-evaluation over all permutations, \ie using one model as the victim and the other two as surrogate models. Adversarial examples are generated via white-box attacks on the surrogate models, with all other settings kept unchanged. As shown in \cref{tab:transfer_attack}, while transfer-based attacks do degrade reconstruction quality for all victim models, the magnitude is far smaller than that of query-based attacks. \cref{fig:transfer} further shows that, visually, the impact of transfer-based attacks on the rendered images is not pronounced. Overall, transferability does not work well for feed-forward 3DGS models.
+
+\begin{table}[h]
+\centering
+\caption{Quantitative comparison of transfer attack performance on RE10K. Adversarial examples are generated on a surrogate model and transferred to the victim model. "None" means using the clean data.}
+\label{tab:transfer_attack}
+\begin{tabular}{cc ccccc}
+\toprule
+Victim Model & Surrogate Model & \cellcolor{gray!20}PSNR $\downarrow$ & \cellcolor{gray!20}SSIM $\downarrow$ & \cellcolor{gray!20}LPIPS $\uparrow$ & \cellcolor{gray!20}CLIP $\downarrow$ & \cellcolor{gray!20}DINO $\downarrow$ \\
+\midrule
+\multirow{3}{*}{DepthSplat} & None       & 21.09 & 0.710 & 0.228 & 0.956 & 0.930 \\
+                            & NoPoSplat  & 20.32 & 0.653 & 0.406 & 0.927 & 0.889 \\
+                            & AnySplat   & 20.10 & 0.658 & 0.294 & 0.947 & 0.905 \\
+\midrule
+\multirow{3}{*}{NoPoSplat}  & None       & 22.50 & 0.781 & 0.165 & 0.957 & 0.938 \\
+                            & DepthSplat & 22.36 & 0.733 & 0.310 & 0.934 & 0.894 \\
+                            & AnySplat   & 22.02 & 0.743 & 0.265 & 0.946 & 0.911 \\
+\midrule
+\multirow{3}{*}{AnySplat}   & None       & 18.94 & 0.672 & 0.271 & 0.928 & 0.938 \\
+                            & DepthSplat & 18.15 & 0.580 & 0.440 & 0.894 & 0.894 \\
+                            & NoPoSplat  & 17.86 & 0.572 & 0.454 & 0.889 & 0.864 \\
+\bottomrule
+\end{tabular}%
+\end{table}
+
+\clearpage
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.8\textwidth]{Figures/Transfer_Results.pdf}
+  \caption{Qualitative results for transfer attack on RE10K ($\epsilon = 8/255$). Each row corresponds to a victim model, and the surrogate model is indicated in each column. The clean reconstruction results are shown in \cref{fig:result1}.}
+  \label{fig:transfer}
+\end{figure}

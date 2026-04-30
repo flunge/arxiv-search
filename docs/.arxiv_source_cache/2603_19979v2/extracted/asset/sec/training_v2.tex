@@ -1,0 +1,70 @@
+Our model is trained in two stages as shown in Figure~\ref{fig:stages}. \textbf{Stage-I} adapts a large pretrained video generator into a fully controllable bidirectional multi-camera world model, while \textbf{Stage-II} transforms it into a streaming autoregressive simulator for real-time interaction and long-horizon rollouts. 
+
+\subsection{Stage-I: Bidirectional I2V Training for Accurate Controllability}
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=1.0\columnwidth]{asset/pics/results/action_control.pdf}
+  \caption{\textbf{Action Controllability.} Each row shows a pair of logged and generated videos. The ego trajectories for the next 3s are overlaid in {\color{NavyBlue}blue}. Dynamic traffic participants are \emph{not} constrained in this experiment and are generated freely by ~\modelname. \textbf{Top:} Turn Right $\rightarrow$ Turn Left; \textbf{Middle:} Go Straight $\rightarrow$ Turn Right; \textbf{Bottom:} Lane Keeping $\rightarrow$ Lane Change.}
+  \label{fig:action_ctrl}
+\end{figure}
+\noindent\textbf{Initialization.}
+We initialize \modelname~from WAN~2.2~5B TI2V~\cite{wan2025wanopenadvancedlargescale}. Parameters inherited from WAN are loaded directly, while newly introduced modules for our multi-camera and multi-condition setting are randomly initialized.
+
+\noindent\textbf{Training data.}
+Stage-I is trained on synchronized multi-camera short clips of \textbf{81 frames}. Each sample is paired with the corresponding driving actions and, when available, scenario-level text descriptions and structured dynamic/static control signals.
+
+\noindent\textbf{Rectified flow objective.}
+Let $\mathbf{y}$ denote the target latent video to be generated (e.g., the latent sequence of future multi-camera frames), and let $\mathbf{c}$ denote the conditioning inputs, which include the \emph{history latents} (when $L>0$) together with actions, camera parameters, optional dynamic/static controls, and text prompts. Following rectified flow~\cite{liu2022flow}, we sample $t \sim \mathcal{U}(0,1)$ and construct an interpolation between a data sample $\mathbf{y}_0 \sim p_{\text{data}}(\mathbf{y}\mid \mathbf{c})$ and Gaussian noise $\mathbf{y}_1 \sim \mathcal{N}(\mathbf{0}, \mathbf{I})$:
+\begin{equation}
+\mathbf{y}_t = (1-t)\mathbf{y}_0 + t \mathbf{y}_1 .
+\label{eq:rf_interpolation}
+\end{equation}
+Rectified flow learns a time-dependent velocity field $v_\theta(\mathbf{y}_t, t, \mathbf{c})$ that matches the constant target flow $\mathbf{y}_1 - \mathbf{y}_0$ along this rectified path. The Stage-I training objective is:
+\begin{equation}
+\mathcal{L}_{\text{RF}}(\theta)
+=
+\mathbb{E}_{\mathbf{y}_0,\,\mathbf{y}_1,\,t,\,\mathbf{c}}
+\left[
+\left\|
+v_\theta(\mathbf{y}_t, t, \mathbf{c}) - (\mathbf{y}_1 - \mathbf{y}_0)
+\right\|_2^2
+\right].
+\label{eq:rf_loss}
+\end{equation}
+
+\noindent\textbf{Outcome and limitation.}
+After Stage-I, we obtain a fully functional \textbf{bidirectional} world model that produces high-quality multi-camera futures with accurate controllability. However, similar to WAN, Stage-I relies on a \textbf{bidirectional, many-step} sampling procedure (typically $\sim$50 refinement steps for high quality) that generates an entire short clip offline, making it most suitable for short-clip synthesis rather than low-latency, long-horizon streaming rollouts.
+
+\subsection{Stage-II: Causal Few-Step Training for Streaming Long-Horizon Simulation}
+
+Stage-I yields a strong world model that is best suited for short-clip generation. However, it is not directly suitable for real-time interactive long-horizon rollouts because it relies on a many-step, bidirectional iterative procedure.
+To address this limitation, in Stage-II, we convert it into a causal, few-step generator.
+Compared to bidirectional models that generate an entire clip offline, our causal model supports streaming inference: it produces and returns future videos chunk-by-chunk, without waiting for the full sequence to finish generation. This enables low-latency interaction and naturally fits long-horizon rollouts in closed-loop settings.
+
+\textbf{Chunk-wise causal architecture.}
+A causal generator naturally supports autoregressive inference: future chunks are generated sequentially, each conditioned only on past context (history observations, previous generated chunks, and the action/scene conditions). In this setting, a KV cache further improves efficiency by reusing attention keys/values from earlier chunks, avoiding recomputation of past-context attention at every step and substantially reducing inference compute.
+Following CausVid~\cite{yin2024slow}, we modify the Stage-I bidirectional model into a chunk-wise causal one. Concretely, we divide the latent sequence along the temporal dimension into contiguous chunks. Within each chunk, tokens still interact bidirectionally to preserve local spatiotemporal coherence and generation quality. However, we enforce chunk-level causality by preventing tokens from attending to any future chunks. 
+%
+As a result, the model becomes causal in time while retaining rich intra-chunk modeling capacity. 
+This design provides a favorable trade-off: it enables online generation and low-latency rollouts, while avoiding the quality degradation often observed in strictly token-level causal video generation.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=1.0\columnwidth]{asset/pics/results/ds_control_blur.pdf}
+  \caption{\textbf{Dynamic and static element controllability.} Projected bounding boxes of dynamic agents and road elements are overlaid on the videos. {\color{green}Green} denote objects. {\color{red}Red} lines denote solid road boundaries, and {\color{cyan}cyan} lines denote lane markings.}
+  \label{fig:ds_ctrl}
+\end{figure}
+
+\textbf{Few-Step Self-forcing Training.}
+To train the Stage-II causal generator under realistic rollout conditions, we adopt self-forcing~\cite{huang2025self}. Instead of conditioning on ground-truth history context (teacher forcing / diffusion forcing~\cite{chen2024diffusion}), the model is trained on its own autoregressive rollouts, which significantly reduces the train–test mismatch that commonly leads to compounding errors in long-horizon generation.
+%
+Concretely, generation proceeds chunk-by-chunk with KV-cache enabled for both training and inference. For each new chunk, we initialize its latent from a standard Gaussian and perform 4-step denoising, conditioned on the previously generated clean frames (together with action and optional dynamic/static conditions). This produces a self-rollout distribution induced by the Stage-II causal model.
+%
+We then optimize the model using DMD (distribution matching distillation) loss~\cite{yin2024improved,yin2024onestep}, which minimizes the reverse KL divergence between the self-rollout distribution and a target distribution represented by our Stage-I bidirectional teacher. By matching the teacher distribution under self-generated contexts, self-forcing mitigates exposure bias and reduces compounding errors in autoregressive rollouts, leading to more stable long-horizon generation. 
+%
+Moreover, since each chunk is trained to be produced with a fixed, small denoising budget, the resulting model naturally becomes a few-step generator suitable for real-time streaming simulation.
+
+\textbf{Long video generation with Rolling KV Cache.}
+Long-horizon rollouts are supported during inference using a fixed-size Rolling KV Cache. Concretely, we allocate a cache with a predetermined capacity to store the attention key/value tensors from previously generated chunks. As generation proceeds chunk-by-chunk, newly produced keys/values are appended to the cache. When the cache reaches capacity, we evict the oldest entries following a FIFO (first-in, first-out) rule, ensuring that the model always attends to a sliding window of the most recent context. This design yields bounded memory usage and stable runtime, while still providing sufficient recent temporal context for coherent long video rollouts.
+
+Overall, Stage-II produces a causal, few-step, streaming multi-view generative world model that maintains the controllability learned in Stage-I, while enabling real-time interaction and long video generation required by scalable evaluation and online RL training for end-to-end/VLA autonomous driving systems.

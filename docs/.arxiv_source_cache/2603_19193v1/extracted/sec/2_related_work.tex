@@ -1,0 +1,48 @@
+\section{Related Work}
+\label{sec:related_work}
+\subsection{BEV Perception}
+BEV provides a unified space for integrating information from multiple cameras, making it one of the primary representations used in autonomous driving.
+A crucial step in BEV perception lies in transforming features from the perspective camera space into the BEV space.
+In this section, we categorize existing transformation approaches into three main groups: \textit{learning-based unprojection}, \textit{geometry-based unprojection} and \textit{projection from learned 3D volumes}.
+
+\noindent\textbf{Geometry-based unprojection.}
+Geometry-based approaches explicitly lift 2D image coordinates into 3D space.
+Lift-Splat-Shoot (LSS) \cite{philion2020lift} predicts per-pixel depth and uses camera intrinsics and extrinsics to map image features to 3D points through a geometric unprojection process.
+However, its performance heavily depends on the quality of the predicted depth.
+Since the training process relies solely on downstream task supervision, the depth estimation can be unstable or inaccurate.
+Subsequent works \cite{li2023bevstereo, li2023bevdepth, xie2022m, yang2023parametric} extend the LSS paradigm by introducing additional depth supervision to improve the accuracy and robustness of depth prediction.
+BEVDepth \cite{li2023bevdepth} leverages LiDAR-derived depth maps for supervision, while BEVStereo \cite{li2023bevstereo} employs stereo matching techniques to enhance depth estimation quality.
+
+\noindent\textbf{Learning-based unprojection.}
+Learning-based methods \cite{liu2022petr, liu2023petrv2, pan2023baeformer, zhou2022cross, bartoccioni2023lara} implicitly learn the mapping from 2D to 3D coordinates in a data-driven manner. 
+These approaches employ attention-based architectures or multi-layer perceptrons (MLPs) to directly associate image features with 3D spatial locations.
+Instead of explicitly predicting depth, they encode 3D positional information into learnable queries and use cross-attention to aggregate multi-view image features into BEV space.
+However, these methods remain fully implicit, lacking geometric reasoning and interpretability.
+
+\noindent\textbf{Projection from learned 3D volumes.}
+Instead of directly lifting image features or learning implicit mappings, another category of methods constructs a predefined 3D volume and learns dense feature representations within it.
+BEVFormer \cite{li2024bevformer} and \cite{harley2023simple} learn a 3D feature grid that captures spatial structure and semantics across the scene.
+To obtain BEV features, these methods project or collapse the learned 3D feature volume onto the BEV plane, generating top-down representations.
+PointBEV \cite{chambon2024pointbev} further introduce a coarse-to-fine training strategy that focuses on regions of interest to reduce memory consumption
+
+However, these methods are trained solely with downstream task losses without explicit 3D reconstruction, leading to a lack of interpretability.
+In contrast, we propose Splat2BEV, which introduces explicit 3D reconstruction during both training and inference, and projects the learned representation into BEV space for downstream tasks.
+
+\subsection{Gaussian Splatting in Autonomous Driving}
+Recently, a growing number of studies have incorporated Gaussian Splatting into the autonomous driving tasks.
+
+\noindent\textbf{Navigation.}
+Several recent works \cite{keetha2024splatam, matsuki2024gaussian, yan2024gs, huang2024photo, peng2024rtg} integrate 3D Gaussian Splatting into robot navigation and SLAM systems as the mapping component.
+They extend traditional 3D Gaussian Splatting to support online reconstruction, enabling continuous scene updates during exploration.
+These approaches demonstrate that Gaussian primitives can provide a compact and differentiable representation for mapping in autonomous driving scenarios.
+
+\noindent\textbf{Simulation.}
+Another line of research \cite{yan2024street, zhou2024drivinggaussian, zhou2024hugs, hess2025splatad} leverages 3D Gaussian Splatting to reconstruct realistic environments for autonomous driving simulation.
+They employ Gaussian Splatting to build photorealistic and geometrically consistent driving scenes from real-world data.
+By transforming large-scale outdoor environments into editable Gaussian representations, these approaches enable efficient rendering, controllable scene manipulation, and sensor simulation for training and evaluating perception and planning models in autonomous driving.
+
+\noindent\textbf{BEV Perception.}
+GaussianLSS \cite{lu2025toward} and GaussianBEV \cite{chabot2025gaussianbev} introduces 3D Gaussian Splatting as an intermediate representation, enabling a more efficient aggregation of BEV feature.
+However, these two Gaussian Splatting–based methods treat the Gaussians merely as feature carriers rather than performing explicit 3D scene reconstruction.
+Their learning process still relies solely on downstream task supervision, limiting geometric interpretability.
+

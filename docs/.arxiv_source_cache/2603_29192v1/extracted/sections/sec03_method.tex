@@ -1,0 +1,105 @@
+\section{Method}
+\label{sec:Methodology}
+We detail \textbf{GenSplat}, a feed-forward 3D Gaussian Splatting (3DGS) framework designed to expand the observational manifold via novel view synthesis from sparse, uncalibrated visual demonstrations. By reconstructing metrically consistent 3D workspaces without rigid camera calibration, GenSplat densifies the continuous $SE(3)$ spatial support of the training data, inherently inducing view-generalized action mapping for downstream policies. The overarching architectural pipeline is illustrated in \cref{fig:pipeline}.
+
+\subsection{Problem Formulation}
+We consider a robotic imitation learning dataset \( \mathcal{D}=\{(\zeta_i, l_i)\}_{i=1}^{N_\mathcal{D}} \), where each demonstration \(\zeta\) comprises a sequence of observations \(\mathcal{O}=\{I_t\}_{t=1}^T\), paired actions \(\mathcal{A}=\{\boldsymbol{a}_t\}_{t=1}^T\), and a language instruction \(l\). Our goal is to train visuomotor policies that generalize to novel camera views without additional data collection.
+To this end, we construct a per-frame, pose-free camera augmentation pipeline, denoted as $\mathcal{G}_\theta$. Given $V$ camera views $\{I_j\}_{j=1}^{V}$ at a time step $t$, $\mathcal{G}_\theta$ represents the 3D scene by a set of Gaussian primitives $\mathcal{S}_t$, predicts the camera parameters for each view $\boldsymbol{p}_t^{v}$, and renders images from sampled target camera poses. The resulting augmented dataset is $\tilde{\mathcal{D}}=\{(\tilde{\zeta}_i, l_i)\}_{i=1}^{N}$, with $\tilde{\zeta}$ replacing each original frame $(I_t, \boldsymbol{a}_t)$ by $(\hat{I}^{\Delta}_{t}, \boldsymbol{a}_t)$, where $\hat{I}^{\Delta}_{t}$ is a novel view rendered from $\mathcal{S}_t$ under a regularly sampled camera transform $\Delta$. The policy $\pi(\boldsymbol{a}_t \mid \mathcal{D}_{\text{train}})$ is trained on the combined dataset $\mathcal{D}_{\text{train}}=\mathcal{D} \cup \tilde{\mathcal{D}}$, inherently inducing view-generalized action mapping.
+
+
+\subsection{Model Architecture} 
+\label{sec3.2 Model Architecture}
+To address the reconstruction instability and artifacts caused by improper reference viewpoint selection in traditional methods~\cite{wang2025vggt,keetha2025mapanything,wang2024dust3r}, we design a feed-forward permutation-equivariant architecture. This formulation processes sparse, uncalibrated inputs symmetrically, ensuring robust 3D representation without explicit order dependence. 
+To overcome the absence of reliable camera extrinsics in large-scale robotic datasets, the framework integrates geometric distillation from a pre-trained foundation model~\cite{wang2025pi}, providing essential structural regularization for pose-free novel view synthesis.
+
+
+\textbf{Permutation-Equivariant Architecture.} 
+Each image is first processed by DINOv2~\cite{oquab2023dinov2} to generate patch tokens \(\{\boldsymbol{h}_i\}_{i=1}^{V}\in\mathbb{R}^{L\times C}\). To establish a multi-view context without imposing a rigid temporal or spatial order, these tokens are aggregated through alternating intra-frame and global self-attention layers~\cite{wang2025vggt}. This symmetric aggregation mechanism ensures the extracted representations are strictly permutation-equivariant. The tokens are subsequently routed to task-specific transformer decoders. For the \(i\)-th image, a camera pose decoder \(D_\text{c}\) predicts the local-to-global spatial transformation \(\boldsymbol{p}_i = (\boldsymbol{R}_i, \boldsymbol{T}_i) \in \text{SE}(3)\), where \(\boldsymbol{R}_i \in \text{SO}(3)\) denotes the camera rotation and \(\boldsymbol{T}_i \in \mathbb{R}^3\) is the translation vector~\cite{dong2025reloc3r}. Concurrently, a point map decoder \(D_\text{p}\) regresses a dense 3D point map \(\boldsymbol{P}_i\in\mathbb{R}^{H\times W\times3}\) representing the local camera-coordinate geometry, along with a per-pixel confidence map \(\boldsymbol{C}_i\in\mathbb{R}^{H\times W\times1}\).
+
+
+\begin{figure*}[ht]
+    \centering
+    \includegraphics[width=1\linewidth]{fig/fig2.pdf}
+    \caption{\textbf{Overview of \textit{GenSplat}.} Our feed-forward 3DGS framework reconstructs a 3D scene from sparse, uncalibrated robotic observations. GenSplat employs a permutation-equivariant transformer architecture to predict camera poses, dense point maps, and Gaussian parameters, while leveraging pre-trained visual geometry models for 3D-prior distillation supervision. The reconstructed scenes enable geometrically consistent novel view synthesis to expand the observational manifold, significantly improving the viewpoint generalization of robotic policies.
+    }
+    \label{fig:pipeline}
+    \vspace{-1ex}
+\end{figure*}
+
+
+\textbf{Gaussian Parameter Prediction.} 
+We explicitly decouple spatial localization from the prediction of rendering attributes. The spatial centers of the Gaussian primitives $\boldsymbol{\mu}_g\in\mathbb{R}^3$ are derived via a deterministic coordinate transformation: $\boldsymbol{\mu}_g = \boldsymbol{R}_i \boldsymbol{P}_i + \boldsymbol{T}_i$. Parameterizing the scene geometry through dense point maps rather than depth maps inherently preserves the local metric structure and mitigates topological distortions~\cite{shi2025revisiting,wang2024dust3r,ramamonjisoa2020predicting,sun2023sc}, as visualized in~\cref{fig:anysplat_cmp}.
+
+For the remaining rendering attributes, a Dense Prediction Transformer (DPT) head \(H_\text{G}\) is utilized~\cite{ranftl2021vision}. This head integrates the deep equivariant tokens \(F_{\text{DPT}}(\boldsymbol{h}_i)\) with high-resolution shallow features \(F_{\text{RGB}}(I_i)\) to regress opacity \(\sigma_g\), quaternion rotation \(\boldsymbol{r}_g\), anisotropic scales \(\boldsymbol{s}_g\), and spherical harmonic coefficients \(\boldsymbol{c}_g\). Formulated as:
+\begin{equation}
+\begin{cases}
+    (\boldsymbol{P}_i, \boldsymbol{C}_i) = D_{\text{p}}(\boldsymbol{h}_i),\; \boldsymbol{\mu}_g = \text{trans}(\boldsymbol{P}_i, \boldsymbol{p}_i),  \\
+    (\sigma_g, \boldsymbol{r}_g, \boldsymbol{s}_g, \boldsymbol{c}_g) = H_\text{G}(F_{\text{DPT}}(\boldsymbol{h}_i) + F_{\text{RGB}}(I_i)).
+\end{cases}
+\end{equation}
+
+
+\subsection{Pose-Free Pre-training via 3D-Prior Distillation} 
+Directly deploying feed-forward 3D Gaussian Splatting in the robotic domain is frequently hindered by severe ghosting and rendering artifacts. These issues stem from the inability of pure photometric optimization to preserve strict geometric consistency~\cite{ye2024no}, a critical prerequisite for reliable robotic manipulation. Compounding this challenge, existing large-scale robotic datasets are typically characterized by noisy or entirely missing camera pose annotations. 
+
+To address this, we introduce a 3D-prior distillation strategy that extracts geometric knowledge from a pre-trained visual geometry foundation model~\cite{wang2025pi}, providing essential structural supervision for pose-free novel view synthesis. Specifically, to parameterize these spatial priors, we regress per-pixel 3D coordinates in the camera frame using pseudo-ground-truth from the foundation model, as detailed in~\cref{fig:pipeline}. The point map loss $\mathcal{L}_{\text{3D}}$ is then computed as the mean squared Euclidean distance between the predicted geometry $\hat{\boldsymbol{P}}$ and the target $\boldsymbol{P}$:
+\begin{equation}
+    \mathcal{L}_{\text{3D}} = \frac{1}{HW} \sum_{u,v} \left\| \hat{\boldsymbol{P}}(u,v) - \boldsymbol{P}(u,v) \right\|_2^2,
+\end{equation}
+where $(u,v)$ denotes the spatial pixel coordinates. As empirically visualized in~\cref{fig:2.2}, this explicit 3D supervision significantly reduces novel-view artifacts, such as floaters and boundary tearing, in Gaussian rendering. It markedly outperforms both depth-based 2.5D supervision~\cite{jiang2025anysplat,sun2025uni3r} and RGB-only baselines~\cite{fan2024instantsplat,ye2024no}. The resulting multi-view geometric coherence yields clean, low-variance novel-view training data. This metric stability is essential for reliably expanding the observational manifold and enhancing view-generalized execution for downstream policies.
+
+To construct a consistent global coordinate frame without absolute tracking data, we distill camera-pose priors to obtain relative affine-invariant transformations. For the relative pose between views $i$ and $j$, rotational alignment is supervised via the geodesic distance $\ell_{\text{rot}}$ on the $SO(3)$ manifold~\cite{chowdhury2022unsupervised}, and translational alignment is constrained using a robust Huber loss $\mathcal{H}_{\delta}$ applied to the relative translation vectors:
+\begin{equation}
+\mathcal{L}_{\text{cam}} \!=\! \sum_{i \neq j} \Big( \ell_{\text{rot}}(\boldsymbol{\hat{R}}_{i\leftarrow j}, \boldsymbol{R}_{i\leftarrow j}) +  \mathcal{H}_{\delta}(\boldsymbol{\hat{T}}_{i\leftarrow j} - \boldsymbol{T}_{i\leftarrow j})\Big).
+\label{eq:cam_loss}
+\end{equation}
+
+This affine-invariant pose supervision exploits the inherent low-dimensional manifold of real-world camera trajectories~\cite{wang2025pi}, regularizing geometry, suppressing drift and degeneracies, and stabilizing novel-view synthesis from sparse inputs. The complete loss \(\mathcal{L}_{\text{3D-prior}}\) is defined as the weighted sum of the point map loss and the camera pose loss:
+\begin{equation}
+\mathcal{L}_{\text{3D-prior}} = \lambda_{\text{3D}} \mathcal{L}_{\text{3D}} + \lambda_{\text{cam}} \mathcal{L}_{\text{cam}}.
+\label{eq:prior_loss}
+\end{equation}
+
+Ultimately, the proposed distillation strategy yields substantial advantages for both scene reconstruction and policy learning. Fundamentally, point maps serve as a 2D parameterization of 3D features, coupling metric precision with structural regularity to provide an optimal supervisory signal. Unlike traditional depth-based pseudo-labels that exhibit sharp boundary discontinuities and cause tearing artifacts~\cite{jiang2025anysplat}, dense point maps explicitly enforce spatial smoothness and topological coherence. Distilling these priors imposes robust structural constraints, accelerating convergence and producing the high-fidelity representations essential for reliable robotic manipulation.
+
+
+\subsection{Policy Deployment}
+\label{Policy Deployment}
+We instantiate our view-generalized framework across two representative imitation learning architectures: $\pi_0$~\cite{black2410pi0} and Diffusion Policy~\cite{chi2023diffusion}. Both models are optimized over the expanded observational manifold $\mathcal{D}_{\text{train}}$. Formally, the policy $\pi_\theta$ processes a visual observation $\boldsymbol{o}$ alongside the robot's proprioceptive state to predict a sequence of future kinematic actions $\boldsymbol{a}$. The learning objective follows a standard behavioral cloning paradigm, maximizing the log-likelihood of expert demonstrations under the parameterized policy:
+\begin{equation}
+    \max_{\theta}\sum_{(\boldsymbol{o},\,\boldsymbol{a}) \in \mathcal{D}_{\text{train}}} \log \pi_{\theta}(\boldsymbol{a}\mid \boldsymbol{o}),
+\end{equation}
+where $\theta$ denotes the learnable parameters of the policy network. Comprehensive training configurations and architectural details are deferred to Appendix \textcolor{red}{A.1}.
+
+
+\subsection{Training Setup}
+\label{Training Setup}
+\textbf{Training Objectives.}
+GenSplat is optimized end-to-end by minimizing a synergistic combination of photometric, geometric, and distillation objectives:
+\begin{equation}
+\mathcal{L} = \mathcal{L}_{\text{rgb}} + \lambda_{\text{depth}} \mathcal{L}_{\text{depth}} + \mathcal{L}_{\text{3D-prior}}.
+\label{eq:total_loss}
+\end{equation}
+
+For each input view, the photometric rendering pipeline is strictly supervised via a combination of an $\ell_1$ penalty and a perceptual LPIPS regularizer~\cite{zhang2018unreasonable}:
+\begin{equation}
+\mathcal{L}_{\text{rgb}} = \lambda_{\text{1}}\| I - \hat{I} \|_1 + \lambda_{\text{2}} \, \mathtt{LPIPS}(I,\hat{I}),
+\label{eq:rgb_loss}
+\end{equation}
+where $\hat{I}$ denotes the novel view synthesized via the differentiable splatting process.
+To mitigate the subtle ambiguities that arise during multi-view alignment and aggregation~\cite{jiang2025anysplat}, we introduce a depth alignment loss that enforces alignment between the Gaussian primitives and the predicted point map, promoting geometric stability and mitigating view inconsistency artifacts:
+\begin{equation}
+\mathcal{L}_{\text{depth}}
+= \frac{1}{\lVert M \rVert_{1}}
+\left\lVert\, M \odot \big( \boldsymbol{P}_{...,\;2} - \hat{D} \big) \,\right\rVert_{2}^{2},
+\end{equation}
+where \(M\) is a binary mask indicating valid pixels, \(\hat{D}\) denotes the rendered depth, and the predicted depth is obtained from the z-component of the point map.
+
+
+\textbf{Implementation Details.}
+The aggregation transformer contains 36 alternating attention blocks that interleave frame-wise and global attention, and camera pose, point map decoders are lightweight 5-layer Transformer modules that use self-attention only. 
+All these layers together with the prediction decoder introduced in~\cref{sec3.2 Model Architecture} are initialized from~\cite{wang2025pi} so that the model inherits permutation equivariant geometric priors and attains stable early training. 
+Moreover, to narrow the gap between general scenes and robot manipulation, we pretrain on a large-scale dataset collected in the wild~\cite{khazatsky2024droid}. We temporally subsample every episode at 1 frame per second, which yields 271k training images that cover a wide range of environments and tasks. 
+We train for 30k iterations with a batch size of 16 and maintain an exponential moving average of the model weights to stabilize evaluation. 
+The learning rate follows a cosine annealing schedule with a 1k step linear warmup, and the peak learning rate equals \(2e^{-4}\).
+Following~\cite{jiang2025anysplat}, parameters initialized from ~\cite{wang2025pi} use a learning rate of 0.1 times the base value, and we enable FlashAttention~\cite{dao2022flashattention}, gradient checkpointing, and bfloat16 precision to reduce memory usage and accelerate training.

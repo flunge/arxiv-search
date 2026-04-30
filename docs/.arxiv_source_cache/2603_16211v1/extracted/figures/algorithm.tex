@@ -1,0 +1,25 @@
+\begin{figure}[t]
+% \vspace{-1em}
+\begin{algorithm}[H]
+\caption{Feed-Forward 3DGS Refinement with Generation.}
+\label{alg:optim}
+\begin{algorithmic}[1]
+\STATE \textbf{Function:} Feed-Forward Reconstruction Baseline $f_{\theta}(\cdot)$, generation model $\mathbf{G}(\cdot)$.
+\STATE \textbf{Input: }Sparse inputs of N images $\{I_i\}_{i=1}^N$. $L$ Novel-view poses $\bar{p}_i, i\in L$
+\STATE \textbf{Output: }Refined, completed 3DGS $\hat{\mathcal{G}}$. 
+\STATE \textbf{Variable:} List of high-quality images $\mathbf{H}=[\;]$
+\STATE Feed-forward reconstruction to generate 3DGS $f_\theta(I_{i\in N})\Rightarrow \mathcal{G}$ \hfill $\triangleright$ Eq.~\eqref{eq:ffgs}
+\STATE Aggregate the geometry tokens $\hat{t}^I$.
+\FOR{$i = 0, \ldots, N-1$}
+    \STATE Append ${I}_i$ to $\mathbf{H}$
+\ENDFOR
+\FOR{$i = 0, \ldots, L-1$}
+    \STATE Render image and mask from 3DGS: $\bar{I}_i, \bar{M}_i = \text{rasterize}(\mathcal{G}, \bar{p}_i)$
+    \STATE Test-time mask refinement $\bar{M}_i \Rightarrow{{M}}^{\text{refine}}_i$ \hfill $\triangleright$ Eq.~\eqref{eq:mask}
+    \STATE Refine extrapolation views with generation: $\tilde{I}_i = \mathbf{G}(\bar{I}_i, M^{\text{refine}}_i, I, \hat{t}^I)$
+    \STATE Append $\tilde{I}_i$ to $\mathbf{H}$
+\ENDFOR
+\STATE Leveling up the feed-forward reconstruction with refined inputs $f_\theta(\mathbf{H})\Rightarrow \hat{\mathcal{G}}$ 
+\end{algorithmic}
+\end{algorithm}
+\end{figure}

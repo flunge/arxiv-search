@@ -1,0 +1,27 @@
+\section{Introduction}
+\label{sec:intro}
+
+Multi-view inverse rendering aims to decompose material, geometry, and lighting from a set of input-view images (see Figure~\ref{fig:teaser}), which is of great significance for understanding the entire 3D scene and can be extensively applied to various downstream tasks such as material editing, relighting, AR, VR, and more~\cite{liang2024gs,lai2025glossygs,wang2023prolificdreamer,chung2023luciddreamer,zheng2025dnf}. However, inverse rendering under sparse views, especially for indoor scenes, remains a highly ill-posed problem due to the sparsity of supervision signals~\cite{liao2025spc,wu2025sparse2dgs}, scene complexity, and the strong coupling of material, lighting, and geometry~\cite{du2024gs,liang2024gs}.
+
+
+Specifically, sparse-view indoor inverse rendering using Gaussian Splatting that we target in this paper, faces the following three challenges: (i) Under sparse-view settings, Gaussian reconstruction struggles to obtain reliable geometry, adversely affecting the effectiveness of subsequent inverse rendering. (ii) previous utilized illumination models are usually ineffective for characterizing complex indoor lighting conditions, and the lack of sufficient material priors makes it difficult to disentangle material and lighting, (iii) inverse rendering from sparse views poses challenge to accurately model specular highlights and cast shadows, making shadows  often erroneously baked into material.
+
+Numerous approaches~\cite{wang2024use,wu2025sparse2dgs,zhu2024fsgs,fan2024instantsplat,bao2025free360,wang2024freesplat,wu2024reconfusion,wu2025difix3d+,liu20243dgs} have explored Gaussian-based geometry reconstruction under sparse-view settings. However, most of them focus solely on general geometric reconstruction without considering material disentanglement. Moreover, they primarily target the recovery of high-frequency geometric fields, struggle to simultaneously recover material and geometric \cite{liao2025spc}. 
+
+Another challenge for scene-level inverse rendering lies in illumination modeling. Prior works~\cite{liang2024gs,chen2024gi,sun2025svg,gu2025irgs,ye2025geosplatting,gao2024relightable,lai2025glossygs,du2024gs} typically assume distant illumination sources --- an assumption that provides a reasonable approximation at the object level but fails to capture near-field, high-frequency lighting effects that are essential for accurate reconstruction of indoor scenes. 
+
+
+In this paper, we present SGS-Intrinsic, a two-stage framework for sparse-view indoor inverse rendering. Unlike traditional SfM-based approaches~\cite{schonberger2016structure}, which yield only sparse point cloud that hinder reliable Gaussian optimization~\cite{zhu2024fsgs,wu2025sparse2dgs}, we first leverage VGGT~\cite{wang2025vggt} to construct a dense scene layout of point clouds. To further compensate for the limited supervision, we incorporate normal and semantic priors distilled from a pretrained model into 3D Gaussian representation. Besides, a semantic consistency constraint between virtual and training views is introduced to alleviate overfitting. Next, we perform inverse rendering with a hybrid lighting model~\cite{du2024gs}, combining environment maps for ambient illumination and SGMs~\cite{wang2009all} for high-frequency lighting. To achieve effective material–illumination disentanglement, we leverage diffusion-based material priors and enforce cross-view and cross-illumination consistencies, harvesting lighting- and view-invariant material reconstruction. Finally, we employ a lightweight deshadowing module to explicitly model visibility, preventing shadows from being baked into albedo.
+
+
+In summary, our contributions are as follows:
+\begin{itemize}[leftmargin=2em]
+\setlength\itemsep{0.5em} 
+\item 
+We present an inverse rendering framework that enables high-quality geometry reconstruction and accurate disentanglement of material and illumination from sparse-view indoor images. 
+%extends inverse rendering methods to sparse-view indoor scene inverse rendering.
+\item
+We introduce several additional supervision signals to enable reliable inverse rendering under sparse views setting, and propose to resolve the issue of cast shadows being baked into material through an effective and lightweight deshadowing model.
+\item
+Extensive experiments show that our method significantly outperforms state-of-the-art approaches on sparse-view indoor inverse rendering.
+\end{itemize}

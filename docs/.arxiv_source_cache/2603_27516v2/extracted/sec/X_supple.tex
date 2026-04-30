@@ -1,0 +1,274 @@
+% \clearpage
+% \setcounter{page}{1}
+\setcounter{section}{0}
+% \renewcommand{\thesection}{S\arabic{section}} % 将编号改为 S1, S2...
+
+\maketitlesupplementary
+This supplementary material provides a detailed description of our method's implementation and more 
+visual comparison results.
+
+\section{Representation}
+In the vanilla 3DGS, each 3D Gaussian utilizes learnable parameters $\bm{T} = \{\bm{p}, \bm{s}, \bm{q} \}$ and $\bm{C} = \{\alpha, \bm{f}_{c}\}$ to describe its geometric properties and volumetric appearance, respectively.
+Here, $\bm{p}$ denotes the position vector, $\bm{s}$ denotes the scaling vector, $\bm{q}$ denotes the unit quaternion for rotation, $\alpha$ denotes the opacity, and $\bm{f}{c}$ denotes the spherical harmonics (SH) coefficients for view-dependent color.
+In SGS-Intrinsic, we extend $\bm{C}$ to $\{\alpha, \bm{f}_{c}, \bm{f}_{s}, \bm{n}, \bm{a}, \bm{r}\}$ to describe the material and semantic properties of the 3D Gaussian, where $\bm{a}$ and $\bm{r}$ denote the albedo and roughness values, $\bm{n}$ denotes the Normal, and $\bm{f}_{s}$ denotes the semantic feature.
+
+
+
+\section{Implementation Details and Constraints of Hybrid Illumination Models}
+We employ physically-based rendering (PBR) to model the view-dependent appearance. Specifically, we utilize the CookTorrance model to formulate the bidirectional reflectance distribution function (BRDF) fr:
+\begin{equation}
+\label{eq:brdf:supp}
+\begin{aligned}
+f_r(\omega_i, \omega_o) &= 
+\underbrace{
+(1 - M) \frac{A}{\pi}
+}_{\text{diffuse component}} +
+\underbrace{
+\frac{DFG}{4(n \cdot \omega_i)(n \cdot \omega_o)}
+}_{\text{specular component}}, \\
+h &= \text{normalize}(\omega_o + \omega_i),\\
+F_0 &= (1 - M) \cdot 0.04 + M \cdot A, \\
+D(n, h) &= \frac{R^4}{\pi \left(
+n \cdot h \ (R^4 - 1) + 1
+\right)^2},\\
+F(\omega_i, n) &= F_0 + (1 - F_0) \left(
+1 - n \cdot \omega_i
+\right)^5,\\
+G(\omega_o, \omega_i, h) &= G_1(\omega_o, h) \cdot G_1(\omega_i, h),\\
+G_1(n, h) &= \frac{1}{1 + n \cdot h \sqrt{R^4 + n \cdot h - R^4 \cdot n \cdot h}},
+\end{aligned}
+\end{equation}
+where $A$, $R$, and $M$ denote the albedo, roughness, and metallicity, respectively. The normal distribution function (NDF) $D$, fresnel function $F$, and geometry function $G$ are derived from physical materials.
+
+
+
+\begin{algorithm}[t]
+  \caption{ Pseudo view sampling algorithm}
+  \label{alg:view_spline}
+  \begin{algorithmic}[1] % [1] for line numbers
+    \Require Training views $V_{\text{train}}$, test views $V_{\text{test}}$;
+             interpolation counts $N_{\text{train}},N_{\text{test}}$;
+             distance weights $\lambda_t,\lambda_r$
+    \Statex
+    \Function{PoseDist}{\ensuremath{(q_1,t_1),(q_2,t_2)}}
+      \State $D \gets \lambda_t \|t_1-t_2\|_2 + \lambda_r \arccos\big(2 (q_1^\top q_2)^2 - 1\big)$
+      \State \Return $D$
+    \EndFunction
+    
+    \Statex
+    \For{each input view $(q,t)$ in $V_{\text{train}}$}
+      \State Find nearest training view $(q^{\text{nn}}_{\text{tr}},t^{\text{nn}}_{\text{tr}})$ in $V_{\text{train}}$ using \Call{PoseDist}{}
+      \State Generate $N_{\text{train}}$ spline-interpolated pseudo-views
+      \Statex\hskip\algorithmicindent $\mathcal{S}_{\text{train}} \gets \text{CubicSpline}\big((q,t),(q^{\text{nn}}_{\text{tr}},t^{\text{nn}}_{\text{tr}})\big)$
+      \State Find nearest test view $(q^{\text{nn}}_{\text{te}},t^{\text{nn}}_{\text{te}})$ in $V_{\text{test}}$ using \Call{PoseDist}{}
+      \State Generate $N_{\text{test}}$ spline-interpolated pseudo-views
+      \Statex\hskip\algorithmicindent $\mathcal{S}_{\text{test}} \gets \text{CubicSpline}\big((q,t),(q^{\text{nn}}_{\text{te}},t^{\text{nn}}_{\text{te}})\big)$
+      \State Randomly sample $v_{\text{tr}}\sim\mathcal{S}_{\text{train}},\; v_{\text{te}}\sim\mathcal{S}_{\text{test}}$
+      \State Construct view-sequence $\mathcal{V} \gets \{v_{\text{tr}},(q,t),v_{\text{te}}\}$
+      \State Feed sequence $\mathcal{V}$ into the SAM2 model
+    \EndFor
+  \end{algorithmic}
+\end{algorithm}
+
+
+We employ a mixture model of a set of spherical Gaussians (SGMs) to represent the localized highlight illumination as $L^\text{SGMs}_{o}(\bm{x}, \bm{\omega}_o)$:
+\begin{equation}
+\begin{aligned}
+L^\text{SGMs}_{o}(\bm{x}, \bm{\omega}_o) &= \sum_{i}^{N_\text{light}} \frac{{f_r}^\text{SGM}_{i} (\bm{n} \cdot \bm{\omega}_{i})*\text{V}_i}{d_i^2} \sum_{j}^{N_\text{sg}} W_{i, j} SG(j),
+\end{aligned}
+\end{equation}
+where $d_i$ denotes the distance from the $i$-th spherical Gaussian mixture to the surface point $\bm{x}$. ${f_r}^\text{SGM}_{i}$ denotes the BRDF function, and $SG$ denotes the spherical Gaussian Function, respectively. Each spherical Gaussian mixture contains $N_{\text{sg}}$ spherical Gaussians.
+
+Following ~\cite{liang2024gs}, we represent environment lighting as a learnable cubemap with size $6 \times 512 \times 512 \times 3$. Using split-sum approximation, the environment radiance can be decomposed as:
+\begin{equation}
+\small
+\begin{gathered}
+\label{eq:env_diff_spec_approx}
+L^\text{env}_{o}(\bm{x}, \bm{\omega}_o) =
+L^\text{env}_{o\text{-diff}} + L^\text{env}_{o\text{-spec}},\\
+L^\text{env}_{o\text{-diff}} \approx K^\text{env}_\text{diff} I^\text{env}_\text{diff},\quad
+K^\text{env}_\text{diff} = (1 - M) \frac{A}{\pi},\\
+\begin{aligned}
+L^\text{env}_{o\text{-spec}}
+\approx& \underbrace{
+\int_{\Omega} \frac{DFG}{4 (\bm{n} \cdot \bm{\omega}_o)} \, \text{d}\bm{l}
+}_{
+\text{Environment BRDF }(K^\text{env}_\text{spec})
+}
+\cdot\underbrace{
+\int_{\Omega} 
+DL_i(\bm{l}) (\bm{l} \cdot \bm{n}) \, \text{d}\bm{l}.
+}_{
+\text{Pre-Fil. Env. Map }(I^\text{env}_\text{spec})
+}
+\end{aligned}
+\end{gathered}
+\vspace{-0.1cm}
+\end{equation}
+
+
+\input{images/tensoir_compare}
+
+
+We further introduce two regularization terms to encourage compact and stable light representations:
+\begin{align}
+    L_{\text{pos}} &= \sum_{i}^{N_{\text{light}}} \frac{1}{d_{i,\text{near}}}, \\
+    L_{\text{val}} &= \sum_{i}^{N_{\text{light}}} \sum_{j}^{N_{\text{sg}}} w_{i,j}.
+\end{align}
+
+\section{Pseudo Views Sampling Algorithm}
+Please refer to the pseudocode in Algorithm \ref{alg:view_spline} for further details.
+
+\section{Deshaowing Module design}
+The deshadowing module incorporates a hash encoder to perform multi-resolution encoding of the 3D Gaussian field, along with a lightweight MLP decoder that predicts the occlusion relationship of a given spatial point relative to a point light source. The specific details of this module are presented in Table \ref{table:deshadowing}.
+
+\begin{table}[h]
+\centering
+\caption{Architecture of Deshadowing Module}
+\label{table:deshadowing}
+\vspace{-0.2cm}
+\begin{tabular}{ccc}
+\hline
+\textbf{Module} & \textbf{Parameter} & \textbf{Value} \\
+\hline
+\multirow{5}{*}{HashEnc} & Number of levels & 16 \\
+ & Max. entries per level  & $2^{19}$ \\
+ & feature dimensions & 2 \\
+ & Coarsest resolution & 32 \\
+ & Finest resolution & 4096 \\
+\hline
+\multirow{3}{*}{MLP} & MLP layers & $36 \times 32 \times 32 \times 1$ \\
+ & Initialization & Kaiming-uniform \\
+ & Final activation & Sigmoid \\
+\hline
+\end{tabular}
+\end{table}
+
+\section{Training Details}
+
+We implement our method and conduct all experiments on a single NVIDIA RTX 4090 GPU.  
+
+For the first-stage geometric reconstruction, we set the total number of training iterations to 7000.  
+Virtual view sampling and the semantic consistency constraint between virtual and real views are activated after 2000 iterations.  
+The learnable semantic feature dimension attached to each Gaussian is set to 32.  
+We employ CLIP ViT-B/16~\cite{radford2021learning} for semantic feature extraction and SAM2 Hiera-L ~\cite{ravi2024sam} for region mask generation.
+
+For the second stage, corresponding to the inverse rendering phase, the number of training iterations is set to 3000.  
+At the beginning of this stage, we initialize the point light sources represented by Spherical Gaussian Mixtures (SGMs) uniformly within the scene’s axis-aligned bounding box (AABB) of range $[-1.5, 1.5]$.  
+To balance representational expressiveness and computational cost, we place $[4,4,4]$ point lights in total, resulting in 64 point light sources.  
+Each point light source contains $n_{SG}=12$ spherical Gaussians.  
+The illumination invariance constraint is introduced after 8000 iterations, and both the self-view invariance and multi-view invariance constraints are applied every three iterations.
+
+
+
+
+\begin{table}[!t]
+\centering
+
+\caption{\textbf{Quantitative comparison on the TensoIR dataset.}}
+\vspace{-0.2cm}
+
+\resizebox{0.99\columnwidth}{!}{
+\begin{tabular}{@{}l|ccc|ccc}
+\toprule
+\multirow{2}{*}{Method} & \multicolumn{3}{c@{}|}{Albedo} & \multicolumn{3}{c@{}}{NVS For PBR} \\ 
+& PSNR$\uparrow$ & SSIM$\uparrow$ & LIPPS$\downarrow$ &
+PSNR$\uparrow$ & SSIM$\uparrow$ & LIPPS$\downarrow$ 
+% MSE$\downarrow$
+\\
+\hline
+GSIR~\cite{liang2024gs}&
+23.67&	0.90&	0.11 & 23.98&0.82&0.14 
+\\
+R3DG~\cite{gao2024relightable}& 22.46& 0.89&	0.12 & 25.11&	0.85 &	0.12
+% &0.032
+\\
+SVGIR~\cite{sun2025svg}& 24.98& 0.90&	0.13 & 21.05&	0.68&	0.19
+% &0.032
+\\
+GeoSplat~\cite{ye2025geosplatting}& 24.31& 0.89&	0.13 & 25.45&	\textbf{0.87}&	0.12
+\\
+IRGS~\cite{gu2025irgs}& 22.57& 0.86&	0.14 & 25.32&	0.85&	0.13
+% &0.032
+\\
+Ours  &
+\textbf{25.65} & \textbf{0.93} & \textbf{0.10}  &
+\textbf{26.02} & \textbf{0.87} & \textbf{0.11} 
+% & \textbf{0.025}
+\\
+\bottomrule
+\end{tabular}
+}
+\label{table:tensoir}
+% \vspace{-0.4cm}
+\end{table}
+
+% \input{images/robust_analysis}
+
+% \vspace{-0.5cm}
+\section{Evaluation on the TensoIR dataset}
+We also evaluate our approach on the TensoIR dataset. The quantitative and qualitative results are presented in Table~\ref{table:tensoir} and Figure~\ref{fig:tensoir_compare}, respectively. As shown, our method achieves leading performance on object-level data, further validating its robustness and generalization capability.
+
+\begin{table}[!t]
+  \centering
+  \vspace{-1.8mm}
+  \caption{Training time breakdown} 
+  \vspace{-0.3cm}
+  % 使用 \resizebox 强行缩放表格宽度至单栏宽度 (\columnwidth)
+  \resizebox{\columnwidth}{!}{
+    \begin{tabular}{lccccc} 
+      \toprule
+      & VGGT & LSeg & StableNorm & RGBX&Training \\
+      \midrule
+      Time & $\sim$20s & $\sim$2min & $\sim$10s & $\sim$30s&$\sim$40min \\
+      \bottomrule
+    \end{tabular}
+  }
+  \label{table:process_alltime}
+\end{table}
+
+% \vspace{-0.0cm}
+\section{Qualitative Results of Geometry and Semantic Reconstruction}
+Figure~\ref{fig:ablation} demonstrates the respective impacts of the normal prior and the semantic prior on the reconstruction results. The normal priors provide smoother geometric surfaces, significantly improving the quality of geometry reconstruction. The semantic priors, together with multi-view semantic consistency supervision, effectively alleviate the geometric reconstruction issues of 3D Gaussians in textureless regions.
+
+
+
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=1.0\columnwidth]{images/ablation2.pdf} \\
+% \vspace{-2mm}
+\caption{\textbf{Effect of normal and semantic priors.}}
+\label{fig:ablation}
+ \vspace{-2mm}
+\end{figure}
+
+
+
+% \vspace{-0.5cm}
+\section{Breakdown of the total time} 
+The total duration of the preprocessing workflow is summarized in Table ~\ref{table:process_alltime}, amounting to a cumulative processing time of about 3 minutes.
+%=====================================================
+
+
+% \vspace{-0.5cm}
+
+\section{Visualizing multi-resolution features}
+As shown in Figure~\ref{fig:multihash_visualization}, the multi-resolution features are highly correlated with the scene geometry.
+
+\begin{figure}[h]
+  \centering
+  % \vspace{-2.8mm}
+  \includegraphics[width=1.0\linewidth]{images/mhe_visual.png} \\
+  \vspace{-2mm}
+   \caption{\textbf{Multi-resolution feature visualization and comparison with GT view}}
+   \label{fig:multihash_visualization}
+   \vspace{-5.8mm}
+\end{figure}
+
+\section{More Visual Comparison}
+Figure~\ref{fig:albedo_supple1},~\ref{fig:pbr_supple1},~\ref{fig:normal_supple2} provide more visual comparison on material estimation and Novel View PBR Rendering result. Figure~\ref{fig:illu_decomp} presents the detailed decomposition results of our hybrid illumination model, while  Figure~\ref{fig:application2} provides additional application results.
+
+
+
+\input{sec/X_suppl}

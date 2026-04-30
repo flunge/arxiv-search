@@ -1,0 +1,39 @@
+\section{Training}\label{sec:train}
+We outline the reconstruction objective (Sec.~\ref{sec:train-radiance}), geometric regularization (Sec.~\ref{sec:train-geom}), and motion regularization (Sec.~\ref{sec:train-motion}).
+
+\subsection{Rendering Losses}\label{sec:train-radiance}
+For the parametric model defined by our architecture, a per-frame image reconstruction objective serves as an effective baseline. 
+We jointly optimize $\mathcal{E}_{\text{attns}}$, $\mathcal{D}_{\text{cam}}$, $\mathcal{D}_{\text{gs}}$, $\mathcal{D}_{\text{motion}}$, and $\mathcal{D}_{\text{dep}}$, using an RGB reconstruction loss:
+\begin{equation}
+\underbrace{\mathcal{L}_{\text{rgb}}}_{\{\mathcal{E}_{\text{attns}},\,\mathcal{D}_{\text{cam}},\,\mathcal{D}_{\text{vel}},\,\mathcal{D}_{\text{dep}}\}}
+\;=\;
+\sum_{f}\sum_{u}\left\|\hat{\mathcal{I}}_f(u) - \mathcal{I}_{\text{gt},f}(u)\right\|_1,
+\label{eq:rgb-loss}
+\end{equation}
+where $\hat{\mathcal{I}}$ is rendering with $\mathcal{G}^{f}$ without using dynamic instance from current frame. To avoid degenerate solutions where 3DGS opacities collapse toward zero instead of relocating splats to correct 3D positions, we bias early training toward geometry updates by attenuating opacity gradients from $\mathcal{L}_{\text{rgb}}$, while using the dedicated opacity regularizer described below.
+
+\subsection{Geometric Regularization}\label{sec:train-geom}
+Rendering-only optimization can improve original-view or short-baseline interpolation but risks overfitting training views and degrading 3D geometric precision. This harms view extrapolation, especially in autonomous driving when the egocentric viewpoint shifts laterally. We therefore add geometry-focused regularizers.
+
+\subsubsection{Opacity stabilization.}
+We encourage splats to retain non-trivial opacity (closer to $1$ than $0$) so they contribute to multi-view rendering rather than masking geometric errors:
+\begin{equation}
+\underbrace{\mathcal{L}_{\alpha}}_{\{\mathcal{D}_{\text{dep}}\}}
+\;=\;
+\lambda_{\alpha}\sum_{f}\sum_{k\in\mathcal{V}_f}
+w_{f,k}\,||1-\alpha_{k}^{f}\big||_{2}^{2},
+\label{eq:alpha-loss}
+\end{equation}
+where $\lambda_{\alpha}>0$ is a scalar weight, $\mathcal{V}_f$ indexes visible splats at frame $f$, and $w_{f,k}\ge 0$ is an optional per-splat weight (e.g., based on visibility or static/dynamic masks). This term prevents opacity collapse, while \eqref{eq:rgb-loss} primarily drives geometry correction.
+
+\subsubsection{Depth consistency.}
+We align the predicted per-frame depth with the depth produced by 3DGS rasterization, with optional supervision by ground-truth depth when available. Under front-to-back alpha compositing, let $\{(z_{i}(u),\alpha_{i}(u))\}_{i=1}^{N(u)}$ be splats along the ray at pixel $u$, sorted by increasing depth; define $T_{1}(u)=1$ and $T_{i}(u)=\prod_{j< i}(1-\alpha_{j}(u))$~\cite{kerbl3Dgaussians}. The depth consistency is enforced as
+\begin{equation}
+\underbrace{\mathcal{L}_{\text{depth}}}_{\{\mathcal{D}_{\text{dep}},\,\mathcal{E}_{\text{attns}}\}}
+\;=\;
+\sum_{f}\sum_{u}\left\| D_f(u) - \sum_{i=1}^{N(u)} T_{i}(u)\,\alpha_{i}(u)\,z_{i}(u) \right\|_1.
+\label{eq:depth-consistency}
+\end{equation}
+
+\subsection{Motion Regularization}\label{sec:train-motion}
+The local rigidity motion regularization in \eqref{eq:rigid} (Sec.~\ref{sec:motion-consist}) encourages dynamic objects to follow a coherent transform over time, while the forward–backward agreement in \eqref{eq:fb-loss} promotes smooth, temporally consistent per-instance trajectories by considering both motion directions. These motion regularizers complement $\mathcal{L}_{\text{rgb}}$, $\mathcal{L}_{\alpha}$, and $\mathcal{L}_{\text{depth}}$ to balance the fidelity of appearance with stable 3D geometry and dynamics.

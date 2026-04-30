@@ -1,0 +1,18 @@
+\section{Related Work}
+
+\paragraph{3DGS Foundations}
+3D Gaussian Splatting (3DGS)~\cite{kerbl20233d} represents a scene as a set of anisotropic 3D Gaussians optimized through hardware-accelerated rasterization with differentiable compositing. This pipeline has become a standard for high-quality novel-view synthesis, and subsequent works extend it to eliminate visual artifacts~\cite{radl2024stopthepop, kv2025stochasticsplats} or support non-pinhole camera models~\cite{wu20253dgut}.
+
+\paragraph{Ray Tracing for 3DGS}
+While rasterization is efficient, its reliance on tile-based splatting and per-pixel depth sorting limits both correctness and flexibility. 3D Gaussian Ray Tracing (3DGRT)~\cite{loccoz20243dgrt} overcomes these constraints by incorporating hardware-accelerated ray tracing, enabling per-ray Gaussian sorting, arbitrary camera models, and seamless integration with mesh-based path tracing. Other works follow this direction, extending to non-Gaussian distributions~\cite{dontsplatyourgaussian} or proposing alternative implementations for improved efficiency or robustness~\cite{mai2024everexactvolumetricellipsoid, RaySplats}.
+
+\paragraph{Efficient 3DGS Reconstruction}
+A large body of work seeks to accelerate 3DGS reconstruction through model compression or more effective primitive management. Compression-oriented approaches~\cite{Fang2024MiniSplattingRS, HansonSpeedy, chen2025hac100xcompression3d} reduce the number of Gaussians via pruning, quantization, or structure-aware simplification. SpeedySplats~\cite{HansonSpeedy} further tightens Gaussian--tile localization to lower the per-tile primitive count. Complementary efforts improve densification and pruning heuristics for faster convergence without sacrificing quality~\cite{3DGSMCMC, Taming3DGS}. These techniques are largely orthogonal to ours: our method replaces the backward differentiation module and remains compatible with most existing acceleration strategies.
+
+\paragraph{Stochastic Gaussian Splatting}
+A growing thread of work replaces deterministic alpha blending with stochastic transparency~\cite{Enderton2010} to bypass the cost of sorting. 3DGRT introduced a biased variant that randomly retains a subset of intersected Gaussians with probability proportional to their blending weights. \citet{Sun2025} developed a principled unbiased algorithm and demonstrated its effectiveness for \emph{rendering} 3DGS assets, but did not provide a differentiable formulation suitable for \emph{reconstruction}. StochasticSplats~\cite{kv2025stochasticsplats} derived a differentiable stochastic blending algorithm to address popping artifacts; however, as we show in \autoref{sec:method} and the appendix, their gradient estimator suffers from high variance due to near-singular opacity terms, making it unsuitable for end-to-end 3DGS reconstruction.
+
+\paragraph{Gaussian-Splatting-Based Relighting}
+Several works extend 3DGS to support relighting by replacing view-dependent spherical harmonics with per-Gaussian material attributes~\cite{R3DG2023, liang2023gs, SVG-IR, gu2024IRGS}, handling shadows through baked visibility or learned approximations. More recent methods~\cite{bi2024rgs, RNG} model cast shadows via light-space splatting, achieving stronger performance on relighting benchmarks through more accurate appearance models and explicit light visibility estimation.
+
+Our stochastic ray-tracing formulation offers a fundamentally different approach: the same per-ray visibility estimator used for primary rays extends directly to shadow rays and environmental illumination without specialized splatting passes or shadow-prediction networks, yielding physically accurate light transport within a unified framework.

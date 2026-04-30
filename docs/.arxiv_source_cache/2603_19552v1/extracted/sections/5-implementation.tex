@@ -1,0 +1,14 @@
+\section{Implementation}\label{sec:impl}
+
+Our image encoder, $\mathcal{E}_{\text{DINO}}$, is taken from DINOv2~\cite{dino2} and kept frozen throughout training.
+The alternating-attention backbone consists 36 layers, with 18 frame-attention layers interleaved with 18 global-attention layers. The AA layers, camera head and depth head are initialized from Pi3~\cite{pi3} pretrained weights, frozen at initialization, and progressively unfrozen as training proceeds.
+
+For temporal modeling, we employ a 4-layer causal masked-attention module with the same architecture as the global-attention block, with 16 heads each layer.
+We randomly downsample sequences temporally by $1\times$ - $4\times$, making the causal horizon effectively $\pm1$ to $\pm4$ frames and encouraging robustness to varying temporal sampling rates.
+
+The Gaussian head and motion head share the depth-head architecture, with different output channel sizes. 
+We initialize the motion head conservatively by setting the weights of its final linear layer to zero. 
+We further adopt a staged training schedule: Initially, the motion head is excluded from training, and we disable dynamic Gaussian aggregation across time. We render each frame using static Gaussians from all frames plus the dynamic Gaussians from the current frame only. 
+In the second stage, once the Gaussian and depth heads produce high-quality single-frame reconstructions, we activate the motion head and perform temporal aggregation of dynamic Gaussians. This strategy stabilizes optimization and allows for accurate per-frame geometry before temporal fusion.
+
+\vspace{-0.3cm}

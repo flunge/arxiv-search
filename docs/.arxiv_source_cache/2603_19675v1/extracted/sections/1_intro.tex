@@ -1,0 +1,55 @@
+
+
+\section{Introduction}
+End-to-end autonomous driving has emerged as a promising paradigm for building driving systems~\cite{chen2024end,chib2023recent, dong2025end,hu2025vision}. Given the data captured by onboard sensors, it aims to predict safe and reliable future trajectories for planning and control~\cite{hu2025vision, chen2024vadv2, weng2024paradrive}. However, trajectory planning is a highly interactive process with the surroundings. A planned trajectory represents the intended action whose safety depends on how the environment responds after it is executed. 
+Therefore, achieving reliable and safe planning requires anticipating future scene evolution, which remains a key challenge for autonomous driving systems.%
+
+
+
+
+
+
+To equip the vehicle with such foresight capabilities, a new line of research introduces world models~\cite{allen1983planning, kong20253d} for the end-to-end methods~\cite{guan2024world, wang2024drivingfuture}. By enabling action-conditioned future simulations, these approaches allow the system to foresee the consequences of candidate trajectories and anticipate potential risks, thereby supporting safer and more reliable driving decisions. 
+World models mainly follow two approaches: one line of work predicts future scenes explicitly, for example, by generating pixel-level images or 3D occupancy grids~\cite{wang2024drivedreamer, zhang2025epona, zheng2024occworld, yang2025drivingoccworld}. In contrast, another line of work models the scene prediction of the world in a latent space~\cite{li2024law, zheng2025world4drive, yang2025worldrft}, without explicitly reconstructing the full scenes.
+
+
+Despite the advances, existing world models still suffer from critical limitations. For explicit scene-level prediction, many approaches rely on diffusion~\cite{podell2023sdxl,gao2023magicdrive} or autoregressive models~\cite{zhang2025epona,hu2023gaia} to synthesize future observations. While produced visually pleasing results, these methods primarily focus on appearance details such as textures and lighting. The emphasis on high-frequency visual patterns overlooks the underlying geometry and dynamics, which introduces extra computational overhead without improving action-oriented reasoning.
+
+On the other hand, latent-space world models shift the focus from appearance synthesis to inner 
+features
+~\cite{li2024law, zheng2025world4drive}. 
+As illustrated in Figure~\ref{fig:compare} (a), most works adopt the one-step regression that directly maps the current latent state to the next timestep. Such a static formulation simplifies the prediction as a rigid mapping and neglects the dynamic transition process, making it hard to assess the safety and feasibility of candidate actions. %
+For instance, when a vehicle approaches pedestrians, it may either gradually slow down to yield or maintain speed and brake abruptly at the last moment. 
+Although both actions may lead to a similar stopping position, the underlying scene evolution and safety implications are fundamentally different. 
+Without modeling this transition process, the world model cannot faithfully capture trajectory-dependent dynamics or assess whether the induced evolution is smooth and physically plausible. 
+
+
+
+
+
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=\textwidth]{figs/compare.pdf}
+    \vspace{-6mm}
+    \caption{Comparison between \textbf{(a)} the existing \textbf{static world model} and \textbf{(b)} the \textbf{dynamic latent world model of our DynFlowDrive}. Instead of the static regression of next-frame latents, we propose the dynamic modeling that learns a continuous velocity field $v_{\theta}$ to capture the evolution of world transitions.}
+    \vspace{-7mm}
+    \label{fig:compare} %
+\end{figure}
+
+To bridge this gap, we argue that effective world modeling must move beyond discrete endpoint regression and explicitly formulate trajectory-conditioned scene evolution as a continuous dynamical system.
+Motivated by this, we propose \textbf{DynFlowDrive}, a latent world model
+that leverages flow-based dynamics to model the transition of world states under different driving actions. Specifically, based on the extracted latent features, 
+DynFlowDrive adopts a rectified-flow formulation to model the transition dynamics in latent space and predict future latent states conditioned on the current observation and multiple candidate trajectories. The learned velocity field explicitly captures the rate of change of the scene during state transitions, enabling the model to capture how the environment progressively evolves under different driving actions.
+Building upon the learned flow dynamics, we further introduce the stability-aware multi-mode trajectory selection mechanism. By exploiting the velocity field produced by the flow-based world model, we derive a stability measure that reflects the smoothness of trajectory-conditioned scene transitions. 
+Combined with trajectory error measured with the ground truth and latent reconstruction discrepancy, this dynamics-aware stable criterion enables more reliable planning assessment and trajectory selection for safer autonomous driving systems. %
+
+For evaluation, DynFlowDrive achieves comparable performance on challenging benchmarks, including nuScenes~\cite{caesar2020nuscenes} and NavSim~\cite{dauner2024navsim}.
+As shown in Figure~\ref{fig:teaser}, our method consistently improves planning accuracy for BEV-based and w/o BEV approaches. Without auxiliary tasks, DynFlowDrive is still comparable to perception-based models. In particular, compared with SSR~\cite{li2024ssr}, DynFlowDrive reduces the average $L_2$ displacement error from 0.39m to 0.31m and achieves 88.7 PDMS on NavSim.
+Our main contributions are summarized as follows:
+\vspace{-1mm}
+\begin{itemize}
+    \item We propose \textbf{DynFlowDrive}, a dynamic latent world model that leverages rectified flow to explicitly model dynamic world evolution, enabling the progressive next-frame latent prediction conditioned on candidate trajectories.
+    \item We introduce the stability-aware multi-mode selection strategy that leverages the flow-based stability for more reliable trajectory selection.
+    \item Extensive experiments demonstrate the consistent and stable performance improvements across autonomous driving paradigms, without introducing additional computational overhead during inference.
+\end{itemize}
+

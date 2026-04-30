@@ -1,0 +1,116 @@
+\section{Our Approach}
+
+\cref{fig:pipeline} illustrates our architecture, composed of two components: Kinematic Control (\cref{sec:kinematics_control}) and 4D Generative Modeling (\cref{sec:4d_gen_modeling}).
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\textwidth]{images/pipeline.pdf}
+\vspace{-0.4cm}
+\caption{\textbf{Overview of our \textit{Kinema4D}}.
+\textbf{\textit{1) Kinematics Control}}: Given a 3D robot with its URDF at initial canonical setup space, and an action sequence, we drive the 3D robot via kinematics to produce a 4D robot trajectory, which is then projected into a pointmap sequence. This process re-represents raw actions as a spatiotemporal visual signal.
+\textbf{\textit{2) 4D Generative Modeling}}: This signal and the initial main-view world image are sent to a shared VAE encoder, then fused with an occupancy-aligned robot mask and noise, which are denoised by a Diffusion Transformer \cite{dit} to generate a full future 4D (pointmap+RGB) world sequence.}
+\label{fig:pipeline}
+\vspace{-0.4cm}
+\end{figure}
+
+\subsection{Kinematics Control}
+\label{sec:kinematics_control}
+The core of our framework lies in transforming abstract robot actions into a precise 4D representation, via a progressive process.
+% Unlike prior works that rely on latent action embeddings \cite{zhu2025irasim,agarwal2025cosmos}, we progressively implement a programmatic process.
+% of 3D robot asset acquisition, kinematic-driven 4D robot trajectory expansion, and spatial projection.
+
+\paragraph{3D robot asset acquisition.}
+To ground the robot in 4D space, we first establish its geometric entity. For standardized robots, we utilize factory-provided 3D CAD meshes. For unknown platforms, we implement a reconstruction pipeline: 
+
+We first capture orbital videos of the robot and sample representative frames, then employ Grounded-SAM2 \cite{ravi2024sam2, liu2023grounding} to segment the robot in the initial frame using a robust prompt (\eg, \texttt{“the robot arm”}), followed by SAM2 \cite{ravi2024sam2} to propagate masks across the sequence via video tracking. Next, given the masked multi-view images, we leverage ReconViaGen \cite{chang2025reconviagen} to recover a high-quality textured robot mesh $\mathcal{C}_{recon}$ in under one minute. This pipeline facilitates the efficient acquisition of our 3D asset library for diverse robotic configurations.
+% These meshes are subsequently bound to their respective URDF kinematic chains to serve as the physical basis for 4D robot trajectory generation.
+To enable articulation, we establish a digital twin alignment: the joint anchor points from the robot's URDF model $\mathcal{M}$ are mapped to their corresponding coordinates of $\mathcal{C}_{recon}$ within the canonical reconstruction space. This ensures that the analytical kinematic chain can directly drive the reconstructed mesh segments.
+
+\vspace{-0.2cm}
+\paragraph{Kinematics-driven 4D robot trajectory expansion.}
+Given the aligned robot model $\mathcal{M}$ within $\mathcal{C}_{recon}$, we transform input actions $\mathbf{a}_{1:T}$ into full-body 4D trajectories. Our framework handles two primary control modalities:
+
+\begin{itemize}[leftmargin=*, nosep]
+    \item \textit{End-effector control}. When actions are provided as Cartesian poses $\{\mathbf{T}_{ee, t}\}_{t=1}^T$, we employ an Inverse Kinematics (IK) solver to resolve the joint configurations at time $t$: $\mathbf{q}_t = \text{IK}(\mathbf{T}_{ee, t}, \mathbf{q}_{t-1}, \mathcal{M})$, where the previous state $\mathbf{q}_{t-1}$ serves as the seed to ensure temporal smoothness and prevent joint-space flipping.
+    \item \textit{Joint-space control}. When actions are directly provided as joint angles or velocities, $\mathbf{q}_t$ is obtained via direct mapping or integration.
+\end{itemize}
+
+For each time $t$, we perform Forward Kinematics (FK) to compute the 6-DoF poses for all $K$ links within the reconstruction space: $\{\mathbf{T}_{k,t}^{recon}\}_{k=1}^K = \text{FK}(\mathbf{q}_t, \mathcal{M})$.
+
+\paragraph{Spatial-visual projection.}
+We select a primary viewpoint—typically a medial-frontal perspective—for projection and later generation, as single-view robot demonstration data is extensively accessible to ensure training scalability and diversity. 
+To place the articulated robot within the initial main-view world image $I_0$, we utilize the extrinsic camera transformation $\mathbf{T}_{recon}^{cam} \in SE(3)$ of the selected main view, which is derived during the previous 3D robot reconstruction phase \cite{chang2025reconviagen}.
+% We utilize a \textit{render-and-match} strategy: the mesh is rendered from synthetic viewpoints and matched against the initial observation $I_0$ using a VGG-T \cite{wang2025vggt} backbone to find the optimal estimation of $\mathbf{T}_{recon}^{cam}$, ensuring the virtual robot is perfectly overlaid on its real-world counterpart.
+% This registration is performed via a coarse-to-fine strategy. We first utilize a render-and-match approach where the 3D robot mesh is rendered from various synthetic viewpoints. These renders are matched against $I_0$ using a VGG-T \cite{wang2025vggt} backbone to identify an initial global pose. Next, to achieve pixel-level precision, we compute dense correspondences between the best-matching rendered image and the real-world observation $I_0$ using MASt3R \cite{mast3r_eccv24}. This allows for a robust estimation of $\mathbf{T}_{recon}^{cam}$, ensuring the virtual robot is perfectly overlaid on its real-world counterpart.
+With the camera transformation $\mathbf{T}_{recon}^{cam}$ and the previously computed link poses $\{\mathbf{T}_{k,t}^{recon}\}$ within the reconstruction space, the full-body trajectory is projected onto the image plane to generate the 4D robot pointmap $\mathbf{M}_{1:T} \in \mathbb{R}^{H \times W \times 3}$. For any point $\mathbf{x}$ on the surface of link $k$, its projected pixel coordinates $(u, v)$ and depth $z$ are determined by: 
+{\scriptsize
+\begin{equation}
+\begin{bmatrix} u \cdot z \\ v \cdot z \\ z \end{bmatrix} = \mathbf{K} \cdot \mathbf{T}_{recon}^{cam} \cdot \mathbf{T}_{k,t}^{recon} \cdot \mathbf{x},
+\end{equation}
+} 
+where $\mathbf{K}$ is the camera intrinsic matrix. The resulting pointmap $\mathbf{M}_{1:T}$ is pixel-aligned with the RGB grid, while its pixel values store the camera-space $(x, y, z)$ coordinates. This transformation precisely maps the 4D robot trajectory from the canonical reconstruction space into the target camera coordinate system, ensuring that the robot occupancy is spatially consistent with the environmental background. 
+% This dual-nature representation allows the later generative model to maintain a strict geometric correspondence between the projected robot and the surrounding 3D environment.
+Optionally, we project the textured trajectory to RGB sequence. 
+
+% Through the whole process, we represent raw robot actions as a precise spatiotemporal visual control signal. 
+\cref{tab:ablation} ablates the robustness to the noisy pointmap. More details of our reconstruction and projection are provided in the supplementary material.
+
+\subsection{4D Generative Modeling}
+\label{sec:4d_gen_modeling}
+Next, we utilize a 4D diffusion model to focus on synthesizing the environment’s reactive dynamics in response to the robot control signal.
+
+\paragraph{Preliminary: Latent Video Diffusion.}
+We build our framework upon Latent Diffusion Models (LDM) \cite{rombach2022high}, extending them to the 4D spatiotemporal domain. Instead of pixel-space denoising, the model operates on a compressed latent space $\mathcal{Z}$ provided by a pre-trained VAE. A video sequence $\mathbf{V}_{1:T}$ is encoded into a latent tensor $\mathbf{z}_0 \in \mathbb{R}^{T \times C \times H \times W}$. The diffusion process learns to generate this latent sequence by optimizing a conditional denoising objective:
+{\scriptsize
+\begin{equation}
+    \mathcal{L}_{vid} = \mathbb{E}_{\mathbf{z}_0, \epsilon, \tau, \mathbf{c}} \left[ \| \epsilon - \epsilon_\theta(\mathbf{z}_\tau, \tau, \mathbf{c}) \|^2 \right],
+\end{equation}
+}
+where $\mathbf{z}_\tau$ is the noisy latent at diffusion step $\tau$, and $\epsilon_\theta$ is typically a Spatio-Temporal Transformer (\eg, DiT \cite{dit}) that models dependencies across both frames and pixels. The condition $\mathbf{c}$ guides the denoising process to ensure the generated video adheres to specific inputs.
+% such as initial frames or control signals.
+
+\paragraph{Multi-modal latent construction.}
+To prepare the multi-modal input for our generative backbone, we first align the temporal dimensions of the initially captured RGB world image $I_0$ and the robotic control signals. Specifically, $I_0$ is extended along the temporal axis via zero-padding or by concatenating the previously robot RGB sequence.
+Next, following the data formatting strategy in 4DNex \cite{chen20254dnex}, we concatenate this input with the previously produced robot pointmap sequence $\mathbf{M}_{1:T}^{robot}$ along the width dimension. This unified spatiotemporal signal is then processed by a shared VAE to obtain input latents, which maps the heterogeneous inputs—RGB and pointmap—into a synchronized latent representation.
+% This encoding ensures that the diffusion transformer starts with a pixel-aligned foundation, where every latent patch inherently contains both visual and geometric priors of the robot.
+
+To further enforce pixel-level control, we introduce a guided mask $\mathbf{m} \in \{0, 1\}^{T \times H \times W}$, where $\mathbf{m}_{t,i,j} = 1$ indicates the spatial occupancy of the robot (derived from $\mathbf{M}_{1:T}^{robot}$) and $0$ indicates the area to be generated. In practice, rather than employing a binary hard-mask, we implement a soft strategy by setting the value of 10\% occupied regions to $0.5$ (ablated in \cref{tab:ablation}). This design choice ensures that the generative model retains the capacity to \textit{refine} the robot's visual signal. By doing so, we mitigate the impact of noise introduced during the previous phase, enhancing the structural robustness and visual coherence.
+
+We concatenate input latents, noisy latents, and robot masks channel-wise. This fused input ensures that the generative model focuses exclusively on synthesizing the environment's reactive dynamics while \textit{strictly adhering to the robot’s trajectory}.
+
+\paragraph{4D-aware joint modeling.}
+Our backbone is a Diffusion Transformer \cite{dit} that predicts synchronized RGB and pointmap sequences. To preserve pixel-wise alignment across these modalities, we adopt a shared Rotary Positional Encoding (RoPE) \cite{su2024roformer} across both RGB and pointmap latents. Additionally, following 4DNex \cite{chen20254dnex}, we distinguish these domains using learnable domain embeddings. These embeddings act as modality-specific signatures, allowing the Transformer to perform cross-modal reasoning—effectively using the robot pointmap as geometric anchors to guide the synthesis of the RGB environmental response.
+
+\paragraph{4D sequence synthesis.} 
+The denoised latents are processed by the shared VAE Decoder to reconstruct the full-world pointmap/RGB sequence. By predicting the environment's pointmap $\mathbf{M}_{1:T}^{world}$, the model produces a simulation that is not only visually realistic but also geometrically rigorous, ultimately yielding a 4D world where every pixel's depth and motion are grounded in 3D space.
+
+\paragraph{Underlying insight.} 
+By jointly modeling RGB and pointmap latents, the generative process is transformed into a spatiotemporal reasoning task. The model does not merely “draw” pixels; it must resolve the 3D occupancy and deformations of the world that are consistent with the robot's movement. 
+% This ensures that physical grounding is enforced not just at the control stage, but throughout the entire generative process. 
+
+\subsection{Robo4D-200k: A Large-Scale 4D Robotic Dataset}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.9\textwidth]{images/dataset.pdf}
+\vspace{-0.2cm}
+\caption{\textbf{Samples from our \textit{Robo4D-200k} dataset}.
+Our dataset provides a comprehensive data foundation by aggregating diverse real-world demonstrations, including DROID \cite{khazatsky2024droid}, Bridge \cite{walke2023bridgedata}, and RT-1 \cite{rt12022arxiv}. We further incorporate the LIBERO \cite{libero} to synthesize a vast array of successful/failure cases. Each episode captures a \textit{complete} robot-world interaction (\eg, pick-and-place)—providing the continuous information necessary for robust reasoning. The 4D point clouds viewed from various camera frustums are shown here, demonstrating the spatial precision of our pseudo-annotations.}
+\label{fig:dataset}
+\vspace{-0.3cm}
+\end{figure}
+
+\paragraph{Data preparation.}
+To facilitate the training of Kinema4D, a large-scale dataset is a prerequisite.
+To begin with, we aggregate 2D RGB video streams from leading real-world robotic demonstration repositories, including DROID \cite{khazatsky2024droid}, Bridge \cite{walke2023bridgedata}, and RT-1 \cite{rt12022arxiv}. We further incorporate the LIBERO \cite{libero} platform to synthesize an extensive array of both successful executions and critical failure modes.
+% To facilitate rigorous benchmarking within standardized environments, 
+
+\paragraph{4D annotation.}
+A significant challenge lies in lifting the raw 2D RGB videos from real-world datasets into the 4D metric space required for our joint generative modeling.
+We extensively tried several state-of-the-art 3D/4D reconstruction frameworks, including  MonST3R \cite{zhang2024monst3r}, MegaSaM \cite{li2025megasam}, VGGT/VGGT4D \cite{wang2025vggt, hu2025vggt4d}, ViPE \cite{huang2025vipe}, and ST-V2 \cite{xiao2025spatialtracker}. ST-V2 \cite{xiao2025spatialtracker} yields the most robust and temporally consistent pointmap sequences, particularly for robot manipulations involving rapid motion. It is used to reconstruct high-quality, pixel-aligned 4D trajectories for real datasets. For synthetic data from LIBERO, we directly leverage the native, noise-free depth parameters to ensure absolute ground-truth precision.
+
+\paragraph{Dataset curation.}
+To ensure the quality of the generative simulation, we performed a rigorous data curation process. We applied a manual verification to prune low-quality captures and reconstruction artifacts. For very-long demonstrations, we applied uniform temporal downsampling to yield 49-frame sequences per episode; this ensures consistent motion frequencies across the dataset.
+% effectively mitigating training biases toward specific action speeds. 
+Each curated episode captures a complete/contiguous spatiotemporal interaction (\eg, a full pick-and-place cycle), providing the long-term dependencies necessary for robust physical reasoning.
+Following this pipeline, we established \textit{Robo4D-200k}, which—to our knowledge—represents the largest-scale 4D robot-interaction dataset. Comprising 201,426 high-fidelity episodes, Robo4D-200k provides the unprecedented data volume and interaction diversity required to train foundation models with spatiotemporal and physical awareness. More details of our dataset can be found in the supplementary material.

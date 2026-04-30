@@ -1,0 +1,45 @@
+In this section, we delineate the practical deployment of X-World within XPeng's autonomous driving stack. Beyond simple video generation, X-World serves as a high-fidelity, reactive, and controllable substrate for the development and validation of our next-generation Vision-Language-Action (VLA 2.0) policies.
+
+\subsection{Closed-loop Evaluation Engine for VLA 2.0}
+Although traditional 3DGS-based simulation evaluations can accurately reproduce the driving trajectories of the end-to-end driving model, they are unable to handle scenarios where the autonomous driving model makes significant lane changes, or where the running trajectory is completely different from the real vehicle's collected logs. X-World functions as a generative simulator that enables full closed-loop testing for VLA 2.0.
+
+\textbf{Reactive Rollouts}: Unlike static log-replays, X-World responds to the ego-vehicle's real-time planned trajectories. If VLA 2.0 executes a sudden braking or steering maneuver, X-World updates the future multi-view observations accordingly, maintaining temporal and causal consistency. 
+
+\textbf{Safety Critical Metrics}: By running VLA 2.0 within X-World, we can measure high-level performance indicators such as collision rates, progress-to-goal, and ride comfort in a virtual environment that closely mirrors the real-world visual distribution.
+
+Figure~\ref{fig:closed_loop} illustrates the potential of \modelname~as a closed-loop simulator for policy evaluation under \emph{counterfactual} and \emph{edited} scenarios. We show two representative cases.
+
+\textbf{Scenario~1 (counterfactual action rollout).}
+In the logged video, the ego vehicle chooses to wait behind a front vehicle that is in fact parked. Under the same initial scene, we use \modelname~to roll out a counterfactual future conditioned on an alternative policy action: the tested policy model decides to \emph{detour} around the parked car. \modelname~generates a coherent multi-camera future consistent with this maneuver, enabling scalable evaluation of whether the policy can take the more efficient action while remaining safe.
+
+\textbf{Scenario~2 (scene editing for safety-critical stress test).}
+In the logged video, the ego vehicle goes straight and passes a nearby black car on the front-left. We then edit the scene by inserting a cyclist that darts out from behind the black car, initially occluded by it. Under this edited condition, \modelname~generates high-quality futures with consistent occlusion and motion, and the tested policy model successfully stops before the cyclist, yielding to it and safely avoiding a collision.
+
+Together, these examples demonstrate that \modelname~can support \emph{closed-loop} evaluation by (i) rolling out alternative ego actions under the same scene and (ii) generating realistic, safety-critical counterfactuals through controllable scene editing, providing a practical testbed for end-to-end/VLA policy development.
+
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=1.0\columnwidth]{asset/pics/results/simulation_blur.pdf}
+  \caption{\textbf{Closed-loop simulation and counterfactual testing with \modelname.}
+  \textbf{Scenario~1:} In the logged video, the ego vehicle waits behind a front car that is actually parked. Under the same initial scene, \modelname~enables counterfactual rollout to evaluate a policy that detours around the parked car.
+  \textbf{Scenario~2:} Starting from a logged straight-driving scenario, we edit the scene by inserting a cyclist darting out from behind an occluding black car. \modelname~generates realistic futures under this edit, and the tested policy safely stops before the cyclist to avoid collision.}
+  \label{fig:closed_loop}
+\end{figure}
+\subsection{Simulator for Online Reinforcement Learning}
+To bridge the gap between imitation learning and expert-level performance, X-World is utilized as a training environment for Online Reinforcement Learning (RL).
+
+\textbf{Hard-case Specialization}: We leverage X-World’s controllability to stress-test VLA 2.0 in scenarios where it typically underperforms, such as "hidden-person" (ghost-outs) at intersections or indecisive lane-changing in dense traffic.
+
+\textbf{Efficient Exploration}: By fine-tuning the policy within X-World, the VLA model can explore diverse action sequences and receive immediate visual feedback. This iterative loop allows the model to learn recovery behaviors from near-accident states—scenarios that are too dangerous to explore in the real world.
+
+
+\subsection{Large-scale Data Synthesis and Augmentation}
+X-World acts as a generative data factory, synthesizing rare and high-value data assets that are difficult to collect via fleet vehicles.
+
+\textbf{Corner Case Generation}: We can procedurally generate safety-critical events, such as extreme weather conditions, rare vehicle types, or erratic pedestrian behaviors, providing a balanced training distribution that mitigates the long-tail problem.
+
+\textbf{Overseas Expansion}: To support our global strategy, X-World enables "Zero-shot style transfer" for data. By conditioning the model on localized appearance prompts (e.g., European road markings, unique traffic signs, or left-hand traffic logic), we can transform domestic driving data into overseas training assets, significantly accelerating our international deployment without the need for extensive local data collection.
+
+
+

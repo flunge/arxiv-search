@@ -1,0 +1,43 @@
+\section{Introduction}
+\label{sec:intro}
+
+\begin{figure*}
+    \centering
+    \includegraphics[width=1\linewidth]{figures/teaser_image_double.pdf}
+    \caption{An overview of the proposed Splat2BEV framework.Compared to traditional implicit end-to-end approaches, Splat2BEV first reconstructs the scene using 3D Gaussian Splatting, and then projects the reconstructed scene into the Bird’s-Eye-View to obtain geometry-aligned representations for downstream tasks, leading to substantial performance improvements.}
+    \label{fig:teaser}
+\end{figure*}
+Bird’s-Eye-View (BEV) perception has become a foundational basis for 3D scene understanding and autonomous driving.
+By aggregating information from multiple surrounding views into a unified top-down representation, BEV perception allows consistent reasoning over object positions, motion trajectories, and environmental layouts.
+Such a spatially structured representation serves as an effective bridge to downstream modules including segmentation \cite{philion2020lift, hu2021fiery, zhou2022cross}, detection \cite{li2024bevformer, liu2023bevfusion, xie2022m, huang2021bevdet} and planning \cite{dewangan2023uap, hu2023planning}.
+
+Given that BEV serves as the backbone for autonomous driving tasks, numerous works have explored developing enhanced BEV representations. Existing BEV works can be broadly categorized into two main categories, namely 2D unprojection-based and 3D projection-based approaches.
+2D unprojection-based methods \cite{liu2023bevfusion, philion2020lift} typically lift image features into the BEV plane through learned view transformations or depth-aware unprojection modules,
+whereas 3D projection-based methods \cite{li2024bevformer, chambon2024pointbev} first construct feature representations within predefined 3D coordinate volumes and then project them into the BEV plane for downstream tasks. 
+
+Despite the differences in methodological approaches to BEV generation, both lines of work follow an end-to-end training paradigm, in which BEV features are only learned through downstream task supervision. 
+Such an implicit learning process for BEV features leads to the generation of imprecise and low-quality BEV feature maps that eventually results in suboptimal performance for critical downstream autonomous driving tasks~\cite{le2024diffuser,ye2025bevdiffuser}. While more recent works have tried to introduce additional supervision~\cite{ye2025bevdiffuser}, they still fail to address the core issue, the lack of explicit representation, as they do not enforce a geometry-aligned BEV reconstruction capable of producing highly precise and accurate BEV feature maps.
+
+%However, both categories typically follow an end-to-end training paradigm,where BEV features are learned implicitly under downstream supervision without explicit 3D reconstruction or geometric reasoning, often resulting in noisy \cite{ye2025bevdiffuser} and semantically ambiguous BEV feature maps.
+
+In this paper, we propose \textit{Splat2BEV}, a Gaussian Splatting-assisted framework for BEV perception. 
+\textit{Splat2BEV} incorporates 3D Gaussian Splatting as an explicit intermediate representation within the BEV perception pipeline.
+Leveraging 3D reconstruction, our framework generates geometry-aligned feature representations that enhance the effectiveness of downstream BEV tasks.
+An overview of the proposed pipeline and its comparison with the conventional end-to-end paradigm are illustrated in \cref{fig:teaser}.
+Given perspective-view images captured by vehicle-mounted cameras, 
+we first pre-train a Gaussian generator to \textit{explicitly} reconstruct the 3D scene from multi-view inputs, during which semantic knowledge from vision foundation models is distilled into the reconstructed representation.
+This process enables the learning of a geometry- and semantics-aligned feature field that captures both structural and contextual information.
+Leveraging the differentiable rendering capability of 3D Gaussian Splatting, the reconstructed Gaussians and their associated features can be rasterized from a top-down viewpoint to form a BEV feature map, serving as input for downstream tasks.
+Such explicit reconstruction and projection promote the learning of geometrically consistent and semantically meaningful BEV features, enhancing both interpretability and representation quality.
+Finally, a lightweight segmentation head operates on the BEV feature map to produce pixel-wise predictions for applications such as vehicle, pedestrian, and lane segmentation. 
+Extensive experiments on the nuScenes dataset show that \textit{Splat2BEV} significantly outperforms existing baselines, achieving a 21.4\% improvement in lane segmentation and an average gain of 11.0\% across vehicle, pedestrian, and lane classes, highlighting the advantage of explicit reconstruction over implicit representations.
+Additional multi-class segmentation results on both nuScenes and Argoverse1 further demonstrate the robustness of our method.
+
+In summary, the main contribution of our paper includes:
+\begin{itemize}
+    \item We propose \textit{Splat2BEV}, a novel Gaussian Splatting-assisted framework for BEV perception, showcasing the importance of explicit reconstruction in enhancing BEV perception for the first time.
+    \item We incorporate vision foundation models to inject fine-grained visual cues into the reconstruction, improving the quality and expressiveness of the BEV feature representation.
+    \item Extensive quantitative and qualitative experiments on the nuScenes and argoverse1 dataset  show that \textit{Splat2BEV} achieves the state-of-the-art performance and consistently outperforms the baseline methods.
+    %, including vehicle, pedestrian, and lane segmentation, demonstrate the notably superior performance of the Splat2BEV over existing implicit BEV representation methods.
+\end{itemize}
+

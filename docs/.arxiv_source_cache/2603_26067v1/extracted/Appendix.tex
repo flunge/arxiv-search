@@ -1,0 +1,102 @@
+\clearpage
+
+\appendices
+
+\section{Image Translation Model}
+% To achieve seamless background adaptation while overcoming the computational latency associated with the iterative sampling of standard diffusion models, we employ a Latent Bridge Matching framework. 
+% As a variant of Flow Matching operating in the latent space, this approach enables high-fidelity generation with efficient single-step inference. 
+% By inferring environmental contexts from foreground relighting cues and the target environment map, our method synthesizes consistent backgrounds without the need for complex decomposition.
+We construct a training dataset using the CARLA simulator, comprising multi-view images of identical scenes captured under diverse lighting and weather conditions. 
+Formally, we define a training tuple as 
+\begin{equation}
+    \mathcal{U} = \{ (\bm{I}_s, \bm{E}_s), (\bm{I}_t, \bm{E}_t) \}, 
+\end{equation}
+where $\bm{I}$ and $\bm{E}$ represent the captured scene image and the corresponding environment map, respectively, with subscripts $s$ and $t$ denoting the source and target domains.
+Utilizing the Segment Anything Model (SAM) \cite{kirillov2023sam}, we disentangle the foreground ($f$) and background ($b$) components, yielding the set $\{\bm{I}_s^f, \bm{I}_s^b, \bm{I}_t^f, \bm{I}_t^b\}$.
+Specifically, our training dataset is collected using the CARLA simulator, comprising 18 distinct vehicle models (e.g., Audi, Ford, Mini, Tesla, etc.). The dataset covers five weather conditions (Dusk, HarshSun, Night, Overcast, and Sunny), with shooting distances ranging from 5m to 10m. The viewing configurations include pitch angles from $0^{\circ}$ to $90^{\circ}$ with a step of $10^{\circ}$, and azimuth angles from $0^{\circ}$ to $360^{\circ}$ with a step of $60^{\circ}$. By pairing distinct weather conditions as source and target domains, we collected a total of 21,600 image pairs.
+
+Our goal is to train a conditional generative model to synthesize the target background $\bm{I}_t^b$. 
+To ensure the generated background is photometrically consistent with the relighted foreground and the new environment, we introduce a composite conditioning vector $\mathbf{v}$.
+This vector encodes the target environment map $\bm{E}_t$, the target relighted foreground $\bm{I}_t^f$, and the intrinsic appearance contrast of the source domain, formulated as:
+\begin{equation}
+    \mathbf{v} = \mathcal{E}(I_s^b) \oplus \mathcal{E}(I_t^f - I_s^f) \oplus \psi(E_t),
+\end{equation}
+where $\mathcal{E}(\cdot)$ denotes the encoder transforming images into the latent space, $\psi(\cdot)$ is an embedding function for the environment map, and $\oplus$ represents the concatenation operation.
+The training objective is to optimize a velocity field $v_\theta$ that transports the source distribution to the target background distribution. We employ the flow matching objective defined as:
+\begin{equation}
+    \mathcal{L} = \mathbb{E}_{t, z_0, z_1} \left[ \left\| v_t - v_\theta(z_t, t, \mathbf{c}) \right\|^2 \right],
+\end{equation}
+where $z_1 = \mathcal{E}(I_t^b)$ represents the latent representation of the ground truth target background, $z_t$ is the intermediate state at timestep $t$, and $v_t$ is the target velocity field connecting the noise distribution to $z_1$. Through this formulation, the model learns to effectively hallucinate the target background $I_t^b$ in a single inference step.
+
+
+
+\section{HPCM Optimization Objective} 
+
+In this section, we provide the detailed mathematical derivation to prove that the Hard Physical Configuration Mining (HPCM) strategy is equivalent to optimizing the Log-Sum-Exp (LSE) objective, thereby minimizing the worst-case physical adversarial loss.
+
+\textbf{1. Problem Setup}
+Let $\mathcal{L}_i(\mathbf{a}) = \mathcal{L}(\mathbf{a}, \bm{c}_i)$ denote the adversarial detection loss given the albedo $\mathbf{a}$ under the $i$-th physical configuration $\bm{c}_i$, where $i \in \{1, 2,\dots,q\}$.
+The HPCM module samples configurations based on a probability distribution $P(c_i)$ defined by the Softmax of the difficulty scores:
+
+\begin{equation}
+    P(c_i) = \frac{\exp(\mathcal{L}_i/\tau)}{\sum_{j=1}^{q} \exp(\mathcal{L}_j/\tau)},
+\end{equation}
+where $\tau$ is the temperature parameter.
+During the iterative optimization, the update direction for albedo $a$ is determined by the expected gradient under this distribution:
+\begin{equation}
+    \mathbf{g}_{\text{HPCM}} = \mathbb{E}_{\bm{c} \sim P} [\nabla_{\mathbf{a}} \mathcal{L}(\bm{c})] = \sum_{i=1}^{q} P(\bm{c}_i) \cdot \nabla_{\mathbf{a}} \mathcal{L}_i(\mathbf{a}).
+\end{equation}
+
+
+\textbf{2. Gradient of the Log-Sum-Exp Objective}
+We define the global robust objective function using the Log-Sum-Exp (LSE) function:
+\begin{equation}
+    \mathcal{J}_{\text{LSE}}(\mathbf{a}) = \tau \log \left( \sum_{j=1}^{M} \exp \left( \frac{\mathcal{L}_j(\mathbf{a})}{\tau} \right) \right).
+\end{equation}
+
+
+To find the optimization direction for $\mathcal{J}_{\text{LSE}}$, we compute its gradient with respect to the albedo parameters $\mathbf{a}$ using the chain rule:
+
+\begin{equation}
+\begin{aligned}
+\nabla_{\mathbf{a}} \mathcal{J}_{\text{LSE}} &= \nabla_{\mathbf{a}} \left[ \tau \log \left( \sum_{j=1}^{M} \exp \left( \frac{\mathcal{L}_j(\mathbf{a})}{\tau} \right) \right) \right] \\
+&= \tau \cdot \frac{1}{\sum_{j=1}^{M} \exp \left( \frac{\mathcal{L}_j(\mathbf{a})}{\tau} \right)} \cdot \nabla_{\mathbf{a}} \left( \sum_{k=1}^{M} \exp \left( \frac{\mathcal{L}_k(\mathbf{a})}{\tau} \right) \right).
+\end{aligned}
+\end{equation}
+
+
+Next, we compute the gradient of the summation term:
+
+\begin{equation}
+\begin{aligned}
+\nabla_{\mathbf{a}} \left( \sum_{k=1}^{M} \exp \left( \frac{\mathcal{L}_k(\mathbf{a})}{\tau} \right) \right) &= \sum_{k=1}^{M} \exp \left( \frac{\mathcal{L}_k(\mathbf{a})}{\tau} \right) \cdot \nabla_{\mathbf{a}} \left( \frac{\mathcal{L}_k(\mathbf{a})}{\tau} \right) \\
+&= \sum_{k=1}^{M} \exp \left( \frac{\mathcal{L}_k(\mathbf{a})}{\tau} \right) \cdot \frac{1}{\tau} \cdot \nabla_{\mathbf{a}} \mathcal{L}_k(\mathbf{a}).
+\end{aligned}
+\end{equation}
+
+Substituting this back into the expression for $\nabla_{\mathbf{a}} \mathcal{J}_{\text{LSE}}$, the constant $\tau$ cancels out:
+
+\begin{equation}
+\begin{aligned}
+\nabla_{\mathbf{a}} \mathcal{J}_{\text{LSE}} &= \frac{1}{\sum_{j=1}^{M} \exp \left( \frac{\mathcal{L}_j}{\tau} \right)} \cdot \sum_{k=1}^{M} \exp \left( \frac{\mathcal{L}_k}{\tau} \right) \nabla_{\mathbf{a}} \mathcal{L}_k \\
+&= \sum_{k=1}^{M} \left( \frac{\exp(\mathcal{L}_k/\tau)}{\sum_{j=1}^{M} \exp(\mathcal{L}_j/\tau)} \right) \cdot \nabla_{\mathbf{a}} \mathcal{L}_k.
+\end{aligned}
+\end{equation}
+
+
+\textbf{3. Equivalence and Bounds Analysis}
+Comparing the term in the parentheses with Eq. (A.1), we observe that it is identical to the sampling probability $P(c_k)$. Thus:
+\begin{equation}
+    \nabla_{\mathbf{a}} \mathcal{J}_{\text{LSE}} = \sum_{k=1}^{M} P(c_k) \cdot \nabla_{\mathbf{a}} \mathcal{L}_k = \mathbf{g}_{\text{HPCM}}.
+\end{equation}
+
+
+\textbf{Conclusion: }This equality proves that applying HPCM is mathematically equivalent to performing gradient descent on the $\mathcal{J}_{LSE}$ objective.
+Furthermore, according to convex analysis theory, the LSE function is bounded by the maximum function:
+\begin{equation}
+    \max_{i} \mathcal{L}_i \le \mathcal{J}_{\text{LSE}}(\mathbf{a}) \le \max_{i} \mathcal{L}_i + \tau \log M.
+\end{equation}
+
+
+This inequality indicates that minimizing $\mathcal{J}_{LSE}$ effectively minimizes the upper bound of the worst-case configuration. 
+By suppressing the maximum loss $\max \mathcal{L}_i$, the optimization process actively flattens the peaks in the loss landscape, thereby enhancing the overall robustness of the physical camouflage.

@@ -1,0 +1,48 @@
+\section{Related Work}
+\label{sec:related_work}
+
+\subsection{Optimization-based NVS}
+
+The paradigm of novel view synthesis (NVS) has seen a dramatic shift from Neural Radiance Fields (NeRF)~\cite{mildenhall2020nerf}. 
+While several NeRF variants~\cite{yu2021plenoctrees, fridovich2022plenoxels, muller2022instant, tensorf, 10504815} successfully compressed training and inference times, 3D Gaussian Splatting (3DGS)~\cite{kerbl20233d} broke new ground by modeling scenes with anisotropic primitives and a differentiable rasterizer.
+Subsequent research \cite{yu2024mip, huang20242d, fu2024colmap} has refined this representation to improve reconstruction quality and pose robustness.
+However, a fundamental bottleneck of these methods is the requirement for per-scene optimization for every new environment, preventing the immediate translation of raw pixels into 3D structures. 
+This persistent reliance on scene-specific optimization creates a significant barrier for applications requiring low-latency and scalability, underscoring the need for generalizable, feed-forward architectures.
+
+\subsection{3D Vision Foundation Models (3DVFMs)}
+\label{sec:related_works_3DVFM}
+The rapid scaling of 2D vision models has recently extended into the 3D domain, giving rise to 3DVFMs capable of broad, zero-shot geometric reasoning. Unlike conventional Structure-from-Motion (SfM) pipelines \cite{schonberger2016structure, DBLP:journals/tog/SnavelySS06} which infer 3D structure through iterative and computationally expensive bundle adjustment, 3DVFMs approach geometry estimation as a feed-forward prediction task. 
+DUSt3R \cite{wang2024dust3r} introduced to estimate dense corresponding point maps from unposed image pairs. 
+MASt3R \cite{mast3r_eccv24} further advanced by incorporating dense feature matching heads to enhance correspondence learning. 
+VGGT \cite{wang2025vggt} adopted an alternative attention mechanism to generalize across a variable number of input views. 
+% VGGT \cite{wang2025vggt} adopted an alternative attention mechanism, achieving high-quality geometry estimation that generalizes across a variable number of input views. 
+$\pi^3$ \cite{wang2025pi3} explored permutation-equivariant prediction to eliminate reference coordinate bias.
+% , thereby improving the structural fidelity of multi-view geometry. 
+While the majority of 3DVFMs focus strictly on explicit geometric outputs (e.g., depth, point map, correspondence), recent variants such as WorldMirror \cite{liu2025worldmirror} and DepthAnything3 (DA3) \cite{lin2025da3} have been equipped with dedicated 3DGS predictions for NVS tasks. 
+We formally classify this specialized subset of architectures as 3DVFMs with a view synthesis head (3D-VS-VFMs).
+
+% WorldMirror \cite{liu2025worldmirror} enhanced model flexibility by supporting diverse input modalities, while DepthAnything3 (DA3) \cite{lin2025da3} achieves state-of-the-art zero-shot performance across diverse benchmarks by employing a unified depth-ray prediction target and a sophisticated teacher-student training paradigm to obtain consistent and robust 3D representations.
+
+% Crucially, while the majority of 3DVFMs focus strictly on explicit geometric outputs (e.g., depth, point map, correspondence), recent variants such as WorldMirror \cite{liu2025worldmirror} and DA3 \cite{lin2025da3} have been equipped with dedicated 3DGS predictions for NVS tasks. We formally classify this specialized subset of architectures as 3D Vision Foundation Models with a view synthesis head (3D-VS-VFMs).
+
+\subsection{Feed-forward NVS}
+Early generalizable architectures \cite{pixelnerf, mvsnerf, ibrnet, gpnr} utilized Transformer-based encoders to aggregate image features into NeRF \cite{mildenhall2020nerf} or image-based rendering models. The advent of feed-forward 3DGS \cite{charatan2024pixelsplat, szymanowicz2024splatter, chen2024mvsplat, xu2025depthsplat, ziwen2025long, wang2025zpressor} has redefined this frontier by directly mapping pixels to 3D Gaussian primitives. Despite their efficiency, these methods typically rely on calibrated camera parameters extracted from off-the-shelf SfM pipelines \cite{schonberger2016structure, DBLP:journals/tog/SnavelySS06}, which fundamentally restricts their applicability in spontaneous, unconstrained environments. 
+
+To bypass SfM dependency, several pose-free feed-forward NVS methods \cite{smart2024splatt3r, hong2023unifying, kang2025selfsplat, zhang2025flarefeedforwardgeometryappearance} primarily focused on sparse-view reconstruction. 
+More recently, a new paradigm has emerged that initializes directly from pre-trained 3DVFMs. 
+Building upon MASt3R \cite{mast3r_eccv24}, NoPoSplat \cite{ye2024no} estimates 3D Gaussian primitives in canonical space to avoid explicit pose estimation noise, while SPFSplat \cite{huang2025no} proposes to jointly learn pose estimation and NVS, utilizing reprojection losses. 
+AnySplat \cite{jiang2025anysplat}, building upon VGGT \cite{wang2025vggt}, jointly optimizes camera poses and 3DGS predictions through photometric supervision and geometric distillation from a 3DVFM teacher model. YoNoSplat \cite{ye2026yonosplat} explores the mix-forcing training strategy for robust joint camera pose and NVS learning initialized from \cite{wang2025pi3}.
+While Rayzer \cite{jiang2025rayzer}, an orthogonal approach, predicts camera and scene representations from scratch via ray-based transformers, it lacks view-count generalization, requiring retraining for varying input numbers.
+% necessitates costly retraining for any variation in input numbers.
+% An orthogonal approach to feed-forward 3DGS prediction is the ray-based transformer, Rayzer \cite{jiang2025rayzer}, which addresses pose-free NVS from scratch without requiring explicit 3D data supervision by designing a cascaded prediction of camera and scene representations, yet it lacks view-count generalization, necessitating retraining for varying input numbers.
+% However, Rayzer is fundamentally constrained by its lack of view-count generalization, necessitating a complete retraining phase for any input number variation.
+% Rayzer heavily overfits to the specific number of input views utilized during training, necessitating a complete retraining phase for any input number variation.
+
+% Recently, 3D-VS-VFMs, such as WorldMirror \cite{liu2025worldmirror} and DA3 \cite{lin2025da3}, have proposed learning visual geometry estimation and NVS within a single, unified model. 
+Recently, 3D-VS-VFMs\cite{liu2025worldmirror, lin2025da3} have proposed learning visual geometry estimation and NVS within a single, unified model. 
+However, despite their zero-shot generalization, a discernible NVS performance gap remains between these unified 3D-VS-VFMs and specialized NVS pipelines \cite{ye2026yonosplat, huang2025no}. 
+In this work, we identify the critical bottlenecks in the NVS quality of 3D-VS-VFMs: pose-geometry misalignment and multi-view inconsistency. 
+To resolve these, we propose AirSplat, a 3D-VS-VFM training framework that significantly boosts high-fidelity NVS performance, while preserving the integrity of the visual geometry estimation.
+
+
+% Specifically, DA3 achieves the state-of-the-art visual geometry estimation performance while concurrently maintaining reasonable view synthesis capabilities. 

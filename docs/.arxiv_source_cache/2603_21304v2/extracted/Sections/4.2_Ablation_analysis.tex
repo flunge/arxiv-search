@@ -1,0 +1,17 @@
+\subsection{Ablation Studies and Analysis}
+\vspace{-3pt}
+\noindent{\textbf{Densification-Score-Guided Allocation.}}
+We validate the effectiveness of our learned densification score for Gaussian allocation by comparing it with two alternative strategies, (a) and (b) in \cref{tab:ablation}.
+For (a) \textit{random-based allocation}, we replace the learned densification score with a uniform score, which leads to random Gaussian allocation.
+For (b) \textit{frequency-based allocation}, we compute a heuristic frequency score by resizing the input image to each scale level and applying a Sobel filter to emphasize high-frequency (edge) regions.
+Both alternatives underperform, demonstrating that the learned densification score provides a more effective signal for allocating Gaussians than either random selection or simple frequency-based heuristics. 
+Qualitatively, \cref{fig:densification_score_analysis} further illustrates the behavior of the learned densification score.
+The predicted maps of the top example (a) assign higher scores to structurally and visually complex regions (e.g., object boundaries, textured areas, and fine details), indicating where increased Gaussian density is likely to be beneficial.
+Moreover, as in the example below, overlapping areas observed from multiple context images tend to have lower scores, reflecting redundancy-awareness across views.
+This encourages allocating Gaussians to regions that need more capacity while avoiding redundancy in well-covered areas, improving efficiency and fidelity under a fixed budget.
+
+\noindent{\textbf{Level-Wise Gaussian Supervision.}}
+Next, we examine the impact of level-wise Gaussian supervision during training. If we supervise only the final Gaussian set $\mathcal{G}_\tau$, the sampled threshold $\tau$ causes some scale-level Gaussians to be excluded from training in each iteration, resulting in less stable optimization. As shown in \cref{tab:ablation}, removing level-wise supervision clearly degrades performance (c), confirming the benefit of supervising multi-scale Gaussians during training.
+
+\noindent{\textbf{Scene-Scale Regularization.}}
+Finally, we ablate the scene-scale regularization loss in~\cref{tab:ablation} (d). Without this term, training becomes highly unstable, and the model fails to learn a meaningful reconstruction, leading to training failure. In the uncalibrated setting, where the model must jointly predict camera parameters and scene geometry, this simple regularizer is crucial for stable optimization.

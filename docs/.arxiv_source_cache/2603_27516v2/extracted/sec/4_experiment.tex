@@ -1,0 +1,92 @@
+
+
+\section{Experiments}
+
+
+\input{images/mipnerf_comparison}
+
+\noindent \textbf{Datasets and metrics.}
+We evaluate our method on two synthetic datasets including the scene-level Interiorverse dataset~\cite{zhu2022learning} and the object-level TensoIR~\cite{jin2023tensoir} dataset, as well as three real-world datasets including the MipNeRF dataset~\cite{barron2022mip}, the FIPT~\cite{wu2023factorized}, and the DL3DV~\cite{ling2024dl3dv} dataset involving complex lighting conditions. For synthetic datasets, we assess both geometric reconstruction and inverse rendering quality using standard metrics including PSNR, SSIM, and LPIPS~\cite{zhang2018unreasonable}. Note, we provide evaluation on the TensoIR dataset in the supplementary material. For real-world datasets without ground-truth inverse rendering results, we instead perform comparison on novel view synthesis and also employ the MAE~\cite{bae2024rethinking} metric to evaluate normal reconstruction accuracy, MSE~\cite{bai2025qwen3} for roughness. For sparse-view selection, we follow the standard protocol utilized by previous methods~\cite{liao2025spc,fan2024instantsplat,zhu2024fsgs}. For the Interiorverse and TensoIR datasets, we sample 12 and 8 input views for training, while for the MipNeRF, DL3DV and FIPT datasets, we use 24 training views.
+
+
+\input{images/ablation_analysis}
+
+
+\subsection{Comparison with State-of-the-Art Methods}
+
+\noindent\textbf{Evaluation on the Interiorverse dataset.}  
+Table~\ref{tab:interiorverse_comparison} and Figure~\ref{fig:interiorverse_compare} present comparison between our method and previous state-of-the-art approaches on the synthetic Interiorverse indoor scene dataset. As can be seen, both the quantitative and qualitative results demonstrate that our method not only outperforms existing methods in geometry and material reconstruction, but also produces better PBR rendering results under novel views.
+
+
+\vspace{0.5em}
+\noindent\textbf{Evaluation on the MipNeRF dataset.}
+To further validate the generalizability of our method, we conduct evaluation on the MipNeRF dataset. As this dataset does not contain ground truths, we thus provide only visual comparison. As shown in Figure~\ref{fig:mipnerf_effect}, our method exhibits clear advantage over the compared methods in handling complex real-world lighting and material interactions.
+
+\vspace{0.5em}
+\noindent{\noindent\textbf{Evaluation on the DL3DV and FIPT datasets.}
+Besides MipNeRF, we also evaluate our method on two additional real-world datasets, \ie, DL3DV and FIPT, which contain complex real-world environments with large-area lights and extended luminaries. As shown in Table~\ref{table:realscene}, our method reports better quantitative results on the two datasets, manifesting its effectiveness. 
+
+
+\subsection{More Analysis}
+
+To examine the contribution of each component in our method, we conduct ablation studies on the following modules: 
+(i) the geometry and semantic reconstruction, 
+(ii) the hybrid illumination model and the deshadowing module, and 
+(iii) the material constraints based on view and illumination invariance. In addition, we evaluate the expressiveness of our lighting model and the robustness of our method to unreliable pretrained model priors.
+
+\vspace{0.5em}
+\noindent\textbf{Effect of geometry and semantic reconstruction.}
+To verify the effectiveness of our initialization strategy, we separately analyze the contribution of the normal prior and the semantic prior. Quantitative results are reported in Table~\ref{table:ablation}, where we can see that both priors are beneficial to the success of our method. Please refer to the supplementary material for visual demonstrations. 
+
+
+
+
+\vspace{0.5em}
+\noindent\textbf{Effect of hybrid illumination model and deshadowing module.}
+We in Table~\ref{table:ablation} and Figure~\ref{fig:ablation_albedo_estimation} validate the effectiveness of our hybrid illumination model and the deshadowing module. As shown, the SGM point lights enables our model to better capture high-frequency illumination effects, while the deshadowing module helps effectively remove cast shadows from the estimated materials, leading to cleaner albedo prediction.
+
+
+
+
+\vspace{0.5em}
+\noindent\textbf{Effect of material-invariant constraints} . Table~\ref{table:ablation} and Figure~\ref{fig:ablation_albedo_estimation} present both quantitative and qualitative results to demonstrate the effectiveness of the material-invariant constraints ($\mathcal{L}_\text{relight}$ and $\mathcal{L}_\text{cross\_semantic}$). As shown, these constraints allow to improve the fidelity of the recovered albedo, and help produce predictions closer to the ground-truth albedos.
+
+\input{tables/realworld_comparison}
+
+\input{images/Expressiveness_SGM}
+
+
+\vspace{0.5em}
+\noindent\noindent\textbf{Robustness to noisy pre-trained model priors.} We also evaluate the robustness of our method to noisy priors from pre-trained model as well as inaccurate camera parameters on the Interiorverse dataset. Table~\ref{table:robustness_analysis} summarizes the numerical results. As shown, introducing random positional perturbations to the Gaussian geometric field or noise to semantic labels and normal priors results in only marginal performance degradation, demonstrating the robustness of our framework. Moreover, our approach also has some tolerance to inaccurate camera poses. By refining Gaussian positions during the initial training stage, our method compensates for suboptimal initializations from sparse-view VGGT and achieves performance on par with the 200-view ``gold standard'' (referred to as GT Cameras).
+
+
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=1.0\columnwidth]{images/light_complex_edit.png} \\
+\vspace{-2mm}
+\caption{\textbf{Application to lighting control.}}
+\label{fig:application}
+\end{figure}
+
+
+\input{tables/robust_analysis}
+
+\input{tables/ablation}
+
+\vspace{0.5em}
+\noindent \textbf{Expressiveness of our lighting model.} Figure~\ref{fig:complex_emitter} shows that our SGM-based interior lighting model can effectively model complex indoor emitters, including large area lights and extended luminaries by increasing the number of the initial point lights. 
+
+%\vspace{-2mm}
+
+\vspace{0.5em}
+\noindent \textbf{Applications.} As demonstrated in Figure~\ref{fig:application}, since our method allows to recover scene geometry, material properties, and illumination, it enables complex lighting edits, including fine-grained control over light color, individual source toggling, and the seamless integration of virtual lights to modify global lighting. Please see the supplementary material for more results.
+
+
+
+
+
+
+
+
+

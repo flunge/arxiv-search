@@ -1,0 +1,107 @@
+
+\section{Method}
+\subsection{Preliminary}
+\input{figures/fig_pipeline}
+\noindent\textbf{Feed-Forward 3D Gaussian Splatting.}
+Feed-forward 3D reconstruction has emerged as a powerful alternative to per-scene optimization, enabling generalizable novel-view synthesis in a single forward pass. Here, we utilize AnySplat~\cite{jiang2025anysplat}, a feed-forward 3DGS model, as our baseline. Given $N$ view images $\{I_i\}_{i=1}^N$, where $I_i \in \mathbb{R}^{H\times W\times 3}$ of a 3D scene, Distilled from VGGT~\cite{wang2025vggt}, the geometry encoder from AnySplat~\cite{jiang2025anysplat} first aggregate tokens from the multi-view inputs. With the corresponding tokens, the camera head $F_C$ generates the poses $p_i$, the depth head $F_D$ produces the per-pixel depth map $D_i$ and a confidence map $C^D_i$. As in AnySplat~\cite{jiang2025anysplat}, the Gaussian primitives are extracted by the Gaussian head $F_G$ with the depth map $D_i$, poses $p_i$, and the aggregated tokens $\hat{t}^I$. To summarize, the feed-forward network reconstructs the scene as a set of 3D Gaussians and predicts the camera poses of input views as:
+\begin{equation}
+    f_{\boldsymbol{\theta}}:\{I_i\}_{i=1}^N
+    \;\mapsto\;
+    \Bigl\{
+      \boldsymbol{\mu}, \sigma, \boldsymbol{r}, \boldsymbol{s}, \boldsymbol{c}
+    \Bigr\}^\mathcal{G}
+    \cup
+    \{p_i\}_{i=1}^N.
+    \label{eq:ffgs}
+\end{equation}   Each Gaussian primitive $\mathcal{G}$ includes center $\boldsymbol{\mu}$, scaling factor $\boldsymbol{s}$, rotation $\boldsymbol{r}$, opacity $\sigma$, and color $\boldsymbol{c}$. As in~\cite{kerbl3Dgaussians}, given camera intrinsics and extrinsics, the 3DGS primitives are rasterized into per-pixel colors by:
+\begin{equation}
+\mathcal{C}(x_p) = \sum_{i\in K} \mathbf{c}i \alpha_i \prod_{j=1}^{i-1}(1 - \alpha_j), \; \alpha_i=\sigma_i\mathcal{G}^\prime(x_p)
+\end{equation}
+where $\mathcal{C}(x_p)$ is pixel color of the pixel position $x_p$,  $\mathcal{G}^\prime$ is the projected 2D Gaussian on image plane,  $K$ is the number of Gaussians correspond to the pixel.
+\\
+\\
+\noindent\textbf{Stable Diffusion with Adapter Control.}
+Stable Diffusion~\cite{Rombach_2022_SD2} is a latent diffusion model that performs denoising in a compressed latent space $z\in R$. The forward diffusion process progressively adds noise over $t\in T$ timesteps:
+\begin{equation}
+\mathbf{Z}_t = \sqrt{\bar{\alpha}_t} \mathbf{Z}_0 + \sqrt{1 - \bar{\alpha}_t} \boldsymbol{\epsilon}, \quad \boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, \mathbf{I})
+\end{equation}
+where ${\alpha}_t$ defines the noise schedule. A UNet denoiser is learned by loss $L$ to reverse this process with condition $\mathbf{C}$:
+\begin{equation}
+\mathcal{L} = \mathbb{E}_{\mathbf{Z}_t,\mathbf{C}, t, \boldsymbol{\epsilon}} \left[ ||\boldsymbol{\epsilon} - \boldsymbol{\epsilon}_\theta(\mathbf{Z}_t, \mathbf{C})||_2^2 \right],
+\end{equation}
+where $\boldsymbol{\epsilon}_\theta$ is the Unet prediction. To inject control without retraining the full model, \cite{mou2024t2i} proposed a lightweight adapter $\mathcal{F}_{AD}$ to predict multi-scale condition features $\mathbf{F}_{c}=\{\mathbf{F}_c^1, \mathbf{F}_c^2, \mathbf{F}_c^3, \mathbf{F}_c^4\}$ that aligns with the intermediate features $\mathbf{F}_{enc}=\{\mathbf{F}_{enc}^1, \mathbf{F}_{enc}^2, \mathbf{F}_{enc}^3, \mathbf{F}_{enc}^4\}$ in the encoder of UNet denoiser. Given a condition $\mathbf{C}$ (e.g., coarse image, mask, and text prompt), the new features $\hat{\mathbf{F}}_{\text{enc}}$ are defined as the following:
+\begin{equation}
+\hat{\mathbf{F}}_{\text{enc}}^i = \mathbf{F}_{\text{enc}}^i + \mathbf{F}_c^i, \; \text{for } i \in {1,2,3,4}, \; \mathbf{F}_c = \mathcal{F}_{AD}(\mathbf{C})
+\end{equation}
+
+
+\subsection{Geometry-Aware Leveling Adapter}
+
+\noindent\textbf{Adapter Control with Geometry Prior.} As shown in Fig.~\ref{fig:overview}, we design the novel Leveling Adapter as a lightweight network that bridges feed-forward 3D geometry with the diffusion model's latent space. Here, we define our goal of the Leveling Adapter as aligning the corresponding condition image with the geometry prior tokens from the multi-view geometry aggregation by AnySplat~\cite{jiang2025anysplat} encoder. Different from~\cite{mou2024t2i}, the Leveling Adapter includes one projection layer, four feature extraction blocks, and three downsample blocks. An $8\times8$ convolution with a stride of 8 is applied in the projection layer to align the condition from $512\times512$ to $64\times64$. In each feature extraction block, a convolution layer and two ConvNext blocks are used instead of residual blocks to extract spatial context while maintaining computational efficiency. After feature extraction, an average pooling is used for downsampling.
+%, attending to the first token~\cite{barbero2025llms}, which is the most important
+To capture the geometry information from the multi-view inputs, we utilize the output token of the geometry encoder. We first patchify the condition image $I_0$ into tokens $l_0=\frac{HW}{p^2}$ following VGGT~\cite{wang2025vggt}, where $p=14$ is the patch size, and $H, W$ are the height and width. Then, given the geometry token $\hat{t}_0^I$, we fuse the patchify tokens from the reference image with the geometry tokens by a cross-attention:
+
+\begin{align}
+\begin{split}
+\left \{
+\begin{array}{ll}
+    \mathbf{Q} = \mathbf{W}_Q l_0;\ \mathbf{K} = \mathbf{W}_K l_0;\ \mathbf{V} = \mathbf{W}_V \hat{t}_0^I\\
+    Attention(\mathbf{Q}, \mathbf{K}, \mathbf{V}) = softmax(\frac{\mathbf{Q}\mathbf{K}^T}{\sqrt{d}})\cdot \mathbf{V},
+\end{array}
+\right.
+\end{split}
+\end{align}
+where $\mathbf{W}_Q$, $\mathbf{W}_K$, $\mathbf{W}_V\in \mathbb{R}^{768\times 768}$ are learnable projection matrices. Given the cross attention result, we unpatch it to generate the condition residual: \begin{equation}
+\begin{split}
+\mathbf{C}_{res} &= \text{Unpatch}\bigl( 
+   \text{Attention}(\mathbf{Q}, \mathbf{K}, \mathbf{V})
+\bigr)
+\end{split}
+\end{equation}The final condition is $\hat{\mathbf{C}}=\mathbf{C}+\mathbf{C}_{res}$, where $\mathbf{C}_{res}$ is the residual feature. Our adapter $\mathcal{F}_{level}$ extracts multi-scale features $\hat{\mathbf{F}}_c$ as:
+
+\begin{equation}
+\hat{\mathbf{F}}_{\text{enc}}^i = \mathbf{F}_{\text{enc}}^i + \hat{\mathbf{F}}_c^i, \; \text{for } i \in {1,2,3,4}, \; \hat{\mathbf{F}}_c = \mathcal{F}_{level}(\hat{\mathbf{C}})
+\end{equation} Instead of naively incorporating the reference image as in Difix3D+~\cite{wu2025difix3d+}, our Leveling Adapter controls the diffusion process with the patchified tokens from geometry prior and reference. This design propagates information from confident, well-reconstructed geometry to the extrapolated areas with artifacts, yielding a geometry-aware condition that guides diffusion without corrupting the original reconstruction details.
+\subsection{Training and Testing}
+
+\noindent\textbf{Training Data Curation}. To establish our training dataset, we first select sparse sequences with a range of input numbers $N$ and the intervals $N_{in}$ between each input randomly. Then, the selected sequences are fed into the feed-forward reconstruction baseline~\cite{jiang2025anysplat} to generate the corresponding 3DGS representation. For each sequence, we rendered a set of novel-view images paired to the ground truth within the interval of $N_{in}$.
+\\
+\\
+\noindent\textbf{Palette Filtering.}
+As noted in~\cite{kim2025diffusehigh}, training generative models on statistically uninformative appearance distributions often leads to mode collapse, making it difficult to synthesize rich structural details. To mitigate this issue, we propose a \textit{palette filtering strategy} that samples training data whose masked-region intensity statistics are overly concentrated, so that the retained training set exhibits a more well-behaved (approximately normal, non-degenerate) distribution and provides more stable supervision. For each novel-view rendering, we obtain a transmittance map $O(x_p) = \sum_{i\in K} \alpha_i \prod_{j=1}^{i-1}(1 - \alpha_j)$. Following~\cite{zhong2025taming, zhong2025empowering} and derive an opacity mask $\bar{M} = \{ O < \eta_{\text{mask}} \}$ by thresholding the transmittance map with $\eta_{\text{mask}}$. We then analyze the intensity distribution inside $\bar{M}$ using the intensity map $I_{\text{int}}$.
+Let $\mu$ and $\sigma$ denote the mean and standard deviation of $\{I_{\text{int}}(\mathbf{p}) \mid \mathbf{p}\in\bar{M}\}$.
+We define the \textit{palette score} $\mathcal{S}_{\text{p}}$ as the fraction of masked pixels whose intensities fall within one standard deviation of the mean:
+\begin{equation}
+\mathcal{S}_{\text{p}} = \frac{1}{|\bar{M}|} \sum_{\mathbf{p} \in \bar{M}} \mathbf{1} \left[ \big| I_{\text{int}}(\mathbf{p}) - \mu \big| < \sigma \right],
+\label{eq:palette_score}
+\end{equation}
+where $\mathbf{1}[\cdot]$ is the indicator function. By definition of $1\sigma$ rule, approximately 68\% of the probability mass in a normal distribution lies within one standard deviation of the mean. Motivated by this property, we set $\eta_{\text{p}} = 0.68$ as an optimal baseline to sample the training data with the informative regions $\mathcal{S}_{\text{p}} > \eta_{\text{p}}$, preventing an overly simple appearance that provides limited learning signal.
+\\
+\\
+\noindent\textbf{Optimization}. To train the leveling adapter, we accumulate the gradients of each training pair from a sequence that shares the same geometry tokens for backpropagation, ensuring geometry consistency. Finally, we formulate the training loss for training a paried sequence of $N$ as:
+\begin{equation}
+    L_N = \frac{1}{N}\sum_{i\in N} L_{\text{LPIPS}}({I}_i, \tilde{I}_i),
+\end{equation} where $L_{\text{LPIPS}}$ is the \textit{LPIPS} perceptual loss with VGG-16~\cite{simonyan2014very}, $\tilde{I}_i$ is the refined diffusion model output from $\bar{I}_i$, and ${I}_i$ is the paired ground truth.
+\\
+\\
+\noindent\textbf{Test-Time Mask Refinement.} To achieve more satisfactory refinement details, we adopt the stable diffusion model~\cite{Rombach_2022_SD2} finetuned on the inpainting task as our generation baseline, where the opacity mask is applied for the inpainting area. However, directly incorporating the mask $M$ leads to messy boundaries between reconstructed and generated regions. Therefore, we employ a test-time masking refinement strategy to resolve this challenge. With the original opacity mask $\bar{M}$, we define the test-time mask refinement process as a combination of morphological operations:
+    
+\begin{equation}
+    \begin{aligned}
+    {M}^{\text{close}} &= 1-((\bar{M} \oplus \mathbf{K}_{5}) \ominus \mathbf{K}_{5}), \\
+    {M}^{\text{refine}} &= {M}^{\text{close}} \oplus \mathbf{K}_{20},
+    \end{aligned}
+    \label{eq:mask}
+\end{equation}
+ where $\oplus$ and $\ominus$ denote morphological dilation and erosion operator, $\mathbf{K}_{n}$ is an $n\times n$ structuring kernel. The closed mask, $M^{\text{close}}$, is obtained by applying a morphological closing operation followed by a hole-filling procedure. To expand the mask boundaries, we further apply dilation to generate a refined mask, $M^{\text{refine}}$. We evaluate various combinations of kernel sizes on the ScanNet dataset to determine the optimal configuration; detailed results are provided in Table \ref{tab:ablation_kernel}. This refinement during testing yields a soft mask that identifies under-constrained regions, ensuring spatial continuity and mitigating boundary artifacts.
+
+
+\input{figures/algorithm}
+\subsection{Refine 3D Reconstruction with Generation}
+The key insight of Leveling3D is that generation-enhanced views can serve as the refined inputs to improve the feed-forward 3DGS reconstruction by a leveling-up process. Prior works~\cite{wu2025difix3d+, wei2025gsfix3d, yin2025gsfixer, viewextrapolator} generally suffer from two critical limitations: (i) rendering fixing fails for novel extrapolated views far from input views, where geometric priors become unreliable, and (ii) requires an iterative update with loss backpropagation that is computationally expensive and slow. Our approach addresses both by performing geometry-aware enhancement pipeline, achieving broader applicability and significantly higher efficiency.
+
+With the set of sparse input images $\{I\}$, we generate the coarse 3DGS representation $\mathcal{G}$ from the feed-forward baseline. Following~\cite{zhong2025taming}, we subsample a set of extrapolated poses $\{\bar{p}\}$ between and near the sparse inputs to render a set of coarse extrapolated NVS results $\{\bar{I}\}$. After generating a refined set of extrapolated views $\{\tilde{I}\}$, we update the 3DGS representation $\hat{\mathcal{G}}$ by feeding $\{I\} \cup \{\tilde{I}\}$ into the feed-forward 3DGS. This feedback then refines both geometry and appearance, resulting in a more complete 3DGS representation. We provide the pipeline as pseudo code in Alg.~\ref{alg:optim}, which illustrates the update step in Leveling3D.
+
+
+
+

@@ -1,0 +1,82 @@
+
+\section{Experiments}
+\paragraph{Implementation Details.}
+We adopt Wan-2.1-1.3B~\cite{wan2025} as our base model. It contains 1.3B parameters, and our GA introduces additional 0.6B parameters. Our proposed data curation pipeline produced 75K+ paired video samples from the training splits of DL3DV~\cite{ling2024dl3dv} and RE10K~\cite{re10k}, each with 81 frames.  We hold out their test splits for evaluation. We use Gemini-Flash-2.5~\cite{gemini2.5flash} to generate the text description of each video. We train our model on 8 H200 GPUs for 100K steps with a batch size of 8 and a frame resolution of 480$\times$832. Training uses the AdamW optimizer with a linear learning rate (LR) warm-up over the first 1K steps, followed by a constant LR of 1$\times$10$^{-5}$. We randomly drop out geometry modalities and text input during training. 
+
+
+\paragraph{Experimental Setup.} We evaluate our method on common novel-view synthesis benchmarks: DL3DV~\cite{ling2024dl3dv} and RE10K~\cite{re10k}.
+Testing scenes are drawn from the official test splits of each dataset, which remain unseen during training. 
+For DL3DV and RE10K, we randomly downsample 5\% of the original video frames as training views and optimize Gaussian splats for 7K iterations following the standard Splatfacto~\cite{ye2025gsplat} setup. The remaining views are held out for evaluation. All methods are tested at their native operating resolution and resized to 480$\times$832 for comparison.
+
+
+
+\paragraph{Baselines and Metrics.}
+We compare our method against open-source, state-of-the-art approaches, including  DiFiX3D+~\cite{wu2025difix3d},  GenFusion~\cite{Wu2025GenFusion}, and ExploreGS~\cite{Kim_2025_ExploreGS}. We also compare against MVSplat360~\cite{chen2024mvsplat360} on feed-forward view synthesis, a model coupled with MVSplat~\cite{chen2024mvsplat}. Each baseline employs slightly different camera sampling strategies and reconstruction heuristics, making it difficult to disentangle improvements due to model design from those due to optimization choices. 
+To ensure a fair comparison, we run all baselines on the same renderings and apply the same reconstruction update strategy described in \cref{subsec:refining_3d}. 
+All baselines are evaluated using their official implementations and publicly released weights. 
+We assess performance using standard image and perceptual quality metrics: PSNR, SSIM~\cite{ssim}, LPIPS~\cite{lpips}, and FID~\cite{NIPS2017_8a1d6947}. In the following, best results are highlighted as\colorbox{colorFst}{\bf first},\colorbox{colorSnd}{second}, and\colorbox{colorTrd}{third}.
+
+
+
+
+
+\input{tab/feed_forward} 
+\input{tab/splat_refine}
+
+\input{fig/tex/main_comparison}
+
+
+
+\subsection{Results}
+\paragraph{Improving Novel-View Synthesis.}
+We first evaluate performance on pure rendering refinement, \ie, novel-view synthesis, as reported in Table~\ref{tab:recon_perf}. We compare three variants of our model: \textit{Ours (Single)}, trained solely on DL3DV~\cite{ling2024dl3dv} with optimization-based data; \textit{Ours (Joint)}, jointly trained on all datasets with the complete artifact data; and \textit{Ours (Distilled)}, our distilled 4-step model. The model trained exclusively on DL3DV outperforms all baselines trained on the same dataset by a substantial margin in terms of image quality.
+
+Difix3D+~\cite{wu2025difix3d}, based on an image diffusion model, processes frames independently and thus lacks multi-view consistency and performs poorly on removing floaters. GenFusion~\cite{Wu2025GenFusion} and ExploreGS~\cite{Kim_2025_ExploreGS}, though leveraging a video diffusion framework, achieve lower performance due to insufficient conditioning signals compared to our GP-buffer and sub-optimal conditioning strategy, which impairs temporal coherence. More importantly, we find our joint trained model has improved performance compared to training on a single dataset, indicating that exposure to diverse reconstruction artifacts and scene types enhances the model’s performance on the same dataset, demonstrating the importance of mix training across different datasets and methods.
+\cref{fig:image_refine} further confirms our method's superior performance: the four different examples examine the model's ability in inpainting, outpainting, sharpening the blurry, and correcting wrong geometry in the original rendering.
+
+\paragraph{Improving Feed-Forward View Synthesis.}
+We evaluate our model’s ability to refine renderings produced by feed-forward 3DGS reconstruction methods, DepthSplat~\cite{xu2024depthsplat} and MVSplat~\cite{chen2024mvsplat}, as reported in \cref{tab:feedforward_refine}. Prior refinement approaches generally struggle on feed-forward reconstructions—MVSplat360~\cite{chen2024mvsplat360} being the sole exception, as it is explicitly tailored for MVSplat. In contrast, \ours generalizes effectively across different feed-forward backbones.
+Although our method is evaluated on MVSplat outputs without ever being trained on MVSplat predictions, it performs on par with MVSplat360, which is fully trained on that setting. Qualitative results in \cref{fig:image_refine} further confirm that our method can reliably correct spiky primitives and semi-transparent Gaussian artifacts.
+
+
+\vspace{-10pt}
+
+\paragraph{Inference Speed.}
+We report inference speed in \cref{tab:recon_perf}, measuring the average frame rate based on end-to-end inference time on a single H200 GPU. Our distilled model maintains comparable PSNR, SSIM, and LPIPS to the non-distilled version, while surpassing all baselines with a real-time speed of 16~FPS. A slightly higher FID score is observed, which we attribute to the reduced number of denoising steps and minor loss of high-frequency details.
+
+
+\input{fig/tex/recon_comparison}
+
+
+\paragraph{Improving 3D Reconstruction.}
+We evaluate the effectiveness of \ours in enhancing the underlying 3DGS representation rather than only refining individual frames. 
+This task jointly measures rendering fidelity and 3D consistency, with metrics reported per scene to assess holistic reconstruction quality. 
+As shown in \cref{tab:splat_refine}, \ours achieves superior PSNR and SSIM across datasets, with occasionally slightly higher LPIPS than Difix3D due to its perceptual loss during training. 
+Overall, \ours produces sharper, cleaner, and more consistent reconstructions, significantly improving both rendering quality and geometric coherence (see \cref{fig:recon_comparison}).
+
+
+
+
+
+
+
+
+\subsection{Ablation Studies}
+We validate our key design choices from three perspectives: input modalities, training data, and model architecture.
+\vspace{-5mm}
+
+\input{tab/ablation_gbuffer}
+\paragraph{Input Modality.} We analyze the contribution of each geometric channel in the GP-Buffer by training five separate models, each with a different combination of input modalities. For efficiency, all models are trained on one-third of the full dataset. As per \cref{tab:ablation_modalities}, adding geometric modalities (depth, normal, alpha, covariance) leads to consistent improvements in rendering accuracy and perceptual quality. \cref{fig:gbuffer} further confirms that GP-buffer can better disambiguate noisy regions and produce sharper reconstructions.
+
+\input{fig/tex/gbuffer_fig}
+\paragraph{Artifact Simulation (Data).}
+To isolate data generation from architecture, we fix the backbone and training setup, and compare prior artifact synthesis~\cite{Kim_2025_ExploreGS,Wu2025GenFusion,wu2025difix3d} only using uniform view downsampling and splat underfitting, against our proposed pipeline (Sec.~\ref{sec:data}), which combines optimization- and feed-forward degradations while injecting pose and coverage diversity. 
+Our synthesis yields higher PSNR/SSIM and lower LPIPS/FID (Tab.~\ref{tab:ablation_artifact}, rows 1\&3). Training with a \emph{mixed} artifact set improves both feed-forward \emph{and} optimization-based evaluations (Tab.~\ref{tab:splat_refine}), suggesting that exposure to cross-paradigm artifacts produces a more balanced refiner rather than overfitting to one pipeline.
+
+
+\input{tab/ablation_2}
+
+\paragraph{Geometry Adapter.} 
+Existing methods such as GenFusion~\cite{Wu2025GenFusion} and ExploreGS~\cite{Kim_2025_ExploreGS} condition generation by directly adding conditioning latents to the noised latents. 
+We find this strategy suboptimal: as shown in \cref{tab:ablation_artifact} (rows 2\&3), replacing our GA with a simple convolutional fusion layer (\textit{w/o GA}) yields slower convergence and weaker geometric alignment between conditioning and target structures. 
+In contrast, incorporating our GA consistently improves all metrics, raising PSNR from 20.90 to 22.55 and reducing LPIPS and FID by 0.03 and 1.36, respectively. 

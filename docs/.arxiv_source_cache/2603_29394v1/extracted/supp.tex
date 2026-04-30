@@ -1,0 +1,196 @@
+
+% \documentclass[runningheads]{llncs}
+% %\usepackage[review,year=2026,ID=8893]{eccv}
+% \usepackage{eccv}
+
+% \usepackage{graphicx}
+% \usepackage{amsmath}
+
+% \usepackage{eccvabbrv}
+
+% \usepackage{graphicx}
+% \usepackage{booktabs}
+% \usepackage{multirow}
+% \usepackage[accsupp]{axessibility}
+% \usepackage[pagebackref,breaklinks,colorlinks,citecolor=eccvblue]{hyperref}
+
+% \renewcommand{\thefigure}{S\arabic{figure}}
+% \renewcommand{\thetable}{S\arabic{table}}
+% \renewcommand{\theequation}{S\arabic{equation}}
+% \setcounter{figure}{0}
+% \setcounter{table}{0}
+% \setcounter{equation}{0}
+
+% %\usepackage{graphicx}
+% %\usepackage{booktabs}
+% \usepackage{mathtools}
+% \usepackage{stfloats}
+% \usepackage{pifont}
+% \usepackage{dsfont}
+% \usepackage{upgreek}
+
+% \newcommand{\cmark}{\ding{51}}
+% \newcommand{\xmark}{\ding{55}}
+
+% \begin{document}
+
+\title{AA-Splat: Supplementary Material}
+
+% \author{Taewoo Suh\inst{1} \and
+% Sungpyo Kim\inst{1} \and
+% Jongmin Park\inst{1} \and
+% Munchurl Kim\inst{1}}
+
+% %TODO FINAL: Replace with an abbreviated list of authors.
+% \authorrunning{T. Suh et al.}
+% First names are abbreviated in the running head.
+% If there are more than two authors, 'et al.' is used.
+
+% %TODO FINAL: Replace with your institution list.
+% \institute{Korea Advanced Institute of Science and Technology\\
+% \email{\{twsuh, ksp04204, jm.park, mkimee\}@kaist.ac.kr}}\\
+\author{}
+\institute{}
+
+\maketitle
+
+% TODO FINAL: Replace with your author list. 
+% Include the authors' OCRID for the camera-ready version, if at all possible.
+
+\section{Screen-space Dilation Filters}
+\textbf{Vanilla 3DGS Dilation Filter.} The original 3DGS \cite{kerbl20233d} handled degenerate Gaussians cases, where projected 2D Gaussians were smaller than a single pixel, by employing a screen-space dilation filter to forcibly enlarge the projected Gaussians in image space and ensure adequate coverage for rasterization:
+\begin{equation}
+   \begin{split}
+   \mathcal{G}_k^\text{2D}(\mathbf{x}^\text{2D})_\text{dilated} = \exp{\bigg(-\frac{1}{2}(\mathbf{x}^\text{2D}-\bm{\upmu}_k^\text{2D})^T(\mathbf{\Sigma}_k^\text{2D}+s\mathbf{I})^{-1}(\mathbf{x}^\text{2D}-\bm{\upmu}_k^\text{2D})\bigg)},
+   \end{split}
+   \label{eq:2d_dilation_filter}
+\end{equation}
+However, this dilation filter caused the optimization process to learn incorrect Gaussian scales, resulting in aliasing artifacts when sampling rate was altered from those visible during training.
+
+\noindent \textbf{2D Mip Filter.} The 2D screen-space Mip filter \cite{yu2024mip} is a screen-space dilation filter that simulates the physical imaging process of integrating photons into a pixel on the camera sensor over the pixel area. In the context of 3DGS rasterization, this can be done by convolving a 2D box filter that has the size of a single pixel with the projected 2D Gaussians. For efficiency, this is further approximated by instead convolving a 2D Gaussian filter with the Gaussian's envelope size (scale) chosen specifically to mimic a single pixel as:
+\begin{equation}
+   \begin{split}
+   \mathcal{G}_k^\text{2D}(\mathbf{x}^\text{2D})_\text{mip} = \sqrt{\frac{|\mathbf{\Sigma}_k^\text{2D}|}{|\mathbf{\Sigma}_k^\text{2D}+s\mathbf{I}|}}e^{\big(-\frac{1}{2}(\mathbf{x}^\text{2D}-\bm{\upmu}_k^\text{2D})^T(\mathbf{\Sigma}_k^\text{2D}+s\mathbf{I})^{-1}(\mathbf{x}^\text{2D}-\bm{\upmu}_k^\text{2D})\big)},
+   \end{split}
+   \label{eq:2d_mip_filter}
+\end{equation}
+where $s$ is set to $0.1$ to cover approximately a single pixel in the image space. This operation, unlike the vanilla 3DGS dilation filter, also has the effect of attenuating the opacity of dilated Gaussian primitives by a view-dependent factor $\sqrt{|\mathbf{\Sigma}_k^\text{2D}|/|\mathbf{\Sigma}_k^\text{2D}+s\mathbf{I}|}$.
+
+\noindent \textbf{Dilation Filters in FF-3DGS.} Most existing FF-3DGS models \cite{chen2024mvsplat, xu2025depthsplat, ye2024no, huang2025no, huang2025spfsplatv2} were built on the vanilla 3DGS dilation filter, which was the main reason behind the severe aliasing artifacts. As the regressed 3D Gaussians themselves were highly degenerate (i.e., smaller than a single screen-space pixel), increasing the sampling rate (e.g., zooming in, rendering at higher resolutions) caused erosion artifacts to open up gaps between neighboring pixel-aligned Gaussian primitives. Due to the lack of the opacity attenuation factor and the excessively large dilation scale, decreasing the sampling rate (e.g., zooming out, rendering at lower resolutions) caused dilation artifacts where structures are rendered as being unnaturally thick, as well as brightening artifacts that caused views to be rendered as being unnaturally bright.
+
+
+\section{Additional Experiments}
+
+\subsection{Additional Comparisons on Zero-Shot DL3DV}
+In Table \ref{tab:dl3dv-256x448-zs-supp}, we additionally present the comparison with MVSplat \cite{chen2024mvsplat}. All models were trained on RE10K \cite{zhou2018stereo} and evaluated on test scenes from DL3DV \cite{ling2024dl3dv} without any finetuning. Similarly to DepthSplat, MVSplat exhibits severe performance degradation at all out-of-distribution rendering scales.
+
+\begin{table*}[t]
+  \caption{\textbf{Zero-shot generalization from RE10K \cite{zhou2018stereo} to DL3DV \cite{ling2024dl3dv} dataset under various target resolutions.} We evaluate all models by performing a single feed-forward inference with 2 context views of $256\times448$ input resolution and rendering the resulting 3D Gaussians at $1/4\times$, $1/2\times$, $1\times$, $2\times$, and $4\times$ resolutions.
+  }
+  \label{tab:dl3dv-256x448-zs-supp}
+  \centering
+  \resizebox{\textwidth}{!}{
+      \begin{tabular}{@{}l|cccccc|cccccc|cccccc@{}}
+        \toprule
+        {Method}  & \multicolumn{6}{c|}{PSNR (dB)$\uparrow$} & \multicolumn{6}{c|}{SSIM$\uparrow$} & \multicolumn{6}{c}{LPIPS$\downarrow$}\\
+        & $1/4\times$ Res. & $1/2\times$ Res. & $1\times$ Res. & $2\times$ Res. & $4\times$ Res. & Avg. & $1/4\times$ Res. & $1/2\times$ Res. & $1\times$ Res. & $2\times$ Res. & $4\times$ Res. & Avg. & $1/4\times$ Res. & $1/2\times$ Res. & $1\times$ Res. & $2\times$ Res. & $4\times$ Res. & Avg. \\
+        \midrule
+        MVSplat \cite{chen2024mvsplat}&  18.690&  19.771&  21.834&  18.173&  16.140&  18.922&  0.635&  0.713&  0.711&  0.630&  0.582&  0.654&  0.201&  0.181&  0.206&  0.349&  0.485& 0.284\\
+        DepthSplat \cite{xu2025depthsplat} & 19.687& 22.660& 27.109&  17.294&  13.357&  20.022&  0.679&  0.848&  0.885&  0.647&  0.419&  0.695&  0.173&  0.108&  0.104&  0.399&  0.566& 0.270\\
+        Ours & \textbf{28.183}& \textbf{29.012}& \textbf{27.882}&  \textbf{25.701}&  \textbf{24.351}&  \textbf{27.026}&  \textbf{0.934}&  \textbf{0.927}&  \textbf{0.892}&  \textbf{0.821}&  \textbf{0.762}&  \textbf{0.867}&  \textbf{0.061}&  \textbf{0.067}&  \textbf{0.096}&  \textbf{0.233}&  \textbf{0.365}& \textbf{0.164}\\
+        \bottomrule
+      \end{tabular}
+  }
+\end{table*}
+
+\subsection{Additional Ablations}
+In Table \ref{tab:abl-dl3dv-256x448-zs-supp} and Fig. \ref{fig:abl-dl3dv-qualitative-supp}, we present additional ablation results on zero-shot DL3DV \cite{ling2024dl3dv}. `2D Mip only' ((d) in Table \ref{tab:abl-dl3dv-256x448-zs-supp}) indicates a retrained variant of DepthSplat where the vanilla 3DGS \cite{kerbl20233d} dilation filter was simply swapped out with the 2D Mip filter \cite{yu2024mip}. `3D-BLPF only' ((e) in Table \ref{tab:abl-dl3dv-256x448-zs-supp}) indicates a variant where only the 3D-BLPF was used, while retaining the vanilla 3DGS dilation filter.
+
+% reiterating main paper
+\noindent\textbf{Individual components.}
+% 2d mip only
+Comparing (a) and (d) shows that, although the 2D Mip filter greatly mitigates the performance drops that occurred when rendering the baseline model at out-of-distribution sampling rates, it causes a slight drop in the native resolution ($1\times$) NVS performance, and leaves high-frequency artifacts as shown in Fig. \ref{fig:abl-dl3dv-qualitative-supp}. This shows that the 2D Mip filter alone is insufficient to enable alias-free rendering.
+% 3d filter only
+Compared with the baseline DepthSplat \cite{xu2025depthsplat}, `3D-BLPF only' shows modest improvement at higher ($2\times, 4\times$) resolutions, but only marginal improvements at lower ($1/2\times, 1/4\times$) resolutions and a slight drop in the $1\times$ resolution. This indicates that the 3D-BLPF primarily targets erosion artifacts during upsampling, but is limited by the increased overlap between pixel-aligned Gaussian primitives.
+
+% ablating 2d mip filter
+\noindent\textbf{Component interactions.} As discussed in the main paper, `w/o OB' and `w/o 3D-BLPF' show that 3D-BLPF and OB both complement each other to enable alias-free renderings at increased sampling rates. Additionally, comparing (f) against (g) shows that our complete OBBL performs surprisingly well at most scaling factors even with the flawed vanilla 3DGS dilation filter. At $1/2\times$, $1\times$, $2\times$, and $4\times$ resolutions, it performs comparably to or slightly outperforms our full model using the 2D Mip filter, failing only in the aggressive zoom-out ($1/4\times$ resolution). This shows the strength of our OBBL design, and that it is not dependent on the 2D Mip filter.
+
+\begin{figure*}
+  \centering
+  \includegraphics[width=1.0\linewidth]{figs/figs_supp/dl3dv_supp_abl_final.pdf}
+   \caption{\textbf{Ablation results on the DL3DV \cite{ling2024dl3dv} dataset.} All variants perform feed-forward reconstruction with 2 context views of $256\times448$ resolution and are rendered at $4\times$ resolution to mimic zoom-in effects.
+   Removing either OB or 3D-BLPF causes unnatural grid-like artifacts or sharp jagged edges. Using only the 2D Mip filter also causes grid-like artifacts.
+   Our method (AA-Splat) effectively suppresses these rendering artifacts, enabling smooth interpolation. Best viewed zoomed-in.}
+   \label{fig:abl-dl3dv-qualitative-supp}
+\end{figure*}
+
+\begin{table*}
+  \caption{\textbf{Additional ablation results on the DL3DV \cite{ling2024dl3dv} dataset.} We evaluate all variants by performing a single feed-forward inference under $256\times448$ input resolution and rendering the resulting 3D Gaussians at $1/4\times$, $1/2\times$, $1\times$, $2\times$, and $4\times$ resolutions.
+  \textcolor{red}{\textbf{Red}} and \textcolor{blue}{\underline{Blue}} indicate the best and second-best performances, respectively.}
+  \label{tab:abl-dl3dv-256x448-zs-supp}
+  \centering
+  \resizebox{\textwidth}{!}{
+      \begin{tabular}{@{}l|ccc|cccccc|cccccc|cccccc@{}}
+        \toprule
+        Variants & 2D- & 3D- & & \multicolumn{6}{c|}{PSNR (dB)$\uparrow$} & \multicolumn{6}{c|}{SSIM$\uparrow$} & \multicolumn{6}{c}{LPIPS$\downarrow$}\\
+         & Mip & BLPF & OB & $1/4\times$ & $1/2\times$ & $1\times$ & $2\times$ & $4\times$ & Avg. & $1/4\times$ & $1/2\times$ & $1\times$ & $2\times$ & $4\times$ & Avg. & $1/4\times$ & $1/2\times$ & $1\times$ & $2\times$ & $4\times$ & Avg. \\
+        \midrule
+        (a) Baseline \cite{xu2025depthsplat} & \xmark & \xmark & \xmark & 19.687&  22.660
+&  27.109&  17.294&  13.357&  20.022
+&  0.679&  0.848
+&  0.885&  0.647&  0.419&  0.695
+&  0.173&  0.108
+&  0.104&  0.399&  0.566& 0.270
+\\
+        \midrule
+        (b) w/o OB & \cmark & \cmark & \xmark & \textcolor{blue}{\underline{28.140}}&  27.936
+&  26.623&  24.868&  23.715&  26.257
+&  \textcolor{red}{\textbf{0.934}}&  0.915
+&  0.875&  0.806&  0.752&  0.856
+&  \textcolor{red}{\textbf{0.057}}&  0.076
+&  0.113&  0.248&  0.375& 0.174\\
+        (c) w/o 3D-BLPF & \cmark & \xmark & \cmark & 28.013&  28.639&  27.322&  25.186&  23.771&  26.586&  \textcolor{blue}{\underline{0.932}}&  0.924&  0.885&  0.806&  0.738&  0.857&  0.062&  0.069&  0.112&  0.273&  0.423& 0.188
+\\
+        \midrule
+        (d) 2D Mip only & \cmark & \xmark & \xmark & 28.072&  28.066&  27.002&  25.116&  23.886&  26.429&  \textcolor{red}{\textbf{0.934}}&  0.916&  0.879&  0.808&  0.749&  0.857&  \textcolor{blue}{\underline{0.058}}&  0.075&  0.110&  0.241&  0.372& 0.171\\
+        (e) 3D-BLPF only & \xmark & \cmark & \xmark & 19.812&  22.698&  26.967&  21.554&  19.162&  22.038&  0.708&  0.861&  0.884&  0.795&  0.717&  0.793&  0.160&  0.102&  0.106&  0.256&  0.400& 0.205
+\\
+        \midrule
+        (f) Ours w/o 2D Mip & \xmark & \cmark & \cmark & 25.703&  \textcolor{red}{\textbf{29.654}}&  \textcolor{blue}{\underline{27.876}}&  \textcolor{red}{\textbf{25.821}}&  \textcolor{red}{\textbf{24.444}}&  \textcolor{blue}{\underline{26.700}}&  0.885&  \textcolor{red}{\textbf{0.931}}&  \textcolor{blue}{\underline{0.890}}&  \textcolor{red}{\textbf{0.828}}&  \textcolor{red}{\textbf{0.770}}&  \textcolor{blue}{\underline{0.861}}&  0.079&  \textcolor{red}{\textbf{0.057}}&  \textcolor{blue}{\underline{0.099}}&  \textcolor{red}{\textbf{0.222}}&  \textcolor{red}{\textbf{0.354}}& \textcolor{red}{\textbf{0.162}}\\
+        (g) Ours & \cmark & \cmark & \cmark & \textcolor{red}{\textbf{28.183}}&  \textcolor{blue}{\underline{29.012}}&  \textcolor{red}{\textbf{27.882}}&  \textcolor{blue}{\underline{25.701}}&  \textcolor{blue}{\underline{24.351}}&  \textcolor{red}{\textbf{27.026}}&  \textcolor{red}{\textbf{0.934}}&  \textcolor{blue}{\underline{0.927}}&  \textcolor{red}{\textbf{0.892}}&  \textcolor{blue}{\underline{0.821}}&  \textcolor{blue}{\underline{0.762}}&  \textcolor{red}{\textbf{0.867}}&  0.061&  \textcolor{blue}{\underline{0.067}}&  \textcolor{red}{\textbf{0.096}}&  \textcolor{blue}{\underline{0.233}}&  \textcolor{blue}{\underline{0.365}}& \textcolor{blue}{\underline{0.164}}\\% 
+        \bottomrule
+      \end{tabular}
+  }
+\end{table*}
+
+\section{Additional Qualitative Results}
+In this section, we present further visual comparisons.
+
+
+\subsection{Additional Visuals on RE10K}
+We present additional visual comparisons with SOTA models on the RE10K \cite{zhou2018stereo} dataset, in Fig. \ref{fig:re10k-qualitative-supp}. Evaluation protocols are identical to the main paper.
+
+\begin{figure*}
+  \centering
+  \includegraphics[width=1.0\linewidth]{figs/figs_supp/re10k_supp_final.pdf}
+   \caption{\textbf{Additional multi-scale visual comparisons on RE10K \cite{zhou2018stereo}.} All methods are trained and inferred at $256\times256$ resolution and rendered at $1/4\times \sim 4\times$ resolutions to mimic zoom-in/out effects.
+   Best viewed zoomed-in.}
+   \label{fig:re10k-qualitative-supp}
+\end{figure*}
+
+\subsection{Additional Visuals on ACID}
+We present additional visual comparisons with SOTA models on the ACID \cite{liu2021infinite} dataset, in Fig. \ref{fig:acid-qualitative-supp}. Evaluation protocols are identical to the main paper, with models trained on RE10K being evaluated on ACID in a zero-shot manner. Note that, due to thin structures being relatively rare in the ACID dataset, dilation artifacts primarily manifest as brightening artifacts, where scenes are rendered as being unnaturally bright.
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=0.9\linewidth]{figs/figs_supp/acid_supp_final.pdf}
+   \caption{\textbf{Additional multi-scale visual comparisons of cross-dataset generalization to ACID \cite{liu2021infinite}.} Models trained on RE10K are directly tested on scenes from ACID. When rendering novel views at decreased sampling rates on the ACID dataset where thin foreground structures are relatively rare, aliasing artifacts in existing models primarily manifest as brightening artifacts, where scenes are rendered as being unnaturally bright.}
+   \label{fig:acid-qualitative-supp}
+\end{figure*}
+
+\clearpage
+
+%\bibliographystyle{splncs04}
+%\bibliography{main}
+
+%\end{document}

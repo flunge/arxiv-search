@@ -1,0 +1,155 @@
+\section{GaussFusion}
+Consider an existing 3DGS reconstruction represented by a set of 3D Gaussian primitives $\mathcal{G}$ and its corresponding input images $\{\mathbf{I}^v\in \mathbb{R}^{H \times W \times 3}\}_{v=1}^{V}$ with known camera parameters $\{(\mathbf{T}^v\in SE(3), \mathbf{K}^v\in \mathbb{R}^{3\times3})\}_{v=1}^{V}$, $V$ being the number of input views. Our \textbf{goal} is to enhance novel-view renderings and use them to further optimize $\mathcal{G}$. 
+
+\subsection{Preliminaries}
+\paragraph{3D Gaussian Splatting.}
+3DGS~\cite{kerbl3Dgaussians} represents a scene as a collection of $N$ anisotropic 3D Gaussian primitives, $
+\mathcal{G} = \{(\mathbf{p}_i, \alpha_i, \mathbf{c}_i, \mathbf{q}_i, \mathbf{s}_i) \}_{i=1}^{N},
+$: position (mean) $\mathbf{p}_i$, opacity $\alpha_i$, Spherical Harmonics (SH) coefficients $\mathbf{c}_i$, and a 3D covariance matrix $\mathbf{\Sigma}_i$ factorized into a scaling vector $\mathbf{s}_i \in \mathbb{R}^3$ and a rotation quaternion $\mathbf{q}_i \in \mathbb{R}^4$, such that $\mathbf{\Sigma}_i = \mathbf{R}_i \mathbf{S}_i \mathbf{S}_i^\top \mathbf{R}_i^\top$. For view synthesis, given a view transformation $\mathbf{W}$ and the Jacobian $\mathbf{J}$ of the affine approximation of the perspective projection, the 3D covariance $\mathbf{\Sigma}_i$ is projected into a 2D covariance $\mathbf{\Sigma}_i'$:
+    $\mathbf{\Sigma}_i' = \mathbf{J} \mathbf{W} \mathbf{\Sigma}_i \mathbf{W}^\top \mathbf{J}^\top$.
+The final color $\mathbf{C}$ for a pixel $\mathbf{u}$ is computed by $\alpha$-blending all $N$ Gaussians, sorted by depth, that overlap the pixel:
+\begin{equation}
+    \mathbf{C}(\mathbf{u}) = \sum_{i=1}^{N} \mathbf{c}_i' \gamma_i \prod_{j=1}^{i-1} (1 - \gamma_j)
+    \label{eq:alphablending}
+\end{equation}
+where $\mathbf{c}_i'$ is the view-dependent color evaluated from the SH coefficients $\mathbf{c}_i$. The contribution $\gamma_i$ is the product of the learned opacity $\alpha_i$ and the 2D Gaussian function evaluated at the pixel center $\mathbf{u}$ with projected mean $\mathbf{\mu}_i'$.
+
+The Gaussian parameters are initialized from sparse structure-from-motion point clouds~\cite{schoenberger2016colmap} and then optimized via stochastic gradient descent to minimize a loss function between the rendered $\mathbf{C}$ and the ground-truth $\mathbf{C}_{\text{gt}}$ images. It is typically a combination of an $L_1$ and a D-SSIM term:
+\begin{equation}
+    \mathcal{L} = (1 - \lambda) \mathcal{L}_{L_1}(\mathbf{C}, \mathbf{C}_{\text{gt}}) + \lambda \mathcal{L}_{\text{D-SSIM}}(\mathbf{C}, \mathbf{C}_{\text{gt}}).
+    \label{eq:loss}
+\end{equation}
+
+\paragraph{Feed-Forward 3DGS Reconstruction Models} learn to directly predict a complete set of 3D Gaussian parameters from a small set of posed/unposed input images 
+% $\{(I^v, \mathbf{T}^v, \mathbf{K}^v)\}_{v=1}^{V}$
+~\cite{zhang2024gslrm,ye2024no,charatan2024pixelsplat,xu2024depthsplat}. A neural network $f_\theta$ aggregates geometric and appearance cues across views to output all parameters for each Gaussian (position $\mathbf{p}_j$, rotation $\mathbf{q}_j$, scale $\mathbf{s}_j$, opacity $\alpha_j$, and SH color $\mathbf{c}_j$) in a single forward pass. Feed-forward approaches eliminate the need for per-scene optimization, and are typically supervised by 3DGS rendering loss (Eq.~\ref{eq:loss}).
+
+\paragraph{Flow-based Video Generation.}
+Flow matching~\cite{liu2022flow} provides a continuous-time framework for learning generative processes, forming the basis of modern generation models~\cite{wan2025,esser2024scaling}. 
+Given a target sample $x_1$ (\eg, image or video), random noise $x_0 \sim \mathcal{N}(0,I)$, and a timestep $t \in [0,1]$, the intermediate latent $x_t$ is defined by:
+\begin{equation}
+    x_t = t x_1 + (1-t)x_0,
+\end{equation}
+whose ground-truth velocity is
+$
+    v_t = \frac{dx_t}{dt} = x_1 - x_0.
+$
+The flow network $u_\theta(x_t, c, t)$ is trained to predict $v_t$ using a mean squared error objective:
+\begin{equation}
+    \mathcal{L} = \mathbb{E}_{x_0, x_1, c, t} \left[\|u_\theta(x_t, c, t) - v_t\|^2\right],
+\label{eq:fm}
+\end{equation}
+where $c$ denotes conditioning signals (\eg, text, images, or videos). 
+Videos are encoded into a latent space via a spatio-temporal autoencoder, and flow matching operates entirely therein. At inference time, the learned velocity field defines an ordinary differential equation
+    $\frac{dx_t}{dt} = u_\theta(x_t, c, t),$
+integrated from $t{=}0$ to $1$ to map Gaussian noise $x_0$ into a generated sample $x_1$.
+
+\input{fig/tex/architecture}
+
+\subsection{Gaussian Primitives Buffer}
+Our key insight is that artifact refinement, encompassing inpainting, outpainting, deblurring, and floater removal, benefits from explicit geometric cues beyond RGB appearance. 
+Although directly conditioning on 3D backbones has yielded promise for 3D reconstruction, these methods struggle to scale to large, complex scenes where the number of primitives grows substantially~\cite{chen2024splatformer,liu2024reconx}. To address this, we extract essential 3D Gaussian attributes into a pixel-aligned representation that encodes appearance and geometry:
+\begin{equation}
+    \mathcal{G} = \{\mathbf{C}, A, D, \mathbf{N}, \mathbf{U}\},
+    \label{eq:gbuffer}
+\end{equation}
+where $\mathbf{C}$, $A$, and $D$ denote the rendered color, opacity, and depth maps; 
+$\mathbf{N}$ represents surface normals; 
+and $\mathbf{U}$ encodes the inverse projected covariance of each splat, providing a pixel-aligned measure of local geometric uncertainty.
+Each of the modalities in $\mathcal{G}$ belongs to $\mathbb{R}^{W \times H \times \{1,3\}\times T }$.
+Inspired by the classical \emph{G-buffer} in~\cite{liang2025diffusionrenderer}, we refer to this representation as the \textit{Gaussian Primitives Buffer (GP-Buffer)}.
+
+\paragraph{Alpha, Color, and Depth.}
+The color map $\mathbf{C}$ and opacity map $A$ are directly obtained from the standard 3DGS rasterization process. 
+Depth is rendered using the \texttt{ED} (expected depth) mode of the renderer~\cite{ye2025gsplat}, which computes the weighted average depth of all contributing splats. 
+
+\paragraph{Normals.}
+Screen-space normals are estimated from the camera-space position map $\mathbf{P}_{\text{cam}}$ via finite differences:
+\begin{equation}
+\mathbf{N}(\mathbf{u}) = \operatorname{normalize}\!\left(\partial_u \mathbf{P}_{\text{cam}} \times \partial_v \mathbf{P}_{\text{cam}}\right),
+\end{equation}
+where $\partial_u$ and $\partial_v$ denote finite differences along image axes. 
+To prevent mixing of foreground and background at silhouettes, normals are evaluated only for pixels with sufficient opacity ($A(\mathbf{u}) > \tau$). 
+\vspace{-5pt}
+\paragraph{Geometric Uncertainty (Inverse Covariance).}
+To provide the model with local geometric uncertainty, we render a map of the inverse projected 2D covariances. 
+For each Gaussian, the $2\times2$ symmetric inverse covariance $(\mathbf{\Sigma}_i')^{-1}$ is parameterized by its unique elements 
+$\mathbf{u}_i = [a_i, b_i, c_i]$. 
+A lightweight rasterization pass accumulates these vectors using $\alpha$-blending, yielding a three-channel ``uncertainty" map 
+$\mathbf{U}(\mathbf{u}) \in \mathbb{R}^3$ that encodes per-pixel anisotropy, which we interpret as a measure of structural regularity in splats. 
+Low-texture regions are typically represented by a few large Gaussian primitives, resulting in low rendered values, whereas well-captured, high-frequency areas exhibit higher values. Please refer to Supp. for GP-Buffer visualizations.
+
+
+
+
+\subsection{Geometry-Informed Video Generator}
+\label{sec:geometry_adapter}
+\ours takes as input the GP-Buffer $\mathcal{G}$, optionally conditioned on text descriptions of the scene, and predicts refined color videos (Fig.~\ref{fig:architecture}).
+The GP-Buffer provides geometry- and appearance-aware cues extracted from the 3D reconstruction, which are encoded and injected into the generation process through our Geometry Adapter.
+
+\paragraph{Encoding GP-Buffer.}
+The video of each modality in $\mathcal{G}$ is first normalized to $[-1, 1]$ and then passed through the encoder separately to obtain per-modality video latents  
+$\{\mathbf{z}_{\mathbf{C}}, \mathbf{z}_{A}, \mathbf{z}_{D}, \mathbf{z}_{\mathbf{N}}, \mathbf{z}_{\mathbf{U}}\}$,  
+where $\mathbf{z}_{m} \in \mathbb{R}^{\frac{W}{8} \times \frac{H}{8} \times C \times \frac{T}{4}}$ for each modality $m$.  
+These latents are concatenated channel-wise to form a unified representation $\mathbf{z}_{\mathcal{G}}:$
+\begin{equation}
+    \operatorname{concat}(\mathbf{z}_{\mathbf{C}}, \mathbf{z}_{A}, \mathbf{z}_{D}, \mathbf{z}_{\mathbf{N}}, \mathbf{z}_{\mathbf{U}}) 
+    \in \mathbb{R}^{\frac{W}{8} \times \frac{H}{8} \times 5C \times \frac{T}{4}}.
+\end{equation}
+Although the VAE was originally designed for RGB, we find that it can also reconstruct other modalities with less than 1\% relative error (see Supp.). $\mathbf{z}_{\mathcal{G}}$ is then fed to our geometry adapter to guide the generation of the clean video. 
+
+
+\paragraph{Geometry Adapter (GA)} integrates the encoded GP-Buffer representation $\mathbf{z}_{\mathcal{G}}$ into the flow matching process through spatially aligned modulation. 
+Within the DiT~\cite{peebles2023scalable} backbone (\cf\cref{fig:architecture}), GA blocks operate as a parallel side-network that extracts hierachical geometric features to condition the main video generation stream. Each GA block takes as input the geometry features derived from the GP-Buffer and injects them into the corresponding DiT layer.
+Specifically, the encoded GP-Buffer $\mathbf{z}{\mathcal{G}}$ is projected via 3D convolution to align spatial and channel dimensions:
+
+\begin{align}
+\mathbf{z}_{\mathcal{G}}' &= \operatorname{Conv3D}(\mathbf{z}_{\mathcal{G}}), \nonumber \\
+\tilde{\mathbf{z}}_{\mathcal{G}} &= 
+\operatorname{SelfAttn}(\operatorname{LayerNorm}(\mathbf{z}_{\mathcal{G}}')), \nonumber \\
+\mathbf{x}_g &= 
+\operatorname{FFN}\!\Big(
+\operatorname{CrossAttn}(\tilde{\mathbf{z}}_{\mathcal{G}}, \mathbf{x}_{\text{text}})
+\Big), \nonumber\\
+\mathbf{x} &\leftarrow \mathbf{x} + \mathbf{x}_g, \nonumber
+\label{eq:ga_block}
+\end{align}
+where $\mathbf{x}_{\text{text}}$ are text-encoder tokens and $\mathbf{x}$ is subsequently fed to the next DiT block.
+This allows the model to progressively refine intermediate latents with geometry- and text-conditioned cues.
+During training, the model is supervised to predict clean video latents from corrupted ones, where the supervision target corresponds to clean capture latents. 
+We use the same flow-matching objective as described in Eq.~\ref{eq:fm}, with the conditioning variable $c$ being our GP-buffer latents $\mathbf{z}_{\mathcal{G}}$.
+During inference, the model iteratively predicts velocity fields to produce clean videos.
+
+
+\subsection{3D Reconstruction Updating}
+\label{subsec:refining_3d}
+To refine an existing 3D reconstruction, we generate smooth novel-view trajectories that densely sample the camera path between the captured views, following~\cite{fischer2025flowr,Wu2025GenFusion}. We employ an spline-based interpolation scheme that regularizes both camera translation and rotation to ensure physically plausible motion. 
+Each camera pose is decomposed into position, look-at, and up vectors, which serve as control points of a B-spline curve, producing a continuous and stable trajectory. 
+We rasterize the GP-Buffer (Sec.~\ref{sec:geometry_adapter}) along this trajectory to obtain novel renderings, which are then refined by our geometry-aware video generator to produce artifact-free frames. 
+Finally, we merge the generated novel views with the original inputs and optimize the 3D Gaussian splats using the standard photometric loss (Eq.~\ref{eq:loss}), improving both geometric consistency and texture fidelity.
+
+\input{tab/image_refine}
+
+\subsection{Finetuning Strategy}
+Typical video diffusion models require 30–50 iterative denoising steps, resulting in inference times of several minutes per video. To achieve efficient refinement, we adopt a two-stage finetuning strategy that converts a multi-step video generator into a compact four-step refinement model. 
+\paragraph{Base Model Distillation.}
+We begin with a pretrained text-to-video model and apply distribution matching distillation (DMD)~\cite{yin2024dmd,yin2024onestep} to obtain a 4-step generator. DMD distills a slow, multi-step teacher generator into an efficient few-step student by minimizing the reverse KL divergence between the teacher’s data distribution and the student’s generated distribution across randomly sampled timesteps. The training combines a distribution matching loss~\cite{yin2024onestep} that encourages the student to approximate the teacher’s score distribution, and a standard flow loss in \cref{eq:fm}. For more details on DMD, we refer the readers to~\cite{yin2025causvid}.
+\paragraph{Adapter Finetuning.}
+After obtaining the distilled generator, we integrate our Geometry Adapter (GA) module into its DiT backbone to get the full model.
+All parameters of the distilled model are frozen, and only the GA layers are finetuned (\cf\cref{fig:architecture}).
+Note in this stage we \textit{only} use the flow matching loss without DMD, as no further step distillation is required. The timestep schedule of the full model follows the same setup as the distilled model. 
+
+\section{Artifact Simulation}
+\label{sec:data}
+A key factor in training a generalizable rendering refinement model is a comprehensive data generation pipeline that accurately mimics the diverse artifacts observed in real world. 
+We construct paired videos of \emph{ground-truth} and \emph{corrupted} renderings by rendering each scene from two versions of its 3DGS reconstruction: a \textit{high-quality} model from dense inputs and a \textit{corrupted} one with degradation.
+\begin{itemize}
+    \item \textbf{Sparse-View Simulation.} We randomly retain only $5\%$ of the original video frames to simulate under-sampled captures. 
+    This random downsampling, unlike the uniform scheme used in~\cite{wu2025difix3d,Kim_2025_ExploreGS,liu2024dgsenhancer}, introduces temporal irregularity that better reflects real-world conditions.
+    \item \textbf{Diverse Initialization.} We apply multiple 3D Gaussian initialization strategies, including structure-from-motion (SfM) point initialization, random 3D point cloud initialization, and dense point maps from MapAnything~\cite{keetha2025mapanything}.
+    \item \textbf{Paired Reconstruction with New Trajectories.} A \textit{clean splat} model is trained on all views, while a \textit{corrupted} model uses the sparse subset with fewer optimization steps to simulate underfitting.
+Novel camera paths are sampled to synthesize realistic motion artifacts (\cref{subsec:refining_3d}).
+    \item \textbf{Feed-forward Degradation.} In addition to optimization-based artifacts, we further render degraded videos using Gaussians predicted by a pretrained feed-forward 3DGS model~\cite{xu2024depthsplat}, introducing new artifacts including geometric inconsistencies, color shifts, and semi-transparent splats. 
+    % The original complete captures serve as the ground truth.
+\end{itemize}
+

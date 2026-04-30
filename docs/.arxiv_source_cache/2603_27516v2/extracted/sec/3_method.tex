@@ -1,0 +1,126 @@
+\section{Method}
+
+Given sparse-view indoor images as input, our goal is to recover the scene geometry and intrinsic properties based on 3D Gaussian. As shown in Figure~\ref{fig:pipeline}, our method consists of two stages. In stage I, we leverage semantic and geometric priors from pre-trained models to help construct a high-quality Gaussian-based geometric field, while in stage II, we optimize the intrinsic properties with a hybrid illumination model together with a material-consistency regularized training strategy.
+
+
+\subsection{Geometry and Semantic Reconstruction}
+\label{sec:geo_sem_init}
+
+Most previous 3D Gaussian reconstruction methods rely on an RGB reconstruction loss $\mathcal{L}_{rgb}$~\cite{kerbl20233d} for training. However, under sparse-view supervision, they tend to overfit to the observed viewpoints, leading to unreliable geometry reconstruction. To alleviate this issue, we choose to leverage powerful pre-trained models to provide additional supervisory signals. Specifically, we employ StableNormal~\cite{ye2024stablenormal} and LSEG~\cite{li2022language} to provide normal guidance and semantic supervision, respectively. For normal, we define the following loss:
+\begin{equation}
+    \mathcal{L}_{normal} = 1 - \hat{n}^T n_m,
+\end{equation}
+where $\hat{n}$ denotes the rendered normal from the Gaussian field, $n_m$ denotes normal predicted by StableNormal.
+
+For semantic supervision, we first encode the input images as pixel-level semantic features $F \in \mathbb{R}^{H \times W \times 512}$ using LSEG encoder. We then employ Qwen3VL~\cite{bai2025qwen3} to identify all object categories $M$, and obtain their corresponding textual embeddings $T \in \mathbb{R}^{M \times 512}$ via CLIP encoder~\cite{radford2021learning}. Next, we compute a semantic label map $S \in \mathbb{R}^{H \times W}$ by $S_{i,j} = \arg\max_{m \in \{1, \dots, M\}} \text{cos}(F_{i,j}, T_m)$, where $\text{cos}(\cdot, \cdot)$ denotes cosine similarity. With semantic features $F$ and the label map $S$, we define the semantic constraint as:
+\begin{equation}
+    \mathcal{L}_{semantic} = \mathcal{L}_{\text{cos}}(\hat{F}, F) + \mathcal{L}_{\text{ce}}(\hat{S}, S),
+\end{equation}
+
+where $\mathcal{L}_{cos}$ and $\mathcal{L}_{ce}$ respectively denote cosine and cross-entropy losses. Following previous work~\cite{liao2025spc}, the rendered semantic feature $\hat{F}$ is obtained via alpha blending, while the rendered segmentation logits are defined as $\hat{S} = \cos ( \hat{F}, T )$.
+
+%where cos denotes cosine similarity.
+
+To avoid overfitting, we introduce a semantic consistency constraint between training and pseudo (virtual) views, which is formulated as:
+\begin{align}
+    \mathcal{L}_{\text{corresponding}} = 
+    \sum_{p=1}^{P} 
+    \left\| 
+    \frac{\hat{F}_p \odot \mathcal{M}_p^*}{\sum \mathcal{M}_p^*} -
+    \frac{\hat{F} \odot \mathcal{M}}{\sum \mathcal{M}} 
+    \right\|_2    \notag  \\
+    -  
+    \sum_{p=1}^{P} 
+    \mathbb{R}[\Phi(\hat{S} \odot \mathcal{M})]
+    \log(\hat{S}_p^* \odot \mathcal{M}_p^*),
+\end{align}
+where $P$ denotes the number of sampled pseudo-views (see the supplementary for details). $\mathcal{M}$ and $\mathcal{M}_p^*$ represent SAM~\cite{ravi2024sam} generated masks for the training and pseudo-views, respectively. $\odot$ denotes the element-wise product. Here, $\hat{F}$ and $\hat{S}$ refer to the rendered feature map and semantic label map of the training view, while $\hat{F}_p$ and $\hat{S}_p^*$ denote their corresponding counterparts of the $p$-th pseudo-view. $\Phi$ is a semantic uniformity operation defined as $\Phi(\hat{S} \odot \mathcal{M})
+= \arg\max_{c} \sum_{i \in \mathcal{M}} \mathbf{1}\!\left\{ \arg\max\bigl(\hat{S}_i)\bigr) = c \right\}$, where $c$ is the dominant class within the region mask $\mathcal{M}$, while $\mathbb{R}[\cdot]$ reshapes tensors to match the mask dimension. The goal of this operation is to apply a majority voting mechanism over each region to enforce semantic consistency.
+
+The overall loss function for stage I is expressed as:
+\begin{equation}
+    \mathcal{L}_{S1} = \mathcal{L}_{rgb}+\mathcal{L}_{semantic} + \lambda_1 \mathcal{L}_{normal} + \lambda_2 \mathcal{L}_{corresponding},
+\end{equation}
+where we set $\lambda_1=0.05$, $\lambda_2=0.3$ in our experiments.
+
+
+\input{tables/evaluation_interiorverse}
+
+\subsection{Inverse Rendering on Fixed Geometry}
+
+
+Previous methods often suffer from degraded performance at the scene level due to limited expressiveness of the illumination model and unrealiable geometry reconstruction under sparse-view settings. To address these issues, we introduce a hybrid illumination model and a lightweight deshadowing module, which enables explicitly disentangling and modeling illumination as well as occlusion, respectively. Furthermore, to facilitate the decoupling of illumination and material, we introduce a material-consistent regularized training strategy.
+
+\vspace{0.5em}
+\noindent\textbf{Hybrid illumination model.}
+To model complex lighting effects, we propose to cast the incident light $L_i$ as a combination of learnable point lights $L_i^{\text{SGM}}$ and differentiable environment illumination $L_i^{\text{env}}$, representing the high and low frequency lighting components:
+\begin{equation}
+L_i = L_i^{\text{SGM}} + L_i^{\text{env}},
+\end{equation}
+where the point-light component $L_i^{\text{SGM}}$ is represented by scattered Spherical Gaussians (SGMs)~\cite{du2024gs}:
+\begin{equation}
+\small
+\begin{aligned}
+\text{SGM}(\omega_i; b, \lambda, \mu) =
+\sum_{k=1}^{N_{\text{sg}}} \mu_k e^{\lambda_k (\omega_i \cdot b_k^{-1})} \cdot W_k,
+\end{aligned}
+\end{equation}
+where $b_k$, $\mu_k$, and $\lambda_k$ denote the axis, amplitude, and sharpness of the $k$-th Spherical Gaussian (SG), respectively. $W_k$ represents the blending weight of each SG component within the light source, $N_{\text{sg}}$ is the total number of SG lobes employed in the mixture. For the environment illumination component $L_i^{\text{env}}$, following~\cite{liang2024gs}, we represent it as a learnable cubemap with a spatial resolution of $6 \times 512 \times 512 \times 3$.
+
+
+\input{images/visibility_analysis}
+
+\vspace{0.5em}
+\noindent \textbf{Lightweight deshadowing module.}
+
+As illustrated in Figure~\ref{fig:visibility_analysis}, the inherent difficulty of recovering accurate geometry from sparse-view images makes it difficult to obtain reliable occlusion relationships, which subsequently hinders the faithful modeling of indirect illumination. Hence, we introduce a lightweight occlusion field to predict the visibility between surface points and point lights explicitly. Specifically, we employ a multi-level hash encoder $\varepsilon_o$ ~\cite{muller2022instant} to obtain multi-resolution feature encoding of the 3D scene, where a spatial position $\mu_i$ is mapped to an occlusion feature $e_i=\varepsilon_o(\mu_i)$. By encoding the entire 3D space at multiple resolutions and performing interpolated sampling for the given spatial points, we alleviate the issue of inaccurate Gaussian-based geometric modeling and occlusion estimation that commonly arise under sparse-view settings. The encoded multi-scale spatial features $e_i$, together with the relative direction $d_{ji} = \frac{p_j -\mu_i}{\|p_j - \mu_i\|_2}$ and distance $\delta_{ji} = \|p_j-\mu_i\|_2$ of a point light $j$, are then fed into a lightweight decoder $f(\cdot)$ to predict the visibility by $V_{ji} = f(e_i,\delta_{ji},d_{ji})$. This design enables the model to perceive the occlusion relationships between spatial points and local light sources, allowing it to infer the general direction of cast shadows and disentangle them from intrinsic material appearance.
+
+
+\vspace{0.5em}
+\noindent\textbf{Material-consistent regularized training.}
+Inverse rendering is inherently ill-posed due to the strong coupling between illumination and material properties. Simply leveraging material priors from pretrained models for predicting the material attributes of Gaussian primitives is still insufficient, as the learned material (albedo) attributes often fall into undesired local optima (see Figure~\ref{fig:ablation_albedo_estimation}). To address this issue, we propose to construct additional constraints based on the illumination invariance and multi-view consistency of material properties. 
+
+
+Specifically, we introduce illumination perturbations under a fixed viewpoint to enforce albedo invariance. Given multiple lighting conditions, the rendered albedo $\hat{A}$ by alpha blending~\cite{liang2024gs} should be unchanged. Following~\cite{careaga2024colorful}, we define the relighting consistency loss as:
+\begin{equation}
+    \small
+\begin{aligned}
+&\mathcal{L}_{relight} =  \sum_{i=1}^{N} 
+\left(
+\mathcal{L}_{mse}\!\left(\hat{A}, A_i, \mathcal{M}_{o}\right)
++ \mathcal{L}_{msg}\!\left(\hat{A}, A_i, \mathcal{M}_{o}\right)
+\right), \\
+&\mathcal{L}_{mse}(\hat{A}, A_i, \mathcal{M}_{o}) 
+= \left\| (\hat{A} - A_i) \odot \mathcal{M}_{o} \right\|_2, \\
+&\mathcal{L}_{msg}(\hat{A}, A_i, \mathcal{M}_{o})
+= \sum_{l=1}^{L} 
+\left\| (\nabla \hat{A}^{l} - \nabla A_i^{l}) \odot \mathcal{M}_{o} \right\|_2,
+\end{aligned}
+\end{equation}
+where $A_i$ represents the material prior predicted by the pretrained RGBX model~\cite{10.1145/3641519.3657445} under $N$ sampled illumination perturbations. Detailed sampling strategies for the perturbations are provided in the supplementary. To achieve precise elimination of specular highlights and cast shadows, we obtain an object-level mask $\mathcal{M}_o$ derived from the SAM model, with which we are able to achieve fine-grained, localized supervision, ensuring that the relighting constraints are applied specifically to the target object. The relighting objective consists of two components: a standard MSE loss $\mathcal{L}_{mse}$ and a multi-scale gradient loss $\mathcal{L}_{msg}$. $\nabla$ denotes the spatial gradient operator, while $l$ denotes the specific level within a multi-scale image pyramid. 
+
+
+
+\input{images/interiorverse_compare}
+
+Considering that the material priors from pretrained models often lack multi-view consistency, we devise a multi-view consistency constraint to regularize the disentanglement of illumination and material attributes, based on the observation that regions sharing similar semantics often have similar material properties.
+
+For each training view, we sample $P$ additional viewpoints using the same pseudo-view strategy adopted in stage~I and employ SAM to extract masks $\mathcal{M}$ and $\mathcal{M}_p^*$ for training and pseudo-views. Next, we formulate the following multi-view consistency loss:
+\begin{equation}
+\mathcal{L}_{cross\_semantic} = \sum_{p=1}^{P} \left( \left\| \bar{F}_p^* - \bar{F} \right\|_2 + \left\| \bar{A}_p^* - \bar{A} \right\|_2 \right),
+\end{equation}
+where $\bar{F}$ and $\bar{A}$ denote the mean semantic feature and mean rendered albedo derived from mask $M$ of the training view, defined as $\bar{F} = \frac{(\hat{F} \odot \mathcal{M})}{\sum \mathcal{M}}$ and $\bar{A} = \frac{(\hat{A} \odot \mathcal{M})}{\sum \mathcal{M}}$, respectively. Similarly, $\bar{F}_p^*$ and $\bar{A}_p^*$ represent the corresponding mean semantic feature and albedo rendered of the $p$-th pseudo view, respectively.
+
+Finally, we adopt a photometric constraint $\mathcal{L}_{\text{PBR}}$ from \cite{du2024gs} to enforce the physically-based rendering results to be close to the corresponding ground truths.
+
+The overall loss function for stage II is now defined as:
+\begin{equation}
+    \mathcal{L}_{S2} = \mathcal{L}_{\text{PBR}} + 
+    \lambda_3 \mathcal{L}_{cross\_semantic} +
+    \lambda_4 \mathcal{L}_{relight},
+\end{equation}
+where we empirically set $\lambda_3=0.4$ and $\lambda_4=0.4$.
+
+
+\subsection{Implementation Details}
+We conduct all experiments on a single NVIDIA RTX 4090 GPU. For stage I, we set the total number of training iterations as 7000. Virtual view sampling and the semantic consistency constraint between virtual and real views are activated after 2000 iterations. For stage II, the number of training iterations is set to 3000. We employ CLIP ViT-B/16~\cite{radford2021learning} for semantic feature extraction and SAM2 Hiera-L~\cite{ravi2024sam} for region mask generation. The entire training process consists of 10,000 iterations and takes approximately 40 minutes. For more details, please see the supplementary material.

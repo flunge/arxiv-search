@@ -1,0 +1,205 @@
+\section{Methodology}
+\label{sec:method}
+% \subsection{Overview}
+% Our goal is to investigate how explicit 3D reconstruction influences Bird’s-Eye-View (BEV) perception.
+% We propose \textit{Splat2BEV}, a Gaussian Splatting–assisted framework designed for BEV perception.
+Our proposed Splat2BEV is a Gaussian Splatting–assisted framework that explicitly reconstructs the scene for accurate Bird’s-Eye-View (BEV) perception.
+% The training process of \textit{Splat2BEV} can be divided into three stages:
+% (1) Gaussian generator pre-training (\ie, \cref{subsec:GS_generator}, \cref{subsec:feature_learning}),
+% (2) downstream head training (\ie, \cref{subsec:bev_projection}, \cref{subsec:task_head}), 
+% and (3) joint fine-tuning (\ie, \cref{subsec:joint_finetuning}).
+An overview of our framework and training process is illustrated in \cref{fig:training_pipeline}.
+Given multi-view perspective images as input,
+Splat2BEV first pre-trains a feed-forward Gaussian generator capable of reconstructing 3D scenes (\cref{subsec:GS_generator} \& \cref{subsec:feature_learning}).
+In the second stage, the Gaussian generator is frozen, and the reconstructed scenes are projected into the Bird’s-Eye-View (BEV) for downstream task head training (\cref{subsec:bev_projection}, \cref{subsec:task_head}).
+In the final stage, all components are jointly fine-tuned to harmonize geometric, semantic, and task-specific cues for optimal BEV perception (\cref{subsec:joint_finetuning}).
+We detail each stage in the following sections.
+
+\begin{figure*}[htbp]
+    \centering
+    \includegraphics[width=1\linewidth]{figures/pipeline_ylz_341936.pdf}
+    \caption{
+    \textbf{An overview of our training process.}
+    Given multi-view perspective images as input, Splat2BEV first trains a feed-forward Gaussian generator to reconstruct 3D scene using 3D Gaussian Splatting.
+    In stage 2, the Gaussian generator is frozen, and the reconstructed geometry along with its associated features are projected onto the BEV plane.
+    A BEV encoder and segmentation head are then trained on top of this BEV representation to perform downstream tasks.
+    Finally, in the third stage, the Gaussian generator, BEV encoder, and segmentation head are jointly fine-tuned, allowing geometry, semantics, and task-specific cues to be harmonized for optimal BEV perception.
+    }
+    \label{fig:training_pipeline}
+    % \vspace{-2em}
+\end{figure*}
+\subsection{Preliminary: 3D Gaussian Splatting}
+In Splat2BEV, we adopt 3D Gaussian Splatting (3DGS) as the scene representation. 
+3DGS models a scene using a set of anisotropic Gaussians $\{G_i\}_{i=1}^n$, where each Gaussian $G_i = (\boldsymbol{\mu}_i, \boldsymbol{\Sigma}_i, \boldsymbol{\sigma}_i, \mathbf{SH}_i)$ is characterized by its mean  $\boldsymbol{\mu}_i$, covariance $\boldsymbol{\Sigma}_i$, 
+opacity $\boldsymbol{\sigma}_i$, and a set of spherical harmonics coefficients $\mathbf{SH}_i$ that encode view-dependent color. 
+
+A 3DGS-represented scene can be rendered from arbitrary viewpoints through a differentiable splatting process, 
+in which 3D Gaussians are projected onto the image plane as 2D elliptical footprints, and their colors are accumulated to form pixel intensities. 
+Specifically, for each pixel $p$, the final rendered color $\mathbf{C}(p)$ is computed through $\alpha$-blending:
+\begin{equation}
+    \mathbf{C}(p) = \sum_{i=1}^{N} T_i \, \sigma_i \, \mathbf{c}_i, 
+    \  \text{where} \ 
+    T_i = \prod_{j < i} (1 - \sigma_j).
+    \label{eq:alpha_blending}
+\end{equation}
+Here, $\mathbf{c}_i$ denotes the view-dependent color decoded from $\mathbf{SH}_i$, 
+and $\sigma_i$ represents the opacity of the Gaussians after depth sorting. 
+Leveraging this ability, we can utilize 3DGS to directly synthesize the reconstructed scene from a top-down perspective to obtain the BEV representation.
+
+\subsection{Gaussian Generator Pre-training}
+\label{subsec:GS_generator}
+Given a set of $k$ perspective images $\mathbf{I} = \{I_i\}_{i=1}^k$ as input, we train a Gaussian generator $\mathcal{G}_\theta$ to output a set of Gaussians $\mathbf{G} = \{G_j\}_{j=1}^{n}$ to represent the scene. 
+Following previous feed-forward Gaussian Splatting methods~\cite{charatan2024pixelsplat,chen2024mvsplat,xu2025depthsplat}, 
+$\mathcal{G}_\theta$ first predicts a depth map for each view, which is then unprojected into 3D space using the corresponding camera parameters to obtain the mean positions of the Gaussians. 
+Subsequently, separate prediction heads are employed to estimate additional Gaussian attributes (\ie, opacity, covariance and color).
+Detailed structure of the Gaussian generator is shown in \cref{fig:GS_generator}.
+These outputs are organized into 3D Gaussians and rendered back into the input views for supervision using MSE loss:
+\begin{equation}
+    \mathcal{L}_{\text{render}} =
+    \frac{1}{k} \sum_{i=1}^{k} 
+    \| \widehat{\mathbf{C}}_i - \mathbf{C}_i^{\text{gt}} \|_2^2,
+\end{equation}
+\begin{equation}
+    \widehat{\mathbf{C}}_i = 
+    \mathcal{R}\big(\mathbf{G}; \mathbf{P}_i\big).
+\end{equation}
+Here, $\mathcal{R}(\cdot)$ denotes the differentiable rendering function that synthesizes the image 
+from the reconstructed Gaussians $\mathbf{G}$ given the camera pose $\mathbf{P}_i$.
+
+Given the surrounding view cameras on autonomous vehicles are designed to maximize coverage of the environment and exhibits limited overlap region between adjacent frames,  reconstruction based solely on the rendering loss becomes highly challenging. 
+To further assist the reconstruction process, we employ the depth foundation model Metric3Dv2 \cite{hu2024metric3d} to generate reference metric depth for additional supervision. 
+The predicted depth $\widehat{\mathbf{D}}_i$ is computed by accumulating the camera-space depth ($z$) values of all projected Gaussians along the viewing ray.
+For depth supervision,
+we first apply an L1 loss to enforce pixel-wise metric depth accuracy:
+\begin{equation}
+    \mathcal{L}_{\text{depth}}^{L1} = 
+    \frac{1}{k} \sum_{i=1}^{k} 
+    \| \widehat{\mathbf{D}}_i - \mathbf{D}_i^{\text{ref}} \|_1,
+\end{equation}
+where $\widehat{\mathbf{D}}_i$ and $\mathbf{D}_i^{\text{ref}}$ denote the predicted and reference depth maps for the $i$-th view, respectively. 
+Besides, to ensure scale-invariant geometric consistency, we further employ the SILog loss \cite{eigen2014depth}, defined as:
+\begin{equation}
+    \mathcal{L}_{\text{depth}}^{\text{SILog}} = 
+    \frac{1}{k} \sum_{i=1}^{k} 
+    \Bigg[
+        \frac{1}{n} \sum_{p} \delta_i(p)^2
+        - \frac{1}{n^2} 
+        \Big( \sum_{p} \delta_i(p) \Big)^2
+    \Bigg],
+\end{equation}
+\begin{equation}
+    \delta_i(p) = 
+    \log \widehat{\mathbf{D}}_i(p) - \log \mathbf{D}_i^{\text{ref}}(p),
+\end{equation}
+where $\delta_i(p)$ denotes the per-pixel log-depth difference and $n$ is the number of valid pixels. 
+\begin{figure}
+    \centering
+    \includegraphics[width=0.65\linewidth]{figures/GS_generator_ylz_342013.pdf}
+    % \vspace{-1.5em}
+    \caption{Our Gaussian generator consists of two branches: a multi-view branch based on UniMatch \cite{xu2023unifying}, and a per-view branch built upon ViT-S \cite{dosovitskiy2020vit} to augment the multi-view representation.
+    The multi-view branch outputs multi-view features and cost volumes, which are concatenated with monocular features from the per-view branch to serve as input for a U-Net \cite{ronneberger2015u} to predict depth maps and per-Gaussian parameters.
+    The predicted depths are then unprojected and combined with the Gaussian parameters to form 3D Gaussians.}
+    \label{fig:GS_generator}
+    \vspace{-1em}
+\end{figure}
+\subsection{Foundation Model-assisted Feature Learning}
+\label{subsec:feature_learning}
+Most of the existing BEV perception models solely rely on downstream task loss to provide supervision signal, leaving intermediate BEV features weakly constrained and not guaranteed to be geometrically or semantically meaningful.
+To address this issue and inject rich semantic priors, we attach a learnable feature vector $\mathbf{f}_j \in \mathbb{R}^{C}$ to each Gaussian $G_j$ and distill dense visual cues from a frozen DINO~\cite{oquab2024dinov2} encoder.
+Formally, the Gaussian generator is defined as:
+\begin{equation}
+\begin{gathered}
+    \mathcal{G}_\theta(\mathbf{I}) = \mathbf{G},\\[2pt]
+    \text{where }\mathbf{G} = \{\, G_j \mid G_j = (\boldsymbol{\mu}_j, \boldsymbol{\Sigma}_j, \boldsymbol{\sigma}_j, \mathbf{SH}_j, \mathbf{f}_j) \,\}.
+\end{gathered}
+\end{equation}
+The rendering of feature also follows \cref{eq:alpha_blending} by substituting color $\mathbf{c}$ with feature vector $\mathbf{f}$.
+For feature supervision, we employ a cosine similarity loss between the rendered feature map $\widehat{\mathbf{F}}$ 
+and the dense feature map extracted from the frozen DINO encoder $\mathbf{F}^{\text{DINO}}$:
+\begin{equation}
+    \mathcal{L}_{\text{feat}} = 
+    \frac{1}{k} \sum_{i=1}^{k} 
+    \Big( 1 - 
+    \cos\big( 
+    \widehat{\mathbf{F}}_i, \,
+    \mathbf{F}^{\text{DINO}}_i
+    \big) \Big).
+\end{equation} 
+This distillation aligns each Gaussian feature vector $\mathbf{f}_j$ with the high-level semantics extracted by DINO, yielding geometrically grounded and semantically meaningful features.
+
+The overall loss function used to train the Gaussian generator $\mathcal{G}_\theta$ is defined as:
+\begin{equation}
+    \mathcal{L}_{\text{total}} = 
+    \mathcal{L}_{\text{render}} 
+    + \lambda_1 \, \mathcal{L}_{\text{depth}}^{L1} 
+    + \lambda_2 \, \mathcal{L}_{\text{depth}}^{\text{SILog}} + \lambda_3 \, \mathcal{L}_{\text{feat}},
+    \label{eq:loss_total}
+\end{equation}
+where $\lambda_1$, $\lambda_2$ and $\lambda_3$ are weighting coefficients that balance the photometric, depth and feature supervision terms. 
+
+\subsection{Projection to BEV Space}
+\label{subsec:bev_projection}
+After the Gaussians are generated, we project them onto the Bird’s-Eye-View (BEV) plane to serve as inputs for subsequent BEV-based tasks. 
+Unlike the perspective projection commonly used in Gaussian Splatting for novel-view rendering, 
+the BEV projection adopts an \textit{orthogonal projection} to preserve geometric consistency in the top-down view. 
+The orthogonal projection matrix $\mathbf{M}_{\text{ortho}}$ in camera space and the projection of Gaussian means are defined as:
+\begin{align}
+\mathbf{M}_{\text{ortho}} &=
+\begin{bmatrix}
+\label{eq:ortho_proj}
+f_x & 0 & 0 & c_x \\
+0 & f_y & 0 & c_y \\
+0 & 0 & 0 & 1
+\end{bmatrix}, \\
+\begin{bmatrix}
+u \\ v \\ 1
+\end{bmatrix}
+&=
+\mathbf{M}_{\text{ortho}}
+\begin{bmatrix}
+G_X \\ G_Y \\ G_Z \\ 1
+\end{bmatrix}.
+\end{align}
+Here, $f_x$, $f_y$, $c_x$, $c_y$ denote the BEV camera parameters; $G_X$, $G_Y$, $G_Z$ represent the 3D Gaussian mean in camera-space coordinates; and $u$, $v$ represent the 2D Gaussian mean on the image plane.
+Since the orthogonal projection is a linear transformation, 
+the projection of the 3D covariance matrix $\boldsymbol{\Sigma}_{3D}$ is straightforward. 
+From \cref{eq:ortho_proj}, we obtain the Jacobian $\mathbf{J}_{\text{ortho}}$ of $\mathbf{M}_{\text{ortho}}$ as follows:
+\begin{equation}
+\mathbf{J}_{\text{ortho}}
+=
+\begin{bmatrix}
+f_x & 0 & 0 \\
+0 & f_y & 0
+\end{bmatrix},
+\end{equation}
+and the projection of the 3D Gaussian covariance into 2D is defined as:
+\begin{equation}
+\boldsymbol{\Sigma}_{2D}
+= 
+\mathbf{J}_{\text{ortho}}
+\, \boldsymbol{\Sigma}_{3D} \,
+\mathbf{J}_{\text{ortho}}^{\!\top},
+\end{equation}
+where $\boldsymbol{\Sigma}_{2D}$ is the projected 2D covariance matrix on the image plane. 
+The orthogonal projection of 3D Gaussians is implemented using \texttt{gsplat}~\cite{ye2025gsplat}.
+
+\subsection{Task Head Training}
+\label{subsec:task_head}
+After projecting the reconstructed geometry and associated features into BEV space, we obtain a geometry-aligned BEV representation.
+To produce task-specific BEV features, this representation is fed into a BEV encoder.
+A downstream segmentation head is then attached, taking the output of the BEV encoder to perform BEV segmentation.
+During this stage, the Gaussian generator is kept frozen. Only the parameters of the BEV encoder and the task head are optimized, enabling the network to adapt the learned respresentation for downstream tasks without altering the underlying 3D reconstruction.
+
+Following previous works in BEV segmentation, we train the BEV encoder and segmentation head using a combination of sigmoid focal loss~\cite{lin2017focal}, centerness L2 loss, and offset L1 loss:
+\begin{equation}
+    \mathcal{L}_{\text{BEV}} = \mathcal{L}_{\text{focal}} + \lambda_4 \, \mathcal{L}_{\text{center}} + \lambda_5 \, \mathcal{L}_{\text{offset}}.
+    \label{eq:bev_loss}
+\end{equation}
+This multi-term loss encourages accurate segmentation masks while maintaining spatial alignment between predicted centers and offsets in the BEV domain.
+
+\subsection{Joint Fine-tuning}
+\label{subsec:joint_finetuning}
+After task head–only training, Splat2BEV already possesses the ability to perform BEV segmentation and achieves considerable performance, refer to \cref{tab:frozen_backbone_finetuning} for detailed results.
+To further harmonize geometry, semantics, and task-specific representations, we jointly fine-tune the Gaussian generator, BEV encoder, and segmentation head in an end-to-end manner.
+This stage enables gradients from the BEV segmentation loss to flow back into the Gaussian generator, allowing the reconstructed 3D scene and feature field to adapt to task-level objectives. 
+The overall loss function remains identical to \cref{eq:bev_loss}.

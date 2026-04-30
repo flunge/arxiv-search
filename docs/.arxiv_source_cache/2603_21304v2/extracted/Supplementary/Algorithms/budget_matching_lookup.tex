@@ -1,0 +1,38 @@
+
+
+\begin{algorithm}[ht]
+\caption{\textbf{Precomputing the threshold--budget lookup table}}
+\label{alg:threshold_budget_lookup}
+\begin{algorithmic}[1]
+% {\hat{\mathbf{D}}_i^l\}_{i=1,l=1}^{N_\text{ctx},L-1}$ 
+\Require Multi-level score maps $\{\{\hat{\mathbf{D}}_i^l\}_{i=1}^{N_\text{ctx}}\}^{L-1}_{l=1}$ for all views and levels
+\Ensure A sorted threshold list $\tilde{\boldsymbol{\tau}}$ and the corresponding Gaussian-count delta list $\tilde{\mathbf{N}}_\mathcal{G}$
+
+\State Initialize all $\Delta N_i^l$ to $3$ for all values with the same resolution as $\hat{\mathbf{D}}_i^l$.
+\For{$l=L-1,L-2,\dots,2$}
+    % \State Compute the auto-split mask
+    \State $\{\mathbf{A}_i^l\}_{i=1}^{N_\text{ctx}} \leftarrow \left\{ \mathds{1}_{\{\hat{\mathbf{D}}_i^l \ge \mathrm{Up}(\hat{\mathbf{D}}_i^{l-1};2)\}}\right\}_{i=1}^{N_\text{ctx}}$
+    % \Comment{automatically densified region when densifying at the level below}
+    
+    \State $\{\Delta N_i^{l-1} \}_{i=1}^{N_\text{ctx}} \leftarrow \left\{ \Delta N_i^{l-1} + \mathrm{SumPool}_{2\times2}\!\left(\Delta N_i^{l} \odot \mathbf{A}_i^l\right)\right\}_{i=1}^{N_\text{ctx}}$
+    \State $\{\Delta N_i^{l} \}_{i=1}^{N_\text{ctx}} \leftarrow \left\{ \Delta N_i^{l} \odot (\mathbf{1}-\mathbf{A}_i^l) \right\}_{i=1}^{N_\text{ctx}}$
+\EndFor
+
+\State $\boldsymbol{{\tau}} = \mathrm{Concat}\!\left(\left\{\mathrm{Flatten}(\hat{\mathbf{D}}_i^l)\right\}_{i=1,\dots,N_{\tec};\,l=1,\dots,L-1}\right)$
+\State $\boldsymbol{\Delta}\mathbf{N}_\mathcal{G} = \mathrm{Concat}\!\left(\left\{\mathrm{Flatten}(\Delta N_i^l)\right\}_{i=1,\dots,N_{\tec};\,l=1,\dots,L-1}\right)$
+
+\State $\boldsymbol{\pi} = \text{argsort}(\boldsymbol{{\tau}})$
+\Comment{descending sorting permutation}
+
+\State $\tilde{\boldsymbol{{\tau}}} = \boldsymbol{{\tau}}[\boldsymbol{\pi}]$
+% \Comment{reordering by permutation $\boldsymbol{\pi}$}
+
+\State ${\boldsymbol{\Delta} \mathbf{N}}_\mathcal{G} = \boldsymbol{\Delta}\mathbf{N}_\mathcal{G}[\boldsymbol{\pi}]$
+% \Comment{reordering by permutation $\boldsymbol{\pi}$}
+
+\State $\tilde{\mathbf{N}}_\mathcal{G} =  N_{\text{ctx}}H^1W^1 \cdot \mathbf{1} + \text{Cumsum}\left( {\boldsymbol{\Delta} \mathbf{N}}_\mathcal{G} \right) $
+\Comment{sorted in ascending order, unlike $\tilde{\boldsymbol{\tau}}$ }
+
+\State \Return $\tilde{\boldsymbol{{\tau}}}, \tilde{\mathbf{N}}_\mathcal{G}$
+\end{algorithmic}
+\end{algorithm}

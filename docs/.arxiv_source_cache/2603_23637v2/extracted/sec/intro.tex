@@ -1,0 +1,34 @@
+\section{Introduction}
+\label{sec:intro}
+%
+3D Gaussian Splatting (3DGS)~\cite{kerbl20233d} represents scenes as collections of translucent 3D Gaussians, enabling real-time rendering and rapid reconstruction.
+Its combination of speed and expressiveness has made 3DGS a compelling choice for applications demanding both fidelity and interactivity---autonomous vehicles, immersive reality, and digital twins.
+
+Most 3DGS methods rely on \emph{rasterization}: individual Gaussians are projected (``splatted'') onto the screen and alpha-blended to form the final image.
+Hardware-accelerated splatting makes this fast, but rasterization brings inherent limitations---inaccurate shadows, lacking native support for reflection or refraction, and rigid pinhole camera assumptions.
+
+Several ray-tracing-based 3DGS methods~\cite{loccoz20243dgrt, RaySplats, mai2024everexactvolumetricellipsoid} overcome these limitations by tracing camera rays through the scene and intersecting them with the Gaussians directly.
+This unlocks shadows, reflection/refraction, and nonlinear camera models (e.g., fisheye lenses) without the workarounds that rasterization demands.
+
+However, ray-traced 3DGS comes with its own costs.
+Sorting all intersecting Gaussians along every camera ray is expensive, leaving these methods slower than their rasterization-based counterparts.
+Moreover, when handling relightable scenes, existing ray-tracing methods still fall back on rasterization-style techniques---shadow mapping~\cite{williams1978casting}, deferred shading~\cite{deering1988triangle}---to approximate shadows and reflections, undermining the very generality that ray tracing promises.
+
+\citet{Sun2025} recently showed that stochastic ray tracing can render 3DGS scenes efficiently without sorting.
+Their algorithm, unfortunately, is not differentiable and therefore cannot be used for scene \emph{reconstruction}; nor does it address \emph{relightable} representations.
+
+We present a \textbf{differentiable stochastic formulation} for ray-traced 3DGS---the first framework that uses stochastic ray tracing to both \emph{reconstruct} and \emph{render} standard and relightable 3DGS scenes.
+At its core is an unbiased Monte Carlo estimator for pixel-color gradients that bypasses the need for sorting Gaussians and evaluates only a small sampled subset per ray.
+This is particularly advantageous for relightable settings, where per-Gaussian shading (e.g., tracing shadow rays) makes exhaustive evaluation prohibitively expensive.
+Because our formulation is inherently ray-based, it extends naturally to shadow rays and environmental illumination, yielding physically accurate shadows and reflections without specialized rasterization passes.
+
+Concretely, our contributions are:
+%
+\begin{enumerate}
+	\item An unbiased, sorting-free stochastic algorithm for estimating pixel-color gradients with respect to all Gaussian parameters, enabling efficient differentiable ray tracing of 3DGS scenes (\autoref{ssec:grad_est}).
+	      %
+	\item An extension of this formulation to relightable 3DGS, where the same stochastic estimator drives shadow-ray evaluation and environment-map integration, replacing the approximate shadow-mapping pipelines used by prior work (\autoref{ssec:extensions}).
+\end{enumerate}
+
+Across standard and relightable benchmarks (\autoref{sec:results}), our method matches the speed of rasterization-based 3DGS while substantially outperforming sorting-based ray tracing.
+For relightable scenes, it delivers notably higher reconstruction fidelity, driven by per-Gaussian shading with accurate, ray-traced shadows and reflections.

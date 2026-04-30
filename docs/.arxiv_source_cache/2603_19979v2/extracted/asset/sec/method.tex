@@ -1,0 +1,161 @@
+% \section{Method}
+% This section delineates the architectural framework and core components of X-World. We first introduce a foundation model pretrained in large-scale autonomous driving datasets (Section 2.x). Subsequently, Section \ref{subet_iwd} details our distillation framework, which transforms the foundation model into an efficient, few-step auto-regressive diffusion model, facilitating a real-time interactive world simulator.
+
+% In this section, we first present the network architecture and then discuss the conditions. 
+
+% \subsection{Architecture}
+% Our model is derived from the Wan2.2 I2V design\cite{wan2025wanopenadvancedlargescale}. To meet the demands of autonomous driving downstream applications , we re-engineered its core conditioning and generation mechanisms, transforming it into a versatile TI2V model that integrates multiple control signals and supports multiview video synthesis.
+
+% %-------------------------------------------------------------------------------------------
+% \begin{figure*}[t] 
+%   \centering
+%   \includegraphics[width=0.5\linewidth]{asset/pics/model/WAN_TR_cropped.pdf} 
+%    \caption{The Diffusion Transformer (DiT) architecture of the proposed X-World.
+%    }
+%    \label{fig:block}
+   
+% \end{figure*}
+% %-------------------------------------------------------------------------------------------
+
+%-------------------------------------------------------------------------------------------
+\begin{figure*}[t] 
+  \centering
+   \includegraphics[width=\linewidth]{asset/pics/model/xworld_v1_cropped.pdf} 
+   \caption{The overall scheme of the proposed X-World.
+   }
+   \label{fig:overall}
+   
+\end{figure*}
+%-------------------------------------------------------------------------------------------
+\subsection{Overview}\label{sec:method_overview}
+Modern embodied agents---including autonomous driving systems---primarily perceive and reason about the world through \emph{cameras}. As a result, the effective ``world state'' available to these agents is not a compact vector of latent variables, but a high-dimensional stream of images, \ie, \emph{video}. This motivates a world model that operates directly in the observation space most relevant to downstream policies: \emph{action-conditioned video}.
+
+We propose \textbf{\modelname} as in Fig.~\ref{fig:overall}, a generative world model formulated as an \emph{action-conditioned multi-camera video generation model}. Given a short \emph{history} of synchronized multi-view camera streams, the model predicts the \emph{future} camera observations that would result from executing a specified \emph{future action sequence}. 
+%
+Concretely, our model takes as input:
+(i) multi-camera video history $\mathbf{X}_{t-L:t}^{1:V}$ from $V$ cameras, representing the recent visual context of the scene;
+(ii) future driving actions $\mathbf{A}_{t:t+H}$ to be executed by the ego vehicle;
+and (iii) optional scene control conditions $\mathbf{C}$, which specify controllable aspects of the environment.
+It then generates the corresponding multi-camera future video $\hat{\mathbf{X}}_{t+1:t+H}^{1:V}$ that is (i) visually realistic, (ii) consistent across views, and (iii) faithful to the commanded actions:
+\begin{equation}
+\hat{\mathbf{X}}_{t+1:t+H}^{1:V} \sim
+p\!\left(\mathbf{X}_{t+1:t+H}^{1:V}\mid \mathbf{X}_{t-L:t}^{1:V}, \mathbf{A}_{t:t+H}, \mathbf{C}\right).
+\label{eq:world_model}
+\end{equation}
+
+A key practical requirement for evaluation and training is \emph{reproducibility}: we often want the simulator to produce the same future (or a controlled family of futures) under specified conditions. To this end, our model optionally supports explicit control over both \emph{dynamic traffic agents} (e.g., surrounding vehicles, pedestrians) and \emph{static road elements} (e.g., lane topology, road layout cues). When such conditions $\mathbf{C}$ are provided, the model can generate scene-consistent and reproducible futures, enabling controlled counterfactual rollouts, fair benchmarking, and systematic stress testing.
+
+% In summary, our method instantiates a \emph{video-native} world model for autonomous driving: it converts multi-camera history and planned actions into action-following multi-view future videos, with optional controllability for reproducible simulation.
+
+\subsection{Model Design}\label{subet_bm}
+\modelname~is built upon the state-of-the-art WAN~2.2~\cite{wan2025wanopenadvancedlargescale}, following its latent video generation paradigm that couples a video VAE with a DiT-based latent denoiser~\cite{peebles2023scalable}.
+%
+In particular, consistent with WAN~2.2~5B~\cite{wan2025wanopenadvancedlargescale}, we employ a high-compression 3D \emph{causal} Variational Autoencoder that achieves a $16\times$ spatial compression ratio and a $4\times$ temporal compression ratio, producing latents with channel dimension $48$.
+%
+Operating in this compact spatio-temporal latent space substantially reduces compute and memory overhead, which (i) enables pre-training on longer video sequences to better capture rich spatio-temporal dependencies, and (ii) facilitates faster inference for downstream deployment.\newline
+
+To address the critical challenge of \emph{geometric consistency} in multi-camera autonomous driving scenarios, we introduce a customized DiT block tailored to the multi-condition generative framework of \modelname. The design has two key goals: (i) enforcing \emph{spatio-temporal modeling} with strong \emph{cross-view consistency}, and (ii) enabling \emph{controllable generation} under heterogeneous condition signals (\eg., actions, camera parameters, dynamic agents, static road elements, and text prompts) with minimal cross-condition interference.
+
+\paragraph{View-temporal self-attention.}
+At the core of our architecture is a \textbf{view-temporal self-attention} module that explicitly models interactions along both the \emph{temporal} and \emph{cross-view} dimensions. Concretely, self-attention is executed over latent tokens across multiple cameras and multiple timesteps alternately, allowing features to align and exchange information across views while maintaining temporal coherence. This mechanism encourages consistent geometry, object identity, and motion patterns among synchronized cameras.
+
+\paragraph{Condition injection strategy.}
+We employ modality-appropriate condition injection mechanisms to balance expressiveness and stability. Specifically, we use:
+(i) \textbf{adaptive layer normalization} for injecting \emph{actions} and \emph{diffusion/flow timesteps};
+(ii) \textbf{additive embeddings} for \emph{camera parameters};
+and (iii) \textbf{cross-attention} for high-level and structured conditions, including \emph{dynamic agents}, \emph{static road elements}, and \emph{text prompts}. Details of the conditioning design are provided in Section~\ref{subsubsec_fm}.
+
+\paragraph{Decoupled cross-attention for heterogeneous conditions.}
+We adopt decoupled cross-attention layers to fuse heterogeneous condition sources in a modular manner. Rather than injecting all conditions through a single shared attention pathway, we allocate separate cross-attention branches for different modalities.
+%
+The original text-conditioning branch from WAN~2.2~5B is retained to support optional appearance and scene-level control, such as weather, daytime, and other global attributes. For dynamic and static controls, we introduce new cross-attention branches.
+This decoupling reduces mutual interference between condition types and improves controllability, enabling the model to follow each condition signal more faithfully.
+
+% To address the critical challenge of geometric consistency in multi-camera autonomous driving scenarios, we introduce a customized DiT block designed for the multi-condition generative framework of X-World. Our architecture features a view-temporal self-attention module to explicitly enforce spatiotemporal modeling and cross-view consistency. Furthermore, we adopt decoupled cross-attention layers to effectively fuse heterogeneous control signals such as text prompts and dynamic/static parts constraints, minimizing interference between different modalities and enhancing controllable generation. Specifically, The view-temporal self-attention module executes self-attention operations along both cross-view and cross-temporal dimensions, enabling highly efficient feature interaction and alignment. For different condition injection, we conduct a combination of adaptive layer normalization (for action and timestamp), additive modules (for camera parameter), and cross-attention (for dynamic/text prompt/static) described in detail in Section \ref{subsubsec_fm}. For text encoding, we employ the umT5 encoder from Wan to represent prompts containing scene-level descriptions of autonomous driving scenarios. We further observe that training on autonomous-driving datasets enables the text branch to effectively inject scene-level contextual information into the model. \newline
+
+% Our model supports both Text-to-Video (T2V) and Image-to-Video (I2V) tasks. For T2V, scene generation is guided by text prompts integrated with various conditional inputs \ref{subsubsec_fm}. For I2V, we extend the T2V framework by incorporating the initial frame as an main constraint for video continuation. During the training phase, these two tasks are jointly optimized using a specific sampling ratio. \newline
+% 我们的模型支持，text2video/image2video/video2video，
+
+\subsection{Conditions} \label{subsubsec_fm}
+% \subsubsection{Foundation World Model} \label{subsubsec_fm}
+% different of BaseModel, focus on condition relate to controllable autonomous driving
+
+% 1. action speed and curvature and roll and pitch; \newline
+% 2. Camera parameter  \newline
+% 3. Dynamic agents     \newline
+% 4. static element(optional) \newline
+
+% 1. action speed and curvature and roll and pitch; \newline
+% 2. Dynamic agents     \newline
+% 3. static element \newline
+% 4. Camera parameter  \newline
+
+X-World provides a comprehensive set of conditional control interfaces that enable fine-grained manipulation of the driving scene generation process. 
+These include ego-vehicle actions, dynamic agents, static road elements such as lane lines and boundaries, as well as camera intrinsic and extrinsic parameters.
+
+% 1. 这个条件，是干啥用的，为什么要加；
+% 2. 这个条件，是怎么加的；
+
+\paragraph{Ego-vehicle Action.}
+% 在这里提下，和timestamp，一起用adaLN-zero注入的
+% 1. 这个条件，是干啥用的，为什么要加；
+Controlling ego-vehicle actions in a world model enables causally consistent future simulation conditioned on planned maneuvers, which is essential for closed-loop planning and safety validation. 
+
+% 2. 怎么编码，怎么注入；要模糊
+Unlike high-level command conditioning, our model enables direct and continuous control by taking as input a sequence of future kinematic states --- velocity, curvature, roll, and pitch. 
+Given the disparate numerical scales of these four kinematic variables, we first normalize each through \textit{symlog} normalization~\cite{webber2013bi}. 
+To capture fine-grained distinctions in scalar values, we subsequently apply Fourier feature encoding. 
+The encoded representations are then projected and aligned to the latent space dimension using an MLP. 
+Finally, we incorporate timestamp embeddings and inject the combined conditioning signals into the diffusion blocks via adaLN-Zero~\cite{peebles2023scalable}.
+
+\paragraph{Dynamic Agents.}
+% 1. 这个条件，是干啥用的，为什么要加；
+Controlling dynamic agents in a world model enables the simulation of diverse, interactive traffic behaviors, which is essential for evaluating the robustness and safety of autonomous driving policies under realistic multi-agent scenarios.
+
+% 2. 怎么编码，怎么注入；要模糊
+To represent dynamic agents, we first extract their semantic categories (e.g., SUV, pedestrian, bicycle) and spatial coordinates from our detection model. 
+Each categorical attribute is encoded via umT5 encoder~\cite{chung2023unimax}, while spatial coordinates are normalized and further processed with Fourier feature encoding to preserve fine-grained positional details. 
+These heterogeneous features are then concatenated and projected to a unified feature dimension through an MLP. 
+To effectively condition the generative process, the resulting agent embeddings are injected into the latent space via cross-attention layers, allowing the model to dynamically attend to relevant agent information at each denoising step. 
+This design enables flexible control over the behavior and placement of multiple traffic participants.
+
+
+\paragraph{Static Elements.}
+% 1. 这个条件，是干啥用的，为什么要加；
+Controlling static road elements (e.g., lane lines, boundaries) in a world model allows for the specification of diverse road topologies and traffic rules, which is essential for generating scene-compliant and geometrically plausible future simulations under varying environmental layouts. 
+
+% 2. 怎么编码，怎么注入；要模糊
+Similarly to the encoding and injection scheme used for dynamic agents, we first extract semantic categories and positional information of static road elements via a detection model. 
+Category labels are encoded using umT5, while normalized position coordinates are embedded through Fourier feature encoding. 
+These representations are then projected and aligned to the target feature dimension via an MLP and subsequently injected into the diffusion latent space through cross-attention layers. 
+Unlike dynamic agents, however, static elements require stronger condition adherence during inference to ensure geometric and semantic consistency. 
+To this end, we employ classifier-free guidance (CFG) at test time and incorporate a random dropout strategy during training. 
+This design ensures that the model remains robust to varying levels of conditional control and can faithfully generate scene-consistent futures under explicit static constraints. 
+
+
+\paragraph{Camera Parameters.}
+% 1. 这个条件，是干啥用的，为什么要加；
+Controlling camera intrinsic and extrinsic parameters in a world model enables the generation of future image sequences conditioned on diverse sensor configurations and viewpoints, thereby accommodating various vehicle types and camera setups. T
+his capability is essential for learning viewpoint-aware representations and evaluating planning models under heterogeneous sensor configurations in closed-loop simulation. 
+
+% 2. 怎么编码，怎么注入；要模糊
+Camera intrinsic and extrinsic parameters are first normalized individually, concatenated, and then transformed via an MLP for feature projection and dimension alignment. 
+The resulting embedding is directly injected into the latent space through an additive conditioning module.
+
+\subsection{I2V/V2V/C2V Unification}
+\modelname~supports multiple generation modes by controlling the length of the history input during training. Let $L$ denote the number of clean history frames provided to the model. When $L{=}1$, the model operates in an \emph{image-to-video (I2V)} regime, where the first multi-camera frame anchors appearance and geometry and the model generates the subsequent future frames. When $L{>}1$, the model naturally becomes \emph{video-to-video (V2V)}, conditioned on a multi-frame observed history to generate future multi-view videos. When $L{=}0$, the model generates videos purely conditioned on the provided action and other control conditions, which we refer to as \emph{condition-to-video (C2V)}.
+
+\paragraph{Discussion on C2V.}
+C2V is a useful training side product but is not formally a world model, since it does not condition on the current observed state and thus does not model state transitions. Nevertheless, C2V is practically valuable: it enables controllable \emph{data synthesis} and appearance-driven \emph{style transfer} (e.g., changing weather or time of day) under fixed actions and scene controls, complementing the primary world-model functionality.
+
+\smallskip
+
+% # --- 以下放到 Training Section --- # % 
+% \subsubsection{Interactive World Model}\label{subet_iwd}
+% \subsection{Training}
+% 1. Caption + Automomous dataset for driving world understanding：  \newline
+% 1.1  Domain Transfer  \newline
+% 2. multi-condition labeled training for driving foundation model   \newline
+% 2.1  condition injection by rd dataset \newline
+% 3. Interactive model   \newline 
+

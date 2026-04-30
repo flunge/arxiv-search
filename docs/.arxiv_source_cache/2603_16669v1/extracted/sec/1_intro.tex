@@ -1,0 +1,38 @@
+\section{Introduction}
+In the field of Embodied AI, the ability to roll out robot trajectories within a world environment is pivotal for scaling up robot demonstrations \cite{o2024open}, policy evaluation \cite{li2024evaluating,team2025evaluating}, and reinforcement learning \cite{ebert2018visual}. Nevertheless, executing actions in the real world is prohibitively costly, potentially unsafe, and necessitates constant expert maintenance \cite{brohan2022rt,khazatsky2024droid}. Consequently, robotic simulation in virtual environments has emerged as a vital surrogate for real-world deployment.
+
+While significant efforts have been dedicated to developing robust physical simulators \cite{xiang2020sapien,makoviychuk2021isaac,mittal2023orbit,chen2024urdformer}, these platforms often lack visual realism and rely on hand-crafted and pre-defined physical properties/rules. Such dependencies create a significant scalability bottleneck, particularly when attempting to synthesize new environments. 
+Very recently, to circumvent these limitations, researchers have begun leveraging the intrinsic world dynamics captured by video generative models to synthesize robot-environment interactions across diverse scenes \cite{zhu2025irasim,agarwal2025cosmos}.
+By casting robot actions as conditional prompts for video synthesis, these methods directly simulate the visual outcome of adding robot controls to an environment, bypassing the need for predefined physical modeling required for traditional simulation.
+% or are guided by environmental statics
+However, a critical gap remains. Current models primarily operate within a 2D pixel space \cite{zhu2025irasim,agarwal2025cosmos}, whereas robot-world interactions are \textit{inherently 4D spatiotemporal events}. Without 4D constraints, physical interaction loses its most fundamental grounding. Although a few latest works  \cite{zhen2025tesseract,robo4dgen} explored 4D simulation, they primarily rely on high-level linguistic instructions to represent robot control. Such semantic representations, while intuitive, \textit{lack the precise guidance} essential for high-fidelity 4D world modeling.
+As a result, existing methods struggle to simulate precise interactive effects—such as material deformations or occluded object dynamics (see \cref{fig:qualitative_result_2D,fig:qualitative_result_4D}).
+% enabling the synthesis of complex visual effects and diverse object behaviors.
+% In essence, while they capture the visual superficiality of a simulation, they fail to uphold the underlying spatial logic required for reliable robotic learning.
+
+To bridge this gap and advance this problem, we propose Kinema4D, a new action-conditioned 4D generative robotic simulator. Our core motivation is to restore robot-world interactions to their \textit{4D spatiotemporal essence}, while ensuring \textit{precise robot control}.
+% effectively harnessing the \textit{powerful generative priors} of foundation models. 
+This motivation is further grounded in two synergetic insights that support our design philosophy—disentangling the simulation into \textit{robot control} and their \textit{resultant environmental changes}:
+
+\textbf{i)} \textbf{\textit{Precise} 4D representation of robot actions via kinematic control}: We recognize the fact that robot action is a \textit{precise physical certainty in 4D space} and should not be “guessed” by a generative model. A joint-angle sequence or an end-effector pose is merely an abstract vector until it is mapped onto a physical structure. Reflecting on this, our framework enables a bridge that is otherwise impossible in 2D: we drive a 3D-reconstructed, URDF-based robot model via explicit kinematics to produce a continuous 4D robot trajectory that is guaranteed to be kinematically correct, providing the high-granularity spatiotemporal information that serves as the \textit{causal driver} for any interaction.
+\textbf{ii)} \textbf{\textit{Generative} 4D modeling of environmental reactions via controllable generation}: While robot controls are deterministic, we argue that complex environments’ dynamics require a \textit{flexible generative modeling}. To this end, we project the previously derived 4D robot trajectory into a pointmap sequence—serving as a spatiotemporal visual signal, which controls the generative model to offload the burden of kinematic modeling and focus exclusively on synthesizing the environment's \textit{reactive dynamics}.
+Moreover, our architecture simultaneously predicts synchronized RGB and pointmap sequences, effectively transforming the generation into a spatiotemporal reasoning task within a unified 4D space. This makes the result not only visually realistic but also geometrically consistent.
+In this paradigm, spatiotemporal awareness is enforced not merely as a control signal but as an intrinsic constraint throughout the generative process. This fosters a symbiosis between \textit{precise control} and \textit{flexible synthesis}.
+% allowing them to reinforce one another.
+
+To facilitate the training of our framework, we curated a large-scale dataset called Robo4D-200k, comprising 201,426 real-world and synthetic demonstrations with high-quality 4D annotations.
+We extensively benchmark our method using both video and geometric metrics, as well as policy evaluation. 
+Experiments show that our Kinema4D generalizes to simulate physically-plausible robot-world interactions that closely mirror diverse real-world dynamics, and for the first time, shows potential zero-shot OOD transfer capability.
+
+Our contributions are summarized as:
+\begin{itemize}
+[itemsep=2pt,topsep=2pt,parsep=0pt, leftmargin=2em]
+    \item Kinema4D, a new action-conditioned 4D generative robotic simulator that enjoys both spatiotemporal rigor and generative flexibility.
+    % \item A new paradigm that disentangles robotic simulation into kinematic grounding of robot actions and generative modeling of environmental reactions.
+    \item Robo4D-200k, to our knowledge, the largest-scale 4D robotic dataset comprising 201,426 demonstrations with high-quality 4D annotations. % of real and synthetic
+    % \item A comprehensive evaluation scheme to assess the effectiveness of 4D generative robotic simulation.
+    \item A comprehensive evaluation scheme demonstrating that our method mirrors real-world dynamics, providing a new foundation for embodied simulation. 
+    \item Our code, dataset, and checkpoints will all be public upon acceptance.
+\end{itemize}
+
+% TODO: enumerate contributions: first simulator, dataset, benchmark and experiments (3D metrics and synthetic simulation), code public.

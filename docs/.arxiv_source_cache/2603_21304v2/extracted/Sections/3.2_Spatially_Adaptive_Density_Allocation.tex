@@ -1,0 +1,57 @@
+\input{Figures/Fig2_main}
+\subsection{Spatially Adaptive Gaussian Allocation}
+\label{sec3.2:SADA}
+As illustrated in~\cref{fig:main}, our framework consists of three parts: 
+a \textit{Geometry Backbone} that encodes geometric information from a multi-view image set and predicts camera parameters; \textit{Gaussian Center Head} and \textit{Gaussian Parameter Head}, which predict multi-scale Gaussian parameter maps along with densification score maps; and \textit{Spatially Adaptive Gaussian Allocation} that effectively allocates the available Gaussian budget.
+
+\noindent{\textbf{Geometry Backbone.}}
+To encode geometric information from a given image set $\{\mathbf{I}^\tec_i\}_{i=1}^{N_\tec}$, we adopt a geometric backbone following the structure of VGGT~\cite{wang2025vggt}. 
+Each input image $\mathbf{I}^\tec_i$ is processed by a pretrained DINOv2 encoder~\cite{oquab2023dinov2} to extract patch tokens. 
+The resulting image tokens $t^\mathbf{I}_i$ are concatenated with learnable camera tokens $t^\mathbf{P}_i$ and register tokens $t^r_i$. 
+The reference view has its own learnable camera and register tokens, while the remaining views share their corresponding tokens. 
+The combined tokens $\{[t^\mathbf{I}_i; t^\mathbf{P}_i; t^r_i]\}_{i=1}^{N_\tec}$ are then passed through alternating frame-wise and global self-attention layers.
+The encoded camera tokens $\{\tilde{t}^{\,\mathbf{P}}_i\}_{i=1}^{N_\tec}$ are passed through four additional self-attention layers, followed by a projection head to estimate camera parameters $\{\hat{\mathbf{P}}_i^\tec\}^{N_\tec}_{i=1}$. 
+
+\input{Figures/Fig3_SADA}
+% \vspace{4pt}
+\noindent{\textbf{Multi-Scale Prediction.}}
+To control the final number of Gaussians, multi-scale Gaussian parameter maps $\{\mathbf{G}^l_i\}_{l=1}^L$ and densification score maps $\{\hat{\mathbf{D}}^l_i\}_{l=1}^{L-1}$ are predicted from the encoded image tokens $\tilde{t}^{\,\mathbf{I}}_i$ encoded by the geometry backbone, where $\mathbf{G}^l_i\in \mathbb{R}^{d_\mathcal{G} \times H^l \times W^l}$ and $\hat{\mathbf{D}}^l_i\in \mathbb{R}^{H^l \times W^l}$.
+We modify a DPT-based decoder~\cite{ranftl2021dpt} to introduce two parallel heads, a \textit{Gaussian Center Head} and a \textit{Gaussian Parameter Head}. 
+Before the final two layers, the decoded feature maps are bilinearly interpolated to the target resolution $(H^l, W^l)$ at each level, and then the level-specific layers are applied. 
+Each level-specific module consists of only two layers, enabling efficient multi-scale map prediction.
+The Gaussian center head predicts the Gaussian centers, and the Gaussian parameter head predicts the remaining Gaussian primitives along with the densification score maps. In the Gaussian parameter head, an RGB shortcut~\cite{ye2024nopo} is utilized before the level-specific layers.
+As the level $l$ increases, the spatial resolution doubles at each step, $(H^{l+1}, W^{l+1}) \!=\! (2H^{l}, 2W^{l})$. By exclusively selecting a scale level for each spatial region, we can control the final number of Gaussians $N_\mathcal{G}$. In the extreme case, selecting all regions from the coarsest level ($l\!=\!1$) yields $N_\tec H^1W^1$ Gaussians, while selecting all regions from the finest level ($l\!=\!L$) yields $N_\tec H^LW^L$ Gaussians. Therefore, $N_\mathcal{G}$ is bounded as:
+\begin{equation}
+    N_\tec H^1 W^1 \leq N_\mathcal{G} \leq N_\tec H^L W^L.
+\end{equation}
+
+% \vspace{4pt}
+\noindent{\textbf{Spatially Adaptive Gaussian Allocation.}} 
+Meanwhile, to represent a scene faithfully under a limited Gaussian budget, more Gaussians should be allocated to geometrically or photometrically complex regions. Additionally, redundant allocations to the same spatial locations across overlapping views should be minimized. If we can estimate how densely Gaussians should be in a given local space, we can allocate Gaussians more efficiently across the scene. 
+To this end, we utilize a densification score map  $\hat{\mathbf{D}}^l_i \in \mathbb{R}^{H^l \times W^l}$, which indicates how densely Gaussians should be placed in each spatial region. More details on the computation of the densification map are provided in the following~\cref{sec3.3:training_pipeline}.
+
+Using the densification score maps, we determine the appropriate representation level for each region via a simple thresholding rule. Starting from the coarsest level ($l\!=\!1$), if the densification score is higher than a given threshold $\tau$, more Gaussians are allocated to that region from a higher-level Gaussian map. Ultimately, as illustrated in~\cref{fig:main}, Gaussians are selected such that allocations are non-overlapping across levels. The binary allocation masks $\mathcal{M}^l_{\tau,i} \in \{0,1\}^{H^l \times W^l}$, which indicate whether a particular location is allocated, can be computed as:
+\vspace{-6pt}
+\begin{equation}
+\label{eq:feature_selection_mask}
+    \mathcal{M}^l_{\tau,i} = 
+    \begin{cases}
+        \mathds{1}_{\{\hat{\mathbf{D}}^l_i < \tau\}}  & \text{if}\,\,\, l=1,  \\
+        \mathds{1}_{\{\hat{\mathbf{D}}^l_i < \tau\}} \odot \left(\mathbf{1}-\sum_{k=1}^{l-1}\operatorname{Up}(\mathcal{M}^{l-k}_{\tau,i}; 2^k)\right)  & \text{if}\,\,\, 1<l<L,  \\
+        \mathbf{1}-\sum_{k=1}^{l-1}\operatorname{Up}(\mathcal{M}^{l-k}_{\tau,i}; 2^k)  & \text{if}\,\,\, l = L,  \\
+    \end{cases}
+\end{equation}
+where $\mathds{1}_{\{\cdot\}}$ is an indicator function that outputs $1$ when the condition is satisfied, $\mathbf{1}$ denotes a matrix of ones, $\odot$ is the element-wise product, and $\operatorname{Up}(\cdot;2^k)$ denotes the nearest-neighbor upsampling with a scaling factor of $2^k$. 
+Using these masks, the final 3D Gaussian representation $\mathcal{G}_\tau\!=\!\{\mathbf{g}_g\}^{N_{\mathcal{G}_\tau}}_{g=1}$ is generated, where the total number of Gaussians $N_{\mathcal{G}_\tau}\!=\!\sum_{l,i}||\mathcal{M}^l_{\tau,i}||_1$.
+Given a target Gaussian-count budget $\bar{N}_\mathcal{G}$, we can compute the minimum threshold $\tau_{\bar{N}_\mathcal{G}}$ that satisfies the target budget by a simple budget-matching algorithm, since the Gaussians are exclusively selected across levels. The computed threshold $\tau_{\bar{N}_\mathcal{G}}$ guarantees that the final number of Gaussians $N_{\mathcal{G}_{\tau_{\bar{N}_\mathcal{G}}}}$ satisfies the following conditions:
+{
+\setlength{\abovedisplayskip}{3pt}
+\setlength{\belowdisplayskip}{3pt}
+\setlength{\abovedisplayshortskip}{2pt}
+\setlength{\belowdisplayshortskip}{2pt}
+\begin{equation}
+\label{eq:budget_condition}
+    0 \le \bar{N}_\mathcal{G} - N_{\mathcal{G}_{\tau_{\bar{N}_\mathcal{G}}}}\!<4^{L-1}-1.
+\end{equation}
+}
+The budget-matching algorithm is provided in the supplementary materials. 

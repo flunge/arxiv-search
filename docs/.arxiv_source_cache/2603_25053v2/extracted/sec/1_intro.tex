@@ -1,0 +1,34 @@
+\section{Introduction}
+\label{sec:intro}
+Photorealistic 3D reconstruction and novel-view synthesis are fundamental problems in computer vision, with applications in virtual reality, autonomous driving, and robotics. 3D Gaussian splatting~\cite{kerbl3Dgaussians} has emerged as a popular representation for high-quality reconstruction and rendering.
+More recently, feed-forward methods~\cite{wang2024dust3r,wang2025vggt,zhang2025flare,keetha2025mapanything} predict 3D Gaussian parameters directly in a single network pass~\cite{smart2024splatt3r,zhang2024gslrm,chen2024mvsplat,charatan2024pixelsplat,chen2024mvsplat360,xu2024depthsplat,jiang2025anysplat,ziwen2025longlrm}, enabling much faster and more robust reconstructions compared to traditional optimization-based pipelines. 
+However, despite these advances, current methods still suffer from artifacts in sparse-view and under-captured scenarios, and degrade significantly at novel views far from training views (\cref{fig:teaser}, noisy).
+
+To address these limitations, several methods~\cite{chan2023genvs,wu2023reconfusion,yu2024viewcrafter,liu2024dgsenhancer,liu2024reconx,zhong2025guidevd,teng2025fvgen,ren2025gen3c,wang2025videoscene} have explored leveraging generative priors to enhance 3D reconstruction by generating dense novel-view images. Recent approaches such as Difix3D~\cite{wu2025difix3d}, GenFusion~\cite{Wu2025GenFusion}, and ExploreGS~\cite{Kim_2025_ExploreGS} perform post-hoc artifact correction using generative models conditioned only on RGB(D) renderings. 
+In practice, this limited conditioning makes these methods effective primarily for correcting minor blurring or color shifts, but they fail to address more challenging artifacts—such as large floaters, missing regions, and geometric errors—where reliance on color alone leads to significant ambiguity. Further, we find that approaches trained for optimization-based 3DGS pipelines fail to generalize to feed-forward reconstructions, which exhibit distinct degradation patterns, often introducing additional artifacts and reduced reconstruction quality (see \cref{tab:feedforward_refine} and \cref{fig:image_refine}). Similarly, MVSplat360~\cite{chen2024mvsplat360} refines feed-forward reconstructions but fails to generalize to optimization-based pipelines, as it is tightly coupled to a specific feed-forward model~\cite{chen2024mvsplat}. We argue that a truly practical refinement model should be agnostic to the reconstruction paradigms, as real-world 3D data may originate from different sources: optimization-based~\cite{kerbl3Dgaussians,zhu2025_loopsplat}, feed-forward pipelines~\cite{ye2024no,xu2024depthsplat}, or even 3D generation~\cite{szymanowicz2025bolt3d,WorldLabs2025biggerbetter}.
+
+This raises a key question: 
+\textit{How can we train a single high-quality reconstruction refinement model that generalizes across different 3DGS paradigms?}
+Our key insights are twofold: \emph{(i)} existing methods leverage only partial information (color) from Gaussian splats, whereas incorporating full 3DGS primitives—such as depth, opacity, normals, and covariances—provides richer cues for identifying and correcting artifacts regardless of the source. Thus a video-to-video generative model can encode informative cues about splat artifacts and better refine novel views; and 
+\emph{(ii)} a comprehensive artifact simulation strategy that exposes the model to diverse degradation patterns as found in multiple methods and datasets during training is crucial for generalization. 
+
+We present \ours, a video-to-video generative model for robust 3D reconstruction that features as key component the \textit{GP-Buffer}, a pixel-aligned video representation that encodes multi-modal cues from the 3D reconstruction, including appearance and geometric information. A \textit{Geometry Adapter} module further injects these appearance and geometry features into the transformer backbone of the video generator, enabling geometry-aware conditioning. 
+\ours translates low-quality 3D renders into photorealistic, artifact-free renders (see \cref{fig:teaser}, refined) with a high efficiency (16 FPS).
+
+Our main contributions are as follows:
+\begin{itemize}
+    \item A geometry-informed video-to-video generation model, \ours, conditioned on 3DGS geometric renders, effective for artifact removal across diverse reconstruction pipelines. 
+    \item A comprehensive artifact simulation strategy that synthesizes a novel dataset of 75K+ videos including a wide range of realistic reconstruction degradations, enabling robust and generalizable refinement across both optimization and feed-forward settings.
+    \item A novel finetuning recipe for a few-step variant, enabling efficient on-the-fly refinement during rendering and real-time applications.
+\end{itemize}
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,23 @@
+\section{Introduction}
+\label{sec: intro}
+Vision-centric autonomous driving is a promising direction due to its economic advantages and scalability~\cite{bevformer, tpvformer, surroundocc, occ3d, uniad, vad}. 
+Conventional methods typically follow a modular pipeline of perception~\cite{bevdet, bevfusion, gaussianformer, gaussianformer2, quadricformer}, prediction~\cite{occworld, occllama, gaussianworld, doe-1}, and planning ~\cite{uniad, vad, genad, vadv2, gaussianad}, which heavily relies on expensive 3D annotations and thus faces limitations in real-world applications. 
+Recently, vision-language-action (VLA) models have emerged to leverage rich world knowledge from large language models to map visual inputs to driving actions~\cite{omnidrive, emma, openemma, orion}, demonstrating remarkable generalization across driving scenarios.
+
+Despite their good generalization across driving scenarios, most existing VLA models only use languages for scene descriptions or decision reasoning and lack flexible instruction-following capabilities~\cite{opendrivevla, orion, autovla, drivemoe, recogdrive}.
+They are either trained to imitate an averaged expert policy, or are confined to a closed set of simple navigational commands like ``turn left'' or ``go straight'', failing to generalize to open-ended and flexible natural language instructions.
+In contrast, a general driving agent should not only navigate autonomously but also comprehend and execute diverse, user-specified natural language instructions. 
+For instance, a user in a hurry might instruct the vehicle to ``overtake the front car to catch the next green light'' rather than adhere to the conservative policy learned from the training data. 
+
+To facilitate the shift from imitation driving to instructional driving, we construct a large-scale driving dataset, \textbf{InstructScene}, with around 100,000 instruction-annotated scenes and the corresponding trajectories built on NAVSIM~\cite{navsim-v1}. 
+While a direct way is to train a VLA model on our driving dataset containing rich instructions, we find that it struggles to generate feasible trajectories and follow instructions accurately.
+We think this is due to the significant information disparity between the high-dimensional visual-instruction inputs and the low-dimensional action prediction, making it difficult for the model to learn a generalizable mapping from high-level instructions to low-level actions in complex and dynamic environments. 
+
+To address this, we propose a unified \textbf{vision-language-world-action} model, \model, for joint instruction-based generation and planning.
+We train the model to jointly perform future image generation and action planning  conditioned on past observations and language instructions. 
+This task provides a dense and pixel-level supervision signal, compelling the model to learn the causal relationships among instructions, actions, and visual predictions. 
+The joint modeling enforces consistency between predictions, enabling mutual supervision and refinement. 
+Our model adopts a mixed autoregressive-diffusion transformer architecture~\cite{MoT, janusflow, llamafusion, bagel} to achieve unified \textbf{vision}-\textbf{language} understanding, \textbf{world} modeling, and \textbf{action} planning. 
+Specifically, we use the autoregressive pipeline for visual and instruction understanding, and the diffusion pipeline~\cite{rectified-flow, flow-matching} for image and action generation.
+We use joint attention to enable interactions across all modalities and employ a Mixture-of-Transformers (MoT) design~\cite{MoT} to effectively decouple the parameters associated with different modalities and enhance the model capacity for joint generation and planning. 
+Extensive experiments on the NAVSIM~\cite{navsim-v1, navsim-v2} benchmark show that our model not only achieves superior planning performance but also demonstrates a remarkable ability to generate high-fidelity and instruction-compliant future images and plausible trajectories.

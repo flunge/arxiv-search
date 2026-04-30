@@ -1,0 +1,172 @@
+\section{Experiments}
+\label{sec:experiments}
+
+\subsection{Implementation Details}
+
+% da3 setting
+% Loss hyperparameters
+% training settings (gpu, memory, batch size, lr)
+We adopt DA3-GIANT \cite{lin2025da3} as our baseline. We follow DA3 to freeze the main encoder and the pre-trained depth/pose heads, optimizing only the Gaussian prediction head to maintain the powerful geometric priors of the foundation model. 
+The Gaussian head predictions include 3D refinement for Gaussian means and other Gaussian attributes such as scales, rotations, and opacities. 
+We train our model on $252 \times 252$ images for RealEstate10K (RE10K)~\cite{zhou2018stereo}, and $252 \times 448$ images for the DL3DV dataset~\cite{ling2024dl3dv}.
+During each training iteration, we randomly sample 24 context views to construct the scene geometry and 8 spatially distinct target views for rendering supervision.
+Training is conducted on 4 NVIDIA A100 40GB GPUs with a batch size of 1 per GPU, totaling $100,000$ iterations, while testing is performed on a single A100 40GB. Further details regarding our hyperparameters and model's weights update are provided in the \textit{Suppl}. 
+
+% The loss weights are empirically determined as $\lambda_\text{geo}=0.1$ and $\lambda_\text{opa}=1.0$, while $\lambda_{s}$ is set to 0.1 for the LPIPS term.
+
+% We employ the AdamW optimizer \cite{loshchilov2017adamw} with a learning rate of $2 \times 10^{-6}$ and a weight decay of $0.01$. 
+% We use a OneCycleLR \cite{smith2019super} scheduler with a warm-up period of $2,000$ steps. 
+% Training is conducted on 4 NVIDIA A100 GPUs with a batch size of 1 per GPU, totaling $100,000$ iterations. 
+% In Rating-based Opacity Matching (ROM), we set the error decay rate $\gamma=5.0$ and the stability constant $\eta=10^{-7}$. 
+% The loss weights are empirically determined as $\lambda_\text{geo}=0.1$ and $\lambda_\text{opa}=1.0$, while $\lambda_{s}$ is set to 0.1 for the LPIPS term. 
+
+% In addition, we adopt the Exponential Moving Average (EMA) \cite{tarvainen2017ema} weights update strategy for stable training. Details of the weights update are in \textit{Suppl.}.
+
+
+\subsection{Evaluation Protocol}
+% We evaluate the NVS quality via Peak Signal-to-Noise Ratio (PSNR), Structural Similarity Index Measure (SSIM), and Learned Perceptual Image Patch Similarity (LPIPS)~\cite{zhang2018perceptual}. 
+We evaluate the NVS quality via PSNR, SSIM, and LPIPS~\cite{zhang2018perceptual}. We adopt the evaluation protocol established by recent pose-free NVS literature~\cite{ye2024no, huang2025no, park2026ecosplat} on the RE10K dataset. This setting stratifies testing sequences based on the visual overlap ratios between the initial and terminal frames. We utilize sequences with overlap ratios of less than $10\%$. Furthermore, we evaluate the existing methods under wide-baseline conditions on the complex DL3DV dataset by constructing challenging context-target splits. Specifically, we constrain the frame intervals between the starts and ends of the testing sequences to 90, 150, and 150 frames for the 12-, 24-, and 36-view settings, respectively. Target views are uniformly sampled across these sequences, while context views are randomly drawn from the mutually exclusive remaining frames. To analyze models' robustness, we perform the cross-dataset generalization evaluation on the ACID dataset \cite{infinite_nature_2020} as in \cite{chen2024mvsplat, huang2025no}, by utilizing the testing splits from \cite{park2026ecosplat}. Similar to prior pose-free approaches \cite{fu2024colmap, huang2025no, ye2024no,ye2026yonosplat}, we adopt the test-time pose optimization for ground truth alignment for all pose-free NVS baselines.
+
+
+\subsection{NVS Performance Evaluation}
+
+\begin{table*}[t]
+\begin{center}
+    \scriptsize
+    \caption{Quantitative comparison of NVS performance on the RE10K dataset~\cite{zhou2018stereo} under various input-view settings. \best{Bold} indicates the best performance. OOM indicates out-of-memory inference error.}
+    \vspace{-3mm}
+    \resizebox{\linewidth}{!}{ 
+        \input{tables/main_re10k}
+    }
+\label{table:main_re10k}
+\end{center}
+\end{table*}
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=\linewidth]{figures/qualitative_re10k_main.pdf}
+    \vspace{-5mm}
+    \caption{Qualitative comparison of NVS performance on RE10K dataset \cite{zhou2018stereo}.}
+    \vspace{-3mm}
+    \label{fig:qualitative_re10k_main}
+\end{figure*}
+
+\noindent \textbf{Comparison on RE10K.}
+We evaluate our model on the RE10K dataset to verify its scalability and robustness in large-scale indoor and outdoor environments. 
+As shown in Table~\ref{table:main_re10k}, our proposed AirSplat achieves SOTA performance among pose-free methods, demonstrating superior NVS quality.
+Most notably, our method not only outperforms existing pose-free benchmarks such as YoNoSplat \cite{ye2026yonosplat} and WorldMirror \cite{liu2025worldmirror} by significant margins, but also remarkably exceeds the performance of several pose-required methods \cite{liu2025monosplat, xu2025depthsplat}. 
+These results indicate that our approach effectively compensates for the absence of ground-truth camera poses by leveraging powerful geometric reasoning based on our SCPA and ROM, ultimately leading to more accurate and sharper novel view renderings compared to prior pipelines.
+In Fig.~\ref{fig:qualitative_re10k_main}, our proposed AirSplat successfully preserves challenging high-frequency details, such as thin structures, while aggressively suppressing the floater artifacts and blurry regions that frequently degrade the outputs of prior methods.
+
+\begin{table*}[t]
+\begin{center}
+    \scriptsize
+    \caption{Quantitative comparison of NVS performance on the DL3DV dataset~\cite{ling2024dl3dv} under various input-view settings.}
+    \vspace{-3mm}
+    \resizebox{\linewidth}{!}{ 
+        \input{tables/main_dl3dv}
+    }
+\label{table:main_dl3dv}
+\end{center}
+\end{table*}
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=\linewidth]{figures/qualitative_dl3dv_main.pdf}
+    \vspace{-5mm}
+    \caption{Qualitative comparison of NVS performance on DL3DV dataset \cite{ling2024dl3dv}.}
+    \vspace{-3mm}
+    \label{fig:qualitative_dl3dv_main}
+\end{figure*}
+
+\noindent \textbf{Comparison on DL3DV.}
+Table \ref{table:main_dl3dv} reports the quantitative NVS performance on the DL3DV dataset compared to recent SOTA methods \cite{chen2024mvsplat, xu2025depthsplat, ye2024no, jiang2025anysplat, liu2025worldmirror, ye2026yonosplat}. 
+Our AirSplat consistently achieves superior performance across all evaluation settings (12, 24, 36 views) in PSNR, SSIM, and LPIPS metrics.
+Notably, in the 12-view setting, despite being a pose-free approach, our method surpasses the established SOTA pose-required method, DepthSplat \cite{xu2025depthsplat}. 
+Moreover, AirSplat outperforms the baseline DA3 by a \textit{significant} margin of {+1.76 dB} in PSNR and reduces LPIPS by 14.4\%. 
+While base 3D-VS-VFMs (e.g., WorldMirror~\cite{liu2025worldmirror}, DA3~\cite{lin2025da3}) are robust with increased input views, applying our proposed training strategy significantly amplifies DA3's rendering quality, yielding substantial margins in all metrics. 
+% These results highlight our approach's effectiveness in achieving high-fidelity NVS without relying on ground-truth camera poses.
+Furthermore, as shown in Fig.~\ref{fig:qualitative_dl3dv_main}, our AirSplat synthesizes clean, floater-free novel views across varying input densities.
+Specifically, in the third row, while other methods fail to capture thin structures, our AirSplat accurately reconstructs the sharp geometry of the pole, further validating the robust multi-view consistency and structural integrity enforced by our pipeline.
+
+\begin{table*}[t]
+\begin{center}
+    \scriptsize
+    \caption{Cross-dataset generalization performance under various input-view settings. We evaluate the zero-shot performance on the ACID dataset~\cite{infinite_nature_2020}.}
+    \vspace{-3mm}
+    \resizebox{\linewidth}{!}{ 
+        \input{tables/main_acid}
+    }
+\label{table:main_acid}
+\end{center}
+\end{table*}
+
+\noindent \textbf{Cross Dataset Generalization.}
+Following \cite{huang2025no, park2026ecosplat}, we conduct a cross-dataset evaluation at a resolution of $252\times252$ on the ACID dataset. 
+All models were evaluated using 16, 20, and 24 input views without further fine-tuning. 
+As shown in Table~\ref{table:main_acid}, our method achieves the highest performance across all metrics, significantly outperforming both pose-free and pose-required baselines.
+Notably, in this zero-shot setting, our model maintains a substantial lead over other pose-free NVS methods such as SPFSplat \cite{huang2025no}, YoNoSplat \cite{ye2026yonosplat}, and 3D-VS-VFMs~\cite{liu2025worldmirror, lin2025da3}.
+This superior performance in unseen environments demonstrates that our AirSplat does not merely overfit to the training distribution but instead learns highly generalizable geometric representations and robust view-consistency, effectively bridging the gap between pose-free and pose-dependent NVS.
+
+% \begin{table*}[t]
+% \begin{center}
+%     \scriptsize
+%     \caption{Ablation study on our SCPA and ROM. NVS performance comparison on the RE10K dataset~\cite{zhou2018stereo} under 12 input views.}
+%     \input{tables/abl_main_re10k}
+% \label{table:abl_main}
+% \end{center}
+% \end{table*}
+
+\begin{figure}[t]
+    \centering
+    % ---------------------------------------------------
+    % LEFT SIDE: The Figure
+    % ---------------------------------------------------
+    \begin{minipage}{0.43\textwidth}
+        \centering
+        % Replace with your actual image
+        \includegraphics[width=\linewidth]{figures/rom_ablation.png} 
+        \vspace{-5mm}
+        \caption{Visualization of the `floaters' compression in the predicted 3DGS per context  views.}
+        \vspace{-3mm}
+        \label{fig:rom_ablation}
+    \end{minipage}\hfill % \hfill pushes them apart to the edges
+    % ---------------------------------------------------
+    % RIGHT SIDE: The Table
+    % ---------------------------------------------------
+    \begin{minipage}{0.54\textwidth}
+        \centering
+        % This critical trick tells LaTeX to treat the following caption as a Table caption, 
+        % even though we are inside a figure environment.
+        \makeatletter\def\@captype{table}\makeatother
+        
+        \caption{Ablation study on our SCPA and ROM. NVS performance comparison on the RE10K dataset under 12 input views.}
+        \label{table:abl_main}
+        
+        % We use resizebox to ensure the table never bleeds out of its half-page minipage
+        \resizebox{\linewidth}{!}{
+            \input{tables/abl_main_re10k}
+        }
+        \vspace{-3mm}
+    \end{minipage}
+\end{figure}
+
+\subsection{Ablation Study}
+
+In Table~\ref{table:abl_main}, we conduct an ablation study to evaluate the individual contributions of our proposed components: Self-Consistent Pose Alignment (SCPA) and Rating-based Opacity Matching (ROM) on the RE10K dataset \cite{zhou2018stereo}.
+
+\noindent \textbf{Effectiveness of SCPA.}
+The baseline model, DA3~\cite{lin2025da3}, shows limited performance (PSNR: 20.78, SSIM: 0.715), which underperforms the pose-free NVS methods \cite{liu2025worldmirror, ye2024no, ye2026yonosplat}. 
+As discussed in Sec.~\ref{sec:scpa}, implementing a context-only training strategy yields only a marginal improvement over the baseline (reaching 21.27 dB PSNR), inherently limited by the absence of novel target views supervision. While adopting a naive context-target sampling strategy elevates this performance to 21.63 dB, the model remains fundamentally bottlenecked by the pose-geometry discrepancy. This uncorrected spatial misalignment ultimately results in structurally degraded 3D Gaussian primitives and blurry target renderings. Integrating our SCPA results in a significant performance leap, reaching 22.60 dB (+$0.97$ dB over context-target). 
+The reduction in LPIPS from 0.250 (Baseline) to 0.215 indicates that SCPA effectively restores high-frequency details by ensuring a geometrically consistent rendering path during training.
+
+\noindent \textbf{Effectiveness of ROM.}
+The integration of Rating-based Opacity Matching (ROM) independently improves the baseline to 22.41 dB PSNR. This validates the necessity of local structural consensus for high-fidelity synthesis. As illustrated in Fig.~\ref{fig:main_architecture}, ROM acts as a "geometric filter" by matching the student's predicted opacity $\alpha$ with the teacher's geometric rating $\tilde{y}$. The improvement in perceptual metrics confirms that ROM effectively prunes floaters via opacity compression. 
+By explicitly penalizing spatial inconsistencies, ROM ensures that only geometrically valid structures contribute to the final rendering.
+As shown in Fig.~\ref{fig:rom_ablation}, AirSplat learns from ROM to suppress inconsistent geometry of complex regions (e.g., the window structures highlighted in red boxes).
+The `Baseline + Context-only' variant produces noisy `floaters' at each context view's 3DGS estimation, resulting in severe blurring artifacts.
+On the other hand, our full model assigns near-zero opacity for these inconsistent primitives, resulting in sharp and high-quality reconstructions for target views. 
+% $\alpha=0$
+
+\noindent \textbf{Full Model.}
+Our full model, AirSplat, which combines both SCPA and ROM, achieves the best performance across all metrics, yielding a 25\% improvement in perceptual scores compared to naive fine-tuning. The synergy between global pose alignment and local structural refinement allows our framework to synthesize sharp, consistent novel views from uncalibrated context images. These results validate our core hypothesis that decoupling the pose errors from geometry optimization, complemented by teacher-driven consistency feedback, is essential for robust feed-forward NVS.

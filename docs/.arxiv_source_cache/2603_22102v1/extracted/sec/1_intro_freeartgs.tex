@@ -1,0 +1,48 @@
+\section{Introduction}
+
+% 1. background
+Articulated objects broadly exist and are frequently interacted with in our daily lives. Building digital replicas of interactable articulated objects not only enhances the human experience in augmented reality~\cite{xia2025drawer}, but also reduces the sim-to-real gap~\cite{kerrrobot,yu2025artgs,jin2025artvip,weng2024neural,chen2024urdformer} for robot learning. To efficiently expand the scope of graphics- and simulation-ready assets, the reconstruction system for articulated objects should achieve \textit{high scalability} in a \textit{simple setup}.
+
+% 2. recent
+Regarding the scalability and simplicity of reconstructing articulated objects, recent works can be separated into three lines. 
+The first line of works~\cite{articulateanything,realcode,ditto} directly generates the articulated object assets from a single-view image with foundation models. These methods fail to generalize to unseen scenarios due to the scarcity of post-optimization.
+The second line of works~\cite{artgs,reartgs,splart} assumes that the object is captured in two articulation states (e.g., open-closed, pulled-pushed) with fixed multi-view cameras. However, these methods require alignment of the axes between the two states, limiting the real-world usage. 
+The third line of works~\cite{rsrd,monomobility,video2articulation} reconstructs the object from casual monocular video with a static base part and moving dynamic parts. These works expose two disadvantages. First, during real-world casual capture, the pose of many articulated objects, such as scissors and pliers, may be inadvertently altered, violating the assumption of a static base part. Second, the coverage of the object is insufficient, limiting its usage in asset generation. These drawbacks motivate the need for reconstructing articulated objects in \textit{free-moving scenario}, in which both \textbf{joint state} and \textbf{object pose} relative to the camera vary arbitrarily (Fig.~\ref{fig:1}). By reconstructing the articulated object in a free-moving manner, the object is captured with full coverage of both object pose and joint state, resulting in an interactable, simulation-ready asset.
+
+% coverage, 
+
+% 3. our work
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=1.0\linewidth]{fig1_6.pdf}
+    \caption{FreeArtGS reconstructs articulated object under the free-moving scenario, in which both joint and object pose move in an unconstrained manner.}
+    \label{fig:1}
+\vspace{-15pt}
+\end{figure}
+
+In this paper, we introduce \textbf{FreeArtGS}, 
+a reconstruction system for articulated objects under the free-moving scenario. 
+Our system consists of three key modules: 
+\textbf{(1) Free-moving Part Segmentation.} We design an optimization-based part segmentation method based on the visual cues from dense 2D tracks~\cite{alltracker} and a pretrained feature extractor~\cite{simeoni2025dinov3}, without assuming a static base part or predefined motion patterns.
+\textbf{(2) Joint Estimation.} We estimate the articulated joints by predicting the part-to-camera transformations, and use the relative transformation between the parts to decide the joint type and axis.
+\textbf{(3) End-to-end Optimization.} We jointly refine the appearance, geometry, cameras, and articulation in an end-to-end manner, with ground-truth RGB, depth, and foreground masks as supervision.
+
+% 4. exp
+
+To evaluate the reconstruction quality of our method under the free-moving scenario, we establish a new benchmark, FreeArt-21, including 21 free-moving articulated objects from 7 categories in the PartNet-Mobility dataset~\cite{partnetmobility}. We capture the free-moving object in the simulation engine Sapien~\cite{partnetmobility}, and tele-operate the object poses and joint states with a VR system. We also evaluate the method on real-world objects captured by an RGB-D camera. To align the settings of the existing baselines, we further compare our method with them in the Video2Articulation-S dataset. In all three evaluation settings, our method outperforms the current baselines by a large margin. 
+% This indicates the advancement of our method on free-moving articulated object reconstruction.
+
+% To evaluate the reconstruction quality of our method, 
+% we perform experiments on our self-established benchmark, 
+% , including arbitrary object poses and joint motion.
+
+% 5. contributions
+
+To summarize, our contributions are threefold:
+
+\begin{itemize}
+    \item We propose FreeArtGS, a system for reconstructing articulated objects in free-moving scenarios, where the joint state and object pose vary arbitrarily without any static base part as a reference. Our approach combines motion-based part segmentation with joint estimation and end-to-end Gaussian Splatting optimization, enabling accurate reconstruction from only a monocular RGB-D video.
+    \item Since there is no previous benchmark on articulated object reconstruction in the free-moving scenario, to bridge this gap, we build FreeArt-21, a simulated benchmark covering 21 free-moving articulated objects from 7 categories. To mimic the free-moving setting as in the real world, we develop a VR system to manipulate the object pose and joint state in the Sapien~\cite{partnetmobility} simulator.
+    % \item We introduce a robust motion-based part segmentation method that discovers rigid parts from relative motion patterns, and develop an end-to-end optimization framework that jointly refines part geometry, joint parameters, and camera poses while handling noisy tracking data.
+    \item Experiments on our proposed benchmark FreeArt-21, Video2Articulation-S dataset, and real-world objects demonstrate that FreeArtGS consistently excels in the free-moving setting while remaining competitive in previous reconstruction settings.
+\end{itemize}

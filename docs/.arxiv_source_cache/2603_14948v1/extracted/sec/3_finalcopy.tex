@@ -1,0 +1,72 @@
+\section{Method}
+
+As depicted in Fig.~\ref{fig:main}, WorldDrive bridges scene generation and planning by unifying vision and motion representation within a holistic framework. The system operates in two distinct yet coupled phases: Visual Simulation and Trajectory Optimization. In Phase 1, we develop a Trajectory-aware Driving World Model~(TA-DWM), employing a Trajectory-aware Diffusion Transformer~(TA-DiT) to synthesize future scenes. In Phase 2, the system transitions to planning. We inherit the frozen visual and trajectory encoders from Phase 1 to extract effective vision and motion representation. A learnable Multi-modal Trajectory Planner then generates diverse and high-quality trajectory candidates. A Future-aware Rewarder~(FAR) further identifies the optimal trajectory considering the predicted future scene latent representations.
+
+\subsection{Trajectory-aware Driving World Model}
+% ------------------ visual part ----------------
+The trajectory-aware driving world model~(TA-DWM) builds upon a powerful video diffusion model, and we adapt it with a trajectory vocabulary as motion priors. As shown in Phase 1 of Fig.~\ref{fig:main}, we utilize a pre-trained 3D Causal VAE encoder to encode the historical observation~$x\in\mathbb{R}^{T \times 3 \times H \times W}$. To align the generic features with the driving domain, we introduce a lightweight and trainable visual adapter. The spatio-temporal visual latent $f$ is obtained as $f = \mathcal{E}_{\text{vis}}(x)$ where $ f\in \mathbb{R}^{C\times H' \times W'}$. To incorporate precise motion control, we propose a Multi-modal Trajectory Encoder that decomposes complex driving behaviors into coarse intentions and fine-grained adjustments. We first construct a trajectory vocabulary $\mathcal{V} \in \mathbb{R}^{N \times F \times 3}$ by clustering a large corpus of driving logs, where each primitive serves as a motion anchor. Given an expert trajectory $Y$, we retrieve the top-$K$ nearest anchors $\mathcal{V}_K$ from the vocabulary and compute the residuals to capture motion details. The final motion embedding $c$ is derived by fusing the anchor embeddings with the corresponding residual embeddings:
+\begin{equation}
+    c = \mathcal{E}_{a}(\mathcal{V}_K) + \mathcal{E}_{o}(Y - \mathcal{V}_K),
+    \label{equ:traj_embed}
+\end{equation}
+where $\mathcal{E}_{a}$ and $\mathcal{E}_{o}$ denote the anchor encoder and offset encoder, respectively. The resulting embedding $c \in \mathbb{R}^{K \times C}$ serves as the condition for the diffusion model. The TA-DiT is designed to generate future latents conditioned on historical context and motion intentions. During training, the ground truth future frames $\bar{x}$ are encoded into the latent target $z_0 = \mathcal{E}_{\text{vis}}(\bar{x})$. We employ a standard forward diffusion process to obtain the noised state $z_t$. The TA-DiT,~$\epsilon_\theta({z_t; f, t, c})$, is then optimized to predict the added noise. The historical latent $f$ and motion embedding $c$ guide the generation to be both visually consistent and kinematically plausible. A detailed architectural illustration of the diffusion transformer is provided in the Appendix.
+
+\subsection{Multi-modal Trajectory Planner}
+
+Capitalizing on the structured latent space acquired in Phase 1, we initialize the planner by inheriting the frozen visual encoder and trajectory encoder from TA-DWM. This representation inheritance strategy ensures that the planner operates on effective and physically consistent features. To incorporate the vehicle state information, we employ a lightweight MLP to encode the ego status, including velocity, acceleration, and driving command into an embedding $e \in \mathbb{R}^{1 \times C}$. 
+
+We formulate the trajectory planning as a set prediction problem.  We treat the complete predefined anchor embeddings $Q_{a} = \mathcal{E}_{a}(\mathcal{V})$ as queries. The context keys and values are constructed by concatenating the frozen visual latent $f$ and the ego embedding $e$. Through the attention mechanism, the planner aggregates relevant environmental context for each potential motion primitive:
+\begin{equation}
+    Q_{p} = \mathcal{D}_{\text{plan}}(Q_{a}, [f, e], [f, e]),
+\end{equation}
+where $[\cdot, \cdot]$ denotes concatenation along the sequence dimension, $\mathcal{D}_{\text{plan}}$ is the planning transformer decoder and $Q_{p}$ represents the enriched trajectory features.
+
+Adhering to the scoring paradigm of~\cite{li2025wote}, we employ an imitation reward model $\mathcal{D}_{\text{im}}$ and a simulation reward model $\mathcal{D}_{\text{sim}}$ to estimate the imitation reward and simulation reward of all trajectory anchors, and a regression network $\mathcal{D}_{\text{reg}}$ to predict the fine-grained offsets. 
+
+Embracing the inherent multi-modality of driving scenarios, the planner outputs top-$K$ trajectories $\hat{\mathcal{V}}_K$ by selecting the anchors with the highest top-$K$ combined scores and refining them via the predicted offsets. This strategy ensures the generation of a diverse trajectory distribution covering various plausible behaviors, thereby providing a comprehensive trajectory candidate set for the subsequent Future-aware Rewarder module.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=1.0\linewidth]{imgs/rewarder_v2.pdf}
+    \caption{\textbf{Detailed illustration of Future-aware Rewarder}.~During training, the frozen world model generates future latents. A distillation mechanism aligns the future scene queries with the generated future latents. During the inference phase, the distilled scene features are directly queried by the motion representation to compute future-aware rewards.}
+\label{fig:rewarder}
+\end{figure}
+
+\subsection{Driving with Future-aware Rewarder}
+
+While TA-DWM can synthesize future latents $\{z^k\}_{k=1}^K$ for each trajectory candidate, performing the full denoising process for all candidates is computationally prohibitive for real-time planning~\cite{drivewm, zeng2025fsdrive}. To circumvent this bottleneck while retaining the benefits of predictive foresight, we propose the Future-aware Rewarder (FAR). As shown in Fig.~\ref{fig:rewarder}, the future latent generator~(TA-DiT) is used only during training, and FAR is trained to distill the planning-relevant future latents from TA-DiT, thereby bypassing diffusion sampling at inference.
+
+FAR introduces a set of learnable Future Scene Queries $Q_{s} \in \mathbb{R}^{M \times C}$ as an information bottleneck for extracting planning-relevant future features. We employ a Future-scene Decoder that interacts with the shared context historical visual latent $f$ and trajectory candidate embedding $c^k$ via cross-attention as:
+\begin{equation}
+    \hat{z}^k = \mathcal{D}_{\text{scene}}(Q_{s}, [f, c^k], [f, c^k]).
+\end{equation}
+During training, we align  $\hat{z}^k$ with the target future latents $ z^k $, and this design allows the lightweight decoder to effectively distill planning-relevant dynamics generated from the world model. A Future-aware Decoder then queries the distilled features using the trajectory embedding:
+\begin{equation}
+    h_{f}^k = \mathcal{D}_{\text{future}}(c^k, \hat{z}^k, \hat{z}^k),
+\end{equation}
+where $h_{f}^k$ is the future state feature for the corresponding trajectory candidate.
+Finally, an MLP maps $h_{f}^k$ to a scalar reward $r_k$, and we select the trajectory with the highest reward. By decoupling feature distillation from the heavy generation process, WorldDrive achieves real-time inference latency while ensuring that planning decisions are informed by future constraints.
+
+\subsection{Training Loss}
+
+We adopt a decoupled two-stage training curriculum to ensure the stable convergence of both the video diffusion transformer and the planning module. The first stage focuses exclusively on optimizing the TA-DWM to learn the latent dynamics conditioned on historical context $f$ and expert motion $c$. The objective follows the standard latent diffusion formulation:
+\begin{equation}
+    \mathcal{L}_{\text{world}} = \mathbb{E}_{z_0, t, \epsilon} \left[ \| {\epsilon} - \epsilon_\theta(z_t; f, t, c) \|^2_2 \right],
+\end{equation}
+where $\epsilon \sim \mathcal{N}(0, \mathbf{I})$ denotes the sampled Gaussian noise. 
+
+In the second stage, we freeze the world model and optimize the multi-modal trajectory planner. We adhere to the supervision paradigm proposed in \cite{li2025wote}. The objective $\mathcal{L}_{\text{plan}}$ combines a cross-entropy imitation loss, a binary cross-entropy simulation loss, and an L1 regression loss for offset refinement of positive samples into a unified objective. Detailed definitions of the simulation and imitation targets are provided in the Appendix.
+
+The training of FAR is governed by two complementary objectives: a feature distillation loss for latent alignment and a preference ranking loss for trajectory selection. First, to align the lightweight decoder with the world model's foresight, we minimize the L2 distance between the predicted features $\hat{z}^k$ and the target features $z^k$ generated by the frozen TA-DWM:
+\begin{equation}
+    \mathcal{L}_{\text{align}} = \mathbb{E}_{k} \left[ \| \hat{z}^k - \text{SG}(z^k) \|^2_2 \right],
+\end{equation}
+where $\text{SG}(\cdot)$ denotes the stop-gradient operator. For the scalar reward $r$, we model the trajectory selection as a preference ranking problem using the Bradley-Terry (BT) loss~\cite{btloss}. We construct preference pairs by contrasting the $v_{pos}$ against suboptimal candidates $v_{neg}$ in the top-$K$ candidates using an oracle driving score. The optimization objective is to maximize the likelihood that the positive sample achieves a higher reward score as:
+\begin{equation}
+    \mathcal{L}_{\text{reward}} = - \mathbb{E}_{(v_{\text{pos}}, v_{\text{neg}})\sim\hat{\mathcal{V}}_K } \left[ \log \sigma \left( r_{\text{pos}} - r_{\text{neg}} \right) \right],
+\end{equation}  
+where $\sigma(\cdot)$ is the sigmoid function. By minimizing $\mathcal{L}_{\text{reward}}$, FAR learns a scoring function that effectively discriminates between candidate trajectories.
+
+
+
+

@@ -1,0 +1,193 @@
+   
+\section{Experiments}
+
+\subsection{Experimental Settings}
+\noindent\textbf{Datasets.} We evaluate the reconstruction performance of our method on the following datasets:
+\label{Datasets}
+
+\noindent\textbf{(1) New Benchmark: FreeArt-21.} As there is no existing benchmark for free-moving articulated object reconstruction, to evaluate our method, we propose FreeArt-21, a new benchmark containing 21 objects of 7 different categories (5 revolute and 2 prismatic) from the PartNet-Mobility dataset~\cite{partnetmobility}. To simulate the free-moving setting, we deploy a VR system that is widely used in augmented reality and robotics, place the object in front of a fixed RGB-D camera, and teleoperate the object. Please refer to the supplementary materials for the details of our benchmark.
+
+\noindent\textbf{(2) Video2Articulation-S.} Video2Articulation-S is a synthetic dataset of two-part articulated objects proposed by Video2Articulation~\cite{video2articulation}.
+It consists of 73 test videos across 11 categories of synthetic objects from the PartNet-Mobility
+dataset, where each object has a static base part. Since a static-base capture can be regarded as a special case of the free-moving setting, our method is also compatible with it.
+
+\noindent\textbf{(3) Real-world Articulated Objects. } We evaluate our method on six daily articulated objects, including five revolute-joint objects and one prismatic-joint object. The free-moving videos are captured while the objects are held by hand. We fix an Orbbec Femto Bolt RGB-D camera, and the object holder stands at a distance of 30-50cm from the camera. We report both qualitative and quantitative results.
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=1.0\linewidth]{fig4_4.pdf}
+    \caption{Qualitative Results on FreeArt-21. We visualize both the articulation and rendering results of our method. The red part and the blue part are the identified parts by our method.}
+    \label{fig:vis}
+\end{figure*}
+
+\noindent\textbf{Evaluation Metrics.}
+We report the following core metrics:\\
+(1) Joint axis error (degree): both for revolute and prismatic joints, 
+the angle between the predicted unit axis ${u}$ and ground truth ${u}_{gt}$,
+(2) Joint position error (cm): only for revolute joints, the Euclidean distance between predicted pivot ${o}$ and ground-truth pivot ${o}_{gt}$,
+(3) State (degree/cm): both for revolute and prismatic joints, the absolute difference between the predicted joint state and the ground truth joint state.
+(4) Chamfer Distance (cm): symmetric $\ell_2$ Chamfer distance between reconstructed and ground-truth surfaces. 
+We report CD on the whole object (CD-w) 
+and separately on the \emph{moving} part (CD-m) and the \emph{reference} part (CD-s). 
+All distances are computed in the canonical state and reported in centimeters.
+(5) PSNR: On our FreeArt-21 dataset, 
+we additionally report PSNR of novel views and joint states measured inside the foreground mask. 
+% For lack of accurate camera poses, we are not able to simply split an evaluation set. Therefore, we calibrate our coordinate to the GT by pointcloud ICP, which brings error and leads to lower PSNR performance.
+
+\noindent\textbf{Baselines.} We choose Video2Articulation~\cite{video2articulation}, Robot-See-Robot-Do (RSRD)~\cite{kerrrobot} and Articulate-Anything~\cite{articulateanything} as our baseline methods. Articulate-Anything is a foundation model-based method that predicts the whole URDF from only a single image input. Since it also uses PartNet-Mobility as the URDF template for retrieval, the domain gap is reduced. For Articulate-Anything, we use the GPT-4o~\cite{hurst2024gpt} model as the vision-language model. Additionally, we provide the ID of each case to the model, which means the model only needs to predict the correct joint, rather than jointly inferring both the object mesh and the joint.
+RSRD first reconstructs the object with a smartphone scan and recovers the part motion from a monocular video. Since FreeArt-21 only contains free-moving object frames, we only evaluate its performance on Video2Articulation-S. Video2Articulation leverages the feed-forward point map models to predict the dynamics. Although not the same as the free-moving scenario, it is the latest open-source state-of-the-art method in the setting closest to ours. 
+
+% \begin{table*}[t]
+%     \centering
+%     \caption{Results of joint estimation on Video2Articulation-S dataset. The results of the baselines are taken from Video2Articulation~\cite{video2articulation}. }
+%     \label{tab:results_video2articulation_joint}
+%     \renewcommand\tabcolsep{2pt}%
+%     \begin{tabular}{llcccc}
+%     \toprule
+%     Joint Type & Method & Axis(deg)$\downarrow$ & Position(cm)$\downarrow$ & State(deg/cm)$\downarrow$  \\
+%     \hline
+%     \multirow{4}{*}{\centering Revolute} 
+%     & {Articulate-Anything~\cite{articulateanything}} & 46.98$\pm$45.27 & 81.00$\pm$40.00 & \text{N/A} \\
+%     & {RSRD~\cite{rsrd}} & 67.06$\pm$29.22 & 203.00$\pm$748.00 & 59.02$\pm$34.38  \\
+%     & {Video2Articulation~\cite{video2articulation}} & 18.34$\pm$32.09 & 13.00$\pm$25.00 & 14.32$\pm$26.35\\
+%     & \textbf{Ours} & \textbf{1.77$\pm$2.87} & \textbf{1.31$\pm$1.81} & \textbf{3.69$\pm$6.60}  \\
+%     \midrule
+%     \multirow{4}{*}{\centering Prismatic} 
+%     & {Articulate-Anything~\cite{articulateanything}} & 52.71$\pm$44.69 & - &\text{N/A} \\
+%     & {RSRD~\cite{rsrd}} & 69.91$\pm$24.07 & - & 70.00$\pm$48.00 \\
+%     & {Video2Articulation~\cite{video2articulation}} & 13.75$\pm$18.91 & - & 8.00$\pm$22.00 \\
+%     & \textbf{Ours} & \textbf{0.77$\pm$2.30} & - & \textbf{1.00$\pm$2.19}  \\
+%     \bottomrule
+%     \end{tabular}%
+
+% \end{table*}
+
+% \begin{table*}[t]
+%     \centering
+%     \caption{Results of geometry reconstruction on Video2Articulation-S dataset.} %The results of the baselines are taken from Video2Articulation~\cite{video2articulation}.}
+%     \label{tab:results_video2articulation_reconstruction}
+%     \renewcommand\tabcolsep{2pt}
+%     \resizebox{0.6\textwidth}{!}{%%
+%     \begin{tabular}{lcccc}
+%     \toprule
+%     Method & CD-w(cm)$\downarrow$ & CD-m(cm)$\downarrow$ & CD-s(cm)$\downarrow$ \\
+%     \midrule
+%     {Articulate-Anything~\cite{articulateanything}} & 11.00$\pm$22.00 & 59.00$\pm$73.00 & 7.00$\pm$18.00   \\
+%     {RSRD~\cite{rsrd}} & 339.00$\pm$2147.00 & 82.00$\pm$117.00 & 14.00$\pm$41.00 \\
+%     {Video2Articulation~\cite{video2articulation}} & 1.00$\pm$1.00 & 13.00$\pm$26.00 & 6.00$\pm$19.00\\
+%     \textbf{Ours} & \textbf{1.87$\pm$2.19} & \textbf{1.00$\pm$2.22} & \textbf{2.39$\pm$2.50} \\
+%     \bottomrule
+%     \end{tabular}%
+%     }
+% \end{table*}
+
+\begin{table*}[t]
+    \centering
+    \caption{Results on Video2Articulation-S Dataset. We report joint estimation results (top) and geometry reconstruction results (bottom). The best results are in \textbf{bold}.}
+    \label{tab:combined_results}
+    \renewcommand\tabcolsep{11pt}
+    \begin{tabular}{ll ccc}
+    \toprule
+    \textbf{Joint Type} & \textbf{Method} & \textbf{Axis (deg)$\downarrow$} & \textbf{Position (cm)$\downarrow$} & \textbf{State (deg/cm)$\downarrow$} \\
+    \midrule
+    \multirow{4}{*}{Revolute} 
+    & Articulate-Anything~\cite{articulateanything} & 46.98$\pm$45.27 & 81.00$\pm$40.00 & N/A \\
+    & RSRD~\cite{rsrd} & 67.06$\pm$29.22 & 203.00$\pm$748.00 & 59.02$\pm$34.38 \\
+    & Video2Articulation~\cite{video2articulation} & 18.34$\pm$32.09 & 13.00$\pm$25.00 & 14.32$\pm$26.35 \\
+    & \textbf{Ours} & \textbf{1.77$\pm$2.87} & \textbf{1.31$\pm$1.81} & \textbf{3.69$\pm$6.60} \\
+    \midrule
+    \multirow{4}{*}{Prismatic} 
+    & Articulate-Anything~\cite{articulateanything} & 52.71$\pm$44.69 & - & N/A \\
+    & RSRD~\cite{rsrd} & 69.91$\pm$24.07 & - & 70.00$\pm$48.00 \\
+    & Video2Articulation~\cite{video2articulation} & 13.75$\pm$18.91 & - & 8.00$\pm$22.00 \\
+    & \textbf{Ours} & \textbf{0.77$\pm$2.30} & - & \textbf{1.00$\pm$2.19} \\
+    
+    \midrule \midrule
+    \textbf{Task} & \textbf{Method} & \textbf{CD-w (cm)$\downarrow$} & \textbf{CD-m (cm)$\downarrow$} & \textbf{CD-s (cm)$\downarrow$} \\
+    \midrule
+    \multirow{4}{*}{\begin{tabular}[c]{@{}l@{}}Geometry \\ Reconstruction\end{tabular}}
+    & Articulate-Anything~\cite{articulateanything} & 11.00$\pm$22.00 & 59.00$\pm$73.00 & 7.00$\pm$18.00 \\
+    & RSRD~\cite{rsrd} & 339.00$\pm$2147.00 & 82.00$\pm$117.00 & 14.00$\pm$41.00 \\
+    & Video2Articulation~\cite{video2articulation} & \textbf{1.00$\pm$1.00} & 13.00$\pm$26.00 & 6.00$\pm$19.00 \\
+    & \textbf{Ours} & 1.87$\pm$2.19 & \textbf{1.00$\pm$2.22} & \textbf{2.39$\pm$2.50} \\
+    \bottomrule
+    \end{tabular}
+\end{table*}
+
+\subsection{Implementation Details}
+
+For all modules, we maintain a unified set of hyperparameters across all datasets, avoiding per-case tuning.
+
+% TODO: optimizer, learning rate, iterations for
+\noindent\textbf{Part segmentation.} For the optimization process, we employ the Adam optimizer with a learning rate of 1e-4 for the rigid transforms $T^0_{t\to t'}$ and $T^1_{t\to t'}$, and 1e-2 for the part weight $w_{t,p}$. 
+A sliding window of 8 frames is defined, within which we optimize frame pairs anchored by the first frame, 
+specifically $(0, i)$ for $i \in \{1, 2, \dots, 7\}$. Each pair undergoes 100 iterations of optimization. 
+The loss weights are: $\lambda_m=200$, $\lambda_s=10$, $\lambda_{init}=5$, and $\lambda_{e}=0.01$.
+
+\noindent\textbf{Joint estimation and end-to-end optimization.} Our implementation is based on NeRFStudio~\cite{nerfstudio} and its default parameters. During reconstruction, we optimize for 30000 iterations in both part-level reconstruction and end-to-end optimization. In the stage of part-level reconstruction, we choose $\lambda_{depth}=1.0, \lambda_{mask}=0.01$ while in the end-to-end optimization, $\lambda_{depth}=1.0, \lambda_{mask}=1.0$.
+
+\noindent\textbf{Hardware and time cost.} We evaluate the running times of our method and the two baselines on a workstation equipped with an Intel i9-14900K CPU and an NVIDIA RTX 4090 GPU. Given an input RGB-D video with 100 frames and a resolution of 640$\times$360, our method takes $\sim$25 minutes, including 6 minutes for part segmentation, 1 minute for joint estimation, and 18 minutes for end-to-end optimization. 
+% Time can vary depending on the size of the foreground masks. %\\
+% Please refer to the supplementary materials for more details.
+\subsection{Results on FreeArt-21}
+
+As shown in Table \ref{tab:results_free}, across all the 21 objects in the dataset, our method achieves an average error of around 1 degree in axis angle and less than 1 cm in geometry, surpassing all the baselines. FreeArtGS also achieves a plausible PSNR result, while the two baselines fail to recover the precise visual textures. Since the rendering quality is a synergy of pose estimation and visual reconstruction, incorporating a better pose estimation method may result in a higher PSNR. Figure~\ref{fig:vis} presents qualitative results across all categories. The visualization results demonstrate that our method jointly achieves high fidelity in articulation, geometry, and rendering. On challenging thin objects such as scissors, staplers, phones, and USBs, our method precisely reconstructs the geometry, consistent with Table \ref{tab:results_free}. This indicates the robustness of our part segmentation module. Although using PartNet-Mobility as the asset library, Articulate-Anything~\cite{articulateanything} often fails to predict the correct part and joint axis, likely due to error accumulation in the vision-language reasoning process. Video2Articulation also performs poorly on our dataset, since Monst3R~\cite{zhang2024monst3r} fails to predict the moving part in the free-moving scenario.
+
+% since it uses Monst3R~\cite{zhang2024monst3r}, a dynamic feed-forward reconstruction model to predict the moving part. However, in the free-moving scenario, both parts are moving, increasing the difficulty of identifying the moving part. 
+
+% our method achieves a joint error of 1.04 degree and 0.29 cm for revolute joint, and 1.85 degree for prismatic joint, surpassing all the baselines.
+% Without a static part relative to the background, present methods usually fail to reconstruct correctly.
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=1.0\linewidth]{fig5_3.pdf}
+    \caption{Qualitative Results on Real-world Objects. Our method successfully reconstructs all the objects with correct joints, geometries, and textures.}
+    \label{fig:real}
+\end{figure*}
+
+\subsection{Results on Video2Articulation-S}
+
+As shown in Table \ref{tab:combined_results}, although under a similar yet different setting, our method also surpasses all baselines on most metrics, consistent with the results on FreeArt-21. RSRD performs worst on all metrics, due to its assumption that the moving patterns of each part are unique, while for articulated objects, their motions are related by the joint transformation. Articulate-Anything also predicts incorrect assets in most cases, likely due to hallucination in the vision-language model. Regarding Video2Articulation, it should be noted that, even under its own setting, the performance of Video2Articulation is still worse than our method. The main reason is that Video2Articulation depends on the predictions from a pretrained feed-forward reconstruction model, which is not robust due to the confidence threshold. Instead, our method only uses the off-the-shelf models as initialization and partial supervision. Combining the priors with optimization is key to the performance gain.
+
+\subsection{Results on Real-world Articulated Objects}
+
+\begin{table}[t]
+    \centering
+    \caption{Quantitative Results on Real-world Objects. The rotation and translation errors are clipped to $0.1^\circ$ and $0.1$ cm, respectively, which correspond to the smallest annotation units.}
+   
+    \label{tab:quantitative results of real}
+    \renewcommand\tabcolsep{7pt}
+    \resizebox{0.48\textwidth}{!}{%%
+    \begin{tabular}{lcccc}
+    \toprule
+    \textbf{Objects} & \boldmath\textbf{Axis (deg)$\downarrow$} & \boldmath\textbf{Position (cm)$\downarrow$} & \boldmath\textbf{CD (cm)$\downarrow$} & \boldmath\textbf{PSNR (dB)$\uparrow$} \\
+    \midrule
+    Drawer & 1.06 & - & 1.91 &  19.82  \\
+    Bin & 4.68 & 0.20 & 3.46 & 23.75   \\
+    Case & 0.10 & 0.10 & 1.89 &  22.77  \\
+    Lid & 8.92 & 0.40 & 3.36 & 22.39   \\
+    Fan & 1.53 & 1.30 & 1.78 &  21.95  \\
+    Cabinet & 0.10 & 3.30 & 2.53 &  23.71  \\
+    \textbf{Average} & 2.73 & 1.06 & 2.48 & 22.40\\
+    \bottomrule
+    \end{tabular}%
+    }
+\end{table}
+
+We further evaluate FreeArtGS on six real-world objects, including a drawer, a trash bin, a case, a bottle lid, an electric fan, and a cabinet. As shown in Figure~\ref{fig:real} and Table~\ref{tab:quantitative results of real}, our method can not only predict the correct joint type and axis, but also reconstruct precise geometry and textures across all six objects. During the data collection, some areas of the objects are inevitably occluded by human hands. However, as can be seen in the figure, our method is robust to this occlusion. There are two reasons. First, the regularization term of the part segmentation module can resist implausible part weights. Second, the end-to-end optimization from RGB-D images corrects the outlier points. These results highlight the potential of FreeArtGS as a scalable digital twin reconstruction for real-world articulated objects.
+
+\subsection{Ablation Study}
+
+\noindent\textbf{Settings.} To verify the effectiveness of each component in our method, we conduct four ablation studies on the FreeArt-21 dataset. For part segmentation, we ablate both the smoothness loss and the initialization regularization term, denoted as \textbf{w/o Smooth Loss} and \textbf{w/o Init Loss}.
+To validate the effectiveness of noise resistance in joint estimation, we remove the outlier filtering and use absolute transforms for initialization, denoted as \textbf{w/o Noise Resistance}.
+For the blended rendering in end-to-end optimization, we replace the blending with hard assignment, meaning that the part weights remain fixed at 0 or 1 and will not be refined during optimization, denoted as \textbf{w/o Blended Rendering}.
+
+\noindent\textbf{Results.} The results of the ablation study are shown in Table \ref{tab:results_free}, from which we make the following observations: (1) Smoothness over the neighbor graph and consistency with the initialization are important for both joint and geometry in the ablation. This indicates that although the point tracking model can find the correspondence between neighboring frames, its instability may drive the part solver toward suboptimal solutions. (2) Noise Resistance of joint estimation prevents the joint from overfitting the outlier part transforms, as can be seen from the sudden degradation of the axis angles for both revolute and prismatic joints. (3) Blended Rendering improves the visual rendering quality by around 2 dB. For the few metrics in which removing this module yields slightly better results, the difference in metrics is trivial ($\sim$1mm and $\sim$0.1deg/cm). We include this module since it improves rendering quality while maintaining joint accuracy. This is consistent with its role in refining part weights during end-to-end optimization. 
+
+% which is in line with its function to prevent the model from fitting the unstable point tracking results. 
+
+% the regularization loss in part segmentation is crucial for the performance of our method 
+% since its influence on the early stage of part segmentation is not negligible.
+% And the naive joint initialization and soft blending module 
+% are also crucial for the performance of our method. 
+% Without these components, the performance of our method will also degrade to different extents.

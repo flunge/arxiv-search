@@ -1,0 +1,1041 @@
+\documentclass[runningheads]{llncs}
+
+% ---------------------------------------------------------------
+% Include basic ECCV package
+ 
+% TODO REVIEW: Insert your submission number below by replacing '*****'
+% TODO FINAL: Comment out the following line for the camera-ready version
+% \usepackage[review,year=2026,ID=2971]{eccv}
+% TODO FINAL: Un-comment the following line for the camera-ready version
+\usepackage{eccv}
+
+% OPTIONAL: Un-comment the following line for a version which is easier to read
+% on small portrait-orientation screens (e.g., mobile phones, or beside other windows)
+%\usepackage[mobile]{eccv}
+
+
+% ---------------------------------------------------------------
+% Other packages
+\usepackage{multirow, makecell}
+
+% Commonly used abbreviations (\eg, \ie, \etc, \cf, \etal, etc.)
+\usepackage{eccvabbrv}
+
+% Include other packages here, before hyperref.
+\usepackage{graphicx}
+\usepackage{booktabs}
+
+% The "axessiblity" package can be found at: https://ctan.org/pkg/axessibility?lang=en
+\usepackage[accsupp]{axessibility}  % Improves PDF readability for those with disabilities.
+
+
+% ---------------------------------------------------------------
+% Hyperref package
+
+% It is strongly recommended to use hyperref, especially for the review version.
+% Please disable hyperref *only* if you encounter grave issues.
+% hyperref with option pagebackref eases the reviewers' job, but should be disabled for the final version.
+%
+% If you comment hyperref and then uncomment it, you should delete
+% main.aux before re-running LaTeX.
+% (Or just hit 'q' on the first LaTeX run, let it finish, and you
+%  should be clear).
+
+% TODO FINAL: Comment out the following line for the camera-ready version
+\usepackage[pagebackref,breaklinks,colorlinks,citecolor=eccvblue]{hyperref}
+% TODO FINAL: Un-comment the following line for the camera-ready version
+% \usepackage[pagebackref]{hyperref}
+
+% Support for ORCID icon
+\usepackage{orcidlink}
+
+\usepackage{kotex}
+\usepackage{microtype} % Improves overall typography and readability
+\newcommand{\hj}[1]{\textcolor{red}{{HJ:#1}}}
+
+\setlength{\textfloatsep}{10pt}
+\setlength{\intextsep}{10pt}
+
+\begin{document}
+
+% ---------------------------------------------------------------
+% TODO REVIEW: Replace with your title
+% \title{ViewSplat: View-Dependent Feed-Forward 3D Gaussian Splatting from Unposed Images} 
+\title{ViewSplat: View-Adaptive Dynamic Gaussian Splatting for Feed-Forward Synthesis}
+
+% TODO REVIEW: If the paper title is too long for the running head, you can set
+% an abbreviated paper title here. If not, comment out.
+\titlerunning{View-Adaptive Dynamic Splatting}
+
+% TODO FINAL: Replace with your author list. 
+% Include the authors' OCRID for the camera-ready version, if at all possible.
+\author{Moonyeon Jeong\inst{1} \and Seunggi Min\inst{1} \and Suhyeon Lee\inst{2}\textsuperscript{,$\dagger$} \and Hongje Seong\inst{1}\textsuperscript{,$\dagger$}}
+
+% TODO FINAL: Replace with an abbreviated list of authors.
+\authorrunning{M.~Jeong et al.}
+% First names are abbreviated in the running head.
+% If there are more than two authors, 'et al.' is used.
+
+% TODO FINAL: Replace with your institution list.
+\institute{\textsuperscript{1} University of Seoul\quad \textsuperscript{2} Korea Electronics Technology Institute
+\email{\{jmy06051,minsk0725,hjseong\}@uos.ac.kr\quad suhyeon@keti.re.kr}\\
+\url{https://cvlab-uos.github.io/ViewSplat}
+}
+% \institute{School of Electrical and Computer Engineering, University of Seoul \and
+% Intelligent Semiconductor Device Research Center, Korea Electronics Technology Institute
+% \email{lncs@springer.com}\\
+% \url{http://www.springer.com/gp/computer-science/lncs} \and
+% ABC Institute, Rupert-Karls-University Heidelberg, Heidelberg, Germany\\
+% \email{\{abc,lncs\}@uni-heidelberg.de}}
+
+\maketitle
+
+
+\begin{abstract}
+% We present ViewSplat, a view-dependent feed-forward framework for 3D Gaussian splatting from unposed images.
+% Our method introduces a novel view-dependent refinement module integrated into a unified feature extraction and 3D reconstruction backbone.
+% This design enables ViewSplat to jointly estimate camera poses in a canonical space while refining predicted 3D Gaussian parameters conditioned on the target viewing direction. Consequently, ViewSplat synthesizes high-fidelity view-dependent appearances in a single feed-forward pass, without requiring ground-truth camera poses.
+% Extensive experiments demonstrate that ViewSplat achieves state-of-the-art performance in novel view synthesis. It significantly outperforms existing feed-forward approaches, producing higher rendering quality and improved robustness under large viewpoint variations and limited image overlap.
+% We present ViewSplat, a view-dependent feed-forward framework for novel view synthesis from unposed images.
+% % \hj{VDSplat -> ViewSplat은 어때? 좀 더 직관적으로 이해될거 같아서 - ViewSplat으로 바꾸겠습니다.}
+% Recent advances in feed-forward 3D Gaussian splatting have significantly accelerated 3D scene reconstruction by bypassing time-consuming per-scene optimization.
+% However, a fundamental performance gap remains: while traditional 3D Gaussian splatting pipelines achieve high fidelity through iterative refinement, one-shot feed-forward networks often lead to blurred results or structural artifacts.
+% % While recent advances in one-shot feed-forward 3D Gaussian splatting have dramatically accelerated 3D scene reconstruction by bypassing costly per-scene optimization, a significant fidelity gap persists compared to traditional iterative pipelines.
+% % We observed that predicting a single set of optimal Gaussian primitives from one-shot networks is inherently ill-posed, often resulting in oversmoothed details and structural artifacts.
+% % While recent feed-forward 3D Gaussian splatting approaches have dramatically accelerated scene reconstruction by bypassing per-scene optimization, these methods often sacrifice high-frequency details, leading to oversmoothed details and structural artifacts.
+% % With the changes, we adapt each primitive, dynamically compensating for initial prediction errors and capturing complex, view-dependent appearances.
+% % This adaptive adjustment allows each Gaussian primitive to compensate for initial prediction errors and effectively capture high-fidelity view-dependent appearances.
+% % To bridge this gap, we introduce a novel view-dependent feed-forward pipeline that shifts the burden from static primitive prediction to dynamic, view-aware synthesis.
+% % Instead of predicting static Gaussians that satisfy all possible viewpoints, ViewSplat learns to predict a flexible representation that adapts to the observer's perspective.
+% % Our pipeline initially estimates camera poses and 3D Gaussian primitives with MLP parameters in a single feed-forward step.
+% % During rendering, the MLPs take the target view coordinates as input to refine each Gaussian attribute for the novel perspective.
+% % This adaptive adjustment allows the Gaussians to compensate for initial prediction errors and effectively capture high-fidelity view-dependent appearances.
+% % Extensive experiments demonstrate that ViewSplat achieves state-of-the-art performance in novel view synthesis while incurring negligible additional feed-forward time (xx.x\%) and rendering time (xx.x\%).
+% % Finally, we update each primitive aligned to the target viewpoint, compensating for initial prediction errors and effectively capturing high-fidelity view-dependent appearances.
+% % By aligning the primitives to the specific observer perspective, our framework corrects initial prediction inaccuracies and recovers intricate view-dependent details.
+% We identify that this stems from the inherent ill-posedness of regressing optimal Gaussian primitives to satisfy all viewpoints in a single feed-forward step.
+% To bridge this gap, ViewSplat shifts the paradigm from static primitive regression to view-aware adaptation.
+% Instead of forcing the network to satisfy all viewpoints with a rigid representation, our pipeline learns a flexible latent representation that adapts to the observer’s perspective.
+% Specifically, ViewSplat initially estimates camera poses and initial Gaussian primitives, alongside the parameters of dynamic MLPs.
+% During rendering, these MLPs take target view coordinates as input to predict residual updates for each Gaussian attribute.
+% This view-adaptive refinement allows each primitive to compensate for initial estimation errors, effectively capturing high-fidelity appearances.
+% % Extensive experiments demonstrate that ViewSplat achieves state-of-the-art performance in novel view synthesis while incurring negligible additional feed-forward time ($+23.5\%$) and rendering time ($+133.3\%$).
+% Extensive experiments demonstrate that ViewSplat achieves state-of-the-art fidelity in novel view synthesis, while maintaining fast inference (16~FPS) and real-time rendering (142~FPS).
+% % \hj{여기에 추가된 inference time 0.03\% 같이 적어줘. - feed-forward time과 rendering time을 나누지 않고 inference time으로 합쳐서 적으면 +29.6\% 인데 합쳐서 적는게 나을까요?}
+% \hj{inference time 맞는건지 한번만 체크해주고 알려줘요 - 네 맞습니다}
+% We present ViewSplat, a view-dependent feed-forward framework for novel view synthesis from unposed images.
+% \hj{논문 제목이랑 abstract 살짝 바꿨어. 이거로 openreview 업데이트 해줘요. 본문은 시간 날때 틈틈이 볼게. - 넵 openreview 업데이트 했습니다.}
+% To bridge this gap, ViewSplat shifts the paradigm from static primitive regression to view-aware adaptation.
+% Instead of a rigid representation, our pipeline learns a flexible latent representation that adapts to the observer’s perspective.
+% Specifically, ViewSplat initially estimates camera poses and base Gaussian primitives, alongside the parameters of dynamic MLPs.
+% This view-aware adaptation allows each primitive to compensate for initial estimation errors, effectively capturing high-fidelity appearances.
+% Specifically, ViewSplat initially estimates camera poses and base Gaussian primitives, alongside the weights for dynamic MLPs.
+% To bridge this gap, ViewSplat shifts the paradigm from static primitive regression to view-adaptive dynamic splatting.
+We present ViewSplat, a view-adaptive 3D Gaussian splatting network for novel view synthesis from unposed images.
+While recent feed-forward 3D Gaussian splatting has significantly accelerated 3D scene reconstruction by bypassing per-scene optimization, a fundamental fidelity gap remains.
+We attribute this bottleneck to the limited capacity of single-step feed-forward networks to regress static Gaussian primitives that satisfy all viewpoints.
+To address this limitation, we shift the paradigm from static primitive regression to view-adaptive dynamic splatting.
+Instead of a rigid Gaussian representation, our pipeline learns a view-adaptable latent representation.
+Specifically, ViewSplat initially predicts base Gaussian primitives alongside the weights of dynamic MLPs.
+During rendering, these MLPs take target view coordinates as input and predict view-dependent residual updates for each Gaussian attribute (\ie, 3D position, scale, rotation, opacity, and color).
+This mechanism, which we term view-adaptive dynamic splatting, allows each primitive to rectify initial estimation errors, effectively capturing high-fidelity appearances.
+Extensive experiments demonstrate that ViewSplat achieves state-of-the-art fidelity while maintaining fast inference (17~FPS) and real-time rendering (154~FPS).
+% The code will be released upon acceptance.
+% \hj{논문 accept 되면 코드 공개 가능할까? 넵 가능합니다.}
+  \keywords{Novel View Synthesis \and 3D Gaussian Splatting \and Pose-Free Reconstruction}
+  % \and View-Adaptive Rendering}
+\end{abstract}
+
+\let\thefootnote\relax\footnotetext{\textsuperscript{$\dagger$}Co-corresponding authors.}
+
+\vspace{-0.8cm}
+\section{Introduction}
+\label{sec:intro}
+3D Gaussian Splatting (3DGS)~\cite{kerbl20233dgs} has recently emerged as a powerful representation in 3D computer vision, enabling high-fidelity real-time rendering.
+While traditional 3DGS frameworks rely on per-scene optimization, recent efforts have focused on generalizable feed-forward architectures \cite{charatan2024pixelsplat,chen2024mvsplat,xu2024grm,tang2024lgm,zhang2024gs-lrm}.
+These models predict scene representations directly from a few input images, enabling instant 3D reconstruction of unseen scenes and high-quality novel view synthesis (NVS) without costly target scene optimization.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=1\linewidth]{intro_v2.pdf}
+    \caption{Given unposed images as input, the feed-forward network reconstructs 3D Gaussians. While (a) rendering from static 3D Gaussians often suffers from blurred details, (b) our method introduces view-adaptive Gaussian updates conditioned on the target pose to refine the Gaussians dynamically. As shown in the bottom panels, our approach improves the reconstruction of fine-grained details (\eg, sharp edges and specular reflections) compared to SPFSplat \cite{huang2025spfsplat}.
+    }
+    \label{fig:intro}
+\end{figure}
+
+A major bottleneck in these generalizable pipelines is the heavy reliance on accurate camera poses, typically pre-computed via Structure-from-Motion (SfM)~\cite{schonberger2016sfmrevisited}.
+% To address this, recent approaches~\cite{smart2024splatt3r,kang2025selfsplat,huang2025spfsplat,huang2025spfsplatv2} leveraging large-scale 3D foundation models---such as DUSt3R~\cite{wang2024dust3r}, MASt3R~\cite{leroy2024mast3r}, and VGGT~\cite{wang2025vggt}---have paved the way for pose-free reconstruction, as illustrated in \cref{fig:intro}(b).
+To address this, recent works~\cite{smart2024splatt3r,kang2025selfsplat,huang2025spfsplat,huang2025spfsplatv2} leverage 3D foundation models---such as DUSt3R~\cite{wang2024dust3r}, MASt3R~\cite{leroy2024mast3r}, and VGGT~\cite{wang2025vggt}---to facilitate pose-free reconstruction.
+These frameworks enable the joint estimation of camera parameters and 3D Gaussian primitives~\cite{jiang2025anysplat,huang2025spfsplat}, delivering robust 3D reconstructions directly from uncalibrated, in-the-wild images.
+% Notably, SPFSplat~\cite{jiang2025anysplat,huang2025spfsplat} jointly estimate camera parameters and 3D Gaussian primitives, enabling robust 3D reconstructions from uncalibrated, in-the-wild images.
+
+% However, a critical limitation remains in current pose-free feed-forward models: they predominantly assume a simplified appearance model. Most existing methods predict a static set of Gaussians defined in a canonical space, effectively approximating the scene as a collection of diffuse surfaces. To account for view-dependent appearance, these methods employ spherical harmonics (SH), which are primarily designed for smooth color modulation across viewing directions. As a result, SH-based static Gaussian representations inherently struggle to represent high-frequency phenomena such as sharp specularities, view-dependent occlusions, or subtle appearance variations associated with changes in viewpoint. Consequently, relying solely on SH coefficients within a fixed geometric structure limits the models' ability to faithfully render complex non-Lambertian effects and fine-grained details in novel views. While optimization-based methods \cite{jiang2024gaussianshader,zhou2025rtr-gs,yang2024spec-gaussian,liu2024mirrorgaussian,lu2024scaffold-gs} handle these effects by explicitly modeling scene-specific, view-dependent appearance through per-scene optimization, transferring this capability to a feed-forward setting remains an open challenge.
+% However, current pose-free feed-forward models are fundamentally constrained by their static appearance assumption. By relying on spherical harmonics (SH) over rigid geometries, these methods inherently struggle to capture high-frequency, non-Lambertian effects such as sharp specularities or view-dependent occlusions. While optimization-based approaches~\cite{jiang2024gaussianshader,zhou2025rtr-gs,yang2024spec-gaussian,liu2024mirrorgaussian,lu2024scaffold-gs} resolve these complexities through per-scene optimization, transferring this capability to a generalizable feed-forward framework remains an open challenge.
+
+% Despite these advancements, a significant fidelity gap remains between feed-forward approaches and optimization-based methods. We identify that this bottleneck stems from the static primitive assumption inherent in current feed-forward pipelines. These models typically employ a single-step regression to predict a fixed set of Gaussian attributes (\eg, position, opacity, and spherical harmonics (SH)). However, regressing a static representation that satisfies all potential viewpoints is an ill-posed task for a single forward pass, especially when dealing with complex geometries or non-Lambertian surfaces. While optimization-based methods can refine these attributes over thousands of iterations to capture sharp specularities and view-dependent occlusions, feed-forward models lack the capacity to "rectify" their initial, often blurred, predictions during rendering.
+
+Despite these advancements, a significant fidelity gap remains between feed-forward approaches and optimization-based methods~\cite{jiang2024gaussianshader,zhou2025rtr-gs,yang2024spec-gaussian,liu2024mirrorgaussian,lu2024scaffold-gs}. We attribute this bottleneck to the limited capacity of feed-forward networks to regress static Gaussian primitives that satisfy all potential viewpoints. These models typically employ a single-step regression to predict all Gaussian attributes (\ie, 3D position, scale, rotation, opacity, and spherical harmonics (SH) coefficients). However, regressing optimal representations is an ill-posed task for a single forward pass, especially when dealing with complex geometries or non-Lambertian surfaces. While optimization-based methods can refine these attributes over thousands of iterations to capture sharp specularities and view-dependent SH coefficients, feed-forward models lack the capacity to \textit{rectify} their initial predictions during inference.
+
+% To address this limitation, we propose ViewSplat, a novel framework shown in \cref{fig:intro} that bridges the gap between pose-free generalizable reconstruction and high-fidelity view-dependent rendering. Building upon the SPFSplat \cite{huang2025spfsplat} architecture, we introduce view-adaptive Gaussian updates. Unlike previous methods that fix Gaussian attributes after the initial prediction, our module dynamically adjusts the Gaussian parameters---including position, opacity, rotation, scale, and SH coefficients---by leveraging information from the target viewpoint. This mechanism enables the synthesis of view-dependent specularities and geometric nuances that are consistent with the target perspective, all within a single feed-forward pass.
+% To address these limitations, we propose ViewSplat (\cref{fig:intro}), a novel framework designed to bridge the gap between pose-free reconstruction and high-fidelity synthesis. Building upon generalizable feed-forward 3DGS architectures~\cite{huang2025spfsplat,huang2025spfsplatv2}, we introduce a view-adaptive Gaussian update mechanism that transcends the constraints of fixed representations. Unlike prior works that freeze Gaussian attributes after initial regression, ViewSplat dynamically updates all Gaussian attributes---3D position, scale, rotation, opacity, and SH coefficients---conditioned on the target viewpoint. This enables our model to synthesize complex specularities and viewpoint-consistent geometric refinements, all within a single, efficient feed-forward pass.
+% Specifically, ViewSplat predicts base Gaussians and scene-specific MLP weights in a single pass. During rendering, these MLPs generate view-adaptive residuals conditioned on the target pose to dynamically refine all Gaussian attributes, including geometry and appearance.
+% This allows each primitive to rectify initial estimation errors and synthesize complex specularities in a single, efficient feed-forward pass.
+
+% To address this limitation, we propose ViewSplat, a novel framework designed to bridge the gap between pose-free reconstruction and high-fidelity synthesis. Building upon the feed-forward 3DGS architectures~\cite{huang2025spfsplat,huang2025spfsplatv2}, we introduce a view-adaptive Gaussian update mechanism (\cref{fig:intro}) that transcends the constraints of fixed representations.
+% Unlike prior works that freeze Gaussian attributes after initial regression, ViewSplat dynamically updates all Gaussian attributes conditioned on the target viewpoint.
+% Specifically, ViewSplat concurrently estimates base 3D Gaussian primitives and the weights of dynamic MLPs.
+% At rendering time, these MLPs take the target viewpoint and predict view-adaptive residual updates for each Gaussian attribute---including 3D position, scale, rotation, opacity, and SH coefficients.
+% This enables our model to synthesize complex specularities and viewpoint-consistent geometric refinements, all within a single feed-forward pass.
+
+% To address this limitation, we propose ViewSplat, a novel framework that shifts the paradigm from static primitive regression to view-adaptive dynamic splatting (\cref{fig:intro}). Our core insight is that the scene representation should not be a rigid set of attributes, but rather a view-adaptable latent representation that evolves according to the observer's viewpoint. Building upon a pose-free feed-forward architecture~\cite{huang2025spfsplat,huang2025spfsplatv2}, ViewSplat introduces a mechanism that dynamically updates Gaussian primitives for every target viewpoint.
+
+% Our core insight is that the scene representation should not be a rigid set of attributes, but rather a view-adaptable latent representation that evolves according to the observer's viewpoint. We argue that while predicting a single, all-encompassing representation that satisfies every potential viewpoint remains a formidable challenge—even with the power of 3D foundation models—generating a high-quality representation tailored to a specific viewpoint is a far more tractable task that the network can effectively achieve.
+
+% We posit that scene representation should be a dynamic latent entity rather than a fixed set of primitives. Although the power of 3D foundation models may not yet suffice to predict a single static representation that satisfies all viewpoints, dynamic updates for a given specific viewpoint are remarkably more feasible for the network. This shift allows our model to rectify initial errors and capture complex view-dependent details that a static model would otherwise miss.
+
+To address this limitation, we propose ViewSplat, a novel framework that shifts the paradigm from static primitive regression to view-adaptive dynamic splatting (\cref{fig:intro}).
+% Our core insight is that scene representation should be a dynamic latent entity rather than a rigid set of fixed primitives. We posit that while the current power of 3D foundation models may not yet suffice to predict a single static representation that satisfies all potential viewpoints, generating dynamic updates tailored to a specific viewpoint is a remarkably more feasible task for the network.
+The key insight behind ViewSplat is that achieving high-fidelity 2D rendering from a \textit{specific} view is relatively straightforward, provided the underlying 3D primitives can be tailored to that viewpoint. We leverage this observation by shifting the network’s objective: instead of struggling to predict universal 3D Gaussians, the network focuses on generating view-specific updates that are far more feasible to learn.
+This shift allows our model to rectify initial errors and capture complex view-dependent details that a static model would otherwise miss. Building upon a pose-free feed-forward architecture~\cite{huang2025spfsplat,huang2025spfsplatv2}, our model introduces a mechanism that dynamically updates Gaussian primitives for every target viewpoint on-the-fly.
+
+Specifically, ViewSplat predicts two components for a given scene: a set of base Gaussian primitives and the weights of dynamic MLPs. Unlike standard MLPs with fixed parameters, these dynamic MLPs are conditioned on the input scene context. During the rendering stage, these MLPs take the target view coordinates as input and predict view-dependent residual updates for all Gaussian attributes, including 3D position, scale, rotation, opacity, and SH coefficients. This allows each primitive to undergo geometric and photometric refinement tailored to the specific viewpoint. Consequently, ViewSplat can effectively compensate for initial estimation errors and synthesize high-frequency, non-Lambertian effects that are typically lost in static feed-forward representations.
+
+% \hj{Fig. 1로 ``기존의 3DGS vs. 기존의 feed-forward(SPFSplat) vs. Ours'' 가 보이는 그림 하나 추가해보자. SPFSplat에서 Fig.1과 같은 느낌의 그림에서 Ours는 view에 따른 gaussian이 변하는 그림이 그려지면 best일거 같은데, 이런 그림 그리기 어려울거 같으면 3DGS논문처럼 여러 방식들(3DGS, ..., SPFSplat, Ours)의 결과사진들을 쭉 나열해주는것도 괜찮을거 같어.}
+
+Our approach maintains the efficiency required for practical applications, achieving fast inference (17 FPS) and high-speed rendering (154 FPS) while significantly outperforming existing generalizable models.
+Our main contributions are summarized as follows:
+% \begin{itemize}
+%     \item We identify the limitation of existing pose-free generalizable models in representing non-Lambertian surfaces and introduce a feed-forward solution that enables view-dependent rendering without per-scene optimization.
+%     \item We propose ViewSplat, a pose-free feed-forward framework that incorporates a view-dependent refinement module to condition Gaussian parameters on the target viewpoint. This design enables dynamic adaptation of geometry and appearance within a single forward pass.
+%     \item Extensive experiments demonstrate that our method outperforms state-of-the-art baselines in reconstructing scenes with complex reflections and specularities, while preserving the efficiency of the pose-free generalizable pipelines.
+% \end{itemize}
+% \begin{itemize}
+%     \item We rethink the static primitive assumption in pose-free feed-forward 3DGS and identify it as a fundamental bottleneck for representing non-Lambertian surfaces.
+%     \item We propose ViewSplat, a novel framework that introduces view-adaptive dynamic splatting. By shifting from rigid regression to view-adaptive refinement, our model dynamically updates Gaussian geometry and appearance to capture high-frequency specularities in a single forward pass.
+%     \item Extensive experiments demonstrate that our method achieves state-of-the-art fidelity in novel view synthesis, while preserving the efficiency of the pose-free generalizable pipelines.
+% \end{itemize}
+\begin{itemize}
+    \item We identify the static primitive bottleneck in feed-forward 3DGS and propose view-adaptive representations for high-fidelity synthesis.
+    \item We introduce ViewSplat, which utilizes scene-conditioned dynamic MLPs to predict view-dependent residuals for all Gaussian attributes, enabling the model to rectify geometric and appearance errors on-the-fly.
+    \item We demonstrate that ViewSplat achieves state-of-the-art performance on standard benchmark sets, effectively capturing complex view-dependent effects without the need for costly per-scene optimization or pre-computed poses.
+\end{itemize}
+
+% \vspace{-0.55cm}
+\section{Related Work}
+% \vspace{-0.15cm}
+\subsection{Feed-Forward 3D Gaussian Splatting}
+% \vspace{-0.1cm}
+% The evolution of 3DGS \cite{kerbl20233dgs} has recently shifted from per-scene optimization to feed-forward generalizable architectures that enable instant 3D reconstruction and NVS.
+The landscape of 3DGS~\cite{kerbl20233dgs} has recently diversified, with significant research efforts increasingly directed toward feed-forward generalizable architectures that enable instant 3D reconstruction and NVS.
+Early generalizable 3DGS methods are pose-required, relying on accurate camera parameters to aggregate multi-view features or construct cost volumes. For instance, pixelSplat~\cite{charatan2024pixelsplat} and MVSplat \cite{chen2024mvsplat} leverage epipolar transformers for depth estimation and Gaussian primitive prediction. Similarly, large-scale models such as LGM~\cite{tang2024lgm}, GRM~\cite{xu2024grm}, and GS-LRM~\cite{zhang2024gs-lrm} encode camera poses via Pl\"ucker ray embeddings. While effective, such methods rely on pre-computed poses through SfM~\cite{schonberger2016sfmrevisited}, which is computationally expensive and often unreliable in sparse-view scenarios.
+
+To overcome these constraints, pose-free feed-forward methods have emerged. Supervised pose-free models like Splatt3R \cite{smart2024splatt3r} and NoPoSplat \cite{ye2025noposplat} predict 3D Gaussians in a canonical space without inference-time poses, yet they still require ground-truth poses for training supervision. More recently, self-supervised approaches such as SelfSplat \cite{kang2025selfsplat}, PF3plat \cite{hong2025pf3plat}, SPFSplat \cite{huang2025spfsplat}, and SPFSplatV2~\cite{huang2025spfsplatv2} have effectively eliminated this dependency. In particular, SPFSplat and SPFSplatV2 leverage the large-scale 3D foundation model backbone such as MASt3R \cite{leroy2024mast3r} and VGGT \cite{wang2025vggt} to jointly estimate camera poses and 3D geometry in a unified end-to-end pipeline.
+
+% Despite their efficiency, existing feed-forward 3DGS models typically represent the scene as a static set of Gaussians in a canonical space, and therefore often fail to capture complex, view-dependent effects such as specular reflections. Our work builds upon the self-supervised, pose-free framework of SPFSplat variants \cite{huang2025spfsplat,huang2025spfsplatv2} but extends it by introducing a view-dependent refinement module that dynamically adjusts Gaussian parameters according to the target viewpoint.
+
+Despite these advancements, existing feed-forward 3DGS models are fundamentally constrained by static primitive regression. By predicting a fixed set of Gaussian attributes in a single pass, these methods struggle to reconcile conflicting visual information across diverse viewpoints, leading to blurred details and a failure to capture non-Lambertian effects like sharp specularities. Our ViewSplat breaks this bottleneck by shifting from rigid regression to view-adaptive refinement. Built upon the self-supervised, pose-free feed-forward frameworks~\cite{huang2025spfsplat,huang2025spfsplatv2}, we introduce a dynamic update mechanism that \textit{rectifies} Gaussian parameters on-the-fly for each target viewpoint, enabling high-fidelity synthesis that was previously only attainable through per-scene optimization.
+
+% \vspace{-0.15cm}
+\subsection{View-Dependent 3D Representation}
+% \vspace{-0.1cm}
+% Modeling view-dependent effects is a long-standing challenge in neural rendering. In the context of Neural Radiance Fields (NeRF) \cite{mildenhall2020nerf}, standard approaches condition the radiance MLP on the viewing direction to model view-dependent color. However, this often struggles to represent complex surface properties, particularly non-Lambertian and specular effects. To address this limitation, some works \cite{boss2021nerd,boss2021neural-pil,srinivasan2021nerv,Zhang2021nerfactor} decompose visual appearance into lighting and material properties, typically parameterized using Bidirectional Reflectance Distribution Functions (BRDFs). Ref-NeRF \cite{verbin2022ref-nerf} further refines specular highlights using reflection vectors. In parallel, methods such as NeRO \cite{liu2023nero} and ENVIDR \cite{liang2023envidr} leverage implicit surfaces based on signed distance function (SDF) to derive high-quality normals.
+Modeling view-dependent effects is a long-standing challenge in neural rendering. In Neural Radiance Fields (NeRF)~\cite{mildenhall2020nerf}, the standard approach involves conditioning the radiance MLP on the viewing direction to capture view-dependent color. However, this often struggles to represent complex surface properties, particularly non-Lambertian and sharp specular effects. To address this limitation, several works~\cite{boss2021nerd,boss2021neural-pil,srinivasan2021nerv,Zhang2021nerfactor} decompose visual appearance into intrinsic properties---such as lighting and materials---typically parameterized via Bidirectional Reflectance Distribution Functions (BRDFs). Ref-NeRF~\cite{verbin2022ref-nerf} further enhances specular fidelity by utilizing reflection vectors. While effective, these implicit methods often require auxiliary geometric priors, such as those derived from signed distance functions (SDF)~\cite{liu2023nero,liang2023envidr}, to obtain high-quality normals for accurate shading.
+
+% With the advent of 3DGS \cite{kerbl20233dgs}, the focus has shifted to explicit representations. Although 3DGS utilizes low-order SH coefficients for view-dependent appearance, this is often insufficient for capturing high-frequency specularities. To overcome this limitation, GaussianShader \cite{jiang2024gaussianshader} and RTR-GS \cite{zhou2025rtr-gs} incorporate explicit shading models into the Gaussian framework to better handle reflective surfaces. Another approach, Spec-Gaussian \cite{yang2024spec-gaussian}, introduces anisotropic spherical Gaussian, which parameterizes view-dependent appearance more flexibly than traditional SH. For specific challenges like mirror reflections, MirrorGaussian \cite{liu2024mirrorgaussian} utilizes Gaussian reflections based on symmetry. In contrast to methods focused on appearance modeling, Scaffold-GS \cite{lu2024scaffold-gs} emphasizes structural stabilization of Gaussian attributes across viewpoints through an anchor-based representation.
+The introduction of 3DGS~\cite{kerbl20233dgs} has opened new avenues for explicit view-dependent modeling. While 3DGS originally employs low-order SH to represent view-dependent color, SH coefficients frequently lack the frequency bandwidth necessary to capture sharp specularities. To overcome this limitation, recent extensions like GaussianShader~\cite{jiang2024gaussianshader} and RTR-GS~\cite{zhou2025rtr-gs} integrate explicit shading models into the Gaussian framework. Other approaches, such as Spec-Gaussian~\cite{yang2024spec-gaussian}, introduce anisotropic spherical Gaussians to provide more flexible parameterization than traditional SH. MirrorGaussian~\cite{liu2024mirrorgaussian} tackles the specific challenge of mirror reflections by incorporating symmetry-based Gaussian reflections. Beyond appearance, Scaffold-GS~\cite{lu2024scaffold-gs} explores structural stabilization of Gaussian attributes across viewpoints using an anchor-based representation.
+
+% Although these methods improve the modeling of view-dependent appearance, they typically rely on per-scene optimization, requiring substantial computational cost and exhibiting limited generalization to unseen scenes. In contrast, our approach addresses view-dependence within a feed-forward framework. Rather than optimizing Gaussian parameters for each scene, our model learns to dynamically adjust them based on the target viewpoint, enabling efficient view-dependent reconstruction without the need for scene-specific training.
+% 4D dynamic GS 관련 얘기도 추가 예정
+While these advancements have significantly improved the fidelity of view-dependent rendering, they remain predominantly tied to per-scene optimization. This dependency results in high computational costs and a lack of generalization to unseen scenes. In contrast, ViewSplat addresses view dependency within a feed-forward framework. 
+% Unlike existing generalizable models that regress a static scene representation, our method introduces a view-adaptive dynamic mechanism that rectifies Gaussian parameters on-the-fly according to the target viewpoint.
+Note that our use of \textit{dynamic} refers to viewpoint-conditioned attribute modulation rather than temporal deformation as seen in 4D dynamic scene rendering~\cite{wu20244d,luiten2024dynamic}. This allows for efficient, high-fidelity reconstruction and synthesis of complex view-dependent effects without the need for scene-specific training or costly iterative optimization.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=1\linewidth]{architecture.pdf}
+    \caption{Architecture of ViewSplat. Built upon a shared geometry transformer backbone \cite{leroy2024mast3r,wang2025vggt}, our framework simultaneously predicts canonical 3D Gaussians and camera poses from unposed images using Gaussian heads and a pose head. To accurately capture view-dependent effects, a view-dependent head dynamically generates per-pixel view MLPs, which takes the target pose as input to predict residual offsets for Gaussians. These offsets are then applied to refine the canonical Gaussians during rendering.}
+    \label{fig:architecture}
+\end{figure}
+
+\section{Method}
+We propose ViewSplat, a view-dependent feed-forward 3D Gaussian splatting framework that jointly reconstructs 3D Gaussians and estimates camera poses directly from multi-view images without requiring ground-truth poses. Given a set of images, the network predicts the 3D Gaussian parameters in a canonical space defined by the first input image, which serves as the global reference coordinate frame. Simultaneously, it estimates the camera pose for each view, representing the canonical-to-camera transformation. Leveraging this relative pose information, our model predicts view-dependent residual offsets for the Gaussian parameters. These offsets are added to the canonical Gaussians to refine their attributes, enabling rendering of view-dependent effects such as specular highlights.
+
+An overview of our architecture is illustrated in \cref{fig:architecture}. We first present the preliminaries of our pose-free Gaussian reconstruction framework based on SPFSplat \cite{huang2025spfsplat,huang2025spfsplatv2} in \cref{sec:preliminaries}. We then introduce our proposed view-dependent head in \cref{sec:vdhead} and detail the view-dependent Gaussian refinement process in \cref{sec:vdrefine}. Finally, we describe the training objective, including the rendering and reprojection losses, in \cref{sec:loss}.
+
+\subsection{Preliminaries}
+\label{sec:preliminaries}
+Our framework builds upon prior pose-free Gaussian reconstruction architectures, including SPFSplat and its subsequent variants~\cite{huang2025spfsplat,huang2025spfsplatv2}. These models adopt a geometry transformer backbone---such as MASt3R~\cite{leroy2024mast3r} and VGGT~\cite{wang2025vggt}---along with pose and Gaussian prediction heads to reconstruct a 3D scene from $N$ unposed images $\{I^v\}_{v=1}^N$.
+
+\subsubsection{Geometry Transformer.}
+A ViT-based \cite{dosovitskiy2021vit} encoder-decoder architecture is employed to extract multi-view feature tokens. The ViT encoder processes patchified RGB inputs through self-attention, after which the decoder enables cross-view interaction to aggregate geometric and appearance information across the $N$ encoded views.
+
+The specific interaction mechanism is determined by the backbone. MASt3R-based models employ pairwise cross-attention between views, whereas the VGGT-based V2-L variant performs global self-attention over a unified token sequence. In SPFSplatV2 and V2-L, a masked attention strategy is additionally introduced in the decoder to improve camera pose estimation and geometry reconstruction. The resulting tokens, enriched with global 3D context, serve as the foundation for both the baseline Gaussian reconstruction and our proposed view-dependent refinement.
+
+\subsubsection{Canonical 3D Gaussian Reconstruction.}
+To reconstruct the 3D scene, two Dense Prediction Transformer (DPT)-based heads \cite{ranftl2021dpt} predict 3D Gaussian parameters in a dense, per-pixel manner. The first DPT head, referred to as Gaussian center head, processes the decoded tokens to predict per-pixel 3D coordinates that define the Gaussian centers. The second head, referred to as Gaussian parameter head, estimates the remaining Gaussian attributes for each pixel. These 3D Gaussians are aligned in a canonical space, where the first input view $I_1$ serves as the global reference coordinate frame. Specifically, the predicted Gaussians are parameterized as:
+\begin{equation}
+    \{\mathcal{G}^{v \to 1}\}_{v=1, \dots, N} = \{ (\mu_j^{v \to 1}, \alpha_j^v, r_j^{v \to 1}, s_j^v, c_j^{v \to 1}) \}_{j=1, \dots, H \times W},
+    \label{eq:gaussianparams}
+\end{equation}
+where each Gaussian primitive consists of a center position $\mu \in \mathbb{R}^3$, a rotation quaternion $r \in \mathbb{R}^4$, a scale vector $s \in \mathbb{R}^3$, an opacity value $\alpha \in \mathbb{R}$, and SH coefficients $c$. Following DPT, high-resolution skip connections are incorporated to preserve fine-grained spatial details from the input images.
+
+\subsubsection{Pose Estimation.}
+For pose-free rendering, the pose head estimates the camera poses in a single feed-forward step. By taking the concatenated and pooled representations from the encoder and decoder, a lightweight MLP outputs a 10-dimensional relative pose comprising a 6D rotation representation and a 4D homogeneous translation vector $[t_x, t_y, t_z, 1]^\top$, following \cite{chen2024marepo}. This pose is then converted into a homogeneous transformation matrix $P^{v \to 1} \in \mathbb{R}^{4 \times 4}$ which is defined as:
+\begin{equation}
+    P^{v \to 1} = \begin{bmatrix} R^{v \to 1} & t^{v \to 1} \\ 
+    \mathbf{0}^\top & 1 \end{bmatrix},
+    \label{eq:contextpose}
+\end{equation}
+where $R^{v \to 1} \in \mathbb{R}^{3 \times 3}$ is the rotation matrix and $t^{v \to 1} \in \mathbb{R}^3$ is the translation vector. This matrix is the relative transformation of any input view $I_v$ to the canonical reference view $I_1$. To establish a consistent global coordinate system, the first input view $I_1$ is defined as the origin, explicitly assigning its canonical pose as:
+\begin{equation}
+    P^{1 \to 1} = \begin{bmatrix} I & \mathbf{0} \\ \mathbf{0}^\top & 1
+    \end{bmatrix},
+    \label{eq:canonicalpose}
+\end{equation}
+where $I$ represents the identity matrix and $\mathbf{0}$ denotes the zero translation vector.
+
+During training, to synthesize novel views without ground-truth poses, the model additionally predicts the poses of target views, denoted as $P^{t \to 1}$. As illustrated in \cref{fig:architecture}, this target pose estimation leverages features from both context and target views to better capture the global scene structure. Importantly, to prevent information leakage, the initial Gaussian reconstruction is strictly conditioned on the context views, and remains independent of the target pose prediction.
+
+\subsection{View-Dependent Head}
+\label{sec:vdhead}
+As described in \cref{sec:preliminaries}, the baseline pipeline reconstructs a static set of Gaussians in the canonical space. However, due to its fixed geometry and the inherent limitations of SH, this static formulation often struggles to capture complex view-dependent effects, such as specular highlights, reflections, and subtle appearance variations. To address this limitation, we introduce a DPT-based view-dependent head that adopts a hypernetwork architecture \cite{ha2017hypernetworks} to predict per-pixel residual offsets for the Gaussian parameters. Instead of directly outputting offsets, this head takes feature tokens from the geometry transformer to capture rich geometric and material context, and dynamically generates pixel-wise parameters for a secondary network, which we refer to as view MLP. 
+
+This design allows the model to generate pixel-specific response functions tailored to the local properties of the scene. The generated view MLPs are conditioned on the target camera pose and compute the corresponding Gaussian parameter offsets. By predicting these view MLPs on the fly, the architecture can flexibly adapt its refinement strategy to the specific requirements of the target viewpoint. For instance, the head can generate a more complex mapping for specular surfaces to capture shifting reflections, while maintaining simpler functions for diffuse regions. This separation between context-driven weight generation and pose-driven offset calculation enables the model to capture intricate, high-frequency appearance variations without being constrained by a static, predefined parameter space.
+
+\subsection{View-Dependent Gaussian Refinement}
+\label{sec:vdrefine}
+We now describe how the generated view MLPs utilize the target pose and refine the canonical Gaussians. The view MLP takes a 4D per-pixel target pose representation as input to compute Gaussian parameter offsets. This 4D pose representation, comprising a 3D unit viewing direction and a 1D distance term, is carefully derived from the target camera extrinsics $P^{t \to 1}$.
+
+\subsubsection{Target Pose Reparameterization.}
+The raw target extrinsic $P^{t \to 1} \in \mathbb{R}^{4 \times 4}$ is a homogeneous world-to-camera transformation matrix composed of a $3 \times 3$ rotation matrix and a 3D translation vector, as defined in \cref{eq:contextpose}. Directly feeding this full transformation matrix into the network is undesirable as the complex mathematical constraints inherent in transformation matrices (\eg, rotation orthogonality) are difficult for an MLP to optimize. To alleviate this, we reparameterize the target pose into a compact and geometrically meaningful representation consisting of a 3D unit viewing direction and a 1D distance. This design reduces the input dimensionality from 16 scalar elements to 4, while retaining essential view-dependent cues, facilitating network learning.
+% while retaining the information most relevant for modeling view-dependent appearance, thereby providing a representation that is easier for the network to learn.
+
+\subsubsection{Gaussian Refinement.}
+Given the 4D target pose representation, the view MLP predicts parameter offsets for the Gaussians at each pixel. Specifically, the network outputs the following offset values:
+\begin{equation}
+    \{\Delta \mathcal{G}^{v \to 1}\}_{v=1, \dots, N} = \{(\Delta \mu^{v \to 1 | t}_j, \Delta \alpha^{v | t}_j, \Delta r^{v \to 1 | t}_j, \Delta s^{v | t}_j, \Delta c^{v \to 1 | t}_j)\}_{j=1, \dots, H \times W}.
+    \label{eq:offsetvalues}
+\end{equation}
+These offsets encode how each Gaussian, originating from a specific context view and pixel, should adapt when observed from the target viewpoint $t$. The predicted offsets are directly applied to the canonical 3D Gaussians defined in \cref{eq:gaussianparams} via element-wise residual addition (\eg, $\mathbf{\hat{\mu}} = \mu + \Delta \mu$), yielding the final refined parameters $\{\hat{\mathcal{G}}^{v \to 1} \}_{v=1, \dots, N}$. The rasterizer then renders the novel view from the target pose $P^{t \to 1}$:
+\begin{equation}
+    \hat{I}^t = \mathcal{R}(P^{t \to 1}, \{\hat{\mathcal{G}}^{v \to 1} \}_{v=1, \dots, N}).
+    \label{eq:rendering}
+\end{equation}
+
+\subsection{Loss Function}
+\label{sec:loss}
+Following the training strategy of SPFSplat \cite{huang2025spfsplat}, our model is optimized end-to-end without relying on ground-truth camera poses. The overall training objective consists of an image rendering loss $\mathcal{L}_{render}$ and a geometric reprojection loss $\mathcal{L}_{reproj}$. Specifically, $\mathcal{L}_{render}$ is formulated as a weighted combination of MSE photometric loss and LPIPS \cite{zhang2018lpips} perceptual loss to balance low-level photometric accuracy and high-level perceptual similarity. To stabilize training in the canonical space and enforce explicit geometric constraints, we employ $\mathcal{L}_{reproj}$, which penalizes the distance between 2D pixel coordinates and the projected 3D Gaussian centers using estimated relative poses. The total loss is defined as:
+\begin{equation}
+    \mathcal{L}_{total} = \mathcal{L}_{render} + \lambda_{reproj}\mathcal{L}_{reproj},
+    \label{eq:totalloss}
+\end{equation}
+where $\lambda_{reproj}$ is a weighting factor.
+We provide full mathematical derivations and detailed hyperparameter settings for each loss term in the appendix.
+
+% \subsection{Loss Function}
+% \label{sec:loss}
+% Following the training strategy of SPFSplat \cite{huang2025spfsplat}, our model is optimized end-to-end without relying on ground-truth camera poses. The overall training objective consists of an image rendering loss and a geometric reprojection loss.
+
+% \subsubsection{Image Rendering Loss.} To supervise the novel view synthesis, we compute the loss between the ground-truth target image $I^t$ and the rendered target image $\hat{I}^t$. The rendering loss is formulated as a weighted combination of a mean squared error (MSE) photometric loss and the LPIPS \cite{zhang2018lpips} perceptual loss:
+% \begin{equation}
+%     \mathcal{L}_{render} = \mathcal{L}_{MSE}(I^t, \hat{I}^t) + \lambda_{LPIPS} \mathcal{L}_{LPIPS}(I^t, \hat{I}^t),
+%     \label{eq:renderingloss}
+% \end{equation}
+% where $\lambda_{LPIPS}$ is a weighting factor to balance low-level photometric accuracy and high-level perceptual similarity.
+
+% \subsubsection{Reprojection Loss.} Since our framework learns 3D Gaussian centers in a canonical space without ground-truth poses, relying solely on the rendering loss can lead to training instability and overfitting to the canonical coordinate frame. To mitigate this and enforce explicit geometric constraints, we employ a pixel-wise reprojection loss. This loss jointly optimizes the 3D points and the estimated camera poses by penalizing the distance between the 2D pixel coordinates and the projected 3D Gaussian centers.
+
+% Specifically, for each pixel $p_j^v$ in context view $v$, we project the 3D Gaussian center $\mu_j^{v \to 1}$ from the canonical space to view $v$ using the estimated relative pose $P^{v \to 1}$ and the camera intrinsics $K^v$. The reprojection loss is computed as:
+% \begin{equation}
+%     \mathcal{L}_{reproj} = \sum_{v=1}^N  \sum_{j=1}^{H \times W} \|p_j^v - \pi(K^v, P^{v \to 1}, \mu_j^{v \to 1})\|,
+%     \label{eq:reprojectionloss}
+% \end{equation}
+% where $P^{v \to 1} \in \{P_c^{v \to 1}, P_{c+t}^{v \to 1}\}$ and $\pi(\cdot)$ denotes the camera projection function. To maintain consistency, we apply this reprojection loss to the poses estimated from both the context-only branch and the context-with-target branch.
+
+% \subsubsection{Total Loss.} The total loss is formulated as a weighted sum of the rendering and reprojection losses:
+% \begin{equation}
+%     \mathcal{L}_{total} = \mathcal{L}_{render} + \lambda_{reproj}\mathcal{L}_{reproj},
+%     \label{eq:totalloss}
+% \end{equation}
+% where $\lambda_{reproj}$ is a weighting factor that controls the relative contribution of the reprojection penalty. This combined objective enables stable training of the pixel-aligned 3D Gaussians and view-dependent rendering without requiring ground-truth poses.
+
+\section{Experiments}
+We evaluate the performance of our method on novel view synthesis and cross-dataset generalization across multiple datasets. In addition, we conduct comprehensive ablation studies to analyze the contribution of each component.
+
+\subsection{Experimental Settings}
+\vspace{-0.2cm}
+\subsubsection{Datasets.}
+We train and evaluate our method on the RealEstate10K (RE10K) \cite{zhou2018re10k}, which contains large-scale real estate videos, and ACID \cite{liu2021acid}, which consists of nature scenes captured by aerial drones. The camera poses for both datasets are obtained via SfM, but our method operates in a strictly pose-free manner, entirely bypassing the need for such pre-computed information.
+We adopt the official train--test splits used in prior works \cite{charatan2024pixelsplat,chen2024mvsplat,ye2025noposplat,huang2025spfsplat}. To rigorously assess performance, we follow the evaluation protocol of~\cite{ye2025noposplat,huang2025spfsplat}, which evaluates our method under varying levels of camera overlap. We categorize input pairs into three groups based on image overlap ratios---small (0.05\%--0.3\%), medium (0.3\%--0.55\%), and large (0.55\%--0.8\%)---determined using a pre-trained dense image matching method \cite{edstedt2024roma}. Furthermore, to validate cross-dataset generalization, we follow \cite{chen2024mvsplat,ye2025noposplat,huang2025spfsplat} and evaluate our model on the object-centric DTU dataset \cite{jensen2014dtu}.
+
+\vspace{-0.4cm}
+\subsubsection{Baselines.}
+We compare our method with several baselines for novel view synthesis. These baselines include pose-required models (pixelSplat \cite{charatan2024pixelsplat} and MVSplat \cite{chen2024mvsplat}), supervised pose-free models (CoPoNerf \cite{hong2024coponerf}, Splatt3R \cite{smart2024splatt3r}, and NoPoSplat \cite{ye2025noposplat}), and self-supervised models (SelfSplat \cite{kang2025selfsplat}, PF3plat \cite{hong2025pf3plat}, SPFSplat \cite{huang2025spfsplat}, and SPFSplatV2 \cite{huang2025spfsplatv2}).
+
+\vspace{-0.4cm}
+\subsubsection{Evaluation Protocols.}
+We assess the quality of novel view synthesis using standard metrics: pixel-level PSNR, patch-level SSIM \cite{wang2004ssim}, and feature-level LPIPS \cite{zhang2018lpips}.
+
+During NVS evaluation, target views are conventionally rendered using gro\-und-truth poses \cite{charatan2024pixelsplat,chen2024mvsplat,hong2024coponerf,smart2024splatt3r}. Alternative approaches include rendering with estimated target poses (\eg, PF3plat \cite{hong2025pf3plat}, SelfSplat \cite{kang2025selfsplat}, SPFSplat \cite{huang2025spfsplat}, and SPFSplatV2 \cite{huang2025spfsplatv2}) or employing an evaluation-time pose alignment (EPA) strategy (NoPoSplat \cite{ye2025noposplat}), which optimizes the target poses during evaluation while freezing the reconstructed Gaussians. In our experiments, we evaluate our method using the estimated target poses. This setting allows us to jointly evaluate the reconstruction quality and the alignment between the estimated poses and the learned Gaussians.
+
+\vspace{-0.3cm}
+\subsection{Implementation Details}
+\vspace{-0.1cm}
+We implement ViewSplat in PyTorch, utilizing a CUDA-based 3DGS renderer with gradient support for camera poses. All models are trained on multiple NVIDIA RTX 4090 GPUs, while inference is performed on a single GPU.
+
+% Our framework is initialized using the pre-trained weights of the corresponding SPFSplat, SPFSplatV2, and V2-L models. To ensure stable convergence, the proposed view-dependent head is zero-initialized, allowing the network to initially rely on the baseline static reconstruction before gradually learning view-dependent refinements.
+% Following the previous work~\cite{huang2025spfsplat,huang2025spfsplatv2}, we use geometry transformer backbone of MASt3R~\cite{leroy2024mast3r} for SPFSplat~\cite{huang2025spfsplat} and SPFSplatV2~\cite{huang2025spfsplatv2}, and of VGGT~\cite{wang2025vggt} for V2-L variant~\cite{huang2025spfsplatv2}.
+% To ensure stable convergence, we initialize geometry transformer, Gaussian parameter head, Gaussian center head, and pose head using the pre-trained weights of the corresponding SPFSplat, SPFSplatV2, and V2-L models.
+% Only the proposed view-dependent head is zero-initialized, allowing the network to initially rely on the baseline static reconstruction before gradually learning view-dependent refinements.
+Following prior works~\cite{huang2025spfsplat,huang2025spfsplatv2}, we adopt the geometry transformer backbones from MASt3R~\cite{leroy2024mast3r} for the SPFSplat and SPFSplatV2 architectures, and VGGT~\cite{wang2025vggt} for V2-L variant.
+To ensure stable convergence, we initialize the geometry transformer, Gaussian parameter head, Gaussian center head, and pose head using pre-trained weights from the corresponding SPFSplat, SPFSplatV2, or V2-L models.
+The remaining component, our view-dependent head, is zero-initialized; this allows the network to initially preserve the baseline static reconstruction while progressively learning to incorporate view-adaptive refinements.
+
+The view-dependent head generates pixel-wise view MLPs with a single hidden layer of 16 dimensions. All experiments are conducted at a resolution of $256 \times 256$, except for the V2-L variant, which follows its backbone's default resolution of $224 \times 224$.
+
+\vspace{-0.4cm}
+\subsubsection{Training Strategy.}
+We adopt a frozen-backbone training strategy, where the pre-trained weights of the base models (SPFSplat or SPFSplatV2) remain fixed while only the view-dependent head is optimized. We use the Adam optimizer with a learning rate of $1 \times 10^{-4}$ and a batch size of 12. Each batch contains a single scene with its corresponding input and target views. Consistent with prior work, the frame distance between input views is progressively increased during training to facilitate curriculum learning.
+
+\begin{table}
+\vspace{-0.1cm}
+    \centering
+\caption{Performance comparison of novel view synthesis on the RE10K dataset \cite{zhou2018re10k}. Results using the \textbf{ViewSplat} framework are highlighted in \textbf{bold}, demonstrating consistent performance gains across all SPFSplat variants. * indicates the use of evaluation-time pose alignment (EPA) strategy.
+%\hj{SPFSplatV2, SPFSplatV2-L에 올려서 한거 Tables 1, 2, 5에 전부 업데이트 하고, Table 8은 빼자 - 넵 V2에 올려서 ACID로 학습한 게 없어서 지금 돌리고 있습니다.}
+}
+\vspace{-0.25cm}
+\label{tab:nvs_re10k}
+
+\setlength{\tabcolsep}{2.5pt}
+\resizebox{\linewidth}{!}{
+    \begin{tabular}{l ccc ccc ccc ccc}
+        \toprule
+        \multirow{2}{*}{\textbf{Method}} & \multicolumn{3}{c}{\textbf{Small}} & \multicolumn{3}{c}{\textbf{Medium}} & \multicolumn{3}{c}{\textbf{Large}} & \multicolumn{3}{c}{\textbf{Average}} \\
+            & PSNR$\uparrow$ & SSIM$\uparrow$ & LPIPS$\downarrow$ & PSNR$\uparrow$ & SSIM$\uparrow$ & LPIPS$\downarrow$ & PSNR$\uparrow$ & SSIM$\uparrow$ & LPIPS$\downarrow$ & PSNR$\uparrow$ & SSIM$\uparrow$ & LPIPS$\downarrow$ \\ \midrule
+        \textit{Pose-Required} & & & & & & & & & & & & \\
+            pixelSplat & 20.277 & 0.719 & 0.265 & 23.726 & 0.811 & 0.180 & 27.152 & 0.880 & 0.121 & 23.859 & 0.808 & 0.184 \\
+            MVSplat & 20.371 & 0.725 & 0.250 & 23.808 & 0.814 & 0.172 & 27.466 & 0.885 & 0.115 & 24.012 & 0.812 & 0.175 \\ \midrule
+        \textit{Supervised Pose-Free} & & & & & & & & & & & & \\
+            CoPoNeRF & 17.393 & 0.585 & 0.462 & 18.813 & 0.616 & 0.392 & 20.464 & 0.652 & 0.318 & 18.938 & 0.619 & 0.388 \\
+            Splatt3R & 17.789 & 0.582 & 0.375 & 18.828 & 0.607 & 0.330 & 19.243 & 0.593 & 0.317 & 18.688 & 0.337 & 0.596 \\
+            NoPoSplat* & 22.514 & 0.784 & 0.210 & 24.899 & 0.839 & 0.160 & 27.411 & 0.883 & 0.119 & 25.033 & 0.838 & 0.160 \\ \midrule
+        \textit{Self-Supervised Pose-Free} & & & & & & & & & & & & \\
+            SelfSplat & 14.828 & 0.543 & 0.469 & 18.857 & 0.679 & 0.328 & 23.338 & 0.798 & 0.208 & 19.152 & 0.680 & 0.328 \\
+            PF3plat & 18.358 & 0.668 & 0.298 & 20.953 & 0.741 & 0.231 & 23.491 & 0.795 & 0.179 & 21.042 & 0.739 & 0.233 \\ \midrule
+            SPFSplat & 22.897 & 0.792 & 0.201 & 25.334 & 0.847 & 0.153 & 27.947 & 0.894 & 0.110 & 25.484 & 0.847 & 0.153 \\
+            \textbf{+ViewSplat} & \textbf{23.562} & \textbf{0.802} & \textbf{0.191} & \textbf{26.193} & \textbf{0.858} & \textbf{0.143} & \textbf{28.886} & \textbf{0.904} & \textbf{0.104} & \textbf{26.317} & \textbf{0.857} & \textbf{0.144} \\ \midrule
+            SPFSplatV2 & 23.123 & 0.800 & 0.195 & 25.542 & 0.853 & 0.149 & 28.143 & 0.897 & 0.110 & 25.693 & 0.853 & 0.149 \\
+            \textbf{+ViewSplat} & \textbf{23.761} & \textbf{0.808} & \textbf{0.185} & \textbf{26.353} & \textbf{0.862} & \textbf{0.139} & \textbf{28.978} & \textbf{0.906} & \textbf{0.102} & \textbf{26.468} & \textbf{0.861} & \textbf{0.140} \\ \midrule
+            SPFSplatV2-L & 23.138 & 0.804 & 0.184 & 25.518 & 0.856 & 0.136 & 28.081 & 0.899 & 0.099 & 25.668 & 0.855 & 0.137 \\
+            \textbf{+ViewSplat}  & \textbf{24.129} & \textbf{0.819} & \textbf{0.168} & \textbf{26.686} & \textbf{0.871} & \textbf{0.123} & \textbf{29.274} & \textbf{0.912} & \textbf{0.088} & \textbf{26.798} & \textbf{0.870} & \textbf{0.124} \\ \bottomrule
+    \end{tabular}
+    }
+\medskip
+\caption{Performance comparison of novel view synthesis on the ACID dataset \cite{liu2021acid}.}
+\vspace{-0.25cm}
+\label{tab:nvs_acid}
+
+\setlength{\tabcolsep}{2.5pt}
+\resizebox{\linewidth}{!}{
+    \begin{tabular}{l ccc ccc ccc ccc}
+        \toprule
+        \multirow{2}{*}{\textbf{Method}} & \multicolumn{3}{c}{\textbf{Small}} & \multicolumn{3}{c}{\textbf{Medium}} & \multicolumn{3}{c}{\textbf{Large}} & \multicolumn{3}{c}{\textbf{Average}} \\
+            & PSNR$\uparrow$ & SSIM$\uparrow$ & LPIPS$\downarrow$ & PSNR$\uparrow$ & SSIM$\uparrow$ & LPIPS$\downarrow$ & PSNR$\uparrow$ & SSIM$\uparrow$ & LPIPS$\downarrow$ & PSNR$\uparrow$ & SSIM$\uparrow$ & LPIPS$\downarrow$ \\ \midrule
+        \textit{Pose-Required} & & & & & & & & & & & & \\
+            pixelSplat & 22.088 & 0.655 & 0.284 & 25.525 & 0.777 & 0.197 & 28.527 & 0.854 & 0.139 & 25.889 & 0.780 & 0.194 \\
+            MVSplat & 21.412 & 0.640 & 0.290 & 25.150 & 0.772 & 0.198 & 28.457 & 0.854 & 0.137 & 25.561 & 0.775 & 0.195 \\ \midrule
+        \textit{Supervised Pose-Free} & & & & & & & & & & & & \\
+            CoPoNeRF & 18.651 & 0.551 & 0.485 & 20.654 & 0.595 & 0.418 & 22.654 & 0.652 & 0.343 & 20.950 & 0.606 & 0.406 \\
+            Splatt3R & 17.419 & 0.501 & 0.434 & 18.257 & 0.514 & 0.405 & 18.134 & 0.508 & 0.395 & 18.060 & 0.510 & 0.407 \\
+            NoPoSplat* & 23.087 & 0.685 & 0.258 & 25.624 & 0.777 & 0.193 & 28.043 & 0.841 & 0.144 & 25.961 & 0.781 & 0.189 \\ \midrule
+        \textit{Self-Supervised Pose-Free} & & & & & & & & & & & & \\
+            SelfSplat & 18.301 & 0.568 & 0.408 & 21.375 & 0.676 & 0.314 & 25.219 & 0.792 & 0.214 & 22.089 & 0.694 & 0.298 \\
+            PF3plat & 18.112 & 0.537 & 0.376 & 20.732 & 0.615 & 0.307 & 23.607 & 0.710 & 0.228 & 21.206 & 0.632 & 0.293 \\ \midrule
+            SPFSplat & 22.667 & 0.665 & 0.262 & 25.620 & 0.773 & 0.192 & 28.607 & 0.856 & 0.136 & 26.070 & 0.781 & 0.186 \\
+            \textbf{+ViewSplat} & \textbf{23.035} & \textbf{0.671} & \textbf{0.255} & \textbf{26.161} & \textbf{0.782} & \textbf{0.184} & \textbf{29.395} & \textbf{0.869} & \textbf{0.124} & \textbf{26.661} & \textbf{0.790} & \textbf{0.177} \\ \midrule
+            SPFSplatV2 & 22.944 & 0.679 & 0.255 & 25.849 & 0.784 & 0.187 & 28.766 & 0.862 & 0.133 & 26.284 & 0.791 & 0.182 \\
+            \textbf{+ViewSplat} & \textbf{23.264} & \textbf{0.685} & \textbf{0.249} & \textbf{26.398} & \textbf{0.794} & \textbf{0.179} & \textbf{29.561} & \textbf{0.875} & \textbf{0.122} & \textbf{26.873} & \textbf{0.801} & \textbf{0.173} \\ \midrule
+            SPFSplatV2-L & 23.640 & 0.706 & 0.225 & 26.272 & 0.801 & 0.166 & 28.938 & 0.868 & 0.120 & 26.674 & 0.806 & 0.162 \\
+            \textbf{+ViewSplat} & \textbf{24.234} & \textbf{0.718} & \textbf{0.214} & \textbf{27.090} & \textbf{0.815} & \textbf{0.154} & \textbf{29.931} & \textbf{0.885} & \textbf{0.106} & \textbf{27.509} & \textbf{0.820} & \textbf{0.149} \\ \bottomrule
+    \end{tabular}
+    }
+\vspace{-15pt}
+\end{table}
+
+\vspace{-0.4cm}
+\subsection{Results}
+\vspace{-0.2cm}
+\subsubsection{Novel View Synthesis.}
+% We evaluate the novel view synthesis performance of our method on the RE10K and ACID datasets, and the results are summarized in \cref{tab:nvs_re10k} and \cref{tab:nvs_acid}.
+% Our proposed ViewSplat framework, particularly when integrated with the SPFSplatV2-L backbone, consistently achieves state-of-the-art results across all evaluation metrics. A key observation is the consistent performance gain yielded by our view-dependent refinement. Across all backbone variants---SPFSplat, V2, and V2-L---the incorporation of ViewSplat leads to substantial improvements in rendering quality on both RE10K and ACID. These results highlight the scalability and robustness of our framework in modeling intricate view-dependent details across diverse scene distributions, ranging from structured man-made environments to natural landscapes. 
+% We also provide visual results in \cref{fig:qualitative_main_nvs}.
+% As shown in the figure, ViewSplat effectively capture view-dependent characteristics, resulting in high-fidelity
+% Additional qualitative results are provided in the supplementary material.
+We evaluate ViewSplat on the RE10K and ACID benchmarks, and the quantitative results are summarized in \cref{tab:nvs_re10k} and \cref{tab:nvs_acid}. Our framework, particularly the V2-L variant, consistently achieves new state-of-the-art performance across all metrics.
+% A key finding is the orthogonal performance gain provided by our view-adaptive refinement; across all backbones---SPFSplat, V2, and V2-L---the integration of ViewSplat yields substantial improvements in rendering fidelity.
+A key finding is the orthogonal performance gain provided by our view-adaptive refinement. Across all backbone variants---SPFSplat, V2, and V2-L---ViewSplat consistently yields substantial improvements in rendering fidelity.
+This consistency underscores the scalability and robustness of our approach in capturing intricate view-dependent details across diverse environments, from structured interiors to complex natural landscapes. Qualitative comparisons in \cref{fig:qualitative_main_nvs} further demonstrate ViewSplat's ability to synthesize high-frequency specularities and maintain geometric consistency, resulting in photorealistic novel views.
+Additional qualitative results are provided in the appendix.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=1\linewidth]{qualitative_main_nvs.pdf}
+    \vspace{-0.6cm}
+    \caption{Qualitative comparison on RE10K. Compared to baseline methods, our approach accurately reconstructs sharp reflections.}
+    \label{fig:qualitative_main_nvs}
+    \vspace{-0.2cm}
+\end{figure}
+
+\begin{table}
+    \centering
+
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \caption{Comparison of efficiency on a single NVIDIA RTX 4090 GPU on the RE10K.}
+    \vspace{-0.3cm}
+    \label{tab:efficiency}
+    \setlength{\tabcolsep}{3pt}
+    \resizebox{\linewidth}{!}{
+        \begin{tabular}{l ccc}
+            \toprule
+            \multirow{2}{*}{\textbf{Method}} & \textbf{Params}$\downarrow$ & \textbf{Inference time}$\downarrow$ & \textbf{Rendering Speed}$\uparrow$ \\
+                & (B) & (s) & (FPS) \\ \midrule
+            SPFSplat & 0.616 & 0.046 & 386 \\
+            \textbf{+ViewSplat} & 0.658 & 0.057 & 154 \\ \midrule
+            SPFSplatV2 & 0.613 & 0.039 & 390 \\
+            \textbf{+ViewSplat} & 0.655 & 0.052 & 149 \\ \midrule
+            SPFSplatV2-L & 1.223 & 0.066 & 231 \\
+            \textbf{+ViewSplat} & 1.256 & 0.068 & 90 \\ \bottomrule
+        \end{tabular}
+    }
+\end{minipage}
+\hfill
+\begin{minipage}{0.48\textwidth}
+    \centering
+    \caption{Comparison of rendering performance between baseline SPFSplat \cite{huang2025spfsplat} with varying SH degrees and proposed ViewSplat on the RE10K. The \textbf{best} results are highlighted.}
+    \vspace{-0.3cm}
+    \label{tab:sh_degree}
+    \setlength{\tabcolsep}{4pt}
+    \resizebox{\linewidth}{!}{
+        \begin{tabular}{l c ccc}
+            \toprule
+            \textbf{Method} & \textbf{SH Degree} & PSNR$\uparrow$ & SSIM$\uparrow$ & LPIPS$\downarrow$ \\ \midrule
+            SPFSplat (Std.) & 4 & 25.486 & 0.847 & 0.153 \\
+            SPFSplat & 6 & 25.408 & 0.845 & 0.154 \\
+            SPFSplat & 8 & 25.418 & 0.845 & 0.153 \\ \midrule
+            \textbf{+ViewSplat} & 4 & \textbf{26.317} & \textbf{0.857} & \textbf{0.144} \\ \bottomrule
+        \end{tabular}
+    }
+\end{minipage}
+\vspace{-0.2cm}
+\end{table}
+
+\vspace{-0.2cm}
+\subsubsection{Efficiency.}
+We evaluate the computational efficiency of our framework on a single NVIDIA RTX 4090 GPU, as summarized in \cref{tab:efficiency}.
+% The integration of our ViewSplat module introduces only a marginal overhead in inference time (\ie, network's feed-forward pass time), which encompasses both the reconstruction of 3D Gaussian from input pairs and the generation of pixel-wise view MLP parameters.
+The integration of the ViewSplat module introduces only marginal overhead in inference time (\ie, the network's forward pass), which encompasses both the reconstruction of 3D Gaussians from input pairs and the generation of pixel-wise view MLP parameters.
+Although the rendering speed (FPS) decreases due to the dynamic refinement of 3D Gaussian attributes conditioned on the target view pose, the models consistently maintain real-time performance ($\geq$ 30 FPS). These results demonstrate that ViewSplat effectively balances improved rendering quality with the practical requirement of real-time rendering, ensuring its suitability for interactive applications.
+
+\vspace{-0.2cm}
+\subsubsection{Analysis of View-Dependent Modeling.}
+To further validate the effectiveness of our view-dependent refinement framework, we compare ViewSplat against the baseline SPFSplat with varying SH degrees (\cref{tab:sh_degree}). While increasing the SH degree of the baseline model from 4 to 8 yields negligible improvement and may even slightly degrade performance, ViewSplat with SH degree 4 significantly outperforms all baseline variants. This suggests that standard SH-based representations reach a performance limit in pose-free settings, whereas our view-dependent refinement provides superior expressive capacity for capturing complex specularities and non-linear appearances.
+
+\begin{table}
+    \centering
+\caption{Cross-dataset generalization. All methods are trained on RE10K and evaluated in a zero-shot setting on ACID and DTU. Results using the \textbf{ViewSplat} framework are highlighted in \textbf{bold}, demonstrating consistent performance gains across all SPFSplat variants.}
+\vspace{-0.3cm}
+\label{tab:cross-dataset}
+
+\setlength{\tabcolsep}{5pt}
+\begin{scriptsize}
+    \begin{tabular}{l ccc ccc}
+        \toprule
+        \multirow{2}{*}{\textbf{Method}} & \multicolumn{3}{c}{\textbf{ACID}} & \multicolumn{3}{c}{\textbf{DTU}} \\
+            & PSNR$\uparrow$ & SSIM$\uparrow$ & LPIPS$\downarrow$ & PSNR$\uparrow$ & SSIM$\uparrow$ & LPIPS$\downarrow$ \\ \midrule
+        \textit{Pose-Required} & & & & & & \\
+        pixelSplat & 25.477 & 0.770 & 0.207 & 15.067 & 0.539 & 0.341 \\
+        MVSplat & 25.525 & 0.773 & 0.199 & 14.542 & 0.537 & 0.324 \\ \midrule
+        \textit{Supervised Pose-Free} & & & & & & \\
+        NoPoSplat* & 25.764 & 0.776 & 0.199 & 17.899 & 0.629 & 0.279 \\ \midrule
+        \textit{Self-Supervised Pose-Free} & & & & & & \\
+        SelfSplat & 22.204 & 0.686 & 0.316 & 13.249 & 0.434 & 0.441 \\
+        PF3plat & 20.726 & 0.610 & 0.308 & 12.972 & 0.407 & 0.464 \\ \midrule
+        SPFSplat & 25.965 & 0.781 & 0.190 & 16.550 & 0.579 & 0.270 \\
+        \textbf{+ViewSplat} & \textbf{26.595} & \textbf{0.793} & \textbf{0.179} & \textbf{16.864} & \textbf{0.589} & \textbf{0.259} \\ \midrule
+        SPFSplatV2 & 26.220 & 0.789 & 0.185 & 16.793 & 0.584 & 0.265 \\
+        \textbf{+ViewSplat} & \textbf{26.761} & \textbf{0.798} & \textbf{0.175} & \textbf{17.034} & \textbf{0.588} & \textbf{0.258} \\ \midrule
+        SPFSplatV2-L & 26.361 & 0.796 & 0.169 & 17.739 & 0.653 & 0.228 \\
+        \textbf{+ViewSplat} & \textbf{27.169} & \textbf{0.810} & \textbf{0.154} & \textbf{18.174} & \textbf{0.665} & \textbf{0.215} \\ \bottomrule
+    \end{tabular}
+\end{scriptsize}
+\vspace{-0.6cm}
+\end{table}
+
+\subsubsection{Cross-Dataset Generalization.}
+To evaluate the generalization capability of our method, we conduct zero-shot evaluations on the ACID and DTU datasets after training exclusively on RE10K. The results in \cref{tab:cross-dataset} and \cref{fig:qualitative_cross_dataset} demonstrate that our ViewSplat framework, particularly when integrated with the SPFSplatV2-L backbone, consistently outperforms all baselines, including pose-required and supervised pose-free methods. Notably, we observe consistent performance gains across all backbone variants (SPFSplat, V2, and V2-L) when our view-dependent refinement is incorporated. This stable improvement suggests that our module learns transferable view-dependent representations that generalize effectively to out-of-distribution environments, ranging from the natural landscape of ACID to the object-centric scenes of DTU.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=1\linewidth]{qualitative_cross_dataset.pdf}
+    \vspace{-0.7cm}
+    \caption{Qualitative results of cross-dataset generalization. }
+    \vspace{-0.3cm}
+    \label{fig:qualitative_cross_dataset}
+\end{figure}
+
+\begin{figure}
+% \vspace{-0.1cm}
+    \centering
+\begin{minipage}[c]{0.73\textwidth}
+    \centering
+    \vspace{-0.5cm}
+    \captionof{table}{Effectiveness of refinement components. We evaluate the contribution of residual offsets for each Gaussian parameter on RE10K. $\Delta\mu$, $\Delta\alpha$, $\Delta r$, $\Delta s$, and $\Delta c$ denote the residual offsets for mean, opacity, rotation, scale, and SH coefficients, respectively. The \textbf{best} and \underline{second-best} results are highlighted.}
+    \label{tab:ablation_offsets}
+    \vspace{0.2cm}
+\begin{scriptsize}
+    \resizebox{\textwidth}{!}{
+        \begin{tabular}{l ccc ccc}
+            \toprule
+            \textbf{Method} & $\Delta\mu$ & $\Delta\alpha$ & $\Delta(r,s,c)$ & PSNR$\uparrow$ & SSIM$\uparrow$ & LPIPS$\downarrow$ \\ \midrule
+            (1) Baseline (SPFSplat) & $\times$ & $\times$ & $\times$ & 25.484 & 0.847 & 0.153 \\
+            (2) $\Delta(\mu,\alpha)$ only & $\checkmark$ & $\checkmark$ & $\times$ & 25.760 & 0.850 & 0.155 \\
+            (3) $\Delta(r,s,c)$ only & $\times$ & $\times$ & $\checkmark$ & 26.241 & \underline{0.856} & 0.146 \\
+            (4) w/o $\Delta\alpha$ & $\checkmark$ & $\times$ & $\checkmark$ & 15.684 & 0.555 & 0.525 \\
+            (5) w/o $\Delta\mu$ & $\times$ & $\checkmark$ & $\checkmark$ & \underline{26.307} & \textbf{0.857} & \underline{0.145} \\
+            \textbf{(6) Full (ViewSplat)} & $\checkmark$ & $\checkmark$ & $\checkmark$ & \textbf{26.317} & \textbf{0.857} & \textbf{0.144} \\ \bottomrule
+        \end{tabular}
+    }
+\end{scriptsize}
+\end{minipage}
+\hfill
+\begin{minipage}[c]{0.25\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{qualitative_mrsc.pdf}
+    \vspace{-0.7cm}
+    \captionof{figure}{Artifacts from decoupled $\mu/\alpha$ refinement.}
+    \label{fig:qualitative_mrsc}
+\end{minipage}
+\vspace{-0.5cm}
+\end{figure}
+
+\vspace{-0.3cm}
+\subsection{Ablation Studies}
+\vspace{-0.2cm}
+\subsubsection{Ablation on Refinement Components.}
+\cref{tab:ablation_offsets} shows that most refinement subsets improve performance over the baseline. However, case (4) suffers catastrophic degradation when mean offsets are applied without corresponding opacity refinement. This decoupling leads to severe artifacts, blurring, and structural collapse, as shown in \cref{fig:qualitative_mrsc}. These results confirm that spatial shifts must be synchronized with visibility updates to preserve structural coherence. By jointly optimizing all parameters, our full model (6) achieves the best performance across all metrics, underscoring the importance of holistic refinement.
+
+\begin{table}
+    \centering
+% \vspace{-0.7cm}
+\caption{Comparison of different training strategies on RE10K. We compare our proposed ViewSplat (SPFSplat-initialized with frozen backbone) against two variants: (1) a fully fine-tuned version starting from our main ViewSplat model, and (2) a model trained from MASt3R pre-trained weights without freezing. The \textbf{best} results are highlighted.}
+\label{tab:ablation_trainconfig}
+\vspace{-0.2cm}
+
+\setlength{\tabcolsep}{5pt}
+\begin{scriptsize}
+    \begin{tabular}{l c c ccc}
+        \toprule
+        \textbf{Strategy} & \makecell{\textbf{Pre-trained} \\ \textbf{Weight}} & \makecell{\textbf{Freeze} \\ \textbf{Pre-trained}} & PSNR$\uparrow$ & SSIM$\uparrow$ & LPIPS$\downarrow$ \\ \midrule
+        ViewSplat (MASt3R-init) & MASt3R & $\times$ & 26.192 & 0.854 & \textbf{0.140} \\
+        ViewSplat & SPFSplat & $\checkmark$ & 26.317 & 0.857 & 0.144 \\
+        ViewSplat (w/ FT) & ViewSplat & $\times$ & \textbf{26.459} & \textbf{0.859} & 0.141 \\ \bottomrule
+    \end{tabular}
+\end{scriptsize}
+% \vspace{-0.1cm}
+\end{table}
+
+\vspace{-0.5cm}
+\subsubsection{Ablation on Training Strategies.}
+\cref{tab:ablation_trainconfig} compares the impact of different initialization and freezing strategies. Our main ViewSplat model, which trains only the view-dependent head while freezing the backbone initialized with SPFSplat weights, achieves superior performance compared to training all parameters from MASt3R weights. For the MASt3R-initialized variant, we adopt learning rates of $1 \times 10^{-5}$ for the encoder and decoder, and $1 \times 10^{-4}$ for the heads. The best performance is achieved by unfreezing the backbone and fine-tuning the entire model (ViewSplat w/ FT), with all learning rates reduced by a factor of 10. However, jointly training the backbone causes significant additional computational overhead; given that the performance gains are relatively marginal compared to the increased training cost, we adopt the frozen backbone configuration as our default setting. These results indicate that SPFSplat-based initialization provides a robust starting point, while global fine-tuning can further enhance performance at the cost of higher resource requirements. More ablation studies are included in the supplementary material.
+
+% \begin{table}
+%     \centering
+% \caption{Comparison of rendering quality and computational efficiency on RE10K according to the hidden dimension (D) of the view MLP.}
+% \label{tab:ablation_hiddendim}
+
+% \setlength{\tabcolsep}{5pt}
+% \begin{tiny}
+%     \begin{tabular}{l ccc c c c}
+%         \toprule
+%         \textbf{D} & PSNR$\uparrow$ & SSIM$\uparrow$ & LPIPS$\downarrow$ & \textbf{Inf. Time (s)}$\downarrow$ & \textbf{FPS}$\uparrow$ & \textbf{Mem. (GiB)}$\downarrow$ \\ \midrule
+%         8 & 26.314 & 0.857 & 0.144 & 0.057 & 186 & 0.528 \\
+%         16 & 26.317 & 0.857 & 0.144 & 0.057 & 154 & 0.648 \\ \bottomrule
+%     \end{tabular}
+% \end{tiny}
+% \vspace{-15pt}
+% \end{table}
+
+% \subsubsection{Ablation on Hidden Dimension.}
+% As shown in \cref{tab:ablation_hiddendim}, reducing the hidden dimension $D$ of the view MLP improves rendering speed and memory efficiency with a negligible impact on refinement quality. While our other experiments adopt $D=16$ to maximize fidelity, setting $D=8$ offers a more favorable trade-off for real-time applications, yielding meaningful computational savings while maintaining nearly identical visual performance.
+
+\vspace{-0.2cm}
+\subsection{Limitations}
+\vspace{-0.1cm}
+% \hj{가능하면 Limitations도 추가하자}
+% 그리고 부족한 페이지는 {\verb| \vspace{-0.5cm}|} 명령어로 간격 줄여서 확보 가능해. Fig/Table과 Caption 사이 간격, 문단간 간격 등 모든 간격 다 줄여도 괜찮아 - 넵 Limitations를 supplementary material에 넣어야 되나 했었는데 일단 간격 줄여서 넣어보겠습니다.
+Despite the improvements achieved by ViewSplat through its view-dependent refinement framework, it inherits a key limitation of the baseline SPFSplat: the inability to synthesize content in unobserved regions. Since both methods are reconstruction-based and lack generative priors, they cannot hallucinate missing information, which results in blurry artifacts or empty regions in sparse-view areas, as illustrated in \cref{fig:qualitative_fail}. This limitation highlights the inherent challenge of achieving complete scene recovery without incorporating generative modeling.
+
+\begin{figure}
+\vspace{-0.2cm}
+    \centering
+    \includegraphics[width=1\linewidth]{Qualitative_fail.pdf}
+    \vspace{-0.4cm}
+    \caption{Limitations: visual artifacts in unobserved regions.}
+    \label{fig:qualitative_fail}
+\end{figure}
+
+
+% \section{Policies}
+% The policies governing the review process of ECCV \ECCVyear{} are detailed on the conference webpage (see \url{ https://eccv.ecva.net/Conferences/2026/SubmissionPolicies}), such as regarding confidentiality, dual submissions, double-blind reviewing, plagiarism, and more. 
+% By submitting a paper to ECCV, the authors acknowledge that they have read the submission policies and that the submission follows the rules set forth.
+
+% Accepted papers will be published in LNCS proceedings with Springer.
+% To that end, authors must follow the Springer Nature Code of Conduct for Authors (see \url{https://www.springernature.com/gp/authors/book-authors-code-of-conduct}).
+% We would like to draw particular attention to the policies regarding figures and illustrations, as well as ethical approval and informed consent, which are also reproduced on the ECCV website.
+
+
+% \section{Preserving Anonymity}
+% \label{sec:blind}
+% ECCV reviewing is double blind, in that authors do not know the names of the area chair/reviewers of their papers, and the area chairs/reviewers cannot, beyond reasonable doubt, infer the names of the authors from the submission and the additional material. 
+% You must not identify the authors nor provide links to websites that identify the authors, neither in the paper nor in the supplemental material.
+% If you need to cite a different paper of yours that is being submitted concurrently to ECCV, you should \emph{(1)} cite these papers anonymously, \emph{(2)} argue in the body of your paper why your ECCV paper is non-trivially different from these concurrent submissions, and \emph{(3)} include anonymized versions of those papers in the supplemental material.
+% Violation of any of these guidelines may lead to rejection without review. 
+
+% Many authors misunderstand the concept of anonymizing for blind review.
+% Blind review does not mean that one must remove citations to one's own work---in fact it is often impossible to review a paper unless the previous citations are known and available.
+
+% Blind review means that you do not use the words ``my'' or ``our'' when citing previous work.
+% That is all.
+% (But see below for tech reports.)
+
+% Saying ``this builds on the work of Lucy Smith [1]'' does not say that you are Lucy Smith;
+% it says that you are building on her work.
+% If you are Smith and Jones, do not say ``as we show in [7]'', say ``as Smith and Jones show in [7]'' and at the end of the paper, include reference 7 as you would any other cited work.
+
+% An example of a bad paper just asking to be rejected:
+% \begin{quote}
+%   \begin{center}
+%       An analysis of the frobnicatable foo filter.
+%   \end{center}
+
+%    In this paper we present a performance analysis of our previous paper [1], and show it to be inferior to all previously known methods.
+%    Why the previous paper was accepted without this analysis is beyond me.
+
+%    [1] Removed for blind review
+% \end{quote}
+
+% An example of an acceptable paper:
+% \begin{quote}
+%   \begin{center}
+%      An analysis of the frobnicatable foo filter.
+%   \end{center}
+
+%    In this paper we present a performance analysis of the  paper of Smith \etal [1], and show it to be inferior to all previously known methods.
+%    Why the previous paper was accepted without this analysis is beyond me.
+
+%    [1] Smith, L and Jones, C. ``The frobnicatable foo filter, a fundamental contribution to human knowledge''. Nature 381(12), 1-213.
+% \end{quote}
+
+% If you are making a submission to another conference at the same time, which covers similar or overlapping material, you may need to refer to that submission in order to explain the differences, just as you would if you had previously published related work.
+% In such cases, include the anonymized parallel submission [1] as supplemental material and cite it as
+% \begin{quote}
+%   [1] Authors. ``The frobnicatable foo filter'', ECCV \ECCVyear Submission ID 00324, Supplied as supplemental material {\tt 00324.pdf}.
+% \end{quote}
+
+% Finally, you may feel you need to tell the reader that more details can be found elsewhere, and refer them to a technical report.
+% For conference submissions, the paper must stand on its own, and not \emph{require} the reviewer to go to a tech report for further details.
+% Thus, you may say in the body of the paper ``further details may be found in''.
+% Then submit the tech report as supplemental material.
+% Again, you may not assume the reviewers will read this material.
+
+% Sometimes your paper is about a problem, which you tested using a tool that is widely known to be restricted to a single institution.
+% For example, let's say it's 1969, you have solved a key problem on the Apollo lander, and you believe that the ECCV audience would like to hear about your
+% solution.
+% The work is a development of your celebrated 1968 paper entitled ``Zero-g frobnication: How being the only people in the world with access to the Apollo lander source code makes us a wow at parties'', by Zeus \etal.
+
+% You can handle this paper like any other.
+% Do not write ``We show how to improve our previous work [Anonymous, 1968].
+% This time we tested the algorithm on a lunar lander [name of lander removed for blind review]''.
+% That would be silly, and would immediately identify the authors.
+% Instead write the following:
+% \begin{quotation}
+%    We describe a system for zero-g frobnication.
+%    This system is new because it handles the following cases:
+%    A, B.  Previous systems [Zeus et al. 1968] did not  handle case B properly.
+%    Ours handles it by including a foo term in the bar integral.
+
+%    ...
+
+%    The proposed system was integrated with the Apollo lunar lander, and went all the way to the moon, don't you know.
+%    It displayed the following behaviours, which show how well we solved cases A and B: ...
+% \end{quotation}
+% As you can see, the above text follows standard scientific convention, reads better than the first version, and does not explicitly name you as the authors.
+% A reviewer might think it likely that the new paper was written by Zeus \etal, but cannot make any decision based on that guess.
+% He or she would have to be sure that no other authors could have been contracted to solve problem B.
+
+% For sake of anonymity, authors must omit acknowledgements in the review copy. 
+% They can be added later when you prepare the final copy.
+
+
+% \section{Formatting Guidelines}
+
+% \subsection{Headings}
+% Headings should be capitalized (\ie, nouns, verbs, and all other words except articles, prepositions, and conjunctions should be set with an initial capital) and should, with the exception of the title, be aligned to the left.
+% Only the first two levels of section headings should be numbered, as shown in \cref{tab:headings}.
+% The respective font sizes are also given in \cref{tab:headings}. 
+% Kindly refrain from using ``0'' when numbering your section headings.
+% Words joined by a hyphen are subject to a special rule. 
+% If the first word can stand alone, the second word should be capitalized.
+
+% \begin{table}[tb]
+%   \caption{Font sizes of headings. 
+%     Table captions should always be positioned \emph{above} the tables.
+%   }
+%   \label{tab:headings}
+%   \centering
+%   \begin{tabular}{@{}lll@{}}
+%     \toprule
+%     Heading level & Example & Font size and style\\
+%     \midrule
+%     Title (centered)  & {\Large\bf Lecture Notes \dots} & 14 point, bold\\
+%     1st-level heading & {\large\bf 1 Introduction} & 12 point, bold\\
+%     2nd-level heading & {\bf 2.1 Printing Area} & 10 point, bold\\
+%     3rd-level heading & {\bf Headings.} Text follows \dots & 10 point, bold\\
+%     4th-level heading & {\it Remark.} Text follows \dots & 10 point, italic\\
+%   \bottomrule
+%   \end{tabular}
+% \end{table}
+
+% Here are some examples of headings: 
+% ``Criteria to Disprove Context-Freeness of Collage Languages'', ``On Correcting the Intrusion of Tracing Non-deterministic Programs by Software'', ``A User-Friendly and Extendable Data Distribution System'', ``Multi-flip Networks: Parallelizing GenSAT'', ``Self-determinations of Man''.
+
+
+% \subsection{Figures}
+% \label{sect:figures}
+% For \LaTeX{} users, we recommend integrating figures in your paper using the package \texttt{graphicx}.
+
+% It is essential that all illustrations are clear and legible. 
+% Vector graphics (rather than rasterized images) should be used for diagrams and schemas whenever possible. 
+% Please check that the lines in line drawings are not interrupted and have a constant width. 
+% Line drawings are to have a resolution of at least 800 dpi (preferably 1200 dpi).
+% Grids and details within figures must be clearly legible and may not be written one on top of the other. 
+% The lettering in figures should not use font sizes smaller than 6\:pt ($\sim$2\:mm character height). 
+
+% Figures should be numbered and should have a caption, which should always be positioned \emph{under} the figures, in contrast to the caption belonging to a table, which should always appear \emph{above} the table.
+% Figures and Tables should be cross-referred in the text.
+
+% If they are short, they are centered between the margins (\cf \cref{fig:short}). 
+% Longer captions, covering more than one line, are justified (\cref{fig:example} shows an example). 
+% Captions that do not constitute a full sentence, do not have a period.
+
+
+% \begin{figure}[tb]
+%   \centering
+%   \includegraphics[height=6.5cm]{eijkel2}
+%   \caption{One kernel at $x_s$ (\emph{dotted kernel}) or two kernels at $x_i$ and $x_j$ (\emph{left and right}) lead to the same summed estimate at $x_s$.
+%     This shows a figure consisting of different types of lines.
+%     Elements of the figure described in the caption should be set in italics, in parentheses, as shown in this sample caption. 
+%     The last sentence of a figure caption should generally end with a full stop, except when the caption is not a full sentence.
+%   }
+%   \label{fig:example}
+% \end{figure}
+
+% \begin{figure}[tb]
+%   \centering
+%   \begin{subfigure}{0.68\linewidth}
+%     \fbox{\rule{0pt}{0.5in} \rule{.9\linewidth}{0pt}}
+%     \caption{An example of a subfigure}
+%     \label{fig:short-a}
+%   \end{subfigure}
+%   \hfill
+%   \begin{subfigure}{0.28\linewidth}
+%     \fbox{\rule{0pt}{0.5in} \rule{.9\linewidth}{0pt}}
+%     \caption{Another example of a subfigure}
+%     \label{fig:short-b}
+%   \end{subfigure}
+%   \caption{Centered, short example caption}
+%   \label{fig:short}
+% \end{figure}
+
+% If possible (\eg, if you use \LaTeX) please define figures as floating objects. 
+% \LaTeX{} users, please avoid using the location parameter ``h'' for ``here''. 
+% If you have to insert a pagebreak before a figure, please ensure that the previous page is completely filled.
+
+
+% \subsection{Formulas}
+% Displayed equations or formulas are centered and set on a separate line (with an extra line or half line space above and below). 
+% Equations should be numbered for reference. 
+% The numbers should be consecutive within the contribution, with numbers enclosed in parentheses and set on the right margin.
+% For example,
+% \begin{align}
+%   \psi (u) & = \int_{0}^{T} \left[\frac{1}{2}
+%   \left(\Lambda_{0}^{-1} u,u\right) + N^{\ast} (-u)\right] \text{d}t \; \\
+% & = 0
+% \end{align}
+% and 
+% \begin{equation}
+%   E = m\cdot c^2.
+%   \label{eq:important}
+% \end{equation}
+% Please do not include section counters in the numbering.
+
+% Numbering equations makes reviewing more efficient, because reviewers can refer to a line on a page.  
+% It is important for readers to be able to refer to any particular equation.
+% Just because you did not refer to it in the text does not mean some future reader might not need to refer to it.
+% It is cumbersome to have to use circumlocutions like ``the equation second from the top of page 3''.
+% (Note that the ruler will not be present in the final copy, so is not an alternative to equation numbers).
+% All authors will benefit from reading Mermin's description of how to write mathematics:
+% \url{https://doi.org/10.1063/1.2811173}.
+
+% % No color equations in Springer publications.
+% Equations should never be in color and should be punctuated in the same way as ordinary text.
+% They should not be pasted in as figures.
+
+
+% \subsubsection{Lemmas, Propositions, and Theorems.}
+% The numbers accorded to lemmas, propositions, and theorems, \etc should appear in consecutive order, starting with Lemma 1. 
+% Please do not include section counters in the numbering like ``Theorem 1.1''.
+
+
+% \subsection{Footnotes.}
+% The superscript numeral used to refer to a footnote appears in the text either directly after the word to be discussed or -- in relation to a phrase or a sentence -- following the punctuation mark (comma, semicolon, or period).%
+% \footnote{The footnote numeral is set flush left and the text follows with the usual word spacing. 
+%   Second and subsequent lines are indented. 
+% }
+% For remarks pertaining to the title or the authors' names, in the header of a paper, symbols should be used instead of a number.
+% Please note that no footnotes may be included in the abstract.
+
+
+% \subsection{Cross References}
+% For the benefit of author(s) and readers, please use the
+% \begin{verbatim}
+%   \cref{...}
+% \end{verbatim}
+% command for cross-referencing to figures, tables, equations, or sections.
+% This will automatically insert the appropriate label alongside the cross reference as in this example:
+% \begin{quotation}
+%   To see how our method outperforms previous work, please see \cref{fig:example} and \cref{tab:headings}.
+%   It is also possible to refer to multiple targets as once, \eg~to \cref{fig:example,fig:short-a}.
+%   You may also return to \cref{sec:intro} or look at \cref{eq:important}.
+% \end{quotation}
+% If you do not wish to abbreviate the label, for example at the beginning of the sentence, you can use the
+% \begin{verbatim}
+%   \Cref{...}
+% \end{verbatim}
+% command. Here is an example:
+% \begin{quotation}
+%   \Cref{fig:example} is also quite important.
+% \end{quotation}
+
+
+% \subsection{Program Code}
+% Program listings or program commands in the text are normally set in typewriter font (\eg, \texttt{printf("Hello world!\textbackslash{}n");}).
+
+
+% \subsection{Citations}
+% Arabic numbers are used for citation, which is sequential either by order of citation or by alphabetical order of the references, depending on which sequence is used in the list of references. 
+% The reference numbers are given in brackets and are not superscript.
+% Please observe the following guidelines:
+% \begin{itemize}
+% \item Single citation: 
+% \item Multiple citation:
+%   The numbers should be listed in numerical order.
+%   If you use the template as advised, this will be taken care of automatically.
+% \item If an author's name is used in the text: Alpher was the first \ldots
+% \end{itemize}
+% Please write all references using the Latin alphabet. If the title of the book you are referring to is, \eg, in Russian or Chinese, then please write (in Russian) or (in Chinese) at the end of the transcript or translation of the title.
+% All references cited in the text should be in the list of references and vice versa.
+
+% References should be formatted with the official LNCS reference style.
+% The \LaTeX{} template already takes care of that through the use of the \texttt{splncs04.bst} Bib\TeX{} style file.
+% Springer strongly encourages you to include DOIs (Digital Object Identifiers) in your references. 
+% The DOI is a unique code allotted by the publisher to each online paper or journal article. 
+% It provides a stable way of finding published papers and their metadata. 
+% The insertion of DOIs increases the overall length of the references section, but this should not concern you as the reference section is not counted toward the page limit.
+
+
+% \subsection{Miscellaneous}
+% Compare the following:
+% \begin{center}
+%   \begin{tabular}{ll}
+%     \verb'$conf_a$'          & $\qquad conf_a$ \\
+%     \verb'$\mathit{conf}_a$' & $\qquad \mathit{conf}_a$
+%   \end{tabular}
+% \end{center}
+% See The \TeX book, p.\ 165.
+
+% The space after \eg, meaning ``for example'', should not be a sentence-ending space.
+% So \eg is correct, \emph{e.g.} is not.
+% The provided \verb'\eg' macro takes care of this.
+
+% When citing a multi-author paper, you may save space by using ``et alia'', 
+% shortened to ``\etal'' (not ``{\em et.\ al.}'' as ``{\em et\hskip 0.1em}'' is a complete word).
+% If you use the \verb'\etal' macro provided, then you need not worry about double periods when used at the end of a sentence as in Alpher \etal.
+% However, use it only when there are three or more authors.
+% Thus, the following is correct:
+%    ``Frobnication has been trendy lately.
+%    It was introduced by Alpher, and subsequently developed by
+%    Alpher and Fotheringham-Smythe, and Alpher \etal.''
+
+% This is incorrect: ``... subsequently developed by Alpher \etal ...'' because reference has just two authors.
+
+
+% \subsection{Most Frequently Encountered Issues}
+% Please kindly use the checklist below to deal with some of the most frequently encountered issues in the latex files of ECCV submissions.
+
+% \begin{itemize}
+% \item I have removed all \verb| \vspace| and \verb|\hspace|  commands from my paper.
+% \item I have not used \verb|\cite| command in the abstract.
+% \item I have entered a correct \verb|\titlerunning{}| command and selected a meaningful short name for the paper.
+% \item I have used the same name spelling in all my papers accepted to ECCV and ECCV Workshops.
+% \item I have added acknowledgments without a section number, e.g. using the \verb|\section*{}| command.
+% \item Excluding references and acknowledgments, my paper is no longer than 14 pages.
+% \item I have not decreased the font size of any part of the paper (except tables) to fit into 14 pages, I understand Springer editors will remove such commands.
+% \end{itemize}
+
+
+\vspace{-0.4cm}
+\section{Conclusion}
+ We present ViewSplat, a view-adaptive framework that addresses the fidelity bottleneck in feed-forward 3D Gaussian splatting. By shifting from static primitive regression to view-adaptive dynamic splatting, our method refines Gaussian attributes conditioned on the target view, enabling the modeling of complex view-dependent appearances that rigid representations often fail to model. ViewSplat achieves state-of-the-art fidelity while maintaining real-time rendering (154 FPS) across multiple benchmarks, without requiring pre-computed poses.
+ We hope our view-adaptive paradigm inspires future research into more flexible and high-fidelity 3D representations for real-world scenarios.
+ % We hope that our shift toward view-adaptive refinement provides a new perspective for the community and serves as a robust foundation for future research in developing more flexible and high-fidelity 3D scene representations for in-the-wild applications.
+ % These results highlight view-adaptive refinement as a scalable and efficient paradigm for high-fidelity 3D reconstuction from unconstrained images.
+ 
+ 
+% \clearpage\mbox{}Page \thepage\ of the manuscript.
+% \clearpage\mbox{}Page \thepage\ of the manuscript.
+% \clearpage\mbox{}Page \thepage\ of the manuscript.
+% \clearpage\mbox{}Page \thepage\ of the manuscript.
+% \clearpage\mbox{}Page \thepage\ of the manuscript. This is the last page.
+% \par\vfill\par
+% Now we have reached the maximum length of an ECCV \ECCVyear{} submission (excluding references and acknowledgements).
+% References should start immediately after the main text, but can continue past p.\ 14 if needed. 
+% \clearpage  % TODO FINAL: This \clearpage needs to be removed from both review and camera-ready versions.
+
+% \section*{Acknowledgements}
+% Please insert your acknowledgments here.
+
+% ---- Bibliography ----
+%
+% BibTeX users should specify bibliography style 'splncs04'.
+% References will then be sorted and formatted in the correct style.
+%
+\bibliographystyle{splncs04}
+\bibliography{main}
+
+\appendix
+
+\setcounter{equation}{0} \renewcommand{\theequation}{S\arabic{equation}}
+\setcounter{figure}{0} \renewcommand{\thefigure}{S\arabic{figure}}
+\setcounter{table}{0} \renewcommand{\thetable}{S\arabic{table}}
+
+\makeatletter
+\renewcommand{\theHequation}{S\theequation}
+\renewcommand{\theHfigure}{S\thefigure}
+\renewcommand{\theHtable}{S\thetable}
+\makeatother
+
+\input{supp.tex}
+
+\end{document}

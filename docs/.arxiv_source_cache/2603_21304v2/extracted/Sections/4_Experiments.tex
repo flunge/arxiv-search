@@ -1,0 +1,26 @@
+\section{Experiments}
+
+\noindent{\textbf{Datasets.}}
+We train \OURMODEL\ on the large-scale RealEstate10K (RE10K)~\cite{zhou2018re10k} and ACID~\cite{liu2021acid} datasets, following prior works for train/test splits.
+For two-view evaluation, we adopt the same test split as prior feed-forward methods~\cite{charatan2024pixelsplat, chen2024mvsplat, xu2025depthsplat, li2025vicasplat, ye2024nopo}. 
+For multi-view evaluation, we use the scene categorization provided by NoPoSplat~\cite{ye2024nopo} and select input pairs with small overlap. Additional input views are sampled between the selected pair without duplication to match the target number of input views (8, 16, and 24 views).
+
+\noindent{\textbf{Implementation Details.}} We use three levels of multi-resolution feature maps (\(L=3\)) in all experiments and choose the finest level to match the input image resolution, $(H^L, W^L)\!=\!(H,W)$. We initialize our model from pretrained VGGT weights. We use a learning rate of \(2\times10^{-4}\) for most modules, while freezing the patch embedding weights of the geometry backbone and training the remaining backbone parameters with a smaller learning rate of \(2\times10^{-5}\).
+For multi-view training, we train on RE10K. At each iteration, each GPU independently samples the number of input views from $\{2,3,4,6,12,24\}$ and selects context images accordingly. We additionally sample the same number of target novel views for supervision. To keep the total number of images processed per iteration constant, we use a dynamic batch size that is inversely proportional to the number of context images. The multi-view model is trained for 15,000 iterations.
+For two-view training, separate models are trained on RE10K and ACID, following the training configuration of NoPoSplat~\cite{ye2024nopo}. Each model is trained for 18,750 iterations with a total batch size of 128. We set the weight of MSE and LPIPS loss as 1 and 0.05 for $\mathcal{L}^\text{render}$. For the final total loss, we fix the weight of $\mathcal{L}^\text{render}$, $\mathcal{L}^\text{score}$, $\mathcal{L}^\text{camera}$, and $\mathcal{L}^\text{scene}$ as $1.0$, $10^{-4}$, $10.0$, and $10^{-2}$ respectively, in all experiments. All experiments are conducted on eight NVIDIA H200 GPUs, and each training run takes approximately 15 hours.
+
+\noindent{\textbf{Baselines and Evaluation Metrics.}}
+For multi-view evaluation, we compare \OURMODEL\ with recent feed-forward 3DGS methods under two settings: \textit{uncalibrated} methods that take only images as input without camera poses or intrinsics, and \textit{pose-free} methods that do not require camera poses but assume known intrinsics. 
+For the uncalibrated setting, we compare against VicaSplat~\cite{li2025vicasplat} and AnySplat~\cite{jiang2025anysplat}. For fair comparison, we retrain AnySplat under the same training setup as ours, which requires approximately 27 hours on eight NVIDIA H200 GPUs. VicaSplat uses the officially released multi-view pretrained weights on the RE10K dataset. 
+For the pose-free setting, we compare against NoPoSplat~\cite{ye2024nopo}, VicaSplat~\cite{li2025vicasplat}, and SPFSplat~\cite{huang2025spfsplat}, using their officially released pretrained models.
+For two-view evaluation, we compare with pixelSplat~\cite{charatan2024pixelsplat}, MVSplat~\cite{chen2024mvsplat}, NoPoSplat~\cite{ye2024nopo}, VicaSplat~\cite{li2025vicasplat}, and SPFSplat~\cite{huang2025spfsplat}. We also compare baselines that are not a feed-forward 3D Gaussian splatting method, including pixelNeRF~\cite{yu2021pixelnerf}, DUSt3R~\cite{wang2024dust3r}, MASt3R~\cite{leroy2024mast3r}, and CoPoNeRF~\cite{hong2023coponerf}.
+We evaluate the performance of novel view synthesis using three standard metrics: LPIPS, SSIM, and PSNR. We also report the number of final Gaussian primitives to enable joint comparison of rendering quality and Gaussian-count efficiency.
+\vspace{-10pt}
+
+\input{Tables/Tab1_main_re10k_nview}
+\input{Tables/Tab2_crossdata_acid_nview}
+\input{Sections/4.1_Experimental_results}
+\input{Figures/Fig6_qual}
+\input{Sections/4.2_Ablation_analysis}
+\input{Tables/Tab_3_4_acid2view_ablation}
+

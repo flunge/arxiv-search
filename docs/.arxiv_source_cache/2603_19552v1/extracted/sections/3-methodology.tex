@@ -1,0 +1,184 @@
+\section{Methodology}\label{sec:method}
+
+Reconstructing dynamic urban scenes with large 3D feedforward models such as VGGT~\cite{vggt} is challenging because their Alternating-Attention backbones typically prioritize understanding static structure ~\cite{page4d}. Our approach models both static and dynamic scene components with 3DGS~\cite{kerbl3Dgaussians} primitives, representing dynamics through per-pixel velocities, per-frame poses, and decoupled static/dynamic geometry. 
+To maintain consistent static scene geometry, we discard the per-Gaussian lifespan attribute commonly used in prior methods~\cite{chen2025dggt,xu20254dgt} Instead, static GS primitives persist for the full duration of the sequence, and we regularize against opacity collapse to ensure optimization focusing on refining geometry rather than suppressing contributions of these GS primitives in novel-view synthesis.
+For potential dynamic regions predicted by the motion head, the GS primitives are aggregated across frames using the predicted velocities. The motion head is adapted from the AA layers of VGGT\cite{vggt}, with additional causal attention mask to strengthen temporal modeling. Since precise per-pixel velocity annotations are unavailable in most datasets, the motion head in trained without explicit supervision. 
+
+
+We begin with video tokenization in Sec.~\ref{sec:tokens} then estimate camera parameters and the static scene contents in Sec.~\ref{sec:static}.
+Then we introduce the proposed Causal Dynamics module in Sec.~\ref{sec:causal} and the Spatio-temporal Consistency regularization in Sec.~\ref{sec:motion-consist}. 
+Our overall pipeline is illustrated in Fig.~\ref{fig:pipeline}.
+
+\begin{figure*}[t!]
+\centering
+\includegraphics[width=\linewidth]{images/streetforward_pipeline_v4.pdf}
+\caption{The proposed \StreetForward~pipeline. We illustrate two common types of dynamic scenes with rigid objects(vehicles) and deformable objects(pedestrians) in \cbox{orange!20} and \cbox{blue!20}. The input video is first encoded into per-frame patchified features and then processed by $L$ times alternating global- and frame-attention to aggregate information across frames. These aggregated features are directly decoded by a camera head, a depth head and a Gaussian Head to obtain poses, depth and Gaussian attributes. Then causal masked attention is introduce to form motion-aware features, which are used to estimate both forward and backward motion as well as dynamic mask for separating static and dynamic Gaussians. The final 4D scene is obtained by combining static Gaussians with dynamic Gaussians propagated across time using the predicted motion.}
+\vspace{-0.3cm}
+\label{fig:pipeline}
+\end{figure*}
+
+\subsection{Input Tokenization}\label{sec:tokens}
+Each input video frame is encoded into high-level patchified tokens using a DINO encoder~\cite{dino2}, denoted $\mathcal{E}_{\text{DINO}}$. 
+These tokens are then processed through alternating-attention layers $\mathcal{E}_{\text{attns}}$ of depth $L$, which interleaves cross-frame and intra-frame attention to yield scene-aware features. 
+
+Following VGGT notation, let $z^{I,(L)}_{f,p}\in\mathbb{R}^{D}$ denote the image token of frame $f\in\{1,\dots,F\}$ at patch index $p\in\{1,\dots,P\}$ after $\mathcal{E}_{\text{DINO}}$, and collect them into
+\[
+\mathbf{X}\in\mathbb{R}^{B\times F\times P\times D},\qquad
+\mathbf{X}[b,f,p,:]=z^{I,(L)}_{f,p}.
+\]
+Here $B$ is the batch size, $F$ is the number of frames per clip, $P$ is the number of patches per frame, and $D$ is the token dimension.
+The size of image patch in $S \times S$, for an input of size $H\times W$, the number of patches is $P=(H/S)\cdot(W/S)$ (assuming divisibility). 
+When processing cross-frame attention, we flatten the image tokens along the frame–patch axes:
+\[
+\mathbf{Z}=\mathrm{flatten}_{(f,p)}\big(\mathbf{X}\big)\ \in\ \mathbb{R}^{B\times(F\!\cdot\!P)\times D}.
+\]
+\subsection{Pose Estimation and Static Scene Reconstruction}\label{sec:static}
+From the latent tokens produced by $\mathcal{E}_{\text{attns}}$, we estimate the camera parameters for each frame and initialize a static 3D representation. 
+A camera head $\mathcal{D}_{\text{cam}}$ predicts intrinsics $\mathbf{K}_f$ and extrinsics $(\mathbf{R}_f,\mathbf{t}_f)$, and a depth head $\mathcal{D}_{\text{dep}}$ produces pixel-aligned depth $D_f$. For each pixel $u$, we predict a 3DGS primitive with Gaussian head $\mathcal{D}_{\text{gs}}$
+\[
+g_f(u)=\big(\,\mathbf{\mu}_f(u),\ \mathbf{\Sigma}_f(u),\ \alpha_f(u),\ \mathbf{c}_f(u)\,\big),
+\]
+with center
+\[
+\mathbf{\mu}_f(u)=\mathbf{R}_f^{\!\top}\!\left(\mathbf{K}_f^{-1}\,\tilde{\mathbf{u}}\,D_f(u)-\mathbf{t}_f\right),\quad \tilde{\mathbf{u}}=(u_x,u_y,1)^\top,
+\]
+and covariance initialized compactly (e.g., $\mathbf{\Sigma}_f(u)=\sigma^2\mathbf{I}$, scaled by local image/geometry cues~\cite{meuleman2025onthefly}), while opacity $\alpha_f(u)$ and color $\mathbf{c}_f(u)$ are initialize from appearance priors.
+
+To focus on the static we suppress likely dynamic regions predicted by our motion head $\mathcal{D}_{\text{motion}}$, which is described in detail in the next section. Specifically, let $s_{f,u}$  denote the dynamic probability at pixel $u$ in frame $f$, we threshold the dynamic probability and define a static indicator
+\[
+\chi_{f,u}=
+\mathbb{I}\!\left[s_{f,u}\le \tau_{\text{dyn}}\right].
+\]
+ The set of static 3DGS primitives at frame $f$ and fused global static collection across frames are:
+\[
+\mathcal{G}^{\text{static}}_f=\big\{\,g_f(u)\;:\;\chi_{f,u}=1\,\big\},  \quad \mathcal{G}^{\text{static}}=\bigcup_{f=1}^{F}\mathcal{G}^{\text{static}}_f.
+\]
+
+\subsection{Causal Dynamics Modeling}\label{sec:causal}
+
+To facilitate motion-aware downstream decoding, we firstly augment the tokens output by $\mathcal{E}_{\text{attns}}$ with explicit temporal information. Specifically, we concatenate a sinusoidal embedding $\tau_f \in \mathbb{R}^{d_t} $ to every token in frame $f$:
+ \[
+\tilde{\mathbf{X}}[b,f,p,:]=\mathbf{X}[b,f,p,:]\ \oplus\ \tau_f\ \in\ \mathbb{R}^{D'},\quad D'=D+d_t,
+\]
+where $\oplus$ denotes concatenation along the feature dimension. The augmented tokens are flattened along the frame-patch axes to obtain $\mathbf{\tilde{Z}}\in\mathbb{R}^{B\times(F\!\cdot\!P)\times D'}$
+
+ Operating on the flattened tokens $\mathbf{\tilde{Z}}$, we apply multi-head attention with a \textbf{frame-structured causal mask} that restricts query–key pairs to a designated source--target frame relation. Let $\mathrm{frame}(i)$ map a flattened token index $i\in\{1,\dots,F\!\cdot\!P\}$ to its frame. For a given source frame $f_{\mathrm{s}}$ and target frame $f_{\mathrm{t}}$, the binary mask $\mathbf{M}\in\{0,1\}^{B\times H\times(F\cdot P)\times(F\cdot P)}$ is
+\[
+\mathbf{M}[b,h,i,j]=
+\begin{cases}
+1, & \text{if } \mathrm{frame}(i)=f_{\mathrm{s}} \text{ and } \mathrm{frame}(j)=f_{\mathrm{t}},\\
+0, & \text{otherwise,}
+\end{cases}
+\]
+where $f_{\mathrm{t}}=f_{\mathrm{s}}+1$ for forward prediction and $f_{\mathrm{t}}=f_{\mathrm{s}}-1$ for backward prediction. With per-head projections $\mathbf{W}^{(h)}_Q,\mathbf{W}^{(h)}_K,\mathbf{W}^{(h)}_V\in\mathbb{R}^{D'\times d_h}$ for $h\in\{1,\dots,H\}$, we set
+\[
+\mathbf{Q}^{(h)} = \mathbf{\tilde{Z}}\,\mathbf{W}^{(h)}_Q,\quad
+\mathbf{K}^{(h)} = \mathbf{\tilde{Z}}\,\mathbf{W}^{(h)}_K,\quad
+\mathbf{V}^{(h)} = \mathbf{\tilde{Z}}\,\mathbf{W}^{(h)}_V,
+\]
+and compute
+\begin{align}
+\mathbf{A}^{(h)} = \operatorname{softmax}\!\left(\frac{\mathbf{Q}^{(h)}{\mathbf{K}^{(h)}}^{\!\top}}{\sqrt{d_h}} + \log \mathbf{M}\right)\,\mathbf{V}^{(h)},
+\label{eq:causal-attn-softmax}
+\end{align}
+where $\log \mathbf{M}$ assigns $-\infty$ to disallowed entries. Concatenating heads and applying an output projection $\mathbf{W}_O\in\mathbb{R}^{(H d_h)\times D'}$ yields dynamics-aware features
+\[
+\hat{\mathbf{Z}}=\mathrm{Concat}_h\big(\mathbf{A}^{(h)}\big)\,\mathbf{W}_O\in\mathbb{R}^{B\times(F\cdot P)\times D'},
+\]
+which we reshape to $\mathbf{Y}\in\mathbb{R}^{B\times F\times P\times D'}$. 
+
+
+\subsubsection{Velocity Decoding}\label{sec:vel}  
+To estimate numerical motion, we regress a dense velocity field from the motion-aware tokens $\mathbf{Y}$ using a DPT-style decoder $\mathcal{D}_{\text{motion}}$ ~\cite{dpt}. The decoder converts the tokens into dense feature maps, fuses multi-scale features and ouptus per-pixel forward and backward velocities $\mathbf{v}_{f,u} \equiv [\mathbf{v}^+_{f,u}, \mathbf{v}^-_{f,u}] \in\mathbb{R}^6$, together with a pixel-aligned dynamic probability $\sigma_{f,u}>0$ to weight training losses and to distinguish dynamic from static region. As shown in Fig.~\ref{fig:vel}, our proposed Causal Dynamics yields precise velocities while avoiding false motion on static content (e.g, parked vehicles). 
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\linewidth]{images/streetforward_velocity.pdf}
+\caption{Robustness to false-positive motion-mask prompts. 
+Our method correctly assigns near-zero dynamic probability to parked or slowly moving vehicles, even if they are labeled as dynamic in annotations. This accurate understanding of motion (c) eliminates the motion ambiguity seen in DGGT (a), resulting in stable and clear rendering of the target vehicle over time (d).
+}
+\vspace{-0.3cm}
+\label{fig:vel}
+\end{figure*}
+
+
+\subsection{Motion Consistency}\label{sec:motion-consist}
+
+\subsubsection{Local Rigidity Motion.} 
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.99\linewidth]{images/sf-fig-ablation-rigid.pdf}
+\caption{Enforcing rigid regularization ($\mathcal{L}_\text{rigid}$) removes the structural floaters seen around rigid objects in (a). 
+}
+\vspace{-0.5cm}
+\label{fig:exp_rigid}
+\end{figure}
+Let $\mathbf{\mu}_{f,u}\in\mathbb{R}^3$ be the 3D Gaussian location associated with pixel $(f,u)$ and let $\mathbf{v}_{f,u}\in\mathbb{R}^3$ be the velocity predicted by the motion decoder. With time step $\Delta t$, we propagate the Gaussian center as
+\[
+{\mathbf{\mu}}_{f+1, u} = \mathbf{\mu}_{f,u} + \Delta t\,{\mathbf{v}}_{f,u}
+\]
+In practice, learning motion purely from rendering and reconstruction losses is ill-posed, and explicit per-pixel motion supervision is typically unavailable. In addition, motion estimates from off-the-shelf trackers~\cite{chen2025dggt,lin2025movies,xu20254dgt} lack robustness. To stabilize motion learning, we impose a local rigidity prior~\cite{luiten2023dynamic} that encourages piecewise-rigid motion within local neighborhoods in both image space and 3D space. For 2D rigidity, we encourage neighboring pixels to share similar motion:
+\begin{align}
+    \underbrace{\mathcal{L}_{\text{rigid-2D}}}_{\{\mathcal{D}_{\text{motion}},\,\mathcal{D}_{\text{dep}}\}}
+    =
+    \sum_{f}\sum_{u}\sum_{u^\prime \in \mathcal{N}(u)}
+    \omega(\sigma_{f,u}, \sigma_{f,u^\prime})
+    \left\|
+    v_{f,u}-v_{f,u^\prime}
+    \right\|^2_2
+    \label{eq:rigid-2D}
+\end{align}
+where $\mathcal{N}(u)$ is a fixed 2D local window, and $\omega(\cdot, \cdot)$ converts the dynamic confidence to weight.
+For 3D rigidity, we compute the $K$ nearest neighbors of each 3D point and enforce consistent velocities:
+\begin{align}
+    \underbrace{\mathcal{L}_{\text{rigid-3D}}}_{\{\mathcal{D}_{\text{motion}},\,\mathcal{D}_{\text{dep}}\}}
+    =
+    \sum_{f}\sum_{u}\sum_{u^\prime \in \mathcal{N}_K(u)}
+    \omega(\sigma_{f,u}, \sigma_{f,u^\prime})
+    \left\|
+    v_{f,u}-v_{f,u^\prime}
+    \right\|^2_2
+    \label{eq:rigid-3D}
+\end{align}
+The overall rigidity motion regularization is:
+\begin{align}
+    \mathcal{L}_{\text{rigid}}=\mathcal{L}_{\text{rigid-2D}} + \mathcal{L}_{\text{rigid-3D}}
+    \label{eq:rigid}
+\end{align}
+
+
+\subsubsection{Temporal consistency.}
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.99\linewidth]{images/fig-ablation-bw_v2.pdf}
+\caption{\textbf{Temporal interpolation.} With observation at time t-1 and t+1, we manage to correctly synthesize at time t. The figure compares the results of our full model against an ablation without backward fusion by predicting forward velocity only, and DGGT~\cite{chen2025dggt}. The left three columns show pedestrian is with correct poses, and the right three columns display vehicle geometry reconstruction, where our model delivers complete geometries.}
+\vspace{-0.5cm}
+\label{fig:forward_backward}
+\end{figure}
+
+
+We translate dynamic Gaussians across time according to predicted velocities, enabling temporal fusion that mitigates occlusions.
+For a dynamic Gaussian centered at $\mu_{f,u}$, we predict its forward and backward velocities $v_{u}^+=v_{u}^{f\rightarrow f+1}$ and $v_{u}^-=v_{u}^{f\rightarrow f-1}$.
+We obtain proposals in the adjacent frames via propagation:
+\begin{align}
+{\mathbf{\mu}}_{u}^{\,f-1\mid f} = \mathbf{\mu}_{u}^{f} + \Delta t\,{\mathbf{v}}^{-}_{u}, \quad \nonumber
+{\mathbf{\mu}}_{u}^{\,f+1\mid f} = \mathbf{\mu}_{u}^{f} + \Delta t\,{\mathbf{v}}^{+}_{u}. \nonumber
+\label{eq:for-backward-proposal}
+\end{align}
+Likewise, dynamic Gaussians from adjacent frames are warped into the current frame $f$. At render time we deliberately exclude the dynamic Gaussians parameterized at $f$ itself. This forces dynamic object in frame $f$ must explained from adjacent-frame dynamics, preventing degenerate placement of other frames' instance out of the current field of view during training. Let $\mathcal{T}$ denote a temporal window that excludes the current timestamp ($t\neq f$).
+The set of Gaussians used to render frame $f$ is
+\[
+\mathcal{G}^{f} \;=\; \mathcal{G}^{\text{static}}\;\cup\;\bigcup_{t \in \mathcal{T}}\mathcal{G}^{\text{dynamic}}_{f\leftarrow t},
+\]
+where $\mathcal{G}^{\text{dynamic}}_{f\leftarrow t}$ are dynamic Gaussians from frame $t$ warped into frame $f$ (e.g., $t\in\{f-1,f+1\}$ by default).
+To regularize the motion field, we adopt a constant-velocity assumption over the short interval $\Delta t$, and penalize deviations from forward–backward symmetry:
+\begin{align}
+\mathcal{L}_{\text{fb}}
+=\sum_{u}
+||
+\mathbf{v}^{f\rightarrow f+1}_u +
+\mathbf{v}^{f\rightarrow f-1}_u
+||_{1}.
+\label{eq:fb-loss}
+\end{align}
+As illustrated in Fig.~\ref{fig:forward_backward}, this joint forward--backward fusion enables novel temporal synthesis for both deformable and rigid objects, producing realistic actions and complete geometries.

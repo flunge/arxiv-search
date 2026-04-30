@@ -1,0 +1,351 @@
+\documentclass[runningheads]{llncs}
+
+% ---------------------------------------------------------------
+% Include basic ECCV package
+ 
+% TODO REVIEW: Insert your submission number below by replacing '*****'
+% TODO FINAL: Comment out the following line for the camera-ready version
+% \usepackage[review,year=2026,ID=5198]{eccv}
+% TODO FINAL: Un-comment the following line for the camera-ready version
+\usepackage{eccv}
+
+% OPTIONAL: Un-comment the following line for a version which is easier to read
+% on small portrait-orientation screens (e.g., mobile phones, or beside other windows)
+%\usepackage[mobile]{eccv}
+
+
+% ---------------------------------------------------------------
+% Other packages
+
+% Commonly used abbreviations (\eg, \ie, \etc, \cf, \etal, etc.)
+\usepackage{eccvabbrv}
+\usepackage{float}
+
+% Include other packages here, before hyperref.
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{bm}
+
+% The "axessiblity" package can be found at: https://ctan.org/pkg/axessibility?lang=en
+\usepackage[accsupp]{axessibility}  % Improves PDF readability for those with disabilities.
+
+
+% ---------------------------------------------------------------
+% Hyperref package
+
+% It is strongly recommended to use hyperref, especially for the review version.
+% Please disable hyperref *only* if you encounter grave issues.
+% hyperref with option pagebackref eases the reviewers' job, but should be disabled for the final version.
+%
+% If you comment hyperref and then uncomment it, you should delete
+% main.aux before re-running LaTeX.
+% (Or just hit 'q' on the first LaTeX run, let it finish, and you
+%  should be clear).
+
+% TODO FINAL: Comment out the following line for the camera-ready version
+%\usepackage[pagebackref,breaklinks,colorlinks,citecolor=eccvblue]{hyperref}
+% TODO FINAL: Un-comment the following line for the camera-ready version
+\usepackage{hyperref}
+
+% Support for ORCID icon
+\usepackage{orcidlink}
+\usepackage{amsmath}
+\usepackage{multirow}
+\usepackage{colortbl}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{amssymb}
+\usepackage[table]{xcolor}
+
+
+\begin{document}
+
+% ---------------------------------------------------------------
+% TODO REVIEW: Replace with your title
+\title{AdvSplat: Adversarial Attacks on Feed-Forward Gaussian Splatting Models} 
+
+% TODO REVIEW: If the paper title is too long for the running head, you can set
+% an abbreviated paper title here. If not, comment out.
+\titlerunning{Abbreviated paper title}
+
+% TODO FINAL: Replace with your author list. 
+% Include the authors' OCRID for the camera-ready version, if at all possible.
+\author{Yiran Qiao \and
+Yiren Lu \and
+Yunlai Zhou \and Rui Yang \and Linlin Hou \and Yu Yin \and Jing Ma}
+
+% TODO FINAL: Replace with an abbreviated list of authors.
+\authorrunning{F.~Author et al.}
+% First names are abbreviated in the running head.
+% If there are more than two authors, 'et al.' is used.
+
+% TODO FINAL: Replace with your institution list.
+\institute{Case Western Reserve University, Cleveland OH 44106, USA \\
+\email{\{yxq350, yxl3538, yxz3057, rxy337, lxh663, yxy1421, jxm1384\}@case.edu}\\}
+
+\maketitle
+
+\begin{figure}
+  \includegraphics[width=\textwidth]{Figures/Teaser_Image.pdf}\\
+  \centering
+  \caption{White-box attack (here we use PGD attack \cite{madry2017towards}) results against feed-forward 3DGS model (here we use NoPoSplat\cite{ye2024no})) on the RE10K dataset. "Ref." denotes two input reference views, and "Novel Views" denote the newly rendered target viewpoints. The first row shows results on clean inputs, while the second row shows results on adversarially perturbed inputs. The rightmost radar chart shows the rendered image quality with clean/attacked inputs, where PSNR is normalized with 30 as the maximum value. As shown, both quantitative and qualitative results consistently indicate that even imperceptible perturbations can severely degrade the reconstruction quality.}
+  \label{fig:teaser}
+\end{figure}
+
+
+\begin{abstract}
+3D Gaussian Splatting (3DGS) is increasingly recognized as a powerful paradigm for real-time, high-fidelity 3D reconstruction. However, its per-scene optimization pipeline limits scalability and generalization, and prevents efficient inference. Recently emerged feed-forward 3DGS models address these limitations by enabling fast reconstruction from a few input views after large-scale pretraining, without scene-specific optimization. Despite their advantages and strong potential for commercial deployment, the use of neural networks as the backbone also amplifies the risk of adversarial manipulation. In this paper, we introduce AdvSplat, the first systematic study of adversarial attacks on feed-forward 3DGS. We first employ white-box attacks to reveal fundamental vulnerabilities of this model family. %We then develop a more practically relevant black-box attack based on a modified Covariance Matrix Adaptation Evolution Strategy (CMA-ES), enabling effective query-based attacks without access to model internals. %
+We then develop two improved, practically relevant, query-efficient black-box algorithms that optimize pixel-space perturbations via a frequency domain parameterization: one based on gradient estimation and the other gradient-free, without requiring any access to model internals. Extensive experiments across multiple datasets demonstrate that AdvSplat can significantly disrupt reconstruction results by injecting imperceptible perturbations into the input images. Our findings surface an overlooked yet urgent problem in this domain, and we hope to draw the community’s attention to this emerging security and robustness challenge.
+  \keywords{Adversarial Attacks \and Generalizable 3D Reconstruction \and Novel View Synthesis}
+\end{abstract}
+
+
+\section{Introduction}
+\label{sec:intro}
+
+% 3D reconstruction is a fundamental task in computer vision, aiming to recover 3D geometry and structure from multi-view 2D images. Representative approaches include Neural Radiance Fields (NeRF)\cite{mildenhall2021nerf} and, more recently, 3D Gaussian Splatting (3DGS)\cite{kerbl20233d}, which has become a dominant paradigm due to its fast rendering and high-fidelity reconstruction quality. These advantages have enabled 3DGS to be widely adopted across diverse domains, including robotics\cite{keetha2024splatam,lu2024manigaussian,matsuki2024gaussian,zou20253d}, autonomous driving\cite{hess2025splatad,khan2025autosplat,zhou2024drivinggaussian}, and content generation\cite{xiang2025native,xiang2025structured,hunyuan3d2025hunyuan3d,bahmani2025lyra,wu2025direct3d}. However, due to its per-scene optimization nature, conventional 3DGS is limited in efficient inference, it also falls short in scalability and generalization. Moreover, traditional 3DGS often struggles to deliver high-quality reconstructions in sparse-view settings\cite{wu2025difix3d+}. These limitations make conventional 3DGS less competitive in increasingly stringent and practical settings, such as reconstruction from only a few input views and near-instant inference\cite{liu2025monosplat,charatan2024pixelsplat}, which hinders its further commercialization. Recently, \textit{feed-forward 3DGS}\cite{szymanowicz2024splatter,charatan2024pixelsplat} largely mitigates the aforementioned limitations by pretraining on large-scale datasets with few input views\cite{zhang2025advances}, endowing it with the potential to serve as a foundation model and enabling broader commercial deployment.
+
+3D reconstruction recovers 3D geometry and structure from multi-view 2D images. Representative paradigms include NeRF\cite{mildenhall2021nerf} and 3D Gaussian Splatting (3DGS)\cite{kerbl20233d}, the latter becoming dominant due to real-time rendering and high-fidelity reconstruction. These strengths have driven 3DGS adoption in robotics\cite{keetha2024splatam,lu2024manigaussian,matsuki2024gaussian,zou20253d}, autonomous driving\cite{hess2025splatad,khan2025autosplat,zhou2024drivinggaussian}, and content generation\cite{xiang2025native,xiang2025structured,hunyuan3d2025hunyuan3d,bahmani2025lyra,wu2025direct3d}. However, conventional 3DGS relies on per-scene optimization, limiting inference efficiency, scalability, and generalization, and often underperforming in sparse-view settings\cite{wu2025difix3d+}. These limitations hinder its practicality in few-view, near-instant reconstruction scenarios\cite{liu2025monosplat,charatan2024pixelsplat}. In contrast, \textit{feed-forward 3DGS}\cite{szymanowicz2024splatter,charatan2024pixelsplat} alleviates these issues through large-scale pretraining with few-view inputs\cite{zhang2025advances}, offering strong potential for foundation-model-style 3D reconstruction and broader commercial deployment.
+
+\looseness -1
+Given these desirable properties and strong potential of feed-forward 3DGS, ensuring its robustness becomes critically important. While a few studies\cite{lu2024poison,zeybey2024gaussian} have revealed the vulnerability of conventional 3DGS by designing adversarial attacks, the vulnerability of feed-forward 3DGS remains largely unexplored. This raises an overlooked yet crucial question, one that we aim to answer in this paper: \textit{How robust are feed-forward 3DGS models against adversarial attacks, and how can they be effectively attacked?} Although white-box attacks are simple and effective, their applicability in real-world scenarios is limited by the requirement of access to model internals. Motivated by this, we focus on the more practical \textit{black-box attack setting}.  This problem remains uninvestigated in the community, especially due to two key challenges. 
+%\textbf{Challenge 1: Robustness of feed-forward 3DGS models remains unclear.} Unlike standard image classification, 3D reconstruction involves fundamentally different model architectures and capacities. To date, no prior work has systematically examined whether feed-forward 3DGS models are sufficiently robust to meticulously designed perturbations. %
+\textbf{Challenge 1: unknown model parameter weights.} In practice, the internal weights of commercial models are typically unavailable. Instead, access is restricted to API queries, \ie, only the model’s inputs and outputs can be observed. This makes the design of effective attacks substantially more challenging, especially for feed-forward 3DGS models which are often large-scale.
+% \textbf{Challenge 2: Effective attacks require a large number of queries.} Images used for reconstruction are typically high-resolution, and feed-forward 3DGS models are relatively insensitive to random noise. Consequently, more queries are needed to identify a favorable optimization direction and avoid degenerating into random search.
+\textbf{Challenge 2: high computational costs. } Traditional black-box attacks are typically categorized into transfer-based and query-based attacks. Feed-forward 3DGS models often exhibit substantially larger feature-space discrepancies than conventional classifiers, largely because they are built upon different high-capacity transformer backbones\cite{wang2025vggt,yang2024depth} with distinct pretraining data, architectural biases, and representation geometries, making transfer-based methods almost impossible. Query-based attacks can be further divided into non-optimization\cite{andriushchenko2020square,guo2019simple,brendel2017decision} and optimization-based\cite{ilyas2018black} approaches. Non-optimization attacks often rely on decision-boundary exploration or random noise search, but both are ineffective for feed-forward 3DGS models: these models lack a decision boundary since their tasks are not classification, and their large capacity makes them relatively insensitive to random noise. We therefore focus on optimization-based black-box attacks, which optimize adversarial perturbations through model queries. However, despite faster inference compared to traditional 3DGS, feed-forward 3DGS models remain large, making the per-query cost a bottleneck for query-intensive attacks. Moreover, reconstruction outputs lie in a high-dimensional pixel space, requiring extensive queries to explore adversarial perturbations, further exacerbating this challenge.
+
+In this paper, we \textbf{answer the research question of feed-forward 3DGS robustness and design effective adversarial attacks against them}. 
+As an initial experiment to reveal the model vulnerability, we applied representative white-box attacks (in particular, Projected Gradient Descent (PGD) \cite{madry2017towards}) designed for conventional classifiers to attack feed-forward 3DGS models. Unlike traditional 3DGS, the neural network architecture of feed-forward 3DGS makes it possible to leverage gradient information to craft adversarial perturbations on the input images. By constructing subtle perturbations through maximizing the reconstruction loss, we observe a significant degradation in rendering quality, as shown in \cref{fig:teaser}. This reveals a potential risk:\textit{ feed-forward 3DGS models are not inherently robust, and an attacker can severely corrupt the model’s outputs by introducing imperceptible perturbations}. 
+% Although white-box attacks are simple and effective, their applicability in real-world scenarios is limited by the requirement of access to model internals. Motivated by this, we focus on the more practical \textit{black-box attack setting}, 
+Inspired by this, we design black-box attacks via optimizing subtle yet misleading perturbations through repeated queries to the feed-forward 3DGS model, either in a  \textit{gradient-based} or a \textit{gradient-free} manner (addressing Challenge 1). To reduce the number of queries and improve efficiency, we devise a Discrete Cosine Transform (DCT) based approach. Specifically, we first partition the image into equal-sized blocks and apply DCT to each block to transform it into the frequency domain. We then perturb only the low-frequency components, whose dimensionality is far lower than that of the pixel space, and transform them back to the image space via the inverse DCT (addressing Challenge 2). 
+
+%(As the vulnerability shown in Fig1, the adversaries can leverage)
+%The above discussion uncovers an overlooked yet highly plausible real-world scenario: 
+Given the vulnerabilities shown above, a highly plausible real-world scenario is that an adversary can repeatedly query a feed-forward 3DGS model to generate adversarially perturbed images and subsequently upload them to the internet. Users may download such data without noticing any abnormality. Once these attacked inputs lead to low-quality reconstructions, both the company’s commercial reputation and user trust may be adversely affected. Our work identifies and systematically investigates this issue, and draws the efficient and generalizable 3D reconstruction community’s attention to security and robustness. The contributions of this work can be concluded in threefold:
+\begin{itemize}
+    \item To the best of our knowledge, this work is the first to investigate a previously overlooked yet important security issue in the deployment of feed-forward 3DGS models, revealing their vulnerabilities to adversarial attacks.
+    \item This paper proposes two black-box attack algorithms for feed-forward 3DGS, including a gradient-based and a gradient-free method, both operating in the frequency domain and requiring access only to model inputs and outputs.
+    \item Extensive experiments across multiple state-of-the-art feed-forward 3DGS models and widely used datasets demonstrate that the proposed methods consistently achieve successful attacks.
+\end{itemize}
+
+\section{Related Work}
+
+\subsection{3D Gaussian Splatting}
+3DGS\cite{kerbl20233d} has recently emerged as a prevailing framework for 3D scene representation. It models geometry, appearance, and texture using an explicit set of anisotropic 3D Gaussian ellipsoids parameterized by their positions, scales, orientations, and colors. Unlike implicit approaches such as NeRF\cite{mildenhall2021nerf}, which heavily queries an MLP-parameterized radiance field, 3DGS enables real-time rendering with high visual fidelity. Moreover, its explicit representation offers improved interpretability and scalability, and is more amenable to vision and graphics applications, including virtual reality\cite{jiang2024vr,tu2024fast}, dynamic scene reconstruction\cite{yang2023real,yang2024deformable,wu20244d}, open-vocabulary 3D semantic segmentation\cite{wu2024opengaussian,qin2024langsplat,shi2024language,ye2024gaussian,lu2025segment}, and 3D editing\cite{qu2025drag,dong20263dgs,yan20243dsceneeditor}. However, the per-scene optimization characteristic of 3DGS limits its generalization and scalability, and also makes it ill-suited for real-time inference requirements.
+
+\subsection{Feed-Forward 3D Gaussian Splatting}
+Feed-forward 3DGS models alleviate the above limitations by pretraining on large-scale datasets\cite{zhang2025advances}. Given only a small set of input images, they predict the parameters of 3D Gaussians with a single forward pass of a network, enabling fast inference. Benefiting from large-scale training data, they also exhibit strong novel-view synthesis capability. For simplicity and clarity, we categorize feed-forward 3DGS methods into pose-known and pose-free approaches.
+\subsubsection{Pose-Known Methods}
+PixelSplat\cite{charatan2024pixelsplat} leverages an epipolar transformer to infer a scene-specific scale factor and estimates a probabilistic depth distribution, which is used to determine 3D Gaussian positions. Building on this, LatentSplat\cite{wewer2024latentsplat} adopts a generative approach to encode uncertainty in the latent space, improving reconstruction quality in high-uncertainty regions. A key limitation of these methods is the unreliability of mapping image features to depth. To address this issue, MVSplat\cite{chen2024mvsplat} builds a cost-volume representation via plane sweeping and leverages cross-view feature similarities to improve depth estimation. In comparison, DepthSplat\cite{xu2025depthsplat} leverages pretrained monocular depth features to improve 3D reconstruction.
+
+\subsubsection{Pose-Free Methods}
+In practice, obtaining accurate camera poses is often non-trivial. Consequently, a growing line of recent work explores pose-free approaches. NoPoSplat\cite{ye2024no} adopts the input-view camera coordinate system as a canonical space and predicts Gaussian primitives without requiring ground-truth poses. SelfSplat\cite{kang2025selfsplat} performs pose-free, generalizable 3DGS by coupling explicit Gaussians with self-supervised depth and pose estimation. In contrast, AnySplat\cite{jiang2025anysplat} predicts Gaussians and poses simultaneously and uses differentiable voxelization to aggregate pixel-wise primitives into voxel-wise Gaussians for efficiency.
+
+\subsection{Adversarial Attacks}
+
+Adversarial attacks are methods for generating adversarial examples. For a conventional classification network, an adversarial example is obtained by adding imperceptible, non-random perturbations to the original input, yielding a new input that can arbitrarily change the model’s prediction\cite{szegedy2013intriguing}. Such attacks are typically studied under two settings: white-box and black-box. White-box attacks craft perturbations by leveraging access to the model’s gradients\cite{moosavi2016deepfool,goodfellow2014explaining,madry2017towards}. In contrast, black-box attacks primarily rely on transferability\cite{liu2016delving} or query-based optimization\cite{ilyas2018black,andriushchenko2020square,guo2019simple,brendel2017decision}. With the rise of 3DGS, its security has gradually attracted increasing attention. PoisonSplat\cite{lu2024poison} formulates a bilevel optimization problem to design a computation-cost attack, thereby exposing the vulnerability of 3DGS systems. However, security and robustness analyses for feed-forward 3DGS models are still absent, and our work fills this gap.
+
+
+\section{Method}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\textwidth]{Figures/Pipeline.pdf}
+  \caption{Pipeline of our proposed method, including gradient-based and gradient-free variants. The \colorbox[HTML]{BFDCE7}{blue blocks} denote the DCT coefficient maps, the \colorbox[HTML]{F9EDE0}{yellow blocks} denote the sampled noise, the \colorbox[HTML]{D9E4C2}{green blocks} denote the images after iDCT, and the \colorbox[HTML]{C6C4DF}{purple blocks} denote the rendered images. The black box in the center is the feed-forward 3DGS model with unknown parameters, illustrated by the \colorbox[HTML]{D9D9D9}{gray block}. The gray ellipses depict a contour map of the loss function, and the red star indicates the maximum. The red arrow inside the ellipse shows the gradient direction, while the red dashed ellipse indicates the noise sampling region. Finally, the noise sample marked with a red checkmark is the optimal perturbation we seek.}
+  \label{fig:pipeline}
+\end{figure}
+
+\looseness -1
+%In this section, we first assume access to the weights of a feed-forward 3DGS model and conduct white-box attacks using PGD to reveal its vulnerabilities. We then present the frequency-domain parameterization of perturbations and introduce two improved black-box attack algorithms, which make the attack effective and efficient. We begin by formalizing feed-forward 3DGS models and PGD.
+We first reveal the vulnerability of feed-forward 3DGS models via white-box attacks using PGD (assuming access to the weights). We then focus on black-box attacks and propose two improved, effective, and query-efficient attack algorithms (gradient-based and gradient-free) based on an efficient frequency domain parameterization of perturbations, as shown in Fig. \ref{fig:pipeline}. %We begin by formalizing feed-forward 3DGS models and PGD.
+
+\subsection{ Preliminaries}
+\subsubsection{Feed-Forward 3DGS}
+Suppose we are given $N$ input images $\{ \bm{I}^i \}_{i=1}^N$ ($\bm{I}^i \in \mathbb{R}^{H \times W \times 3}$, $H$ is image height and $W$ is image width) along with their corresponding camera projection matrices $\{ \bm{P}^i \}_{i=1}^N$ (calculated via intrinsic $\bm{K}^i$, rotation $\bm{R}^i$ and translation $\bm{t}^i$: $\bm{P}^i=\bm{K}^i[\bm{R}^i|\bm{t}^i]$, and can be empty for pose-free settings). The goal of feed-forward 3DGS is to learn a mapping $\bm{f_\theta}$ from input images to the parameters of 3D Gaussians:
+\begin{equation}
+    \bm{f_{\theta}}:\{(\bm{I}^i,\bm{P}^i)\}_{i=1}^{N}\mapsto \{(\bm{\mu}_j,\alpha_j,\bm{\Sigma}_j,\bm{c}_j)\}_{j=1}^{H\times W\times N},
+\end{equation}
+where $\bm{\theta}$ denotes the parameters of the feed-forward network; $\bm{\mu}_j$ is the Gaussian mean; $\alpha_j$ is the opacity; $\bm{\Sigma}_j$ is the covariance; and $\bm{c}_j$ denotes the spherical harmonics coefficients. Given a specific camera pose, each pixel $(p,q)$ color $\bm{I}
+_r(p,q)$ is calculated via alpha blending:
+\begin{equation}
+    \bm{I}_r(p,q) = \sum_{j \in \mathcal{V}} c_j \alpha_j \prod_{l=1}^{j-1} (1 - \alpha_l),
+\end{equation}
+where $\mathcal{V}$ is a set of visible Gaussians that contribute to the pixel.
+\subsubsection{PGD Attack}
+PGD is a white-box adversarial attack algorithm designed for a traditional classifier that iteratively updates an input image using the gradient of the loss $\mathcal{L}$ with respect to the input $x$, seeking a perturbation that most degrades the model’s decision. Starting from the clean image, PGD performs multiple update steps; after each step $t$, the intermediate adversarial sample $x_t$ is projected back into an $\ell_\infty$ constraint set centered at the original input with a specified radius. The procedure is summarized as follows:
+\begin{equation}
+\label{eq1}
+x_{t+1} = \Pi_{x + \mathcal{S}} \left( x_t + \eta \, \text{sgn} \left( \nabla_x \mathcal{L}(\theta, f(x_t), y) \right) \right),
+\end{equation}
+where $y$ is the label, $\Pi$ is the projection operator, $\mathcal{S}$ defines the radius of the $\ell_\infty$-norm ball, $\eta$ denotes the step size, sgn$(\cdot)$ is the sign function, and $\theta$ represents the parameters of the target model.
+
+\subsection{Vulnerability of Feed-Forward 3DGS Model}
+Similar to classification models, exposing the vulnerability of feed-forward 3DGS can be cast as an equivalent objective: whether one can construct imperceptible perturbations on the input images that substantially degrade reconstruction quality. To achieve this goal, we assume full access to the weights of the feed-forward 3DGS model. We then employ PGD, as shown in \cref{eq1}, to perform multi-step attacks and generate adversarial examples. Unlike classification, reconstruction does not involve discrete labels. Nevertheless, the attack objective is analogous: to increase the loss by crafting the manipulation of the input along the gradient direction. Instead of a classification loss, we use a standard combination of a photometric loss and an LPIPS loss as the overall objective. Although different methods employ different training losses, these two terms are almost universally adopted and typically contribute the most, making our choice both reasonable and broadly applicable. We formulate the white-box attacks on feed-forward 3DGS models as follows:
+\begin{gather}
+\label{pgd eq}
+    \bm{I}_{t+1} = \Pi_{\bm{I} + \mathcal{S}} \left( \bm{I}_t + \eta \, \text{sgn} \left( \nabla_{\bm{I}} \mathcal{L}(\theta, f(\bm{I}_t), \bm{I}_t^r) \right) \right), \\
+    \mathcal{L}=\text{MSE}(\bm{I}_t,\bm{I}_t^r)+\lambda\text{LPIPS}(\bm{I}_t,\bm{I}_t^r),
+    \label{loss eq}
+\end{gather}
+where MSE stands for mean square error, $\bm{I}_t$ are input images at step $t$, $\bm{I}_t^r$ are rendered images at step $t$, with the same poses of $\bm{I}_t$, $\lambda$ is the balancing weight. The results in \cref{fig:teaser} show that white-box attacks are effective against feed-forward 3DGS models, producing adversarial examples that cause the reconstruction quality to collapse. This is also reflected consistently by the quantitative metrics in the radar map (more details in Appendix B), revealing the model’s inherent vulnerability.
+
+\subsection{Black-Box Attack on Feed-Forward 3DGS Model}
+
+% Black-box attacks for conventional classifiers mainly fall into two categories: transfer-based attacks and query-based attacks. %However, transfer-based attacks are not well-suited to feed-forward 3DGS models, since different models exhibit different feature spaces (); 
+% Feed-forward 3DGS models often exhibit substantially larger feature-space discrepancies than conventional classifiers, largely because they are built upon different high-capacity transformer backbones\cite{wang2025vggt,yang2024depth} with distinct pretraining data, architectural biases, and representation geometries; 
+\looseness -1
+As discussed in \cref{sec:intro}, an adversarial example crafted on model A does not substantially affect feature extraction in model B. We validate this empirically, with results provided in Appendix C. Moreover, non-optimization query-based attacks are inherently ineffective against feed-forward 3DGS models. Based on this, we focus on optimization-based query attacks.
+
+\subsubsection{Frequency-domain Parameterization of Perturbations}
+\looseness -1
+In query-based attacks, the required number of queries is positively correlated with the dimensionality of the attacked object: as the dimensionality increases, the number of explorable directions also grows, requiring more queries to distinguish favorable optimization directions from random search directions. Because input images in 3D reconstruction tasks are typically high-resolution, a large number of queries is required. This introduces several drawbacks. A larger number of queries substantially increases the computational overhead, thereby raising both the time and monetary costs of the attack. To reduce the number of queries and improve attack efficiency, we propose a frequency-domain parameterization of perturbations.
+
+3D-GSW\cite{jang20243d} points out that the low-frequency components of an image contain the main structural information and can support robust information embedding. Inspired by this, we apply perturbations to the low-frequency components. We first divide the image into blocks $\bm{I_b}$ of equal size, each of size $n\times{n}$. Applying DCT in a block-wise manner provides a localized frequency representation, enabling finer spatial control and more efficient manipulation of region-specific image structures. In this work, we use the orthonormal DCT-II transform matrix $\bm{C}\in\mathbb{R}^{n\times n}$. The $(k,i)$-th entry $\bm{C}_{k,i}$ specifies the contribution of the input sample at spatial index $i\in\{0,1,\ldots,n-1\}$ to the DCT coefficient at frequency index $k\in\{0,1,\ldots,n-1\}$ (with $k=0$ corresponding to the DC component), and is defined as
+\begin{equation}   \bm{C}_{k,i}=\gamma(k)\cos\!\left(\frac{\pi}{n}\left(i+\frac{1}{2}\right)k\right),
+\end{equation}
+where $\gamma(k)$ is the normalization factor ensuring orthonormality (\ie, $\bm{CC}^\top=\bm{I}$), given by $\gamma(0)=\sqrt{\frac{1}{n}}$ and $\gamma(k)=\sqrt{\frac{2}{n}}$ for $k\ge 1$, and the half-sample shift $\left(i+\frac{1}{2}\right)$ is the standard DCT-II sampling convention. Then the DCT coefficient matrix $\bm{F}$ of $\bm{I_b}$ is obtained by:
+\begin{equation}
+    \bm{F}^j = \bm{C}^j \bm{I}_b^j \bm{C}^{j\top},
+\end{equation}
+where $j$ represents the $j$-th block. During the attack, we perturb only the low-frequency components in each DCT coefficient block, i.e., the top-left $s\times s$ sub-block $\bm{F}_{0:s-1,\,0:s-1}^j$ for each $j$, while keeping the remaining coefficients unchanged. After applying the perturbation, we use the inverse DCT (iDCT) to transform the perturbed coefficient map back to the image space:
+\begin{equation}
+{\bm{I}_b^j}' = \bm{C}^{j\top}
+\begin{bmatrix}
+\bm{F}_{0:s-1,\;0:s-1}^j+\bm{\delta}^j & \bm{F}_{0:s-1,\;s:n-1}^j\\[3pt]
+\bm{F}_{s:n-1,\;0:s-1}^j & \bm{F}_{s:n-1,\;s:n-1}^j
+\end{bmatrix}\bm{C}^j,
+\end{equation}
+where ${\bm{I}_b^j}'$ is the $j$-th perturbed image block, $\bm{\delta}^j\in\mathbb{R}^{s\times s}$ denotes the low-frequency perturbation. For simplicity, we denote the intermediate block-wise coefficient matrix as $\bm{F}^j_{ss}+\bm{\delta}_{ss}^j$. After concatenating all image blocks, we obtain the final perturbed image $\bm{I}'$. Although we optimize the perturbation in the frequency domain, applying the iDCT projects it back to the pixel space, allowing us to obtain the desired adversarial example. Next, we apply our method to two black-box attack techniques to construct adversarial examples.
+
+\subsubsection{Gradient-based Approach}
+We leverage a widely used variant of Natural Evolution Strategies (NES)\cite{ilyas2018black} to estimate gradients for feed-forward 3DGS models, which approximates gradients by averaging loss-weighted perturbations sampled from a noise distribution. The procedure can be formulated as follows:
+\begin{equation}
+\nabla_{\bm{I}}\mathcal{L}(\theta)
+\approx
+\frac{1}{2M\sigma}\sum_{m=1}^{M}
+(\mathcal{L}(\bm{I}_m'^+,\bm{I}_{r,(m)}'^+)-\mathcal{L}(\bm{I}_m'^-,\bm{I}_{r,(m)}'^-)\mathbf{u}_m,
+\end{equation}
+where 
+\begin{equation}
+\label{back to img eq}
+    \bm{I}_m'^+={\text{cat}}_{j=1}^J(\bm{C}^{j\top}(\bm{F}_{ss}^j+\sigma\bm{u}_m^j)\bm{C}^j), \bm{I}_m'^-={\text{cat}}_{j=1}^J(\bm{C}^{j\top}(\bm{F}_{ss}^j-\sigma\bm{u}_m^j)\bm{C}^j),
+\end{equation}
+$\bm{u}_m$ is standard Gaussian noise, $\text{cat}(\cdot)$ denotes the concatenation operation, $\sigma$ is the search variance, $J$ is the number of blocks, and $M$ is the number of noise samples, $\bm{I}_{r,(m)}'^+$ and $\bm{I}_{r,(m)}'^-$ are the corresponding rendered images. Once we obtain the estimated gradient, we can employ it in \cref{pgd eq} to optimize the perturbation. The detailed algorithm is provided in Appendix A.
+
+\subsubsection{Gradient-free Approach}
+Although gradient-based methods are intuitive and efficient, they can fail when the model is insensitive to noise or when the gradient is non-smooth. Therefore, we apply our approach to another gradient-free black-box search technique, covariance matrix adaptation evolution strategy (CMA-ES)\cite{hansen2016cma}. CMA-ES iteratively samples candidate perturbations from a multivariate Gaussian distribution and adapts its mean and covariance based on the best-performing samples to guide the search toward better optima. At each iteration $t$, we sample $\mathcal{B}$ candidate perturbations on DCT coefficient:
+\begin{equation}
+    \bm{\delta}_{\beta}^{j,(t)} \sim \mathcal{N}_\beta\!\bigl(\bm{a}^{(t)},\,\bm{V}^{(t)}\bigr),
+\qquad \beta=1,2,\ldots,\mathcal{B},
+\end{equation}
+where $\bm{a}^{(t)}$ is the mean and $\bm{V}^{(t)}$ is the covariance matrix. Their initial values are set to zero and the identity matrix, respectively. We use the first expression in \cref{back to img eq} to obtain the perturbed image $\bm{I}_\beta'^{(t)}$ ($\bm{I}_\beta'^{(t)}={\text{cat}}_{j=1}^J(\bm{C}^{j\top}(\bm{F}_{ss}^{j,(t)}+\bm{\delta}_{\beta}^{j,(t)})\bm{C}^j)$), and then perform a forward pass through the model to obtain the rendered image $\bm{I}'^{(t)}_{r,(\beta)}$. Then, we compute the loss of the $\mathcal{B}$ candidate pertubed images using \cref{loss eq}:
+\begin{equation}
+    \mathcal{L}\!\left(\bm{I}_{1:\mathcal{B}}'^{(t)},\bm{I}'^{(t)}_{r,(1:\mathcal{B})}\right)\;\ge\;
+\mathcal{L}\!\left(\bm{I}_{2:\mathcal{B}}'^{(t)},\bm{I}'^{(t)}_{r,(2:\mathcal{B})}\right)\;\ge\;\cdots\;\ge\;
+\mathcal{L}\!\left(\bm{I}_{\mathcal{B}:\mathcal{B}}'^{(t)},\bm{I}'^{(t)}_{r,(\mathcal{B}:\mathcal{B})}\right),
+\end{equation}
+sort them in descending order, and select the top $\mathcal{B}/2$ perturbation candidates, which aligns with our attack objective of maximizing the loss, effectively providing a gradient-like search direction without explicit gradients. Next, the mean and covariance are updated by the following formulations:
+\begin{gather}
+    \bm{a}^{(t+1)} \;=\; \sum_{\beta=1}^{\mathcal{B}/2} w_\beta\,\bm{\delta}^{(t)}_{\beta:\mathcal{B}}, \\
+    \bm{V}^{(t+1)}
+    = (1-c_{\mu})\,\bm{V}^{(t)}
+    + c_{\mu}\sum_{\beta=1}^{\mathcal{B}/2} w_\beta\,
+    \bigl(\bm{\delta}^{(t)}_{\beta:\mathcal{B}}-\bm{a}^{(t)}\bigr)
+    \bigl(\bm{\delta}^{(t)}_{\beta:\mathcal{B}}-\bm{a}^{(t)}\bigr)^{\top},
+\end{gather}
+where $c_\mu$ is the learning rate for updating the covariance matrix, $\bm{\delta}^{(t)}_{\beta:\mathcal{B}}={\text{cat}}_{j=1}^J\allowbreak
+(\bm{\delta}_{\beta:\mathcal{B}}^{j,(t)})$. $w_\beta$ is the recombination weight of the $\beta$-th ranked perturbation, which is computed by $w'_\beta=ln(\frac{\mathcal{B}+1}{2})-ln(\beta)$ and then normalized by $w_\beta=w'_\beta/\sum_{\beta=1}^{\mathcal{B}/2}w'_\beta$. At final step, the noise sampled from $\mathcal{N}\!\bigl(\bm{a}^{(T)},\,\bm{V}^{(T)}\bigr)$ is the desired perturbation. 
+
+\input{Table1}
+\input{Table2}
+\section{Experiments}
+In this section, we answer the following research questions through extensive experiments: \textbf{RQ1:} How effective are our attack algorithms against different feed-forward 3DGS victim models?
+%When our attack algorithm is integrated into each victim model,
+%(To clarify, since there is no closely related prior work, the “baselines” or "baseline models" in this paper refer to the victim models being attacked), 
+%how effective is it at degrading reconstruction quality? 
+\textbf{RQ2:} Can the DCT-based strategy improve attack efficiency? \textbf{RQ3:} How do different levels of attack strength affect the victim model performance?
+
+
+\subsection{Experiment Settings}
+\subsubsection{Datasets}
+We use two benchmark datasets for feed-forward 3DGS, including Re10K\cite{zhou2018stereo} and DL3DV\cite{ling2024dl3dv}. These two datasets cover a diverse set of indoor and outdoor scenes.
+\input{Results_Fig1}
+\input{Results_Fig4}
+\subsubsection{Baselines}
+To better validate the effectiveness of our AdvSplat, we focus on feed-forward 3DGS models with sufficiently strong performance. Specifically, we select three representative state-of-the-art models, including one pose-known model, DepthSplat\cite{xu2025depthsplat}, and two  pose-free models NoPoSplat\cite{ye2024no} and AnySplat\cite{jiang2025anysplat}.
+
+\subsubsection{Implementation Details}
+We run all models and evaluate our method on a server equipped with four NVIDIA RTX A6000 GPUs. Since we do not know the original training loss used by each black-box model, for fairness and generality, we consistently adopt \cref{loss eq} with $\lambda = 0.05$. We set the image block size $n = 8$ and low frequency block size $s = 3$; accordingly, the number of blocks $J$ is computed as $H\times{W}/n^2$. We set the number of attack iterations to 10,000, the step size $\eta$ to 2/255, while constraining the perturbation magnitude to $\ell_\infty=8/255$. For all baselines, the number of input images $N$ is equal to 2. $M$ and $\mathcal{B}$ are both equal to 40. Notably, to avoid frequent GPU–CPU I/O and enable more efficient computation, \textbf{we implement all AdvSplat operations on CUDA}.
+
+
+\subsubsection{Metrics}
+We adopt standard image quality metrics, including peak signal-to-noise ratio (PSNR), structural similarity (SSIM)\cite{wang2004image}, and learned perceptual image patch similarity (LPIPS)\cite{zhang2018unreasonable}. We additionally include the DINO\cite{zhang2022dino} similarity and the CLIP\cite{radford2021learning} similarity to measure semantic consistency. All metrics are computed between the rendered images and the ground-truth images.
+
+% \begin{table}[h]
+% \centering
+% % ECCV requires captions above tables with standard labeling. 
+% \caption{Quantitative comparison on the RE10K and DL3DV datasets.}
+% \label{tab:re10k_dl3dv}
+% \resizebox{\textwidth}{!}{%
+% \begin{tabular}{l ccccc @{\hspace{1em}} ccccc}
+% \toprule
+% \multirow{2}{*}{Method} & \multicolumn{5}{c}{RE10K} & \multicolumn{5}{c}{DL3DV} \\
+% \cmidrule(lr){2-6} \cmidrule(l){7-11}
+% & \cellcolor{gray!20}PSNR $\uparrow$ & \cellcolor{gray!20}SSIM $\uparrow$ & \cellcolor{gray!20}LPIPS $\downarrow$ & \cellcolor{gray!20}CLIP $\uparrow$ & \cellcolor{gray!20}DINO $\uparrow$ 
+% & \cellcolor{gray!20}PSNR $\uparrow$ & \cellcolor{gray!20}SSIM $\uparrow$ & \cellcolor{gray!20}LPIPS $\downarrow$ & \cellcolor{gray!20}CLIP $\uparrow$ & \cellcolor{gray!20}DINO $\uparrow$ \\
+% \midrule
+% DepthSplat           & 21.090 & 0.710 & 0.228 & 0.956 & 0.930 & 22.21 & 0.785 & 0.165 & 0.963 & 0.909 \\
+% DepthSplat+Ours (GB) & 7.568  & 0.289 & 0.581 & 0.740 & 0.492 & 14.38 & 0.546 & 0.448 & 0.837 & 0.738 \\
+% DepthSplat+Ours (GF) & 9.730  & 0.437 & 0.514 & 0.803 & 0.727 & 16.59 & 0.588 & 0.396 & 0.851 & 0.798 \\
+% \midrule
+% NoPoSplat            & 22.500 & 0.781 & 0.165 & 0.957 & 0.938 & 21.91 & 0.745 & 0.173 & 0.960 & 0.903 \\
+% NoPoSplat+Ours (GB)  & 17.640 & 0.523 & 0.417 & 0.893 & 0.816 & 19.80 & 0.582 & 0.338 & 0.886 & 0.819 \\
+% NoPoSplat+Ours (GF)  & 14.020 & 0.397 & 0.549 & 0.856 & 0.729 & 17.17 & 0.425 & 0.439 & 0.858 & 0.722 \\
+% \midrule
+% AnySplat             & 18.940 & 0.672 & 0.271 & 0.928 & 0.938 & 19.34 & 0.639 & 0.285 & 0.950 & 0.923 \\
+% AnySplat+Ours (GB)   & 12.800 & 0.431 & 0.588 & 0.813 & 0.791 & 15.47 & 0.467 & 0.502 & 0.867 & 0.815 \\
+% AnySplat+Ours (GF)   & 14.490 & 0.460 & 0.561 & 0.859 & 0.832 & 17.52 & 0.497 & 0.481 & 0.876 & 0.839 \\
+% \bottomrule
+% \end{tabular}%
+% }
+% \end{table}
+
+
+\subsection{Experiment Results}
+\subsubsection{Attack Effectiveness of AdvSplat (RQ1)}
+We provide a comprehensive evaluation through both quantitative and qualitative results. As shown in \cref{tab:re10k} and \cref{tab:dl3dv}, our attack method significantly degrades the performance of all victim models across all metrics. Notice that, since our objective is the opposite of the reconstruction goal, the interpretation of all metrics is correspondingly reversed: lower is better for PSNR, SSIM, CLIP, and DINO, while higher is better for LPIPS. In general, when gradient estimation is sufficiently accurate, gradient-based methods outperform gradient-free ones, since moving along the gradient direction increases the loss more rapidly. However, in NoPoSplat, the gradient-free variant outperforms the gradient-based variant because NoPoSplat is trained on a mixture of two datasets, resulting in a larger model capacity and making its gradients harder to estimate accurately. \cref{fig:result1} visualizes the input images and the corresponding rendered outputs. As shown, the perturbations on adversarial inputs are nearly imperceptible to human eyes. This is because the $\ell_\infty$ constraint is strictly set to 8/255. Even in the worst case that each pixel is perturbed by at most 8/255, the PSNR between the adversarial and clean images still remains above 30 dB, showing closeness between them. Despite the small perturbation, the quality of the rendered images after attack degrades dramatically, and some results are even completely corrupted. This indicates that, even in the black-box setting, AdvSplat can generate sufficiently strong adversarial examples, exposing the vulnerability of existing feed-forward 3DGS models under such attacks. We also showcase 3D Gaussian point-cloud visualizations for two scenes (due to page limitations) in \cref{fig:result4}. AdvSplat induces drastic changes in the colors and opacities of Gaussians, thereby successfully degrading the rendering quality.
+
+\subsubsection{Efficiency of DCT-based Strategy (RQ2)}
+\input{Results_Fig2}
+%Using DCT to sample noise in the frequency domain is a key component of our method. We further reduce the number of required samples by restricting perturbations to low-frequency components, which lowers the dimensionality of the optimization space. 
+Using DCT to sample noise from the low-frequency components in the frequency domain is a key strategy of our method, which lowers the dimensionality of the optimization space. Fewer samples translate into fewer queries to the feed-forward 3DGS model, which not only reduces optimization time but also lowers the cost of querying commercial models. \cref{fig:result2} shows the loss (in  \cref{loss eq}, computed as the average across all victim models and datasets) curves with and without DCT. “no DCT” means sampling noise directly in the full pixel space. For fairness, we use the same number of samples. As shown, for both the gradient-based and gradient-free variants, incorporating DCT and sampling noise in the low-frequency components leads to a higher loss at the same query step once reaching convergence, validating the improved efficiency brought by DCT. %This means that under the same $\ell_\infty$ constraint, we can obtain adversarial input images that cause more severe degradation in reconstruction quality.
+
+\input{Table3}
+
+\subsubsection{Attack Effectiveness Under Various Attack Strengths (RQ3)}
+\input{Results_Fig3}
+We vary the attack strength, \ie, the $\ell_\infty$ perturbation budget, to further evaluate the effectiveness of our attack. We consider four attack strengths and evaluate both the gradient-based and gradient-free variants on the two datasets. As shown in \cref{tab:attack_strenths}, as the attack strength increases, all metrics exhibit a consistent trend of deterioration. One exception is that on RE10K, for the gradient-based variant, PSNR and SSIM actually improve when the perturbation budget increases from 8/255 to 16/255. However, this does not imply that a stronger attack leads to better rendering quality. As observed in \cref{fig:result1}, when $\epsilon = 8/255$, the rendered images contain many black artifacts. When $\epsilon = 16/255$ (in \cref{fig:result3}), the renderings collapse to nearly all-white images. Since the clean inputs also contain many near-white pixels, this failure case can misleadingly inflate PSNR and SSIM, leading to the observed increase. However, by inspecting the rendered images and considering LPIPS together with the CLIP and DINO similarities, we find that the renderings under $\epsilon = 16/255$ are still of worse quality.
+
+\section{Conclusion}
+In this paper, we present the first study on the unexplored robustness issue of feed-forward 3DGS models, and propose AdvSplat, an efficient attack method for them. AdvSplat operates in a black-box setting, requiring only access to inputs and outputs, and performs attacks by sampling perturbations through a frequency-domain parameterization. Our results reveal the vulnerability of feed-forward 3DGS models and highlight new challenges for their commercial deployment. We hope this work will draw the community’s attention and inspire future research on improving the robustness and defenses of these models.
+ 
+\clearpage  % TODO FINAL: This \clearpage needs to be removed from both review and camera-ready versions.
+
+% \section*{Acknowledgements}
+% Please insert your acknowledgments here.
+
+% ---- Bibliography ----
+%
+% BibTeX users should specify bibliography style 'splncs04'.
+% References will then be sorted and formatted in the correct style.
+%
+\bibliographystyle{splncs04}
+\bibliography{main}
+
+\clearpage
+\appendix
+\begin{center}
+{\LARGE\textbf{Appendix}}
+\end{center}
+\input{Appendix}
+\end{document}

@@ -1,0 +1,87 @@
+\section{Preliminaries}
+\label{sec:prelim}
+
+Introduced by \citet{kerbl20233d}, 3DGS represents a scene using a collection of 3D Gaussian primitives $g_i$ with \emph{mean}~$\bmu_i$, \emph{covariance}~$\bSigma_i$, \emph{density}~$\sigma_i$, and \emph{color}~$c_i$.
+
+Consider a camera ray that intersects $n$ Gaussians $g_1, g_2, \ldots, g_n$ in \emph{arbitrary (unsorted) order}.
+The pixel color $C$ is obtained by alpha blending:
+%
+\begin{equation}
+	\label{Eq:alpha_blend}
+	C = \sum_{i=1}^{n} c_i \,\alpha_i \prod_{j \prec i} (1 - \alpha_j),
+\end{equation}
+%
+where $j \prec i$ denotes Gaussians $g_j$ \emph{in front of} (i.e., with smaller depth than) $g_i$, and $\alpha_i$ is the \emph{opacity} of $g_i$:
+%
+\begin{equation}
+	\label{Eq:particle_opacity}
+	\alpha_i := \sigma_i \exp\left(-(\bx_i - \bmu_i)^{\top} \bSigma_i \,(\bx_i - \bmu_i) \right),
+\end{equation}
+%
+with $\bx_i$ being the maximum-response point of $g_i$ along the camera ray~\cite{loccoz20243dgrt}.
+Directly evaluating \autoref{Eq:alpha_blend}---\emph{deterministic blending}---requires sorting all $n$ Gaussians by depth, which remains expensive despite various acceleration efforts~\cite{HansonSpeedy, Fang2024MiniSplattingRS, chen2025hac100xcompression3d}, especially when $n$ is large.
+
+\paragraph{Stochastic blending}
+Following prior work~\cite{Enderton2010, Sun2025}, the pixel color $C$ can instead be estimated stochastically.
+Drawing an index $I$ with probability mass $p_I$ and defining the random variable
+%
+\begin{equation}
+	\label{Eq:forward_mc_0}
+	\Cest = \frac{1}{p_I} \,c_I \,\alpha_I \prod_{j \prec I}(1 - \alpha_j),
+\end{equation}
+%
+it is straightforward to verify that $\ex[\Cest] = C$, making $\Cest$ an \emph{unbiased Monte Carlo estimator}%
+\footnote{Throughout this paper, we use $\langle h \rangle$ to denote a Monte Carlo estimator of $h$.}
+of $C$.
+Choosing the probability mass
+%
+\begin{equation}
+	\label{Eq:mc_pdf}
+	p_I = \alpha_I \prod_{j \prec I}(1 - \alpha_j)
+\end{equation}
+%
+cancels most terms in \autoref{Eq:forward_mc_0}, yielding the simple estimator
+%
+\begin{equation}
+	\label{Eq:forward_mc}
+	\Cest = c_I.
+\end{equation}
+
+\citet{Sun2025} realized this idea with \autoref{alg:stoc_trans}.
+This method examines Gaussians along the camera ray in arbitrary order, maintaining a running selection: for each Gaussian~$g_i$, it computes the opacity~$\alpha_i$ (\autoref{Eq:particle_opacity}) and depth~$z_i$, then replaces the current selection with $g_i$ (i.e., $I \gets i$) with probability~$\alpha_i$, provided $g_i$ is closer than the current choice (i.e., $z_i < z$; see \autoref{line:update_selection}).
+After all Gaussians have been visited, the color~$c$ of the selected Gaussian~$g_I$ is computed (\autoref{line:compute_color}).
+This process is repeated $\Mf$ times to reduce variance.
+
+Compared with deterministic blending, \autoref{alg:stoc_trans} offers two key advantages: it requires \emph{no sorting}, since Gaussians can be visited in arbitrary order; and it evaluates the color of only \emph{one} selected Gaussian per sample---yielding significant savings when per-Gaussian shading is expensive, as we demonstrate in \autoref{sec:method}.
+
+\begin{algorithm}[t]
+	\caption{\label{alg:stoc_trans}
+		Monte Carlo estimate of pixel color~$C$
+	}
+	%
+	\SetCommentSty{mycmtfn}
+	\SetKwComment{tccinline}{// }{}
+	%
+	% Finding all Gaussians $g_1, \ldots, g_n$ along the camera ray\;
+	$\CestTot \gets 0$\;
+	\For{$m = 1$ to $\Mf$}{
+	\tcc{Draw index $I$}
+	$I \gets 0$; $z \gets \infty$\;
+	\ForEach{Gaussian $g_i$ along the camera ray}{
+	Compute its opacity $\alpha_i$ and depth $z_i$\;
+	Draw $\xi$ uniformly from $[0, 1)$\;
+	\If{$\xi < \alpha_i$ and $z_i < z$}{ \label{line:alpha}
+		$I \gets i$; $z \gets z_i$\; \label{line:update_selection}
+	}
+	}
+	\tcc{Obtain Gaussian color}
+	\If{$I > 0$}{
+		Compute the color $c$ for the selected Gaussian $g_I$\; \label{line:compute_color}
+	}
+	\Else{
+		$c \gets 0$\;
+	}
+	$\CestTot \pluseq c$ \tccinline*{\autoref{Eq:forward_mc}}
+	}
+	\Return $\nicefrac{\CestTot}{\Mf}$\;
+\end{algorithm}

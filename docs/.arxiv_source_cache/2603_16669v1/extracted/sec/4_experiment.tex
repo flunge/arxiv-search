@@ -1,0 +1,269 @@
+\section{Experiments}
+
+\subsection{Setting}
+\paragraph{Implementation Details.}
+We build our framework upon the WAN 2.1 \cite{wan2025wan} base model (14B parameters), utilizing the 4D-aware pre-trained weights from 4DNex \cite{chen20254dnex}. Given the substantial scale of the backbone, we employ Low-Rank Adaptation (LoRA) \cite{hu2022lora} for parameter-efficient fine-tuning. This allows us to inject domain-specific robotic dynamics into the Diffusion Transformer \cite{dit} while preserving the powerful generative priors of the base model.
+% $^{\ref{footnote:4dnex_repo}}$
+% \todo{utilize null text embeddings}
+While the original WAN 2.1 includes a text encoder, we intentionally replace the text embedding with the VAE latents of robot sequences. By omitting high-level instructions, we force the network to decouple visual synthesis from semantic ambiguity and focus on the precise execution of action controls. For all other configurations, we follow the protocol established in the official 4DNex implementation.
+% This ensures that the generated 4D sequence is driven solely by the deterministic kinematic priors and the initial scene context, minimizing hallucinations unrelated to the physical task. 
+% The related ablation is provided in the supplementary material.
+
+We curated a stratified benchmark suite comprising 2\% of our Robo4D-200k dataset for the validation. More implementation details, ablations of text embeddings, and benchmark details are provided in the supplementary material.
+
+% \footnotetext[1]{\label{footnote:4dnex_repo}\url{https://github.com/3DTopia/4DNeX}}
+
+% \begin{table}[t]
+% \centering
+% \setlength{\tabcolsep}{8pt}
+% \caption{Quantitative comparison of video generation metrics. $\uparrow$ indicates higher is better, and $\downarrow$ indicates lower is better. \todo{add more descriptions of experimental results}}
+% \label{tab:quantitative_results}
+% \resizebox{1.0\linewidth}{!}{
+% \begin{tabular}{l|ccccccc}
+% \toprule
+% \textbf{Method} & \textbf{FID}$\downarrow$ & \textbf{FID$_{mean}$}$\downarrow$ & \textbf{FVD}$\downarrow$ & \textbf{L2$_{latent}$}$\downarrow$ & \textbf{LPIPS}$\downarrow$ & \textbf{PSNR}$\uparrow$ & \textbf{SSIM}$\uparrow$ \\ \midrule
+% UniSim [ICLR'24] \cite{yang2024learning} &  &  &  &  &  &  & \\
+% IRA-Sim [ICCV'25] \cite{zhu2025irasim} & 80.29 & 122.14 & 239.67 & 0.26 & 0.23 & 16.44 & 0.78 \\
+% Cosmos [arXiv'25] \cite{agarwal2025cosmos} &  &  &  &  &  &  & \\
+% EVAC [arXiv'25] \cite{jiang2025enerverse} &  &  &  &  &  &  & \\
+% ORV [CVPR'26] \cite{yang2026orv} &  &  &  &  &  &  & \\
+% Ctrl-World [ICLR'26] \cite{guo2026ctrl} &  &  &  &  &  &  & \\
+% TesserAct [ICCV'25] \cite{zhen2025tesseract} &  &  &  &  &  &  & \\
+% \textbf{Ours} & \textbf{60.00} & \textbf{87.30} & \textbf{139.55} & \textbf{0.18} & \textbf{0.16} & \textbf{19.46} & \textbf{0.80} \\ \bottomrule
+% \end{tabular}
+% }
+% \end{table}
+
+\begin{table}[t]
+\centering
+\setlength{\tabcolsep}{8pt}
+\caption{\textbf{Quantitative comparison of video generation metrics}. $\uparrow$ and $\downarrow$  respectively indicates higher and lower is better. \textbf{xxx} denotes the best and \underline{xxx} indicates the 2nd-best. “Action” means the representation of robot controls, where “Emb.” is token embedding. “Output” represents the modality of generation output.} 
+\vspace{-0.3cm}
+\label{tab:2d_metrics}
+\resizebox{1.0\linewidth}{!}{
+\begin{tabular}{l|cc|cccccc}
+\toprule
+\textbf{Method} & \textbf{Action} & \textbf{Output} & \textbf{PSNR}$\uparrow$  &  \textbf{SSIM}$\uparrow$ &
+\textbf{L2$_{latent}$}$\downarrow$ &
+\textbf{FID}$\downarrow$ & \textbf{FVD}$\downarrow$ &
+\textbf{LPIPS}$\downarrow$ \\ \midrule
+UniSim [ICLR'24] \cite{yang2024learning} & Text & RGB & 19.32 & 0.681 & 0.2120 & 32.3 & 153.2 & 0.175 
+\\
+IRA-Sim [ICCV'25] \cite{zhu2025irasim} & Emb. & RGB & 20.21 & 0.813 & 0.1722 & 
+\underline{25.2} & 126.0 & 0.135 \\
+Cosmos [arXiv'25] \cite{agarwal2025cosmos} & Emb. & RGB & 20.39 & 0.787 & 0.1935 & 27.1 & 113.4 & \underline{0.110} \\
+EVAC [arXiv'25] \cite{jiang2025enerverse} & Emb.+2D & RGB & 20.88 & \underline{0.832} & 0.1896 & 29.3 & 122.0 & 0.150 \\
+ORV [CVPR'26] \cite{yang2026orv} & Emb.+3D & RGB & 19.45 & 0.790 & 0.2002 & 
+30.1 & 130.1 & 0.143\\
+Ctrl-World [ICLR'26] \cite{guo2026ctrl} & Emb. & RGB & \underline{21.03} & 0.803 & \underline{0.1533} & \textbf{24.9} & \underline{112.8} & 0.122 \\
+TesserAct [ICCV'25] \cite{zhen2025tesseract} & Text & 4D & 19.35 & 0.766 & 0.1911 & 29.5 & 120.3 & 0.158\\
+\textbf{Ours} & \textbf{4D} & \textbf{4D} & \textbf{22.50} & \textbf{0.864} & \textbf{0.1380} & \underline{25.2} & \textbf{98.5} & \underline{0.105} \\ \bottomrule
+\end{tabular}
+}
+\vspace{-0.2cm}
+\end{table}
+
+\begin{table}[t]
+\centering
+\setlength{\tabcolsep}{6pt}
+\caption{\textbf{Quantitative comparison of geometric metrics}. “(temp)” denotes the self-temporal consistency across frames. The threshold of F-Score is set to @0.01.}
+\vspace{-0.3cm}
+\label{tab:3d_metrics}
+\resizebox{0.9\linewidth}{!}{
+\begin{tabular}{l|cc|cc|cc}
+\toprule
+\textbf{Method} & 
+\textbf{CD-$L_1$$\downarrow$} & \textbf{CD-$L_1$ (temp)$\downarrow$} & \textbf{CD-$L_2$$\downarrow$} & \textbf{CD-$L_2$ (temp)$\downarrow$} & 
+\textbf{F-Score$\uparrow$} & \textbf{F-Score (temp)$\uparrow$} \\ 
+\midrule
+TesserAct [ICCV'25] \cite{zhen2025tesseract} & 
+0.0836 & \textbf{0.0067} &
+0.0130 & 0.0008 & 
+0.2896 & 0.9523 \\
+\textbf{Ours} & 
+\textbf{0.0479} & 0.0074 & 
+\textbf{0.0077} & \textbf{0.0002} & 
+\textbf{0.4733} & \textbf{0.9686} \\ 
+\bottomrule
+\end{tabular}
+}
+\vspace{-0.4cm}
+\end{table}
+
+\paragraph{Baselines.}
+% \todo{describe more baselines, the type of action representations...}
+We benchmark our method against a diverse set of state-of-the-art generative embodied simulators with different action-conditioning strategies and output modalities. UniSim \cite{yang2024learning} pioneered the generative simulator by synthesizing visual outcomes from text instructions. IRASim \cite{zhu2025irasim}, Cosmos \cite{agarwal2025cosmos}, and Ctrl-World \cite{guo2026ctrl} utilize adaptive layers to inject robot-specific action embeddings. EVAC \cite{jiang2025enerverse} and ORV \cite{yang2026orv} introduce auxiliary cues, such as 2D angle arrows and 3D environmental occupancy grids. While most predecessors generate pure RGB video, TesserAct \cite{zhen2025tesseract} represents the current frontier by outputting 4D signals (RGB, depth, and surface normals), though it remains limited by its reliance on coarse language instructions.
+As the field in its infancy, we prioritize models with open-sourced implementations to ensure a fair comparison.
+% Adaptive Layer Normalization (adaLN) \cite{adaln} 
+% We deliberately excluded frameworks such as Robo4DGen \cite{robo4dgen}, as it is currently constrained by domain-specific overfitting to synthetic data and a reliance on ground-truth depth inputs, which limits its generalization to the real-world scenarios targeted by our method.
+
+\paragraph{Metrics.}
+To compare with the methods that output RGB videos, we use two types of metrics: computation-based (PSNR \cite{hore2010image}, SSIM \cite{wang2004image}) and model-based (Latent L2 loss, FID \cite{heusel2017gans}, FVD \cite{ranftl2020towards} and LPIPS \cite{zhang2018unreasonable}). As both TesserAct and our method output 4D videos, we additionally measure geometric metrics, including Chamfer Distance and F-Score@0.01, considering both the accuracy with the Ground Truth and the temporal consistency across frames (indicated by “temp”).
+% By maintaining this clear separation, we eliminate the risk of information leakage, ensuring that our benchmarking results accurately reflect the models' zero-shot generalization capabilities across unseen robotic trajectories and environments..
+% It treats robot actions as abstract latent features rather than explicit physical entities.
+% IRASim \cite{zhu2025irasim} as our primary baseline, which represents the current state-of-the-art in action-conditioned robotic video generation.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=1.0\linewidth]{images/results_2D.pdf}
+\vspace{-0.4cm}
+\caption{\textbf{Qualitative comparison of 2D video synthesis} between our Kinema4D and Ctrl-World \cite{guo2026ctrl}. Our method achieves superior fidelity. In contrast, Ctrl-World exhibits distorted actions and unrealistic environmental transitions.}
+\label{fig:qualitative_result_2D}
+\vspace{-0.1cm}
+\end{figure}
+
+\begin{figure}[!h]
+\centering
+\includegraphics[width=0.7\linewidth]{images/results_4D.pdf}
+\vspace{-0.2cm}
+\caption{\textbf{4D qualitative comparison between our Kinema4D and TesserAct \cite{zhen2025tesseract}}. Unlike TesserAct that hallucinate outcomes, our Kinema4D precisely reflects Ground-Truth executions, including “near-miss” failure cases. For example, in the bottom left corner example, our model \textit{correctly interprets the spatial gap} between the gripper and the plant, \textit{even when their \textbf{RGB textures overlap in 2D views}}.}
+\label{fig:qualitative_result_4D}
+\vspace{-0.5cm}
+\end{figure}
+
+\subsection{Main Results}
+
+\paragraph{Quantitative results.}
+The quantitative evaluation of video synthesis quality is summarized in \cref{tab:2d_metrics}. Our Kinema4D is uniquely characterized by its ability to precisely represent actions and synthesize outcomes within a unified 4D space. This advantage allows our framework to achieve either the leading or second-best performance across all metrics. The geometric fidelity of the generated 4D sequences is detailed in \cref{tab:3d_metrics}. While TesserAct \cite{zhen2025tesseract} exhibits slightly better performance in temporal CD-$L_1$, our approach outperforms TesserAct across all other metrics. When evaluated against absolute ground-truth rather than mere self-consistency, our method shows a significant margin of superiority.
+% These results underscore our model’s capacity for exceptional geometric grounding, faithfully reconstructing the complex physical structures and spatial dynamics of robotic environments.
+
+\paragraph{Qualitative results.}
+We compare our method with the best baseline that output 2D videos (\ie, Ctrl-World \cite{guo2026ctrl}), focusing on the qualitative results under 2D video modality. As shown in \cref{fig:qualitative_result_2D}, our Kinema4D demonstrates a superior ability to synthesize high-fidelity sequences that strictly adhere to input action trajectories while generating physically consistent environmental responses that are highly similar to the ground truth. In contrast, as Ctrl-World is limited to 2D video synthesis and relies on implicit robot embeddings, it often produces distorted robot kinematics and unrealistic environmental changes.
+% fails to resolve the precise relationship between the robot and the scene, causing 
+
+In \cref{fig:qualitative_result_4D}, we present a 4D qualitative comparison between our framework and TesserAct \cite{zhen2025tesseract}. As TesserAct relies on text instructions, it struggles to align with the actual robot actions, and often yields incorrect environmental outcomes.
+Instead, by utilizing precise 4D controls, our Kinema4D demonstrates the ability to simulate \textit{\textbf{both successful} rollouts and \textbf{subtle execution failures}}. \textit{\textbf{Most notably}}, even when the RGB textures of the gripper and the object appear to “contact” from a 2D perspective, our 4D-aware framework correctly interprets the spatial gap and simulates a `near-miss' or a failed grasp.
+% in scenarios where the robot fails to grasp an object, our model successfully resolves ill-posed occlusion challenges inherent in 2D-only modeling. 
+More animated results are presented in the supplementary material.
+% This discrepancy is particularly evident in failure cases, where semantic instructions (e.g., 'pick up the cube') often bias the model toward successful but hallucinatory outcomes.
+
+\subsection{Policy Evaluation}
+We investigate the utility of our Kinema4D as a high-fidelity tool for evaluating robotic policies—if the simulator can accurately simulating realistic outcomes of executing a policy's rollout.
+% environmental responses to various control inputs. 
+% To ensure the robustness of this benchmarking capability, 
+We deploy our evaluation across both standardized simulation platforms (noise-free) and real-world (complex physics) environments.
+% This dual-domain deployment allows us to validate the sim-to-real consistency of Kinema4D, demonstrating that performance trends observed within our 4D generated world reliably correlate with actual robotic success rates in the field."
+
+\paragraph{Setup and implementations.}
+In the simulation platform, we execute a Diffusion Policy \cite{chi2025diffusion} within the LIBERO \cite{libero} to generate a sequence of action rollouts, then synthesize the environmental outcomes using our Kinema4D. Since the robot mesh and camera rendering are integrated within the platform, we can easily get the robot pointmap without any reconstruction or calibration, showing the simplicity of deploying our Kinematic Control in the simulation platform.
+% \noindent\textbf{Simulation platform}: We first execute a Diffusion Policy \cite{chi2025diffusion} within the LIBERO \cite{libero} environment to generate a sequence of action rollouts. We then synthesize the environmental outcomes using our Kinema4D, specifically: We drive the articulated 3D robot mesh using the policy's predicted actions via spatial kinematics and project it into pointmap sequence. Since the robot mesh and camera rendering are integrated within the LIBERO platform, we can easily get the robot pointmap without any reconstruction or calibration. The resulting robot pointmap, alongside the initial environmental RGB observation, is fed into our 4D generative model to synthesize final outcomes. The whole pipeline also shows the simplicity of our Kinematic Control module in simulation platform.
+By leveraging native simulation parameters, this evaluation protocol isolates external noise and establishes a standard setup, ensuring that the benchmarking of future methods is conducted under a strictly equitable framework.
+% where performance discrepancies can be directly attributed to the model’s capacity rather than external data inconsistencies.
+
+As for real-world evaluation, we deploy a physical robot setup in a laboratory environment to evaluate the zero-shot generalization of our framework. We execute a Diffusion Policy \cite{chi2025diffusion} on the hardware to provide rollouts. Next, we follow the reconstruction pipeline described in \cref{sec:kinematics_control} to get the robot pointmap and then synthesize the resulting world transitions. Notably, our experiments are conducted \textit{\textbf{without} any fine-tuning on real-world data}; the physical environment remains \textit{entirely \textbf{out-of-distribution} (OOD)}. Unlike existing simulators rely on real-world finetuning \cite{zhu2025irasim}, or use the real-world setup same with training data \cite{guo2026ctrl}, we represent the \textbf{\textit{first-time}} evaluation of a embodied world model under rigorous OOD conditions. We omit qualitative comparisons with baselines here, as their performance degrades significantly.
+For both the simulation and real-world evaluation, we set 3 different evaluation scenarios with 50 runs each.
+
+\paragraph{Results.}
+The quantitative success rates are summarized in \cref{tab:policy}. Within the simulation platform, our framework achieves a success rate closely aligned with the ground truth. Since our training data includes LIBERO-produced data, this proves that our method effectively captures the in-domain knowledge. In the real-world (OOD) evaluation, while we observe \textit{a comparatively wider gap} between our simulated and actual results, the discrepancy \textit{remains within a reasonable margin}. This suggests the challenges of zero-shot transfer. Moreover, the success rates synthesized by our model are higher than actual executions, highlighting that simulating complex failure modes remains more challenging. 
+% —such as high-precision near-misses or subtle contact slips—
+
+The qualitative performance in real-world environments is illustrated in \cref{fig:qualitative_result_real}, highlighting our two critical strengths:
+\textbf{i)} Consistent with \cref{fig:qualitative_result_4D}, even in scenarios where the 2D RGB textures of the gripper and object overlap, our Kinema4D correctly interprets the spatial gap and synthesizes `near-miss' failures.
+% that mirror actual physical outcomes.
+% This suggests that our model is not merely memorizing visual patterns but is performing geometric reasoning.
+\textbf{ii)} We also visualize the robot pointmaps produced by our real-world reconstruction pipeline (\cref{sec:kinematics_control}). Despite the presence of noisy artifacts, our model refines these irregularities to produce coherent and physically plausible videos. This shows the robustness and real-world deployability of our kinematic-controlled framework.
+Due to the space limit, the qualitative results of simulation and more details of our evaluation are presented in the supplementary material.
+
+\begin{table}[t]
+\centering
+\setlength{\tabcolsep}{6pt}
+\caption{Policy evaluation of actual pick\&place under 3 different setups of both simulation platform and real-world (zero-shot OOD) environment. “Ground Truth” denotes the actual execution, “Ours” indicates our simulation, and “Diff” is their difference.}
+\vspace{-0.3cm}
+\label{tab:policy}
+\resizebox{0.5\linewidth}{!}{
+\begin{tabular}{l|ccc|ccc}
+\toprule
+\textbf{Evaluator} & \multicolumn{3}{|c|}{Simulation} & \multicolumn{3}{|c}{Real-world (OOD)}\\
+% \hline
+& 1 & 2 & 3 & 1 & 2 & 3 \\
+\midrule
+Ground Truth & 
+0.48 & 0.38 & 0.80 
+& 0.34 & 0.46 & 0.78 \\
+Ours &
+0.56 & 0.46 & 0.84 
+& 0.60 & 0.76 & 0.90 \\
+\hline
+Diff &
+0.08 & 0.08 & 0.04 
+& 0.26 & 0.30 & 0.12 \\ 
+\bottomrule
+\end{tabular}
+}
+% \vspace{-0.1cm}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=1.0\linewidth]{images/results_real.pdf}
+\vspace{-0.3cm}
+\caption{\textbf{Qualitative comparison between real-world Ground Truth (GT) and our method for zero-shot OOD evaluation}. To intuitively compare with GT, we also reconstruct the GT using \cite{xiao2025spatialtracker} and present both 4D and 2D results. Our results strongly align with real outcomes, accurately synthesizing both successful rollouts and “near-miss” failures. For instance, in the right figure, our model \textit{correctly interprets the spatial gap} between the gripper and the cube, \textit{even when their \textbf{RGB textures overlap in 2D views}}.
+Besides, the \textit{noisy} robot pointmap produced by our reconstruction pipeline is shown, proving the robustness of our framework.}
+\label{fig:qualitative_result_real}
+\vspace{-0.4cm}
+%\vspace{-0.2cm}
+\end{figure}
+
+\subsection{Ablation Studies and Analysis}
+We provide comprehensive ablation analysis and report results in \cref{tab:ablation}.
+
+\paragraph{Different representations of robot controls.}
+We replace our robot pointmap conditions with other types of robot control representations, including text instructions (“text”), robot binary masks (“binary”), token embeddings (“emb.”), robot RGB (“RGB”) and robot RGB+pointmap (“RGB+pm”) sequence. Our pointmap representation yields the 2nd-best results. Interestingly, using RGB+pointmap sequence yields marginal improvements, as RGB data potentially introduces more noise and overfitting risks. Instead, pointmap already captures the essential spatial information required for precise control.
+
+\paragraph{Embodiment-agnostic modeling enables scalable training.}
+Unlike raw action vectors that are sensitive to embodiment morphology, our pointmap-based control enables embodiment-agnostic modeling by decoupling kinematic intent from specific hardware configurations. To validate this, we compare our mixed-dataset training against a single-domain baseline trained and tested exclusively on Droid \cite{khazatsky2024droid}. The baseline (“single”) exhibited degraded performance. This confirms that our approach effectively leverages data diversity to enhance generalization, demonstrating a significant \textit{scaling advantage} over domain-specific modeling.
+
+\paragraph{Why not generate RGB videos first, then reconstruct?}
+We trained our method to purely output RGB videos (no pointmap, “2D-out”) and then reconstruct the produced RGB videos using ST-v2 \cite{xiao2025spatialtracker}. This significantly degrades the performance, proving the necessity of 4D awareness throughout the generative process.
+
+\paragraph{The robot mask map.}
+As in \cref{sec:4d_gen_modeling}, we introduced a robot occupancy mask and softly set 10\% occupied regions to 0.5.
+% and randomly set 10\% occupied regions to 0.5 for later generative refinement. 
+Here we trained our method without robot mask or using different soft mask ratio. Our method performs stably well under different ratios, yet discarding the mask or setting 0\% regions to 0.5 degrades the performance, showing the necessity of generative refinement.
+
+\paragraph{The robustness to the robot pointmap noise.}
+We disturb the produced robot pointmap by randomly removing (5\%), adding gaussian noise (“gaus.”), translating ($\pm5$ pixel coordinates, “trans.”) and rotating ($\pm5^\circ$, “rot.”). Our framework is robust to the noise of robot pointmap control, potentially due to the prior of the initial world image and the refinement of generative modeling.
+
+\begin{table}[t]
+\centering
+\setlength{\tabcolsep}{3pt}
+\caption{Quantitative results of ablation studies.}
+\vspace{-0.3cm}
+\label{tab:ablation}
+\resizebox{1.0\linewidth}{!}{
+\begin{tabular}{l|c|ccccc|c|c|ccccc|cccc}
+\toprule
+Metrics & 
+Ours & 
+text & binary & emb. & RGB & RGB+pm &
+single & 
+2D-out &
+w/o mask & 0\% & 20\% & 50\% & 70\% &
+remove & gaus. & trans. & rot.\\ 
+\midrule
+\textbf{PSNR}$\uparrow$ & 
+22.50 & 
+19.89 & 21.47 & 20.89 & 21.53 & \textbf{22.98} &
+21.26 & 
+20.07 &
+21.03 & 21.10 & 22.04 & 21.75 & 21.83 &
+22.48 & 21.98 & 21.87 & 22.34\\ 
+\textbf{FID$\downarrow$}  & 
+25.2 & 
+28.8 & 27.5 & 26.3 & 25.8 & 25.7 &
+26.7 & 
+27.4 &
+26.8 & 26.1 & 25.2 & \textbf{25.0} & 26.0 &
+26.0 & 25.3 & 25.6 & 26.3\\
+\textbf{CD-$L_1$$\downarrow$}  & 
+0.0479 & 
+0.0750 & 0.0639 & 0.0528 & 0.0677 & 0.0495 &
+0.0581 & 
+0.0712 &
+0.0510 & 0.0528 & \textbf{0.0433} & 0.0455 & 0.0463 &
+0.0499 & 0.0501 & 0.0513 & 0.0483\\
+\bottomrule
+\end{tabular}
+}
+\vspace{-0.4cm}
+\end{table}

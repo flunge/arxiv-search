@@ -1,0 +1,204 @@
+\section{Omni-Metric}
+\label{sec:metrics}
+
+% \begin{figure}
+%     \centering
+%     \includegraphics[width=1\linewidth]{Images/metrics.png}
+%     \caption{Omni-Metrics}
+%     \label{fig:metrics}
+% \end{figure}
+
+
+
+% To systematically evaluate the interactive response capabilities of world models, \textbf{Omni-Metric} introduces three core metrics—Interaction Effect Fidelity, Non-Intervention Consistency, and Spatiotemporal Causal Coherence. These dimensions provide a rational framework for assessing world modeling by measuring the effects of interaction actions on outcomes and state evolution.
+% final outcomes and intermediate state evolution.
+
+%方宸v2
+To facilitate an \textit{omni}-directional assessment of world models, we introduce \textbf{Omni-Metric}, a framework designed to deliver a truly comprehensive evaluation experience. Omni-Metric delineates three pivotal dimensions: \textit{Generated Video Quality}, which quantifies both static and dynamic visual fidelity; \textit{Camera-Object Controllability}, which scrutinizes scene coherence and object controllability in the absence of external interventions; and \textit{Interaction Effect Fidelity}, which evaluates adherence to physical laws, event interactions, and temporal sequence logic within realistic scenarios. Collectively, these dimensions establish a rigorous paradigm for benchmarking the perceptual quality, environmental stability, and causal reasoning capabilities inherent to advanced world models.
+
+\subsection{Structured Information Extraction}
+\label{sec:metrics_struct_infor}
+Given a world model to be evaluated, it generates a video $v$ conditioned on an evaluation prompt $P$ (optionally with an initial frame $\text{I}$).
+Before computing the metrics, we extract structured representations from $V \in \mathbb{R}^{T \times H \times W}$, where $T$, $H$, and $W$ are the number of frames, height, and width.
+
+
+
+\textbf{Entity Trajectories.} 
+We employ GroundingDINO and SAM to extract temporally consistent segmentation mask sequences for each entity in the video, denoted as $\{ \mathrm{traj}_k \}_{k=1}^{N}$. Here, $\mathrm{traj}_k$ represents the mask sequence of the $k$-th entity (among $N$ entities), which is treated as its trajectory representation.
+
+\textbf{Optical Flow.} 
+We use RAFT to estimate the optical flow field $F$ of the video, capturing regional motion intensity and dynamic variations.
+
+
+\textbf{Relative Camera Motion.}
+Following \cite{li2021generalizing}, we approximate the relative camera motion between consecutive frames using optical flow variations, thereby estimating the corresponding camera motion direction and magnitude.
+
+%方宸v2
+\subsection{Generated Video Quality}
+
+This section details the Generated Video Quality dimension of Omni-Metrics. For this evaluation, we leverage established metrics from prior benchmarks: specifically, \textbf{imaging quality}, \textbf{temporal flickering}, \textbf{motion smoothness}, and \textbf{dynamic degree} are sourced from VBench \cite{huang2024vbench}, while \textbf{content alignment} is adopted from WorldScore \cite{duan2025worldscore}. To effectively balance static and dynamic video attributes during assessment, we employ AgenticScore to perform adaptive weight allocation across these indicators. Comprehensive details regarding the AgenticScore mechanism are provided in Section \ref{subsec:agentic_score}.
+
+\subsection{Camera-Object Controllability}
+\textit{Camera-Object Controllability} evaluates the coherence of static elements, such as scene layouts and object identities, within generated videos. Specifically, in view-following sequences governed by camera trajectories, this metric assesses whether the scene undergoes anomalous variations or if objects remain strictly consistent with the prompt specifications. Furthermore, acknowledging that scene transitions in generated content often induce camera trajectory discontinuities, we incorporate a dedicated transition assessment module to mitigate evaluation biases arising from such interruptions.
+This dimension comprises three independent metrics: \textbf{Camera Control}, \textbf{Object Control}, and \textbf{Transition Detection}. Below is a detailed introduction to each metric.
+
+\paragraph{Camera Control.} To quantitatively analyze camera motion errors in videos, we employ the camera control metric proposed in WorldScore \cite{duan2025worldscore}. This metric evaluates discrepancies in camera trajectories by separately assessing rotational and translational components. These error measurements are subsequently normalized to yield a final score, where a higher value indicates superior performance.
+
+\paragraph{Object Control.} To evaluate object generation consistency, existing approaches (e.g., WorldScore) assess the object control metric by detecting objects in videos using models such as GroundingDino and subsequently performing rule-based matching against the prompt text. However, given the inherent limitations in detection accuracy and the susceptibility of rule-based matching to semantic errors arising from synonymy, we propose an improved formulation for this metric. Specifically, we reframe object control as a direct visual question answering (VQA) problem: given a small set of uniformly sampled frames, a multimodal model is asked whether each target object is present in the video, with a constrained binary response. For a video with object list $\mathcal{O}=\left\{o_i\right\}_{i=1}^K$ we query the model independently for each $o_i$ and obtain binary predictions $\hat{y_{i} \in \{0,1\}}$. The final score is computed as $\frac{1}{K} \sum_{i=1}^K \hat{y}_i$, reflecting the proportion of prompt-specified objects that are visually grounded in the generated content. This formulation eliminates brittle rule-based matching and leverages the semantic robustness of large VLMs to synonyms and compositional cues. In addition, uniform temporal sampling offers a lightweight yet effective summary of the video, providing a practical trade-off between computational cost and coverage of object occurrences.
+
+\paragraph{Transitions Detect.} We determine whether a video contains scene transitions using a content-based scene boundary detector. Specifically, we apply PySceneDetect’s \texttt{ContentDetector} \cite{scenedetect}, which computes frame-to-frame visual dissimilarity (in HSV space) and flags a boundary when the change exceeds a threshold $\tau$, subject to a minimum scene length constraint $L$ (in frames) to suppress spurious detections. Given an input video, we first optionally downsample for efficiency, then perform scene detection to obtain a scene list $\left\{\left(t_i^{\text {start }}, t_i^{\text {end }}\right)\right\}_{i=1}^N$. The number of scenes $N$ provides a direct indicator of transitions (a transition exists if $N > 1$). Consistent with the implementation, we map this to a binary score
+\begin{equation}
+s_{\text {trans }}= \begin{cases}1, & N=1 \\ 0, & N>1\end{cases}
+\end{equation}
+so that videos without scene cuts receive a full score, while any detected transition yields zero. This formulation provides a simple and robust assessment of temporal continuity by penalizing scene breaks while remaining computationally lightweight.
+
+
+
+
+%V0302-wmq
+% \subsection{Interaction Effect Fidelity}
+
+% \textit{Interaction Effect Fidelity} aims to comprehensively assess whether the generated video accurately reflects the expected effects of interaction actions on the involved targets. 
+% To enable generalizable evaluation across diverse scenarios, we adopt object motion and camera motion as unified analytical proxies and construct the corresponding metrics accordingly.
+
+
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%InterTarget%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% \textbf{InterTarget} evaluates the fidelity with which interaction conditions influence the motion direction and magnitude of the target entity.
+% Given the target $T$ identified from the evaluation prompt, we retrieve its trajectory $\mathrm{traj}_T$ from $\{\mathrm{traj}_k\}_{k=1}^{N}$.
+% By measuring centroid and area changes between the first and last masks, we estimate the direction and magnitude of the target’s displacement components orthogonal and parallel to the viewing direction.
+%  InterTarget is a binary metric, set to 1 only if both the estimated motion direction and magnitude match the expected interaction outcome, and 0 otherwise.
+
+
+
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%InterCamera%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% \textbf{InterCamera} evaluates the accuracy of camera motion direction and magnitude during interaction.
+% Using the estimated camera motion direction and magnitude obtained in Sec.~\ref{sec:metrics_struct_infor}, we compare them step-by-step with the expected motion trajectory, and define the InterCamera as the proportion of steps where both direction and magnitude match the expected values.
+
+
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%InterStab-L%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% For the revisit scenarios specifically designed in Omini-WorldBench, we introduce the metric \textbf{InterStab-L} to evaluate long-term consistency and stability under this challenging setting.
+% Revisit frame pairs in $\mathcal{R}$  refer to video frames that reach the same spatial location at different times. For such pairs, the semantic discrepancy is expected to be minimal. Accordingly, we define InterStab-L :
+% \begin{equation}
+% \mathrm{InterStab\text{-}L}(s)
+% =\frac{1}{|\mathcal{R}|}
+% \sum_{(i,j)\in\mathcal{R}}
+% D(\hat{o}_i,\hat{o}_j),
+% \end{equation}
+% where the semantic distance $D(\cdot,\cdot)$ is computed based on $\mathrm{SSIM}$ \cite{wang2004image}.
+
+%方宸v2
+\subsection{Interaction Effect Fidelity}
+As a core contribution of Omni-Metric, the Interaction Effect Fidelity dimension aims to quantitatively assess challenging aspects of video generation, including long-term content consistency and stability, the causal logical ordering of events, and adherence to the physical laws of the real world. To address these challenges, we propose four comprehensive evaluation metrics: \textbf{InterStab-L}, \textbf{InterStab-N}, \textbf{InterCov}, and \textbf{InterOrder}, which are detailed below.
+
+\paragraph{InterStab-L.} 
+To rigorously quantify long-horizon temporal coherence, we introduce InterStab-L, which assesses the consistency of visual content across user-specified temporal revisit pairs $\mathcal{R}=\{(t_a, t_b)\}$. 
+Formally, continuous timestamps are discretized to frame indices within the video sequence of length $T$. 
+For any frame pair $(i, j)$ corresponding to a revisit pair, we define a composite similarity metric $s(i, j)$ that integrates both low-level structural fidelity and high-level semantic consistency:
+\begin{equation}
+s(i, j)=\frac{1}{2}\left(\operatorname{SSIM}_{\text {gray }}\left(I_i, I_j\right)+\cos \left(\phi(I_i), \phi(I_j)\right)\right),
+\end{equation}
+where $\mathrm{SSIM}_{\text{gray}}$ denotes the grayscale Structural Similarity Index~\cite{wang2004image}, and $\phi(\cdot)$ represents a pre-trained vision encoder (e.g., the visual tower of CLIP) that maps frames to semantic feature vectors $f$.  To mitigate the degeneracy of trivial static sequences (where high similarity arises from lack of motion rather than stability), we incorporate a dynamics gating mechanism. Specifically, we evaluate similarity across four canonical anchor intervals spanning the video duration; if the average similarity of these anchors exceeds a static threshold $\tau_{\text{static}}$, the metric is penalized to zero to enforce content dynamics. 
+Otherwise, InterStab-L is defined as the mean similarity over the revisit set:
+\begin{equation}
+\text {InterStab-L}=\frac{1}{|\mathcal{R}|} \sum_{\left(t_a, t_b\right) \in \mathcal{R}} s\left(i(t_a), i(t_b)\right) \cdot \mathbb{I}_{\text{dynamic}},
+\end{equation}
+where $\mathbb{I}_{\text{dynamic}}$ is the validity indicator derived from the anchor check. 
+A higher InterStab-L score reflects robust long-term consistency at designated temporal intervals, balancing structural preservation with semantic stability.
+% To address challenging revisit scenarios specifically designed in Omni-WorldBench, we introduce this metric to quantify long-term consistency and stability within such complex settings. Revisit frame pairs in $\mathcal{R}$  refer to video frames that reach the same spatial location at different times. For such pairs, the semantic discrepancy is expected to be minimal. Accordingly, we define InterStab-L :
+% \begin{equation}
+% \mathrm{InterStab\text{-}L}(s)
+% =\frac{1}{|\mathcal{R}|}
+% \sum_{(i,j)\in\mathcal{R}}
+% D(\hat{o}_i,\hat{o}_j),
+% \end{equation}
+% where the semantic distance $D(\cdot,\cdot)$ is computed based on $\mathrm{SSIM}$ \cite{wang2004image}.
+
+\paragraph{InterStab-N.} 
+% \subsection{Non-Intervention Consistency}
+% In addition to \textit{Interaction Effect Fidelity}, which analyzes the effect of interaction actions on target entities, \textit{Non-Intervention Consistency} evaluates whether unaffected regions, including non-target entities and the environment, undergo unintended changes. 
+
+Specifically, InterStab-N is used to assess the stability of non-target regions. 
+Given the entity masks extracted in Sec.~\ref{sec:metrics}, removing the target masks yields the non-target spatial region $\mathcal{N}$. We then use the flow magnitudes in these regions over the entire video duration $T$ as a measure of their motion energy:
+\begin{equation}
+E_{non}(s)=\frac{1}{T}\sum_{t=1}^{T}\frac{1}{|\mathcal{N}|}\sum_{x\in \mathcal{N}}\|\mathrm{Flow}_t(x)\|,
+\end{equation}
+{where $\mathrm{Flow}_t(x)$ denotes the optical flow vector at location $x$ in frame $t$. The resulting motion energy is then mapped to a bounded stability score:}
+\begin{equation}
+\mathrm{InterStab\text{-}N}(s)=\exp\Big(-\frac{E_{non}(s)}{\beta \times \min(H,W)}\Big), 
+\end{equation}
+{where $\beta$ is a scaling factor that, together with the frame resolution, normalizes InterStab-N to $[0,1]$. Higher InterStab-N values indicate greater stability in the non-target regions.}
+
+\paragraph{InterCov.} 
+InterCov quantifies object-level causal faithfulness in generated videos by verifying whether interaction-affected entities exhibit semantically consistent responses while unaffected entities maintain temporal stability. This metric complements low-level flow-based coverage with high-level semantic validation, leveraging the reasoning capabilities of Vision-Language Models (VLMs) to assess interaction fidelity. Formally, let $\mathcal{O} = \{o_1,\cdots, o_N\}$ denote the set of target entities subject to causal constraints. We employ a VLM-based semantic verifier to evaluate the video sequence, yielding a binary validity signal $v_o \in \{0,1\}$ for each entity $o \in \mathcal{O}$, where $v_o=1$ indicates that the entity's behavior aligns with the prescribed interaction logic (e.g., dynamic response for affected objects, stationarity for others). The metric is defined as the semantic recall of consistent interactions:
+\begin{equation}
+\text { InterCov}=\frac{1}{|\mathcal{O}|} \sum_{o \in \mathcal{O}} \mathbb{I}(v_o = 1),
+\end{equation}
+{where $\mathbb{I}(\cdot)$ is the indicator function. Consequently, InterCov serves as a rigorous measure of object-level semantic consistency, ensuring that generated dynamics adhere to the underlying causal structure.}
+{\paragraph{InterOrder.} 
+This metric quantifies the alignment between the chronology of propagated events and the ground-truth sequence $\mathcal{E}=\{e_i\}_{i=1}^{K}$. 
+Specifically, for any distinct event pair $(e_m, e_n)$ satisfying $m<n$, we employ a pre-trained Vision-Language Model (VLM) as an automated verifier to assess both the occurrence of the events and their relative temporal precedence via a structured query protocol. 
+An event pair is deemed \textit{temporally consistent} if the generated sequence preserves the ground-truth ordering. 
+Formally, InterOrder is defined as the ratio of consistent event pairs $K_s$ to the total number of possible pairs:}
+\begin{equation}
+\mathrm{InterOrder} = \frac{2K_s}{K(K-1)},
+\end{equation}
+where $\mathrm{InterOrder} \in [0,1]$. 
+A higher score indicates superior capability in maintaining temporal coherence and logical event progression.
+
+
+% \subsection{Spatiotemporal Causal Coherence}
+
+% The above two dimensions primarily assess the effects of interaction actions on final outcomes, whereas \textit{Spatiotemporal Causal Coherence} evaluates whether the evolution of world states follows a coherent causal structure.
+
+
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%InterCov%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% \textbf{InterCov} measures whether the effect of an action correctly covers the intended set of target entities.
+% For each target entity's temporal mask trajectory $\mathrm{traj}_k$, we compute the motion energy of the flow within the mask at each frame and take the maximum:
+
+% \begin{equation}
+% E_{k}(s) = \max_{t \in [0,T)} \frac{1}{|\mathrm{traj}_k^t|} \sum_{x \in \mathrm{traj}_k^t} \|\mathrm{Flow}_t(x)\|,
+% \end{equation}
+% An entity $k$ is considered affected if $E_{k}(s)$ exceeds the threshold $\gamma \times \beta \times \min(H,W)$, where $\gamma$ is a hyperparameter. By applying this criterion to all $N$ entities, we obtain the set of affected entities in the video $V$, denoted as $\hat{\mathcal{A}}$.
+% Finally, InterCov is computed by comparing $\hat{\mathcal{A}}$ with the expected affected entity set $\mathcal{A}$:
+
+% \begin{equation}
+% \mathrm{InterCov} = \frac{2|\hat{\mathcal{A}} \cap \mathcal{A}|}{|\hat{\mathcal{A}}| + |\mathcal{A}|}.
+% \end{equation}
+% Higher values of $\mathrm{InterCov}(s) \in [0,1]$ indicate more accurate causal coverage.
+
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%InterOrder%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% \textbf{InterOrder} evaluates whether the temporal order of propagated events aligns with the expected event sequence $\mathcal{E}=\{e_i\}_{i=1}^{K}$.
+% For any pair of different events $(e_m, e_n)$ with $m<n$, we leverage a MLLM to assess, via a question-answering protocol, whether both events occur and whether their temporal order matches the expected order. An event pair is regarded as causally consistent if both conditions are satisfied.
+% Finally, InterOrder is defined as the proportion of causally consistent event pairs $K_s$ among all possible event pairs:
+% \begin{equation}
+% \mathrm{InterOrder} = \frac{2K_s}{K(K-1)},
+% \end{equation}
+% where $\mathrm{InterOrder} \in [0,1]$. Higher values indicate stronger capability in modeling temporal logic and causal ordering.
+
+
+
+% \begin{figure}
+%     \centering
+%     \includegraphics[width=1\linewidth]{Images/AgenticScore.pdf}
+%     \caption{AgenticScore.}
+%     \label{fig:agenticscore}
+% \end{figure}
+
+
+
+\subsection{AgenticScore}
+\label{subsec:agentic_score}
+To accommodate diverse application scenarios and capture different aspects of interactive representation ability, the prompts in Omni-WorldSuite emphasize different evaluation focuses. Therefore, when aggregating the metrics to obtain the final score, each prompt should assign different weights to different evaluation dimensions rather than simply averaging all metrics.
+Inspired by agent-based frameworks, we treat each evaluation metric as an independent evaluation agent. Each metric agent first produces a score for its corresponding dimension, after which an aggregation agent adaptively combines these results according to the semantic content of the prompt to produce the final score.
+
+Specifically, the three interaction-centered evaluation agents—interaction effect fidelity $A_I$, generate video quality $A_G$, and camera-object controllability $A_C$—each compute their scores by averaging the results of their respective sub-metrics. 
+For example, $A_I = (\mathrm{InterStab-L}+\mathrm{InterStab-N}+\mathrm{InterCov} + \mathrm{InterOrder}) / 4$.
+The aggregation agent then analyzes the relative importance of these three evaluation dimensions using an MLLM conditioned on the evaluation prompt, and maps the resulting ranking to predefined weight coefficients $w_1, w_2, w_3$.
+
+% In addition, following WorldScore, we introduce a general visual quality agent $A_C$, which is computed as the average of four sub-metrics: ClipScore, Motion Smoothness, Optical Flow Consistency, and Object Detection Accuracy, with weight coefficient $w_C$.
+The final score, \textbf{AgenticScore}, is defined as:
+\begin{equation}
+\mathrm{AgenticScore}
+= w_1 A_I + w_2 A_G + w_3 A_C .
+\end{equation}

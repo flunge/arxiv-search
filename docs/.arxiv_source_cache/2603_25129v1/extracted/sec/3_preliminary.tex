@@ -1,0 +1,40 @@
+\section{Preliminaries}
+\label{sec:preliminary}
+
+
+\noindent \textbf{3D Gaussian Splatting.}
+3D Gaussian Splatting (3DGS) represents a 3D scene using a set of $N$ anisotropic Gaussians $\mathcal{G} = \{g_i\}_{i=1}^N$. 
+Each Gaussian $g_i$ is parameterized by its mean position $\bm{\mu}_i \in \mathbb{R}^3$, covariance $\bm{\Sigma}_i$, opacity $\alpha_i \in [0, 1]$, and view-dependent color $c_i$. 
+The covariance matrix is decomposed into a rotation $\bm{R}$ and scaling $\bm{S}$ as $\bm{\Sigma} = \bm{R}\bm{S}\bm{S}^\top\bm{R}^\top$.
+Given a camera pose $\bm{P}$, the color $\mathcal{C}$ of a pixel $\bm{u}$ is rendered via differentiable $\alpha$-blending:
+\begin{equation}
+\mathcal{C}(\bm{u}) = \sum_{i \in \mathcal{N}} c_i \alpha_i \prod_{j=1}^{i-1} (1 - \alpha_j),
+\end{equation}
+where $\mathcal{N}$ denotes the depth-sorted set of Gaussians overlapping the pixel.
+
+\noindent \textbf{Generalizable Pose-free NVS Training.}
+Given a set of $V$ sparse context views $\mathcal{I}_\text{ctx} = \{\bm{I}_v\}_{v=1}^V$ and $T$ target views $\mathcal{I}_\text{tgt} = \{\bm{I}_t^\text{gt}\}_{t=1}^T$, we aim to synthesize a novel target view $\hat{\bm{I}}_\text{tgt}$ at an inferred pose $\hat{\bm{P}}_\text{tgt}$. 
+We utilize a pre-trained 3DVFM as a high-level geometric feature encoder $f_{\phi}$, which produces different feature representations depending on the input set. 
+Our architecture consists of two specialized heads: Gaussian Prediction Head ($\psi_{gs}$) and Pose Prediction Head ($\psi_\text{pose}$).
+To ensure the predicted scene geometry is independent of the target view, this head infers $\mathcal{G}$ using features extracted solely from the context views:
+\begin{equation}
+    \mathcal{G} = \psi_{gs}(\bm{F}_\text{ctx}), \quad \text{where } \bm{F}_\text{ctx} = f_{\phi}(\mathcal{I}_\text{ctx}).
+\end{equation}
+In a pose-free scenario, the relative transformation of the target camera must be estimated against the context. Thus, this head operates on a joint geometric feature $\bm{F}_\text{joint}$ derived from both context and target images:
+\begin{equation}
+    {\hat{\bm{P}}_\text{ctx}, \hat{\bm{P}}_\text{tgt}} = \psi_{pose}(\bm{F}_\text{joint}), \quad \text{where } \bm{F}_\text{joint} = f_{\phi}({\mathcal{I}_\text{ctx}, \mathcal{I}_\text{tgt}}).
+\end{equation}
+The set of synthesized target images $\{\hat{\bm{I}}_t\}_{t=1}^T$ is then generated via a differentiable rasterizer $\mathcal{R}$:
+\begin{equation}
+    \hat{\bm{I}}_t = \mathcal{R}(\mathcal{G}, \hat{\bm{P}}_{\text{tgt},t}), \quad \text{for } t=1, \dots, T.
+\end{equation}
+The framework is optimized by minimizing the photometric reconstruction loss over $T$ target views:
+\begin{equation}
+\label{eq:rec_loss}
+    \mathcal{L}_\text{rec} = \sum_{t=1}^{T} \left( |\hat{\bm{I}}_t - \bm{I}_t^\text{gt}|_2^2 + \lambda_{s} \mathcal{L}_\text{SSIM}(\hat{\bm{I}}_t, \bm{I}_t^\text{gt}) \right),
+\end{equation}
+where \(\lambda_{s}\) is the weighting hyperparameter for SSIM loss. 
+
+A fundamental challenge in this setup is the \textit{geometric misalignment} caused by the predictive nature of $\psi_\text{pose}$. Since $\hat{\bm{P}}_t$ is inferred from $\bm{F}_\text{joint}$, even minor inaccuracies in the estimated pose lead to significant pixel-wise shifts during rasterization. 
+This forces the gradients to improperly update $\mathcal{G}$, often resulting in blurred or structurally inconsistent Gaussians. 
+We propose to tackle this via Self-Consistent Pose Alignment, as described in Sec.~\ref{sec:method}.

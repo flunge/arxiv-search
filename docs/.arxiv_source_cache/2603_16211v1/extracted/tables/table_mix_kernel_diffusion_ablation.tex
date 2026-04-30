@@ -1,0 +1,81 @@
+\begin{table*}[t]
+\centering
+
+% 左侧：Kernel size ablation
+\begin{minipage}[t]{0.49\textwidth}
+  \centering
+  \caption{\textbf{Ablation on the mask refinement kernel size.} 
+    The best result is highlighted in \textbf{bold}, and the second-best is \underline{underlined}. We choose (5, 20) as our optimal configuration, which achieves the best PSNR / SSIM / LPIPS.}
+  \label{tab:ablation_kernel}
+  % A smaller kernel fails to fully encompass messy boundaries, while a larger kernel erroneously encroaches upon well-reconstructed regions, causing unnecessary modifications to ground-truth pixels that should remain untouched. 
+  \resizebox{0.98\linewidth}{!}{
+    \begin{tabular}{@{}l|cccc@{}}
+      \toprule
+      (Clos., Dila.) & PSNR $\uparrow$ & SSIM $\uparrow$ & LPIPS $\downarrow$ \\
+      \midrule
+      (5,10)  & 16.756 & 0.558 & \underline{0.417} \\
+      (5,20)  & \textbf{17.017} & \textbf{0.562} & \textbf{0.417} \\
+      (5,30)  & \underline{17.011} & \underline{0.561} & 0.422 \\
+      (10,10) & 16.637 & 0.555 & 0.420 \\
+      (10,20) & 16.897 & 0.559 & 0.419 \\
+      (10,30) & 16.918 & 0.558 & 0.423 \\
+      (20,10) & 16.509 & 0.554 & 0.422 \\
+      (20,20) & 16.779 & 0.557 & 0.420 \\
+      (20,30) & 16.820 & 0.556 & 0.424 \\
+      \bottomrule
+    \end{tabular}
+  }
+\end{minipage}%
+\hfill
+% 右侧整体：上下两个表
+\begin{minipage}[t]{0.49\textwidth}
+  \centering
+  
+  % 右上：不同控制方法的比较
+  \begin{minipage}[t]{\linewidth}
+    \centering
+    \caption{\textbf{Comparison of different generative control.} *: naive diffusion model.}
+    \label{tab:different_diffusion}
+    %      * represents baseline refined with diffusion model without control.
+    \resizebox{0.95\linewidth}{!}{
+      \begin{tabular}{@{}l|cccc@{}}
+        \toprule
+        Method & PSNR$\uparrow$ & SSIM$\uparrow$ & LPIPS$\downarrow$ & FID$\downarrow$ \\
+        \midrule
+        Baseline~\cite{jiang2025anysplat} & 13.21 & 0.464 & 0.472 & \underline{177.91} \\
+        w/o control* & 15.13 & 0.506 & 0.494 & 256.15 \\
+        T2I~\cite{mou2024t2i} & \underline{16.58} & \underline{0.554} & \underline{0.446} & 186.73 \\
+        ControlNet~\cite{zhang2023ControlNet} & 15.51 & 0.542 & 0.464 & 197.00 \\
+        Ours & \textbf{16.89} & \textbf{0.562} & \textbf{0.414} & \textbf{156.62} \\
+        \bottomrule
+      \end{tabular}%
+    }
+  \end{minipage}
+  
+  \vspace{2mm}   % 上下表之间的垂直间距，可根据实际效果微调 (0.8ex ~ 1.5ex 较自然)
+  
+  % 右下：VRNeRF 逐模块消融
+  \begin{minipage}[t]{\linewidth}
+    \centering
+    \caption{\textbf{Ablation study}. (a) Naive diffusion, (b) Geometry token fusion, (c) Palette filtering, (d) Mask refinement.}
+      %  on VRNeRF~\cite{xu2023vr} dataset
+    \label{tab:ablation_stages}
+    
+    \resizebox{0.98\linewidth}{!}{
+      \begin{tabular}{@{}l|ccccc@{}}
+        \toprule
+        Method & PSNR$\uparrow$ & SSIM$\uparrow$ & LPIPS$\downarrow$ & FID$\downarrow$ & Met3R$\downarrow$\\
+        \midrule
+        Baseline~\cite{jiang2025anysplat} & 15.89 & \underline{0.532} & 0.354 & 153.39 & 0.0322 \\
+        +(a)      & 18.19 & 0.372 & 0.336 & 169.78 & 0.0264 \\
+        +(a)+(b)  & \underline{18.35} & 0.380 & 0.320 & 146.80 & \underline{0.0248} \\
+        +(a)+(b)+(c) & 18.27 & 0.392 & \underline{0.316} & \underline{141.41} & 0.0252 \\
+        +(a)+(b)+(c)+(d) & \textbf{18.36} & \textbf{0.610} & \textbf{0.314} & \textbf{138.31} & \textbf{0.0242} \\
+        \bottomrule
+      \end{tabular}%
+    }
+  \end{minipage}
+  
+\end{minipage}
+
+\end{table*}

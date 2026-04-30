@@ -1,0 +1,139 @@
+\section{Proposed Approach}
+\label{sec: method}
+
+\begin{figure*}[t]
+\begin{center}
+    \centering
+    \includegraphics[width=\linewidth]{figures/Compare.pdf}
+    \vspace{-7mm}
+    \captionof{figure}{\textbf{Overview of our model.}
+Compared to traditional imitation driving models, which can only predict the single expert trajectory, \model can follow natural language instructions to generate diverse planning trajectories and future image predictions. 
+}
+\label{fig:compare}
+\end{center}%
+\vspace{-8mm}
+\end{figure*}
+
+\subsection{Imitation Driving to Instructional Driving}
+An autonomous driving model $\mathcal{M}$ usually takes as input the past $T$ and current image observations $[I_{t-T}, \dots, I_{t}]$ and past $T$ actions $[A_{t-T}, \dots, A_{t-1}]$, and predicts the current action $A_t$ for the ego car, which can be formulated as:
+\begin{equation}
+    A_t = \mathcal{M}([I_{t-T}, \dots, I_{t}], [A_{t-T}, \dots, A_{t-1}]).
+\end{equation}
+
+Conventional methods often adopt a perception-prediction-planning pipeline.
+The perception module $\mathcal{P}_{er}$ extracts the scene representation $\mathbf{z}$ from observations $[I_{t-T}, \dots, I_{t}]$. Then the prediction module $\mathcal{P}_{re}$ forecasts the future motion $\mathbf{v}$ of agents based on $\mathbf{z}$. Finally, the planning module $\mathcal{P}_{lan}$ uses $\mathbf{z}$, $\mathbf{v}$, and historical ego actions $[A_{t-T}, \dots, A_{t-1}]$ to plan the current ego action $A_t$. This multi-step pipeline can be expressed as:
+\begin{align}
+    \mathbf{z} &= \mathcal{P}_{er}(I_{t-T}, \dots, I_{t}]), \\
+    \mathbf{v} &= \mathcal{P}_{re}(\mathbf{z}), \\
+    A_t &= \mathcal{P}_{lan}(\mathbf{z}, \mathbf{v}, [A_{t-T}, \dots, A_{t-1}]). 
+\end{align}
+However, such methods heavily rely on costly high-quality 3D annotations, which greatly limits their scalability.
+
+Recently, vision-language-action (VLA) models have been applied to autonomous driving, leveraging their rich world knowledge and demonstrating strong generalization across diverse scenarios.
+Based on past observations $[I_{t-T}, \dots, I_{t}]$ and historical actions $[A_{t-T}, \dots, A_{t-1}]$, current VLA models $\mathcal{W}$ often predict both the textual description of the scene $D$ and the current ego action $A_t$. This end-to-end planning process can be formulated as:
+\begin{equation}
+    A_t, D_t = \mathcal{W}([I_{t-T}, \dots, I_{t}], [A_{t-T}, \dots, A_{t-1}]).
+\end{equation}
+
+Although existing VLA models show remarkable generalization, they fall short in flexible instruction-following. 
+Most VLA models are trained to imitate an averaged expert policy or process a closed set of simple navigational commands, failing to handle open-ended natural language instructions.
+To address this, we introduce an instruction-based driving model $\mathcal{V}$, which predicts the current ego action $A_t$ based on observations $[I_{t-T}, \dots, I_{t}]$, historical actions $[A_{t-T}, \dots, A_{t-1}]$ and the current user instruction $L_t$. This process can be expressed as:
+\begin{equation}
+    A_t = \mathcal{V}([I_{t-T}, \dots, I_{t}], [A_{t-T}, \dots, A_{t-1}], L_t).
+\end{equation}
+
+To enable instruction-based driving, we constructed a large-scale driving dataset with around 100,000 instruction-annotated scenes based on NAVSIM~\cite{navsim-v1}, where we generated instructions automatically using VLM, supplemented by rule-based methods. 
+For each timestep t, we prompt a powerful VLM~\cite{qwen2_5} with future observations $[I_{t+1},\dots, I_{t+N}]$ and actions $[A_{t+1},\dots, A_{t+N}]$ to produce a high-level instruction $L_t$ describing the driving intent of the current ego-vehicle.
+This process yields a sequence of image, instruction, and action triplets: $\mathcal{D} = \{\langle I_t, L_t, a_t \rangle\}_{t=1}^{T_{max}}$.
+We then train our model on this dataset, equipping it with instruction-following driving capabilities.
+
+
+\subsection{Unified Generation and Planning}
+\label{sec: method_task}
+While a direct way to achieve instruction-based driving is to train a VLA model on our driving dataset containing rich instructions, we find that it struggles to generate feasible trajectories and accurately follow instructions, due to the sparse action supervision.
+To address the supervision gap, we introduce the vision-language-world-action model, a novel framework that jointly learns instruction-based action planning and future image generation. 
+Our core insight is that future image generation provides a dense, pixel-level supervision signal, which helps the model learn the underlying dynamics of the world. 
+By joint modeling generation and planning, the model is compelled to learn the causal relationships among instructions, actions, and visual outcomes, which is critical for instruction-based planning.
+
+The framework is formulated as a generative model trained on triplets of images, instructions, and actions, which models the fundamental causal chain of driving: 
+An agent perceives the world $I_t$, receives the instruction $L_t$, decides on an action $A_t$, and observes the next outcome $I_{t+1}$. 
+At each timestep $t$, the model receives the current observation $I_t$ and instruction $L_t$, and the historical observations $[I_{t-T}, \dots, I_{t-1}]$. It then jointly predicts the action $A_t$ to be executed and the resulting next step $I_{t+1}$.
+We apply causal attention modeling to the model's architecture, ensuring that it learns the correct reasoning pathway from instruction to action and then to visual outcome, providing a solid foundation for resolving the supervision gap.
+
+
+\subsection{Joint Autoregressive-Diffusion Architecture}
+\label{sec: method_model}
+Unified generation and planning requires our model to not only possess significant visual-text understanding, visual generation, and action planning capabilities, but also integrates them to solve complex driving scenarios. 
+Current research mainly follows three approaches to bridge the gap between visual-text-understanding, which primarily uses auto-regressive VLM, and image generation, which often adopts diffusion models. 
+However, most methods fall short of our requirements. 
+Autoregressive visual generation models with discrete visual tokenizers struggle to match diffusion models in image quality and also suffer from high latency due to their sequential generation pipeline. 
+LLMs combined with external diffusers yield competitive results, but are constrained by an information bottleneck caused by the limited number of latent tokens passed from LLMs to generation modules. 
+To address these, we adopt the Integrated Transformer architecture~\cite{bagel}, which fuses auto-regressive VLM and diffusion transformer into a single model, enabling the generation module to interact with the understanding module without information loss and resulting in unified understanding and generation capabilities. 
+
+Our integrated model employs a unified paradigm to predict images and actions. It first encodes multi-modal inputs, including text, images, and actions, and concatenates them to the noises of target images or actions, forming a unified sequence. 
+The model then processes the sequence as a whole, calculating causal attention across modalities to ensure full information flow among text, image, and action latents. 
+Finally, the denoised latents are decoded by their respective decoders into images or actions. 
+ 
+\textbf{Encoding Inputs}. 
+To prepare the multi-modal inputs for the forward pass, we first encode them with corresponding tokenizers. For text, we tokenize natural language inputs $L_t$ with the Qwen2.5 tokenizer. For visual understanding, we only use the forward-view camera images as visual observations, which are encoded by a VAE encoder into latents $F_t^V$. To enrich the visual context, we also encode input images with a SigLIP2 ViT encoder, and append the latents to the corresponding image's VAE latents. For action, we first convert the 2D absolute trajectory $traj=[(x, y, \theta), \dots]$ into relative movements between consecutive steps $A=(\Delta x, \Delta y, \Delta \theta)$, so that actions from different steps share a distribution and can be easily normalized. We project the normalized relative action sequence into the latent dimension of the model with a linear head. 
+
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.475\textwidth]{figures/framework_v2.pdf}
+    \vspace{-7mm}
+    \caption{\textbf{Framework of our Unified Vision-Language-World-Action Model.}
+    We jointly model action planning and image generation using multi-modal inputs and a MoT architecture \cite{MoT}. 
+    }
+\label{fig:framework}
+\vspace{-5mm}
+\end{figure}
+
+\textbf{Constructing Input Sequence}. 
+We then combine the multi-modal segments in an interleaving manner. 
+The historical images $[I_{t-T}, ..., I_t]$ and actions $[A_{t-T}, ..., A_{t-1}]$ are placed at the beginning, followed by natural language instructions $L_t$. 
+When performing the action planning task, we then append a noisy target action $A_t^{noisy}$. 
+Otherwise, we first add the ground truth current action $A_t$, then append a noisy future image $I_{t+K}^{noisy}$ for visual generation. 
+Due to the strictly causal nature of our sequence $S=[I_0, L_0, A_0, ..., I_n, L_n, A_n]$, we set the attention mask as a blocked lower triangular matrix, so that each block, representing an image, action, or instruction, can only attend to previous blocks. 
+In the text block, we adopt a strictly lower triangular mask for causal self-attention and allocates consecutive RoPE indices to textual tokens. 
+In the image or action block, we adopt a full attention mask and share the same RoPE index for all tokens, using sinusoidal positional embedding to encode relative position instead. 
+
+During inference, the model denoises the action and future image sequentially, where future image prediction is conditioned on a fully denoised action. 
+While during training, the two tasks are optimized jointly for training efficiency. 
+A direct concatenation of noisy action and image inputs would cause later tokens to attend to noisy preceding latents, creating a mismatch with inference and degrading training. 
+To resolve this, we duplicate each latent that serves both as a prediction target and as a condition for subsequent predictions. 
+Specifically, we add noise to the first copy $F_t^{noisy}$ and use it for denoising supervision, while keeping the second copy $F_t^{clean}$ as the condition input. 
+We further mask $F_t^{noisy}$ from all subsequent tokens, ensuring that they attend only to the clean latents. 
+This design allows us to train multiple diffusion processes within a single autoregressive sequence efficiently.
+
+\textbf{Integrated Transformer}.
+To enhance the performance of our integrated transformer, we decouple the modules and weights in charge of each capability so that they can be optimized individually. 
+Unlike the Mixture of Expert (MoE) technique, which only uses separate weights for FFN, we employ the Mixture of Transformers (MoT) architecture~\cite{MoT, llamafusion}, where all trainable parameters of the transformer, including attention and FFN layers, are duplicated for each module. 
+This design has been shown to not only converge faster, but also maintain higher model capacity~\cite{bagel}. 
+Specifically, we process visual and text understanding tokens with a understanding transformer based on Qwen2.5 LLM~\cite{qwen2_5}, which has a hidden size of 3584 and a depth of 28 layers. 
+Image generation tokens are processed by a generation transformer of the same design. The weights of both transformers are initialized from Bagel-7B~\cite{bagel}. 
+Due to the relatively low dimensionality of the action space, we reduce the hidden size of the action module to 256, thus reducing action-related computation without significantly degrading model performance. 
+
+During the forward process, the interleaving multi-modal sequence is split into segments and passed onto their respective modules in each attention and FFN layers.
+To calculate global causal attention, the sequence is re-assembled to be processed as a whole. 
+Tokens for image generation and action planning are then extracted from the output sequence for final prediction. 
+
+
+\subsection{Training and Inference}
+\label{sec: method_train}
+ We implement a single-stage training paradigm to cover both action planning and world modeling. For action planning, we train the model to predict the action plan $A_t^{(N)}=[A_t, ..., A_{t+N-1}]$ based on past observations $I_t^{(-T)}=[I_{t-T}, ..., I_t]$ and current driving instruction $L_t$. For world modeling, we train the model to predict future image observation $I_{t+N}$ based on past images $I_t^{(-T)}$, current driving instruction $L_t$ and action plan $A_t^{(N)}$. We use the MSE of the normalized relative action $A$ as action loss:
+ \begin{equation}
+    \mathcal{L}_A = \mathbb{E}_{A_t^{(N)}, \epsilon, m}[ || \epsilon - \hat\epsilon(A_t^{(N)}, \epsilon, m, I_t^{(-T)}, L_t) ||^2 ], 
+\end{equation}
+where $\epsilon\sim\mathcal{N}(0, \mathbf{I})$ is sampled Gaussian noise and $m$ is a random timestep, and MSE of the VAE latents $F^V$ as image loss: 
+ \begin{equation}
+    \mathcal{L}_V = \mathbb{E}_{F_{t+N}^V, \epsilon, n}[ || \epsilon - \hat\epsilon(F_{t+N}^V, \epsilon, n, I_t^{(-T)}, L_t, A_t^{(N)}) ||^2 ], 
+\end{equation}
+where $\epsilon\sim\mathcal{N}(0, \mathbf{I})$ is sampled Gaussian noise and $n$ is a random timestep. 
+To enable Classifier-Free Guidance (CFG)~\cite{cfg} in inference, we randomly drop text, ViT, clean VAE, and clean action tokens during training. Tokens of the same modality that belong to different images or actions are dropped or kept jointly. 
+
+\input{arxiv/tables/navsim_v2}
+
+In the training stage, we optimize a joint objective with loss $\mathcal{L} = \lambda_A \cdot \mathcal{L}_A + \lambda_V \cdot \mathcal{L}_V$. This allows the model to learn world knowledge alongside planning capabilities. 
+In the inference stage, we use Classifier-Free Guidance Diffusion~\cite{cfg} to generate actions, with both image guidance and text guidance enabled. 
+While we primarily focus on the action planning task during inference, the model retains its image generation capabilities from the training stage. 

@@ -1,0 +1,233 @@
+\section{Stochastic Reconstruction of 3DGS Scenes}
+\label{sec:method}
+%
+Reconstructing 3DGS scenes requires differentiating pixel colors $C$ defined in \autoref{Eq:alpha_blend} with respect to the Gaussian parameters.
+Since the color derivatives $\nicefrac{\partial C}{\partial c_i}$ and opacity derivatives $\nicefrac{\partial C}{\partial \alpha_i}$ together determine all remaining parameter gradients (of $\bmu_i$, $\bSigma_i$, and $\sigma_i$) via the chain rule through \autoref{Eq:particle_opacity}, estimating these two quantities is the core computational task.
+
+Although stochastic blending (\autoref{alg:stoc_trans}) enables efficient \emph{forward rendering} of 3DGS scenes, it alone is insufficient for \emph{reconstruction}.
+The difficulty is that the opacity $\alpha_i$ governs the stochastic branching decision (\autoref{line:alpha}): na\"ive automatic differentiation (AD) treats this branch as fixed and therefore does not correctly differentiate through it, producing incorrect estimates of $\nicefrac{\partial C}{\partial \alpha_i}$.
+While more sophisticated compiler techniques exist for differentiating through such discontinuities~\cite{Bangaru:2021}, their use within general-purpose GPU computation frameworks (e.g., CUDA or OptiX) remains limited in practice.
+
+To address this challenge, we introduce a simple and efficient Monte Carlo procedure that produces \emph{unbiased} estimates of opacity gradients (\autoref{ssec:grad_est}).
+We then extend this formulation with a technique for rendering and reconstructing \emph{relightable} 3DGS scenes (\autoref{ssec:extensions}).
+
+
+\subsection{Stochastic Gradient Estimation}
+\label{ssec:grad_est}
+%
+Let $\bc := (c_1, c_2, \ldots, c_n)$ and $\balpha := (\alpha_1, \alpha_2, \ldots, \alpha_n)$ denote the colors and opacities of all $n$ Gaussians along a camera ray.
+Our goal is to estimate the gradient vectors $\dCdbc := (\nicefrac{\partial C}{\partial c_1}, \ldots, \nicefrac{\partial C}{\partial c_n})$ and $\dCdbalpha := (\nicefrac{\partial C}{\partial\alpha_1}, \ldots, \nicefrac{\partial C}{\partial\alpha_n})$.
+Differentiating \autoref{Eq:alpha_blend} yields their components:
+%
+\begin{align}
+	\frac{\partial C}{\partial c_i}
+	 & = \alpha_i \prod_{j \prec i} (1 - \alpha_j),
+	\\
+	\frac{\partial C}{\partial\alpha_i}
+	 & = \left[ \prod_{j \prec i}(1 - \alpha_j) \right] \!\!\left( c_i - \sum_{k \succ i} c_k \alpha_k \prod_{i \prec t \prec k}(1 - \alpha_t) \right),
+\end{align}
+%
+where $k \succ i$ indicates Gaussians $g_k$ \emph{behind} (i.e., with greater depth than) $g_i$; and $i \prec t \prec k$ denotes Gaussians $g_t$ \emph{between} $g_i$ and $g_k$.
+
+We now introduce Monte Carlo estimators $\dCdbcEst$ and $\dCdbalphaEst$ for the gradient vectors $\dCdbc$ and $\dCdbalpha$.
+The key idea is to reuse the same stochastic sampling from the forward pass (\autoref{alg:stoc_trans}): we draw an index $I \in \{1, 2, \ldots, n\}$ with the probability mass $p_I$ from \autoref{Eq:mc_pdf}, which exactly cancels the product $\alpha_i \prod_{j \prec i}(1 - \alpha_j)$ appearing in both gradient expressions above.
+We then set the $I$-th components $\dCdbcEst_I$ and $\dCdbalphaEst_I$ to
+%
+\begin{align}
+	\label{Eq:ours_dCdbc}
+	\dCdbcEst_I     & = 1,
+	\\
+	\label{Eq:ours_dCdbalpha_0}
+	\dCdbalphaEst_I & = \frac{1}{\alpha_I} \left(c_I - \sum_{k \succ I} c_k \alpha_k \prod_{I \prec t \prec k}(1 - \alpha_t) \right),
+\end{align}
+%
+while leaving all the other components at zero.
+
+Intuitively, \autoref{Eq:ours_dCdbalpha_0} measures how much the color $c_I$ of the selected Gaussian differs from the alpha-blended color of all Gaussians behind it---capturing the effect of ``removing'' $g_I$ from the blend.
+However, a brute-force evaluation of this sum would require the Gaussians~$g_k$ behind the sampled $g_I$ to be sorted.
+To avoid this, we apply Monte Carlo a second time, drawing an index $K \succ I$ with probability mass
+%
+\begin{equation}
+	p_{K|I} = \alpha_K \prod_{I \prec t \prec K}(1 - \alpha_t).
+\end{equation}
+%
+Note that $p_{K|I}$ has the same form as \autoref{Eq:mc_pdf} but restricted to Gaussians behind $g_I$, so it can be sampled with the same stochastic procedure.
+This reduces \autoref{Eq:ours_dCdbalpha_0} to a simple color difference:
+%
+\begin{equation}
+	\label{Eq:ours_dCdbalpha}
+	\dCdbalphaEst_I = \frac{1}{\alpha_I} (c_I - c_K).
+\end{equation}
+%
+We prove the unbiasedness of our Monte Carlo estimators in the appendix.
+
+
+\begin{figure}[t]
+	% \vspace{-2em}
+	\centering
+	\includegraphics[width=.8\linewidth]{images/backward_pass.pdf}
+	\vspace{-1.5em}
+	\caption{\label{fig:backward_illust}
+		Our stochastic gradient estimation (\autoref{alg:ours}) works by drawing a Gaussian $g_I$ along each camera ray (illustrated in dark blue) followed by another $g_K$ behind it.
+		Then, the colors $c^+$ and $c^-$ of these Gaussians are computed for evaluating \autoref{Eq:ours_dCdbalpha}.
+		For standard 3DGS, these colors can be obtained by evaluating the associated spherical harmonics (SH).
+		For relightable 3DGS, on the contrary, we compute $c^+$ and $c^-$ using Monte Carlo by tracing additional shadow rays (shown in yellow) toward a light source.
+		\vspace{-1.0em}
+	}
+\end{figure}
+
+
+\begin{algorithm}[t]
+	\caption{\label{alg:ours}
+		Our Monte Carlo estimates of pixel color gradients $\dCdbc$ and $\dCdbalpha$.
+	}
+	%
+	\SetCommentSty{mycmtfn}
+	\SetKwComment{tccinline}{// }{}
+	%
+	$\dCdbcEst \gets \boldsymbol{0}$; $\dCdbalphaEst \gets \boldsymbol{0}$\;
+	\For{$m = 1$ to $\Mb$}{
+	\tcc{Draw index $I$}
+	$I \gets 0$; $z \gets \infty$; $\alpha \gets 1$\; \label{line:draw_I_begin}
+	\ForEach{Gaussian $g_i$ along the camera ray}{
+	Obtain its opacity $\alpha_i$ and depth $z_i$\;
+	Draw $\xi$ uniformly from $[0, 1)$\;
+	\If{$\xi < \alpha_i$ and $z_i < z$}{
+		$I \gets i$; $z \gets z_i$; $\alpha \gets \alpha_i$\; \label{line:draw_I_end}
+	}
+	}
+	%
+	\If{$I > 0$}{
+	\tcc{Draw index $K$}
+	$K \gets 0$; $z \gets \infty$\; \label{line:draw_K_begin}
+	\ForEach{Gaussian $g_k$ along the camera ray}{
+	Obtain its opacity $\alpha_k$ and depth $z_k$\;
+	Draw $\xi$ uniformly from $[0, 1)$\;
+	\If{$z_k > z_I$ and $\xi < \alpha_k$ and $z_k < z$}{
+		$K \gets k$; $z \gets z_k$\; \label{line:draw_K_end}
+	}
+	}
+	\tcc{Obtain Gaussian colors}
+	Compute the color $c^+$ of the Gaussian $g_I$\; \label{line:comp_clr_begin}
+	\If{$K > 0$}{
+		Compute the color $c^-$ of the Gaussian $g_K$\; \label{line:comp_clr_end}
+	}
+	\Else
+	{
+		$c^- \gets 0$\;
+	}
+	\tcc{Update the gradient estimates}
+	$\dCdbcEst_I \pluseq 1$ \tccinline*{\autoref{Eq:ours_dCdbc}}
+	$\dCdbalphaEst_I \pluseq \nicefrac{(c^+ - c^-)}{\alpha}$ \tccinline*{\autoref{Eq:ours_dCdbalpha}}
+	}
+	}
+	%
+	\Return $\nicefrac{\dCdbcEst}{\Mb}$, $\nicefrac{\dCdbalphaEst}{\Mb}$\;
+\end{algorithm}
+
+
+\paragraph{Monte Carlo algorithm}
+\autoref{alg:ours} summarizes the complete multi-sample procedure for estimating both $\dCdbc$ and $\dCdbalpha$.
+Each of the $\Mb$ rounds draws a Gaussian~$g_I$ (\autoref{line:draw_I_begin}--\autoref{line:draw_I_end}) and a second Gaussian $g_K$ behind it (\autoref{line:draw_K_begin}--\autoref{line:draw_K_end}), as illustrated in \autoref{fig:backward_illust}.
+The colors $c^+, c^-$ of the two selected Gaussians are then computed (\autoref{line:comp_clr_begin}--\autoref{line:comp_clr_end}), and the $I$-th components of the gradient estimates are updated using \autoref{Eq:ours_dCdbc} and \autoref{Eq:ours_dCdbalpha}.
+
+Much like its forward-rendering counterpart (\autoref{alg:stoc_trans}), \autoref{alg:ours} requires no sorting and maintains only a minimal per-ray state---the selected indices $I$, $K$ and their depths---as the ray traverses the scene in the GPU ray-tracing pipeline.
+
+% \red{
+	Furthermore, when we use the sorting-based forward-rendering algorithm, the sample indices $I$ and $K$ required for the backward pass can be collected at almost negligible cost in memory and time. In practice, we find that for simple reconstruction tasks, this approach further boosts the performance of our algorithm.
+% }
+
+
+\paragraph{Reconstruction pipeline}
+% \red{
+	Being able to stochastically compute gradients of pixel colors (\autoref{alg:ours}), we reconstruct 3DGS scenes (using multi-view input images) with a standard two-pass process as follows.
+% }
+
+% \red{
+	In the \emph{forward pass}, we render images $\img$ (of a mini-batch) using the sorting-based algorithm introduced by~\citet{loccoz20243dgrt}. Meanwhile, we run our stochastic sampling algorithm (\autoref{alg:ours}) without the color computation to sample the indices $I$ and $K$.
+% }
+% we trace a camera ray through each pixel and use \autoref{alg:stoc_trans} to obtain the pixel colors $C$, with opacities $\alpha_i$ queried using \autoref{Eq:particle_opacity}. Multiple samples are collected and averaged to reduce the variance, and we show how the number of samples affect the reconstruction quality in \autoref{sec:results}.
+
+% \emph{Backward Pass} The final pixel color obtained in the forward pass is then compared against the target view under a loss function, and produces an image-space gradient $\nicefrac{\partial \mathcal{L}}{\partial C}$. 
+In the \emph{backward pass}, we first compute the rendering loss $\loss$ by comparing rendered images $\img$ against the input views, along with the pixel-wise gradient $\nicefrac{\partial\loss}{\partial\img}$.
+%We then apply \autoref{alg:ours} to further backpropagate the gradients onto the color $c_i$ and opacity $\alpha_i$ of each Gaussian $g_i$ as well as its mean~$\bmu_i$, covariance~$\bSigma_i$, and density $\sigma_i$ via \autoref{Eq:particle_opacity}.
+% \red{
+	We then apply \autoref{alg:ours} using the pre-computed indices to further backpropagate the gradients onto the color $c_i$ and opacity $\alpha_i$ of each Gaussian $g_i$ as well as its mean~$\bmu_i$, covariance~$\bSigma_i$, and density $\sigma_i$ via \autoref{Eq:particle_opacity}.
+% }
+
+Given the resulting gradients with respect to all Gaussian parameters, we update them following the same optimization scheme as prior work \cite{kerbl20233d, loccoz20243dgrt}.
+
+
+\subsection{Handling Relightable 3DGS Scenes}
+\label{ssec:extensions}
+%
+%In what follows, we introduce two extensions to the Monte Carlo estimators in \autoref{alg:stoc_trans} and \autoref{alg:ours} to (i)~support relighting, and (ii)~further improve reconstruction speed.
+
+% With the differentiable stochastic ray tracing algorithm in hand, we introduce several direct applications of this algorithm
+
+%
+%\xs{a high level question, can we claim our relightable method is a new relightable method? If not, we may want to say our experiment is an extension of RNG with our stochastic method here, at the beginning of this section.}
+The stochastic computation of pixel color gradients (\autoref{alg:ours}) can also significantly benefit the rendering and reconstruction of \emph{relightable} 3DGS scenes.
+In the following, we first present a physically inspired relightable 3DGS formulation, and then discuss the rendering and reconstruction of 3D scenes under this formulation.
+
+% Our differentiable stochastic ray tracer naturally extends Gaussian Splatting to relightable rendering without introducing additional heuristics or multi-stage pipelines.
+% Rather than grafting shading onto splats through G-buffers, screen-space shadows, or multi-pass rasterization~\rf{maybe references for these alternatives?}, we replace the rendering backbone with a Monte-Carlo path-tracing formulation using the stochastic transparency algorithm aforementioned. This enables physically-based image formation, where visibility, light transport, and shading are all estimated through the same stochastic sampling mechanism used for primary ray evaluation.
+
+\paragraph{Relightable 3DGS formulation}
+In standard 3DGS, each Gaussian $g_i$ carries a fixed color~$c_i$---it essentially \emph{emits} light.
+In a relightable formulation, $c_i$ must instead depend on the incident illumination, since Gaussians effectively \emph{reflect} light.
+Motivated by the rendering equation~\cite{Kajiya:RE}, we express the color~$c_i$ as a spherical integral over incoming directions:
+%
+\begin{equation}
+	\label{Eq:RE}
+	c_i(\bomo) = \int_{\sph} \brdf(\bz_i, \bomi, \bomo) \,\Li(\bomi) \,\D\bomi,
+\end{equation}
+%
+where $\bomo$ and $\bomi$ are the viewing and incident lighting directions, respectively.
+Here, $\brdf$ denotes the (cosine-weighted) bidirectional reflectance distribution function (BRDF), parameterized by a per-Gaussian feature $\bz_i$ that can encode either physical quantities (e.g., surface albedo, roughness) or learned latent vectors for neural BRDFs.
+
+\input{sec/tab_benchmarks}
+
+To instantiate \autoref{Eq:RE} in practice, we adopt a lightweight neural decoder $\Theta$, shared across all Gaussians, following RNG~\cite{RNG}:
+%
+\begin{equation}
+	\label{Eq:neural_appearance}
+	\Theta(\bz_i, \bomi, \bomo, \LiDir, \vis) \approx \brdf(\bz_i, \bomi, \bomo) \,\Li(\bomi),
+\end{equation}
+%
+The decoder takes as input the incident and outgoing directions $\bomi$ and $\bomo$, together with the per-Gaussian latent feature~$\bz_i$.
+To help the network learn baked-in global illumination effects such as interreflections, $\Theta$ receives two additional inputs: the direct emission $\LiDir$ from a light source in direction~$\bomi$, and the transmittance~$\vis$ between that light and the Gaussian $g_i$, defined as
+%
+\begin{equation}
+	\label{Eq:T}
+	\vis = 1 - \sum_{i' = 1}^{n'} \,\alphaShadow_{i'} \prod_{j' \prec i'} (1 - \alphaShadow_{j'}),
+\end{equation}
+%
+where $\alphaShadow_1, \ldots, \alphaShadow_{n'}$ are the opacities of the unsorted Gaussians $\gShadow_1, \ldots, \gShadow_{n'}$ along the shadow ray, and $j' \prec i'$ denotes indices of Gaussians between $\gShadow_{i'}$ and $g_i$.
+Intuitively, the product $\LiDir \,\vis$ represents the direct illumination arriving at the Gaussian $g_i$ from direction $\bomi$, attenuated by any occluding Gaussians along the way.
+
+\paragraph{Rendering and training}
+% \red{
+Due to the increased integrand dimensionality, the sorting-based forward rendering algorithm becomes unaffordable for relightable Gaussians. Therefore, we switch to stochastic computation for pixel colors using \autoref{alg:stoc_trans}.
+% }
+In practice, for point or directional light sources, \autoref{Eq:RE} reduces to a summation over directions toward individual lights (see \autoref{fig:backward_illust}).
+For environmental illumination, on the other hand, we estimate the integral in \autoref{Eq:RE} using Monte Carlo integration.
+
+To evaluate $\vis$, we estimate the transmittance along the shadow ray using a modified version of \autoref{alg:stoc_trans}: after visiting all Gaussians $\gShadow_1, \ldots, \gShadow_{n'}$ along the shadow ray, we set the estimated transmittance to one if no Gaussian was selected (i.e., the sampled depth $z = \infty$, meaning the ray is unoccluded) and zero otherwise.
+A detailed description of this procedure is provided in the appendix.
+
+Training follows the same two-pass pipeline described in \autoref{ssec:grad_est}, with one modification: the per-Gaussian color is now produced by the neural decoder $\Theta$ rather than being a stored attribute.
+In the backward pass, the color gradient $\dCdbcEst$ is backpropagated through $\Theta$ to update both the network weights and the per-Gaussian latent features~$\bz_i$, while the opacity gradient $\dCdbalphaEst$ is backpropagated to update the shape parameters of each Gaussian as before.
+
+\paragraph{Discussion}
+Existing relightable 3DGS methods approximate transmittance using shadow-mapping passes or costly shadow-prediction networks~\cite{RNG, bi2024rgs}.
+In contrast, our stochastic ray tracing computes transmittance both efficiently and accurately, enabling faster and more faithful reconstructions---as demonstrated in \autoref{sec:results}.
+Moreover, because our formulation is inherently ray-traced, it naturally supports complex environmental illumination, whereas shadow-mapping---based techniques require substantial---and often imperfect---extensions to handle such scenarios.
+
+Additionally, our rendering algorithm is agnostic to the choice of reflectance model $\brdf$, and can therefore be combined with other per-Gaussian reflectance representations (e.g., GS$^3$~\cite{bi2024rgs}, Relightable-3DGS~\cite{R3DG2023}, GS-IR~\cite{liang2023gs}).%\xs{citations?}
+
+\paragraph{Relation to StochasticSplats}
+% \red{
+	StochasticSplats~\cite{kv2025stochasticsplats} also estimates gradients of the alpha-blended pixel colors $C$ stochastically but operates within a rasterization framework rather than ray tracing.
+	Their gradient estimator could serve as an alternative to ours; however, as we show through visual comparisons in \autoref{sec:results} and a detailed analysis in the appendix, our estimator yields superior reconstruction quality.
+% }

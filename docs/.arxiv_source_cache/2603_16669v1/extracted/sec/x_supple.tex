@@ -1,0 +1,247 @@
+%%%%%%%%% Supplementary Material
+\clearpage
+%\appendix
+\begin{appendices}
+\section*{\Large \textit{Supplementary Material} for Kinema4D}
+%\usepackage[hang,flushmargin]{footmisc}
+%\renewcommand{\thefootnote}{\fnsymbol{footnote}}
+% \counterwithin{figure}{section}
+% \counterwithin{table}{section}
+\renewcommand{\thesection}{\Alph{section}}%
+%\renewcommand\thesection{\Alph{section}}
+\renewcommand\thetable{\Roman{table}}
+\renewcommand\thefigure{\Roman{figure}}
+
+%%%%%%%%% ABSTRACT
+\centerline{\large{\textbf{Outline}}}
+\noindent{This supplementary document is arranged as follows:}\\
+(1) Sec.~\ref{sec:more_qualitative_results} provides more qualitative results;\\
+(2) Sec.~\ref{sec:more_details} elaborates more technical details and discussions of our framework implementation, dataset, and real-world deployment;\\
+(3) Sec.~\ref{sec:more_ablations} discusses more ablation studies and analysis.\\
+% (4) Sec.~\ref{sec:toreal_detail} illustrates the details of TO-Real test set and visualizes the test results on it.
+
+\section{More Qualitative Results}
+\label{sec:more_qualitative_results}
+
+\cref{fig:qualitative_result_2D_supple} shows more 2D qualitative comparison with Ctrl-World \cite{guo2026ctrl}, \cref{fig:qualitative_result_4D_supple} visualizes more 4D qualitative comparison with TesserAct \cite{zhen2025tesseract}, \cref{fig:qualitative_result_sim} illustrates our qualitative results for policy evaluation in simulation platform, and \cref{fig:qualitative_result_all} provides extensive qualitative results of our method with Ground Truth as the reference. These results again demonstrate the effectiveness of our Kinema4D.
+
+We also provide a demo video, \textbf{\textit{demo.mp4}}, for our work. In this video, a teaser introduction is provided from the beginning to 1:20. 1:20 $\sim$ 2:40 illustrates our framework, 2:40 $\sim$ 3:46 describes our dataset acquisition, 3:50 $\sim$ 7:00 provides quantitative and animated qualitative results for the main comparison, 7:00 $\sim$ 8:18 shows animated qualitative results for policy evaluation, 8:20 $\sim$ 8:30 visualizes extensive animated results.
+
+
+\section{More Technical Details}
+\label{sec:more_details}
+
+\subsection{Framework Implementations.}
+\paragraph{Deployment of Kinematic Control.} 
+In the initial Kinematics Control phase, we implement a multi-view reconstruction-projection pipeline. For individual robot reconstruction, we capture sparse orbit videos via a smartphone and sample 20 representative frames. We employ Grounded-SAM2$^{\ref{footnote:groundedsam_repo}}$ \cite{liu2023grounding, ravi2024sam2} to segment the target object in the initial frame using the prompt \texttt{“the object on the desk”}, a strategy that proved highly robust across varying lighting conditions. 
+\footnotetext[1]{\label{footnote:groundedsam_repo}\url{https://github.com/IDEA-Research/Grounded-SAM-2}}
+These segments are then propagated throughout the sequence using the temporal tracking capabilities of SAM2$^{\ref{footnote:sam2_repo}}$ \cite{ravi2024sam2}.
+\footnotetext[2]{\label{footnote:sam2_repo}\url{https://github.com/facebookresearch/sam2}}
+Given these masked multi-view images, we utilize ReconViaGen$^{\ref{footnote:reconviagen_repo}}$ \cite{chang2025reconviagen} for pose-free high-fidelity shape synthesis. 
+\footnotetext[3]{\label{footnote:reconviagen_repo}\url{https://github.com/estheryang11/ReconViaGen}}
+Compared to traditional Structure-from-Motion (SfM) pipelines like COLMAP \cite{schonberger2016structure,schonberger2016pixelwise} or recent feed-forward models like VGGT \cite{wang2025vggt}, ReconViaGen generates more complete meshes with significantly fewer holes in unobserved regions—a critical advantage under sparse, unconstrained viewpoints. Furthermore, it outperforms commercial-grade alternatives such as Hunyuan3D \cite{yang2024hunyuan3d} in our specific laboratory setting. This pipeline produces a high-quality textured mesh and precise camera poses in approximately \textit{\textbf{15} seconds} on a single NVIDIA A100 GPU, facilitating the rapid construction of robot pointmap sequences in real-world deployment. 
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=1.0\linewidth]{images/results_2D_supple.pdf}
+% \vspace{-0.4cm}
+\caption{\textbf{Qualitative comparison of 2D video synthesis} between our Kinema4D and Ctrl-World \cite{guo2026ctrl}. Our method achieves superior fidelity. In contrast, Ctrl-World exhibits distorted actions and unrealistic environmental transitions.}
+\label{fig:qualitative_result_2D_supple}
+% \vspace{-0.1cm}
+\end{figure}
+
+\begin{figure}[!ht]
+\centering
+\includegraphics[width=0.8\linewidth]{images/results_4D_supple.pdf}
+% \vspace{-0.2cm}
+\caption{\textbf{4D qualitative comparison between our Kinema4D and TesserAct \cite{zhen2025tesseract}}. Unlike TesserAct that hallucinate outcomes, our Kinema4D precisely reflects Ground-Truth executions, including “near-miss” failure cases. For example, in the two bottom examples, our model \textit{correctly interprets the spatial gap} between the gripper and the objects, \textit{even when their \textbf{RGB textures overlap in 2D views}}.}
+\label{fig:qualitative_result_4D_supple}
+% \vspace{-0.5cm}
+\end{figure}
+
+Throughout both training and inference, we normalize each robot pointmap to a $[0, 1]$ range based on the extrema (minimum and maximum values) across the entire pointmap sequence prior to VAE encoding. This sequence-level normalization facilitates affine-invariant 4D control, encouraging the framework to prioritize relative spatial geometry and inter-object relationships over absolute coordinate values. By mapping diverse robot trajectories into a canonical latent space, this approach enhances the model's ability to generalize across different scales and workspace configurations.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=1.0\linewidth]{images/results_sim.pdf}
+% \vspace{-0.2cm}
+\caption{\textbf{4D qualitative results of our Kinema4D for policy evaluation in simulation platform}. Our simulated results strongly align with actual executions, accurately synthesizing both successful rollouts and “near-miss” failures. For instance, in the bottom figures, our model correctly interprets the spatial gap between the gripper and the object, even when their RGB textures overlap in 2D views.}
+\label{fig:qualitative_result_sim}
+% \vspace{-0.5cm}
+\end{figure}
+
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=1.0\linewidth]{images/results_all.pdf}
+% \vspace{-0.2cm}
+\caption{\textbf{Extensive 4D qualitative results of our Kinema4D}, across diverse domains, environments, robot actions, and the manipulated objects. These results are \textit{non-overlapping} with other figures. More animated results are provided in \textit{demo.mp4}.}
+\label{fig:qualitative_result_all}
+% \vspace{-0.5cm}
+\end{figure}
+
+\paragraph{Details of 4D Generative Modeling.} 
+In the second phase of 4D Generative Modeling, we employ Parameter-Efficient Fine-Tuning (PEFT) via LoRA \cite{hu2022lora}, initializing weights from 4DNeX$^{\ref{footnote:4dnex_repo}}$ \cite{chen20254dnex}.
+\footnotetext[4]{\label{footnote:4dnex_repo}\url{https://github.com/3DTopia/4DNeX}}
+The base model, 4DNeX, was originally fine-tuned on the Wan2.1 \cite{wan2025wan} 14B image-to-video architecture. To mitigate the distribution shift between RGB and pointmap latents, we adopt the latent normalization strategy from 4DNeX. Specifically, we compute the empirical statistics of the pointmap domain in the latent space over 5,000 random training samples, yielding a mean $\mu = -0.17$ and a standard deviation $\sigma = 1.36$. These values serve as constant normalization terms for the XYZ latents during both training and inference. The LoRA fine-tuning is configured with a rank of 64 to balance parameter efficiency with representational capacity. Training is conducted with a batch size of 32 using the AdamW optimizer, a peak learning rate of $2 \times 10^{-5}$, and a cosine warmup followed by constant decay. The model is trained for 5,000 iterations across 32 NVIDIA A100 GPUs, taking approximately 2 days, at a spatial resolution of $480 \times 720$ per modality, occupying 67GB of memory per GPU. While the original 4DNeX or WAN uses a text encoder to inject text conditions, we intentionally replace the text embedding with the VAE latents of robot sequences, which is discussed and ablated in \cref{sec:more_ablations} (“Text conditions”).
+During training and inference, our robot mask map is spatially and temporally downsampled according to the VAE latent transformation rules, ensuring exact alignment with the latent tensors. It is subsequently expanded to four channels (yielding a shape of $B \times 4 \times H_{latent} \times W_{latent}$), where non-zero values are restricted to robot-occupied positions, and is then channel-wise concatenated with both the noisy and input latents. In addition, we follow ControlNet \cite{zhang2023adding} to add a 1 × 1 zero-initialized convolution layer on the robot latent, to eliminate random noise as gradients in the initial finetuning steps.
+
+\subsection{Dataset}
+\paragraph{Acquisition of LIBERO simulated data.}
+Our data generation framework is built upon the MuJoCo \cite{todorov2012mujoco} engine within the LIBERO \cite{libero} platform. We extend the OpenVLA \cite{kim24openvla} dataset pipeline$^{\ref{footnote:openvla_repo}}$ by integrating MuJoCo’s depth-buffer rendering to capture per-pixel depth maps alongside RGB sequences. 
+\footnotetext[5]{\label{footnote:openvla_repo}\url{https://github.com/openvla/openvla}}
+These are subsequently back-projected into world-coordinate pointmaps using intrinsic and extrinsic camera parameters. To maintain a consistent data format, these pointmaps are stored as pseudo-RGB MP4 videos after undergoing per-sequence min-max normalization. To ensure high data variance, we perform procedural randomization of background objects within each scene. While the core dataset consists of successful demonstrations, we systematically synthesize failure cases to enhance the model's discriminative capabilities. Specifically, each successful trajectory is partitioned into three temporal segments, where Gaussian noise of varying intensities ($\sigma \in \{0.5, 0.8, 1.2\}$) is injected into the 6-DoF pose dimensions. This process yields nine distinct failure trajectories per demonstration, as the cumulative error causes the robot to deviate progressively from the target path. Notably, the gripper state remains unperturbed to ensure that the resulting failures stem from reaching or positioning errors rather than unnatural grasping artifacts.
+
+\paragraph{Extracting robot pointmap from 4D data annotations.}
+Using either simulation platform for producing synthetic data or ST-v2 \cite{xiao2025spatialtracker} for processing real-world data, we can easily gain the whole pointmap (including both the robot and environment) sequence at a main camera view. To further gain the robot-only pointmap as the control signal, we need to extract the robot area from the given pointmap. To realize this, we segment the robot’s presence within RGB frames by utilizing SAM2 \cite{ravi2024sam2} with a robust semantic prompt (\eg, “the robot arm”), and apply the segmented mask on both pointmap and RGB frames to gain robot-only sequences. 
+By doing so, we maintain the automated property of our data processing pipeline, so that our framework can leverage scalable video data from diverse, in-the-wild sources without manual labeling overhead. During both the model training and inference, we use the processed robot pointmap sequence as the control signal.
+% This automated pipeline significantly lowers the barrier for data acquisition, as it bypasses the requirement for precise 3D geometry, URDF models, or camera calibrations during the training phase. 
+
+\paragraph{Language annotations.}
+As we find that many text instruction labels are incomplete in our original data resource \cite{khazatsky2024droid,walke2023bridgedata,brohan2022rt}. We utilize Qwen3-VL-plus$^{\ref{footnote:qwen3_repo}}$ \cite{Qwen3-VL} to generate the language descriptions for each episode. 
+\footnotetext[6]{\label{footnote:qwen3_repo}\url{https://github.com/QwenLM/Qwen3-VL}}
+Two types of texts are generated, including the complete text (considering the whole robot-world dynamic interactions across the whole video) and the environment-centric descriptions (only considering the static environment at the initial frame).
+
+\paragraph{Validation split.}
+To ensure a rigorous and fair comparison, we constructed a unified validation set by sampling and aggregating 3200 episodes from the official validation episodes of all baselines. This evaluation set is sampled from our core data sources—2,000 from DROID, 1,000 from Bridge, 100 from RT-1, and 100 from LIBERO (50 successful and 50 failure modes)—preserving the proportional distribution of the training set. This composition ensures comprehensive coverage of complex robot-world interactions, ranging from articulated/deformable object manipulation and pick-and-place of objects. Crucially, all samples within this combined validation set were strictly excluded from our training set to prevent data leakage. This setup allows us to evaluate the generalization capability of our model across multiple data distributions simultaneously, whereas baselines are often specialized to a single domain. 
+% Moreover, considering the high sampling latency of most generative models, conducting iterative evaluations on the full validation pool for all baselines is computationally prohibitive. Therefore, we derived an Evaluation Benchmark by performing stratified sampling of 100 episodes from the original pool. This benchmark preserves the original task difficulty distribution while enabling a feasible and high-fidelity comparison across multiple baselines.
+
+\paragraph{The underlying logic behind 4D pseudo annotation.}
+To facilitate efficient large-scale data synthesis, we employ ST-v2 \cite{xiao2025spatialtracker} to generate pseudo-annotations directly from diverse robotic demonstration datasets. Our core design philosophy \textit{prioritizes \textbf{scalability}} as the primary driver for building a \textit{generalizable} robotic simulator. While we acknowledge that 4D reconstruction methods like ST-v2 may not achieve absolute, sub-millimeter geometric ground truth, they provide sufficiently high-fidelity relative spatial geometry. This level of accuracy is adequate for our generative framework to internalize the underlying spatial constraints and physical affordances of the environment (as verified in our qualitative results). By prioritizing the breadth of data over the exhaustive precision of individual samples, we enable the model to learn robust, generalizable motion priors that transcend the noise inherent in pseudo-labels.
+
+\paragraph{Frame number}.
+Each raw video is sliced into 49 frames per sample and maintains a unified frequency of motion dynamics for stable training.
+
+\subsection{Real-World Deployment}
+\paragraph{Reconstruction and projection.}
+Our real-world evaluation platform utilizes a YAM Arm$^{\ref{footnote:yam_arm}}$ (6-DoF collaborative manipulator). 
+\footnotetext[7]{\label{footnote:yam_arm}\url{https://i2rt.com/collections/yam-arm}}
+For comprehensive rollout recording and visual input, a primary RGB camera $cam$ is positioned at an oblique top-down angle relative to the workspace $\mathcal{W}$, ensuring a clear view of the manipulation area. After capturing orbit videos of the workspace, the primary viewpoint (fixed camera) image is integrated with the orbit-scan frames and processed via ReconViaGen \cite{chang2025reconviagen} to produce 3D robot mesh and the camera pose of the primary viewpoint. To ensure the robot's digital twin accurately reflects the physical state, we perform a rigid-body transformation $\mathbf{T}_{recon}^{base}$ between the physical robot's mounting point at $\mathcal{F}_{base}$ and the reconstructed global mesh at $\mathcal{F}_{recon}$ via manual calibration. 
+% The URDF’s mesh components (links) are programmatically instantiated within this global frame. 
+By retrieving the real-time joint encoders from the YAM Arm’s URDF, we solve the Forward Kinematics (FK) to update the pose of each link mesh $\mathbf{x}_{base}$ at $\mathcal{F}_{base}$ and transform it into $\mathcal{F}_{recon}$: $\mathbf{x}_{recon} = \mathbf{T}_{recon}^{base} \cdot \mathbf{x}_{base} $. 
+% In addition, we set a fixed length to denote the gripper's open/close. 
+
+\paragraph{Experimental setup.}
+We designed three distinct pick-and-place scenarios, denoted as $\mathcal{S} \in \{ \text{Easy, Medium, Hard} \}$, to evaluate the zero-shot generalization of our Kinema4D. Each scenario consists of $N=50$ trials to ensure statistical significance. The task complexity is categorized by the density of distractor objects $\mathcal{D}$ and the spatial constraints $\mathcal{C}$ within the workspace $\mathcal{W}$. Critically, both the physical embodiment and the unseen laboratory environment are entirely out-of-distribution (OOD) relative to our training data. This rigorous setup evaluates the framework's ability to transcend the reality gap without any real-world fine-tuning or domain-specific adaptation.
+
+\begin{table}[htbp]
+\centering
+\setlength{\tabcolsep}{8pt}
+\caption{Specifications of Real-World Evaluation Scenarios.}
+\label{tab:real_world_scenarios}
+\resizebox{0.8\linewidth}{!}{
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Scenario} & \textbf{Difficulty} & \textbf{Distractors } ($\mathcal{D}$) & \textbf{Constraints / Challenges} \\ \midrule
+I. Canonical & Easy & $\emptyset$ & Basic OOD texture grasping \\
+II. Cluttered & Medium & $n \in [3, 5], r \leq 5\text{cm}$ & Spatial proximity \& collision avoidance \\
+III. Dynamic & Hard & $n > 5$, randomized & Partial occlusion \& narrow passages \\ \bottomrule
+\end{tabular}
+}
+\end{table}
+
+\section{More Ablation Studies and Analysis}
+\label{sec:more_ablations}
+
+\begin{table}[t]
+\centering
+\setlength{\tabcolsep}{8pt}
+\caption{Quantitative results of more ablation studies.}
+% \vspace{-0.3cm}
+\label{tab:more_ablation}
+\resizebox{0.6\linewidth}{!}{
+\begin{tabular}{l|c|c|cc|c}
+\toprule
+Metrics & 
+Ours & 
+add env. pm & 
+env. text & null text & 
+depth \\ 
+\midrule
+\textbf{PSNR$\uparrow$} & 
+\textbf{22.50} & 
+21.93 & 
+20.97 & 22.31 & 
+21.04 \\ 
+\textbf{FID$\downarrow$}  & 
+25.9 & 
+26.2 & 
+27.0 & \textbf{25.6} & 
+26.3 \\
+\textbf{CD-$L_1$$\downarrow$}  & 
+\textbf{0.0479} & 
+0.0420 & 
+0.0592 & 0.0501 & 
+0.0583 \\
+\bottomrule
+\end{tabular}
+}
+% \vspace{-0.4cm}
+\end{table}
+
+\paragraph{Why not also use the initial environmental pointmap as additional input?}
+During the Kinematics Control phase, our primary objective is the extraction of precise 4D robotic trajectories. Consequently, we prioritize reconstructing the robot's geometry from masked multi-view images rather than the entire scene. This produces robot-centric pointmap sequences, which are fused with the initial world RGB frame as the conditioning input for generative modeling. While it is technically feasible to reconstruct the full static environment and provide an initial-frame world pointmap for enhanced 4D spatial grounding, our empirical results suggest this is unnecessary.
+As listed in \cref{tab:more_ablation} (“add env. pm”), incorporating the complete initial-frame pointmap does not yield performance gains. We attribute this to the pre-trained weights from 4DNeX \cite{chen20254dnex}, which already endow our framework with sufficient spatial inference capabilities derived from RGB signals alone.
+
+To further validate this design, we extended this ablation to our real-world setup. By reconstructing the entire physical environment, we provided the model with an initial real-world environmental pointmap. However, this led to a significant performance degradation, with a larger discrepancy between the policy simulation and the ground truth. Specifically, it yields [0.70, 0.82, 0.96] success rates for three different real-world test setups, respectively.
+We hypothesize that full-scene reconstruction introduces aleatoric noise and sensor artifacts from the physical world, which compromises the robustness of the latent control signal. This ablation confirms that our original design—focusing on precise robot kinematics while relying on RGB for environmental context—optimizes the balance between spatial accuracy and system robustness.
+
+\paragraph{Text conditions.}
+Since our model is designed to simulate the deterministic physical outcomes of actual robotic actions that could be either successful or failed for a task execution, relying solely on high-level task instruction texts is infeasible. To investigate the impact of language conditioning, we evaluated three variants: Environment-centric text, which describes only the static scene geometry; Null conditioning (“null text”); and our proposed robot VAE latents.
+
+As shown in \cref{tab:more_ablation}, we observed that incorporating environment-centric text (“env. text”) slightly degrades performance, likely due to the modality gap between abstract linguistic descriptions and the requirement for precise 4D transitions. In contrast, our framework maintains high stability when using either null text (“null text”) or Robot VAE latents (“Ours”). Ultimately, we opt for robot VAE latents as the primary conditioning signal, as they provide a dense, kinematically-informed representation that significantly enhances the fine-grained control over robot pointmap generation, surpassing the spatial ambiguity inherent in natural language. 
+
+% \paragraph{The way to add controls.}
+% ControlNet style and ours.
+
+\paragraph{Depth map as the spatial representation.}
+While our framework utilizes 4D pointmaps as the spatial representation, we evaluate the versatility of our model by training and testing on depth-map sequences. Leveraging our ST-v2 \cite{xiao2025spatialtracker} annotation pipeline, high-fidelity depth information is derived directly from our existing data without requiring additional effort. However, empirical results reported in \cref{tab:more_ablation} (“depth”) indicate that relying solely on depth maps leads to a performance degradation. We hypothesize that while depth captures distances from the camera, it lacks the explicit tri-coordinate geometric constraints ($X, Y, Z$) inherent in pointmaps. This weakens the model's ability to maintain precise metric-space control, particularly for off-axis manipulation tasks. 
+% This ablation underscores the necessity of 3D pointmaps for providing the dense spatial grounding required for high-fidelity 4D world transitions.
+
+\paragraph{Discussion on efficiency and memory usage.}
+We provide a comparison of computational efficiency and peak memory usage against the leading 2D-based baseline, Ctrl-World \cite{guo2026ctrl}, and the 4D-based framework, TesserAct \cite{zhen2025tesseract}. 
+All evaluations were conducted on a single NVIDIA A100 GPU to ensure parity. We also report the results of cross-domain evaluation, which is trained on DROID \cite{khazatsky2024droid} but tested on Bridge \cite{walke2023bridgedata}. All the baseline implementations use their official codes.
+As summarized in \cref{tab:effi_cross}, although both TesserAct and Ctrl-World show better efficiency, they are limited in cross-domain ability.
+
+Especially, Ctrl-World uses an auto-regressive architecture that offers superior throughput and a lower memory footprint. However, by relying on token-based action embeddings, it exhibits severe overfitting to the training dataset and lacks cross-embodiment capabilities due to the large gap between different embodiments' raw action spaces. Consequently, when deployed in unseen domains, it produces extremely inconsistent temporal frames (denoted by “(temp)” in \cref{tab:effi_cross}) and inferior visual quality due to the accumulated errors inherent in auto-regressive generation. As for TesserAct, it uses text instructions to represent action information, which lacks precise control and makes it fundamentally ineffective for the task-agnostic simulation.
+
+In contrast, our framework prioritizes generative fidelity and structural consistency as a generalizable and robust foundation for 4D world simulation. We argue that for a foundation model, the priority must be the \textit{\textbf{reliability} and \textbf{generalizability} of the physical transitions}. We leave efficiency optimizations, such as knowledge distillation and model quantization, for future work.
+
+\begin{table}[t]
+\centering
+\setlength{\tabcolsep}{6pt}
+\caption{Comparison of the efficiency and cross-domain transfer. While the baseline methods offer better efficiency, their generalization abilities are extremely worse than our method, considering both the actual quality and the self-temporal consistency.}
+% \vspace{-0.3cm}
+\label{tab:effi_cross}
+\resizebox{1.0\linewidth}{!}{
+\begin{tabular}{l|cc||cc|cc|cc}
+\toprule
+Method & 
+Time (min)  &  Memory (GB)  & 
+\textbf{PSNR}$\uparrow$ & \textbf{PSNR (temp)$\uparrow$} & 
+\textbf{FID$\downarrow$} & \textbf{FID (temp)$\downarrow$} & 
+\textbf{CD-$L_1$$\downarrow$} & \textbf{CD-$L_1$ (temp)$\downarrow$}\\ 
+\midrule
+\textbf{Ours} & 
+15  &  56  &
+\textbf{19.23} & \textbf{36.95} & 
+\textbf{29.3} & \textbf{15.4} & 
+\textbf{0.0621} & \textbf{0.0068} \\ 
+Ctrl-World \cite{guo2026ctrl}  & 
+\textbf{2.5}  &  \textbf{15}  &
+12.14 & 19.32 & 
+38.5 & 49.5 & 
+- & -\\
+TesserAct \cite{zhen2025tesseract}  & 
+ 10 & 31 &
+10.80 &  25.87 & 
+41.8 & 28.7 & 
+0.0928 & 0.0125\\
+\bottomrule
+\end{tabular}
+}
+% \vspace{-0.4cm}
+\end{table}
+
+
+\end{appendices}

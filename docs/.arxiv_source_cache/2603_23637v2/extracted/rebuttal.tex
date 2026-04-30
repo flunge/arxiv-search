@@ -1,0 +1,168 @@
+\documentclass[10pt,twocolumn,letterpaper]{article}
+\usepackage[rebuttal]{cvpr}
+
+% Include other packages here, before hyperref.
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{booktabs}
+
+% Import additional packages in the preamble file, before hyperref
+\input{preamble}
+
+% If you comment hyperref and then uncomment it, you should delete
+% egpaper.aux before re-running latex.  (Or just hit 'q' on the first latex
+% run, let it finish, and you should be clear).
+\definecolor{cvprblue}{rgb}{0.21,0.49,0.74}
+\usepackage[pagebackref,breaklinks,colorlinks,allcolors=cvprblue]{hyperref}
+
+% If you wish to avoid re-using figure, table, and equation numbers from
+% the main paper, please uncomment the following and change the numbers
+% appropriately.
+%\setcounter{figure}{2}
+%\setcounter{table}{1}
+%\setcounter{equation}{2}
+
+% If you wish to avoid re-using reference numbers from the main paper,
+% please uncomment the following and change the counter value to the
+% number of references you have in the main paper (here, 100).
+%\makeatletter
+%\apptocmd{\thebibliography}{\global\c@NAT@ctr 100\relax}{}{}
+%\makeatother
+
+%%%%%%%%% PAPER ID  - PLEASE UPDATE
+\def\paperID{36961} % *** Enter the Paper ID here
+\def\confName{CVPR}
+\def\confYear{2026}
+
+\definecolor{rred}{RGB}{140, 166, 191}
+\definecolor{rblue}{RGB}{226, 151, 95}
+\definecolor{rgreen}{RGB}{140, 141, 98}
+\newcommand{\Rone}{\textcolor{rred}{\textbf{RqD9}}\xspace}
+\newcommand{\Rtwo}{\textcolor{rblue}{\textbf{Csak}}\xspace}
+\newcommand{\Rthree}{\textcolor{rgreen}{\textbf{bdTH}}\xspace}
+\newcommand{\myparagraph}[1]{\noindent\textbf{#1}}
+
+\newcommand{\MyCheck}{\color{Green}{\cmark}}
+\newcommand{\MyCross}{\color{Red}{\xmark}}
+
+\begin{document}
+
+%%%%%%%%% TITLE - PLEASE UPDATE
+\title{Stochastic Ray Tracing for the Reconstruction of 3D Gaussian Splatting}  % **** Enter the paper title here
+
+\maketitle
+\thispagestyle{empty}
+\appendix
+
+\noindent{}We thank the reviewers for their positive assessment of the technical contribution. Reviewer \Rone described the proposed gradient estimator as a "valuable missing puzzle piece for stochastic ray tracing of Gaussians", Reviewer \Rtwo noted that the approach is supported by "both theoretical analysis and experimental validation" and performs strongly across standard and relightable 3DGS settings, and Reviewer \Rthree emphasized that "the key innovation lies in the derivation of the gradient estimator". Below we response to the questions reviewers raised to our work.
+%\ig{Space permitting, can append some positive quotes to reviews here; it's standard practice in CVPR}
+\\
+%%%%%%%%% BODY TEXT - ENTER YOUR RESPONSE BELOW
+% \section{Common [Iliyan: replace with paragraphs]}
+
+\myparagraph{Attribution of contributions (\Rone, \Rtwo).}
+% \subsection{Attribution of Contributions (RqD9, Csak)}
+% "some of the claims in the text don't properly distinguish which advantages comes from this work and which stem from [29](Sun et al.)" - \textbf{RqD9}
+%
+% “The authors claim that their method can be used as a drop-in replacement for any tracing-based method. The exact meaning of this statement is unclear and would benefit from further explanation.” - \textbf{Csak}
+The main contribution of our paper is a novel \emph{gradient computation} algorithm that enables fully sorting-free, stochastic ray tracing for 3DGS \emph{optimization}, particularly, making \emph{the backward pass} efficient and practical. The forward rendering pass (Alg. 1), on the other hand, follows Sun et al., and the timing breakdown in Table 2 aims to identify the performance gain brought by our improvement to the backward pass. 
+To avoid misunderstanding, we will further clarify in the paper our core contribution.
+
+\input{sec/relight_figure}
+
+% \subsection{Relighting Results (\Rone, \Rtwo)}
+\myparagraph{Relighting results (\Rone, \Rtwo).}
+%
+% "As someone unfamiliar with that dataset it's hard for me to understand what is accomplished by these scores." - \textbf{RqD9}
+%
+% "It remains unclear how the proposed method would perform for relightable 3DGS reconstruction on datasets with image-based lighting (IBL) or on real-world relighting datasets." "The paper does not compare the proposed method with other approaches in terms of reconstruction time, rendering frame rate, or the number of Gaussians for relightable 3DGS reconstruction." - \textbf{Csak}
+%
+In \cref{fig:rebuttal_relight} above, we show the reconstruction our method produced on the \textit{Cat} scene from Table 3 in the main paper. The training is conducted using a set of images of real-world objects captured in a light stage using different lighting setups.
+
+In the paper we show multiple results of relighting using IBL (Fig.~1, Fig.~6). Our current formulation and estimator are fully compatible with IBL, and full support for training under IBL is left for future work.
+
+% \subsection{Comparison to StochasticSplats (\Rthree, \Rone)}
+\myparagraph{Comparison to StochasticSplats (\Rthree, \Rone).}
+% "StochasticSpats [18] deserves a more prominent call-out and discussion in the main paper" - \textbf{RqD9}
+%
+% "I would prefer moving the comparison against [19] from the supplementary material to the main text and adding a careful ablation study."
+% "Could you provide more details about the setup? For example, what is the SPP? Perhaps multiple SPP values should also be tested." - \textbf{bdTH}
+%
+We provide a discussion and comparison to StochasticSplats in the supplements. We will include a part of the core discussion in the paper.
+
+% \subsection{Ablations Studies (\Rtwo, \Rthree)}
+\myparagraph{Ablations studies (\Rtwo, \Rthree).}
+% “The paper appears to lack ablation experiments to justify the design choices of the proposed method.” - \textbf{Csak}
+%
+% "I would prefer moving the comparison against [19] from the supplementary material to the main text and adding a careful ablation study." - \textbf{bdTH}
+We clarify that our method intentionally introduces only a single substantive design choice: the two-sample stochastic gradient estimator. The corresponding single-sample formulation is identical to the one proposed in StochasticSplats, which is already included as a baseline in our experiments (supplemental Table~1). All other components are held identical, ensuring the comparison isolates the effect of the gradient estimator alone. We will explicitly frame this comparison as an ablation study, and move it to the main text.
+
+% \subsection{Comparison/Implementation Details}
+\myparagraph{Comparison/Implementation details.}
+% “Several important implementation details are unclear. For example, how is the training conducted for the novel view synthesis task? What is the specific densification strategy used?” - \textbf{Csak}
+%
+% “For the NVS task, several important metrics are missing, including the number of Gaussians, final rendering frame rate, and peak memory usage.” - \textbf{Csak}
+%
+% "The algorithm requires two independent (BVH) traversals. Could the authors discuss the possibility of combining both sampling processes into a single pass? ... How does this (variance) interact with the MCMC strategy introduced by [18]?" - \textbf{bdTH}
+%
+% “I suggest also adding benchmark comparisons against sorted rasterization methods such as StopThePop… and 3DGUT.”  - \textbf{bdTH}
+For the NVS task, the training setup is identical to 3DGRT, except when explicitly specified in Sec.~5 of the paper. As described there, we set the densification interval to 400 to ensure that our algorithm generates a similar number of Gaussian particles. For \textsl{MipNeRF360} dataset in Table~1, the final average Gaussian count is 2.12M for our method, and 1.95M for 3DGRT. We will include a more detailed per-scene metric reporting for the NVS tasks in a revised version.
+
+For comparison to StochasticSplats, we use 30spp for both methods, following the setting from the NVS comparisons in the main paper.
+
+
+\begin{table}[t]
+    \caption{\label{tab:relightable_metrics}
+        Metrics of our method and baselines on the \textsl{Basket} scene from \textsl{NRHints} dataset. Despite using typically expensive ray tracing and in-shader MLP evaluation, our method achieves comparable performance to baselines thanks to efficient algorithm~design.
+    }
+    \centering
+    \small
+    \begin{tabular}{c|cccc}
+        \toprule
+         & $\#$ \textbf{Gaussians} & \textbf{Time} & \textbf{Ray tracing} & \textbf{MLP} \\
+        \midrule
+        % \textsl{Lego} & 275k$|$52m & 565k$|$70m & 303k$|$46m\\
+        % \textsl{Basket} & 457k$|$66m & 642k$|$75m & 519k$|$58m\\
+        % \textsl{Hotdog} & \textbf{31.88}$|$0.955 & 30.38$|$76m &  251k$|$ 32m\\
+        % \textsl{FurBall} & \textbf{33.69}$|$\textbf{0.949} & 262k$|$60m &  199k$|$30m\\
+        \textbf{Ours} & 457\,k & 66\,min & \MyCheck & \MyCheck \\
+        RNG & 642\,k & 75\,min & \MyCross & \MyCheck \\
+        GS$^3$ & 519\,k & 58\,min & \MyCross & \MyCross \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+For relighting experiments, we provide more metrics in Table~\ref{tab:relightable_metrics}. Please refer to the captions for the interpretation of the metrics.
+
+
+% \section{Miscellaneous}
+
+% \subsection{Gaussian Indexing (\Rone)}
+\myparagraph{Gaussian indexing (\Rone).}
+% The writing in Sec 3 (L175-L191) creates some confusion in terms notation for ordering. L177 says the ordering i=1,2,3 is arbitrary, but much of the subsequent text treats this as a sorted ordering and writes i < j etc. (need to explain meaning of $\prec$)
+We use an override symbol $i\prec j$ (as opposed to $<$) to denote the $i^{\text{th}}$ Gaussian being in the front of the $j^{\text{th}}$ Gaussian. Such ordering of depth is different from the indexing of Gaussians (which we assume to be arbitrary).
+
+% \subsection{Application to Rasterization (\Rthree)}
+\myparagraph{Application to rasterization (\Rthree).}
+% The method should also be applicable to a rasterization formulation. I wonder whether an implementation and evaluation could be added. I expect the implementation would be simple and similar to the current one. If it is not straightforward, a discussion on this topic should likely be included.
+Our algorithm primarily targets ray-tracing-based 3DGS optimization, as sorting can be a major bottleneck for ray tracing performance. While conceptually applicable, integrating the method into rasterization-based pipelines would require non-trivial engineering changes and is outside the scope of this submission. 
+% We further note that two BVH traversals are necessary to maintain the conditioned probability \xs{this may not be clear enough, where is the conditioned probability from and how it is not a problem in current implementation.}\ig{Agree}\rf{Yes I think we'd explain why two BVHs are necessary for the conditioned probability.}.
+Combining two BVH traversals into a single one is also worth exploring in the future.
+
+% \subsection{Non-pinhole camera (\Rtwo)}
+\myparagraph{Non-pinhole camera (\Rtwo).}
+% The authors claim in the abstract and introduction that the method supports non-pinhole rendering modes. I would be very interested in seeing qualitative visualizations of the sorting-free ray tracing approach applied to non-pinhole settings for both standard Gaussian scenes and relightable 3DGS.
+We provide a qualitative experiment of non-pinhole camera in supplemental Fig.~3. Non-pinhole camera for relightable 3DGS suffers from lack of dataset and therefore needs further investigation.
+% \subsubsection{Relation to Sun et al.}
+% I am confused about the difference between the proposed forward rendering procedure (Algorithm 1) and the method of Sun et al. Could the authors clarify the key distinctions?
+
+
+%%%%%%%%% REFERENCES
+% {
+%     \small
+%     \bibliographystyle{ieeenat_fullname}
+%     \bibliography{main}
+% }
+
+\end{document}
