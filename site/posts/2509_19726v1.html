@@ -231,7 +231,9 @@
     <h2 id='summary'>简单摘要</h2>
     
       
-      <p>PolGS以具备更强几何表达能力的3DGS框架为基础，引入偏振成像机制来增强3D场景重建。传统3DGS将场景表示为一组无结构的高斯基元，通过泼溅光栅化和alpha混合进行新视图渲染。偏振相机能够在单次拍摄中捕获不同偏振角度的图像，利用Stokes矢量描述光的偏振状态。该工作假设入射环境光照为非偏振光，出射光因反射而变为部分偏振，通过Mueller矩阵建模出射Stokes矢量与入射Stokes矢量之间的关系。基于偏振BRDF（pBRDF）模型，出射Stokes矢量可分解为漫反射分量和镜面反射分量——漫反射分量涉及表面法线、菲涅尔透射系数和漫反射反照率；镜面反射分量涉及菲涅尔反射系数、半向量相关的入射方位角，并采用微面元模型中的法线分布和阴影项。PolGS将这一偏振物理模型嵌入3DGS框架中，利用偏振信息提供额外的几何约束来改善重建质量。</p>
+      <p>PolGS以具备更强几何表达能力的3DGS框架为基础，引入偏振成像机制来增强3D场景重建。传统3DGS将场景表示为一组无结构的高斯基元，通过泼溅光栅化和alpha混合进行新视图渲染。偏振相机能够在单次拍摄中捕获不同偏振角度的图像，利用Stokes矢量描述光的偏振状态。该工作假设入射环境光照为非偏振光，出射光因反射而变为部分偏振，通过Mueller矩阵建模出射Stokes矢量与入射Stokes矢量之间的关系。基于偏振BRDF（pBRDF）模型，出射Stokes矢量可分解为漫反射分量和镜面反射分量——漫反射分量涉及表面法线、菲涅尔透射系数和漫反射反照率；镜面反射分量涉及菲涅尔反射系数、半向量相关的入射方位角，并采用微面元模型中的法线分布和阴影项。PolGS将这一偏振物理模型嵌入3DGS框架中，利用偏振信息提供额外的几何约束来改善重建质量。</p><figure style='margin-top:20px;'><img class='paper-fig' src='assets/2509_19726v1/figure1_full.png' alt='架构图：方法整体流程' loading='lazy' decoding='async' /><img width='800' height='450' class='paper-fig' src='../assets/2509_19726v1/figure1_full.png' alt='Figure 1:' loading='lazy'lazy' decoding='async' / />
+      <figcaption style='font-size:12px;'>图 1：方法整体架构与流程</figcaption></figure>
+    
     
     
 
@@ -268,13 +270,14 @@
     <p>$$ \V{s}_i(\boldsymbol{\omega}) = L(\boldsymbol{\omega}) [1, 0, 0, 0]^\top, $$</p>
     <p>这条式子把前面若干观测、条件或中间特征，经过一个显式模块映射成新的状态变量。它的意义在于把复杂流程压缩成清晰的函数接口，方便后续模块继续消费这个中间结果。</p>
     <p>$$ \V{s}(\V{v}) = \int_{\Omega} \V{H} \V{s}_i(\boldsymbol{\omega}) \,\, d\boldsymbol{\omega}, $$</p>
-    <p>放在“预赛”这一部分看，这条式子重点不是孤立地罗列符号，而是交代 这一项中间量 如何承接前面的输入并把结果交给后续步骤。</p>    <h3>4 提议的方法</h3>    <p>我们的 PolGS 框架集成了多视图偏振图像、其相应的掩模和相机姿态信息，以产生丰富的输出，其中包括表示为斯托克斯向量的漫反射和镜面反射分量。在本节中，我们将分析基于 SDF 的方法和 3DGS 方法中使用的表面法线表示。然后我们介绍了偏振引导重建管道的理论基础。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p><figure><img width='800' height='450' class='paper-fig' src='../assets/2509_19726v1/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：基于SDF和基于3DGS的几何表示方法的比较；（上）NeuS 中点的表面法线与其不透明度有很强的关系，重点说明方法流程、比较对象以及最终结果之间的关系</figcaption></figure>    <h4>4.1 表面法线表示分析</h4>
+    <p>放在“预赛”这一部分看，这条式子重点不是孤立地罗列符号，而是交代 这一项中间量 如何承接前面的输入并把结果交给后续步骤。</p>    <h3>4 提议的方法</h3>    <p>我们的 PolGS 框架集成了多视图偏振图像、其相应的掩模和相机姿态信息，以产生丰富的输出，其中包括表示为斯托克斯向量的漫反射和镜面反射分量。在本节中，我们将分析基于 SDF 的方法和 3DGS 方法中使用的表面法线表示。然后我们介绍了偏振引导重建管道的理论基础。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p><figure> <figcaption style='font-size:12px;'>图 2：基于SDF和基于3DGS的几何表示方法的比较；（上）NeuS 中点的表面法线与其不透明度有很强的关系，重点说明方法流程、比较对象以及最终结果之间的关系</figcaption></figure>    <h4>4.1 表面法线表示分析</h4>
     <p>围绕 4.1 表面法线表示分析，因此，多个高斯核配置可以潜在地表示等效的表面几何形状，从而引入固有的重建模糊性。该优化机制有效地融合了多个高斯点的贡献，这提供了重建适应性，但会损害单个点几何表征的精度。很明显，在高斯分布中使用法线预测模型作为先验约束有利于对象重建，如 所示。</p>
     <p>与传统的 RGB 图像输入不同，偏振信息可以在使用 pBDRF 模型渲染斯托克斯矢量期间有效地约束表面法线。具体来说，如 中所示， 和 的漫反射和镜面反射分量与物体的表面法线表现出很强的相关性。利用这一特性，我们将偏振信息作为形状重建的先验，并使用基于 3DGS 的方法来加速这一过程。这一步的作用，是把当前结果继续传给后面的模块或训练目标。</p>
     <h4>4.2 聚合酶链反应</h4>
     <p>网络结构 在本节中，我们介绍我们提出的 PolGS，这是一种新颖的 3D 重建方法，它将高斯分布方法与偏振信息相结合。最初，采用高斯面元模块来估计物体的漫反射分量，看起来像。为了增强渲染过程，我们将 pBRDF 模型合并到渲染公式中。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
     <h4>4.3 训练</h4>
-    <p>渲染斯托克斯损失 和 渲染斯托克斯损失与（非偏振图像）渲染损失组合为 3DGS，渲染损失为。mask loss mask loss用于使物体的渲染结果更加准确，可以表示为。深度-法线一致性损失 深度-法线一致性损失随之而来，使渲染的物体深度和法线更加一致。作者这样设计，是为了把这一节的输入<img width='800' height='450' class='paper-fig' src='../assets/2509_19726v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' />lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：对 Squirrel 的表面法线估计进行定性比较，其中我们基于 3DGS 的方法可以优于基于相同表示的现有方法，<img width='800' height='450' class='paper-fig' src='../assets/2509_19726v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' />alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：和 上的定性比较形状，其中与基于 SDF 的方法相比，产生相似质量的重建网格</figcaption></figure>
+    <p>渲染斯托克斯损失 和 渲染斯托克斯损失与（非偏振图像）渲染损失组合为 3DGS，渲染损失为。mask loss mask loss用于使物体的渲染结果更加准确，可以表示为。深度-法线一致性损失 深度-法线一致性损失随之而来，使渲染的物体深度和法线更加一致。作者这样设计，是为了把这一节的输入<img width='800' height='450' class='paper-fig' src='../assets/2509_19726v1/figure3_full.png' alt='Figure 3:' loading='lazy'lazy' decoding='async' />lazy' decoding='async' /><img width='800' height='450' class='paper-fig' src='../assets/2509_19726v1/figure4_full.png' alt='Figure 4:' loading='lazy'lazy' decoding='async' / />
+      <figcaption style='font-size:12px;'>图 3：对 Squirrel 的表面法线估计进行定性比较，其中我们基于 3DGS 的方法可以优于基于相同表示的现有方法， alt='Figure 4:' loading='lazy'lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：和 上的定性比较形状，其中与基于 SDF 的方法相比，产生相似质量的重建网格</figcaption></figure>
 
 
 

@@ -231,7 +231,8 @@
     <h2 id='summary'>简单摘要</h2>
     
       
-      <p>3DGS通过将场景显式表示为各向异性高斯基元的集合，实现了照片级真实感渲染和实时自由视点导航。原始3DGS依赖随机梯度下降和自适应密度控制来联合优化高斯基元的几何与外观属性，虽然视觉保真度出色，但逐场景优化和对密集输入视图的依赖严重限制了可扩展性和实用性。近期前馈3DGS利用神经网络从输入图像直接推断3D高斯参数，消除了迭代优化的需求，大幅提升了重建速度并可处理稀疏视图输入。然而，效率提升的代价是数据量的显著膨胀——3DGS需要大量高斯基元来建模场景，导致巨大的存储和传输开销。现有压缩方法（如剪枝、聚类、运动估计、概率建模，以及HAC、ContextGS等）都依赖于逐场景迭代优化，无法适用于前馈方法。TinySplat提出了完全免训练的方案，通过耦合前馈3DGS生成阶段与渲染感知压缩阶段来解决这些问题。</p><figure style='margin-top:20px;'><img width='800' height='450' class='paper-fig' src='assets/2506_09479v1/figure1_full.png' alt='架构图：方法整体流程' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：方法整体架构与流程</figcaption></figure>
+      <p>3DGS通过将场景显式表示为各向异性高斯基元的集合，实现了照片级真实感渲染和实时自由视点导航。原始3DGS依赖随机梯度下降和自适应密度控制来联合优化高斯基元的几何与外观属性，虽然视觉保真度出色，但逐场景优化和对密集输入视图的依赖严重限制了可扩展性和实用性。近期前馈3DGS利用神经网络从输入图像直接推断3D高斯参数，消除了迭代优化的需求，大幅提升了重建速度并可处理稀疏视图输入。然而，效率提升的代价是数据量的显著膨胀——3DGS需要大量高斯基元来建模场景，导致巨大的存储和传输开销。现有压缩方法（如剪枝、聚类、运动估计、概率建模，以及HAC、ContextGS等）都依赖于逐场景迭代优化，无法适用于前馈方法。TinySplat提出了完全免训练的方案，通过耦合前馈3DGS生成阶段与渲染感知压缩阶段来解决这些问题。</p><figure style='margin-top:20px;'><img width='800' height='450' class='paper-fig' src='assets/2506_09479v1/figure1_full.png' alt='架构图：方法整体流程' loading='lazy' decoding='async' /><img width='800' height='450' class='paper-fig' src='../assets/2506_09479v1/figure2_full.png' alt='Figure 3:' loading='lazy'lazy' decoding='async' / />
+      <figcaption style='font-size:12px;'>图 1：方法整体架构与流程</figcaption></figure>
     
     
     
@@ -257,10 +258,10 @@
     <p>这条式子给出了前馈高斯推理网络的整体输入输出：输入是多视图图像及其相机参数，输出是每个视图上预测出的高斯属性集合。它对应论文从图像直接生成可压缩 3D 高斯表示的主干映射。</p>
     <h4>3.2 拟议的管道</h4>
     <p>我们的压缩框架包含两个轻量级但高效的模块：VPT 和 VABR。这些模块专门解决了缺乏端到端优化所带来的挑战。其次，如果没有明确的失真指标的监督，量化参数偏差如何影响渲染质量变得具有挑战性。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
-    <p>此外，重建所需的元数据，包括逆VPT的相机参数、逆VABR的基向量以及其他反量化相关信息。然后通过逆VPT将重建的几何参数变换回原始世界坐标系。最后，通过集成这些解码属性，我们重建了完整的 3D 高斯表示，从而能够使用标准 3DGS 渲染器渲染新颖的视图。这一步的作用，是把当前结果继续传<img width='800' height='450' class='paper-fig' src='../assets/2506_09479v1/figure2_full.png' alt='Figure 3:' loading='lazy' decoding='async' />lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：VPT 前后位置和比例因子的统计分布；应用VPT后，大部分位置能量集中在深度通道（顶行），缩放因子的分布变得更加紧凑，重点说明方法流程、比较对象以及最终结果之间的关系。</figcaption></figure>
+    <p>此外，重建所需的元数据，包括逆VPT的相机参数、逆VABR的基向量以及其他反量化相关信息。然后通过逆VPT将重建的几何参数变换回原始世界坐标系。最后，通过集成这些解码属性，我们重建了完整的 3D 高斯表示，从而能够使用标准 3DGS 渲染器渲染新颖的视图。这一步的作用，是把当前结果继续传 lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：VPT 前后位置和比例因子的统计分布；应用VPT后，大部分位置能量集中在深度通道（顶行），缩放因子的分布变得更加紧凑，重点说明方法流程、比较对象以及最终结果之间的关系。</figcaption></figure>
     <h4>3.3 视图投影变换</h4>
     <p>由推理网络生成的高斯模型通常表现出与输入视图的像素级对齐，这将它们与传统的 3D 高斯表示区别开来。基于上述分析，我们建议将 VPT 应用于高斯基元的几何参数，以输入相机参数为条件。由于所有这些变换都是可逆的，因此所涉及的近似不会影响渲染性能。</p>
-    <p>为了说明VPT的有效性，我们分析了变换前后高斯几何参数的分布，如图2所示。与初始分布相比，变换后的高斯几何参数表现出增强的规<img width='800' height='450' class='paper-fig' src='../assets/2506_09479v1/figure3_full.png' alt='Figure 4:' loading='lazy' decoding='async' />alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：SH 基函数值随观察方向的变化；在特定方向上，绝对值越大，说明对应的SH系数对最终渲染结果的影响越大</figcaption></figure>
+    <p>为了说明VPT的有效性，我们分析了变换前后高斯几何参数的分布，如图2所示。与初始分布相比，变换后的高斯几何参数表现出增强的规<img width='800' height='450' class='paper-fig' src='../assets/2506_09479v1/figure3_full.png' alt='Figure 4:' loading='lazy'lazy' decoding='async' />alt='Figure 4:' loading='lazy'lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：SH 基函数值随观察方向的变化；在特定方向上，绝对值越大，说明对应的SH系数对最终渲染结果的影响越大</figcaption></figure>
     <p>$$ z_{i,j}^v(x_{i,j}^v,y_{i,j}^v,1)^T = \boldsymbol{K}^v\cdot(\boldsymbol{R}^v\cdot \boldsymbol{\mu}_{i,j}^v + \boldsymbol{T}^v), $$</p>
     <p>这条式子是在把预测出的高斯中心重新投影到当前视图的图像平面上。作者借此把三维几何参数变换到视图相关坐标系，为后续视图投影变换和压缩建模做准备。</p>
     <p>$$ \hat{\boldsymbol{q}}_{i,j}^{v}=Quat(\boldsymbol{R}^v)\cdot \boldsymbol{q}_{i,j}^v, $$</p>

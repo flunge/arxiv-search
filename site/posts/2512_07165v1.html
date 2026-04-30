@@ -231,7 +231,8 @@
     <h2 id='summary'>简单摘要</h2>
     
       
-      <p>基于NeRF与3DGS的三维重建虽在新视角合成方面表现优异，但大多数方法仍严重依赖数百张已知位姿的图像和逐场景优化。近期前馈网络虽免除了逐场景优化但仍需已知相机位姿（通常由SfM算法如COLMAP估计），该过程计算开销大且在稀疏视图条件下效果不佳。无位姿方法借助预训练前馈三维几何网络克服了对相机位姿的依赖，但全模型微调因需适配大型ViT骨干网络而消耗大量GPU资源。MuSASplat提出了多尺度适配器将被打散的令牌序列重建回空间特征图以保留图像的空间布局，然后应用多尺度深度可分离卷积以最少参数实现强大适配。特征融合聚合器取代主流多视图重建中的记忆库结构，对全部输入视图进行批量编码与解码，在编码器与解码器之间插入单个轻量聚合模块跨视角融合特征。</p><figure style='margin-top:20px;'><img width='800' height='450' class='paper-fig' src='assets/2512_07165v1/figure1_full.png' alt='架构图：方法整体流程' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1：方法整体架构与流程</figcaption></figure>
+      <p>基于NeRF与3DGS的三维重建虽在新视角合成方面表现优异，但大多数方法仍严重依赖数百张已知位姿的图像和逐场景优化。近期前馈网络虽免除了逐场景优化但仍需已知相机位姿（通常由SfM算法如COLMAP估计），该过程计算开销大且在稀疏视图条件下效果不佳。无位姿方法借助预训练前馈三维几何网络克服了对相机位姿的依赖，但全模型微调因需适配大型ViT骨干网络而消耗大量GPU资源。MuSASplat提出了多尺度适配器将被打散的令牌序列重建回空间特征图以保留图像的空间布局，然后应用多尺度深度可分离卷积以最少参数实现强大适配。特征融合聚合器取代主流多视图重建中的记忆库结构，对全部输入视图进行批量编码与解码，在编码器与解码器之间插入单个轻量聚合模块跨视角融合特征。</p><figure style='margin-top:20px;'><img width='800' height='450' class='paper-fig' src='assets/2512_07165v1/figure1_full.png' alt='架构图：方法整体流程' loading='lazy' decoding='async' /><img width='800' height='450' class='paper-fig' src='../assets/2512_07165v1/figure3_full.png' alt='Figure 3:' loading='lazy'lazy' decoding='async' / />
+      <figcaption style='font-size:12px;'>图 1：方法整体架构与流程</figcaption></figure>
     
     
     
@@ -249,7 +250,7 @@
     <p>放在“方法”这一部分看，这条式子是在把 G 写成可直接计算的形式。右侧按元素列出了 G 的组成项，说明模型是在逐像素、逐高斯或逐候选地同时预测一整组属性，而不是只输出单个标量。</p>    <h4>3.1 3.1 预备知识</h4>
     <p>相比之下，我们的方法估计每个视点图并将其投影到规范空间，从而直接从未校准的 RGB 图像实现一致的 3D 高斯监督。DUSt3R 是一种基于 ViT 的方法，仅使用图像联合解决相机校准和 3D 重建问题。通过在共享坐标系  中回归两个点图，DUSt3R 有效地执行联合校准和 3D 重建。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
     <h4>3.2 3.2 多尺度适配器（MuSA）</h4>
-    <p>低秩适应（LoRA）是一种广泛采用的参数高效微调策略。核心限制在于 LoRA 无法重新引入空间先验。因此，当应用于稀疏视图 3D 重建时，配备 LoRA 的模型通常会生成不一致的几何形状、过度拟合局部外观线索或<img width='800' height='450' class='paper-fig' src='../assets/2512_07165v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' />lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：LoRA 和我们提出的 MuSA 层之间的比较；LoRA 通过两个线性层将低秩残差更新注入到冻结的预训练模型中，纯粹在令牌空间中运行，无需空间感知，重点说明方法流程、比较对象以及最终结果之间的关系</figcaption></figure>
+    <p>低秩适应（LoRA）是一种广泛采用的参数高效微调策略。核心限制在于 LoRA 无法重新引入空间先验。因此，当应用于稀疏视图 3D 重建时，配备 LoRA 的模型通常会生成不一致的几何形状、过度拟合局部外观线索或 lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：LoRA 和我们提出的 MuSA 层之间的比较；LoRA 通过两个线性层将低秩残差更新注入到冻结的预训练模型中，纯粹在令牌空间中运行，无需空间感知，重点说明方法流程、比较对象以及最终结果之间的关系</figcaption></figure>
     <p>$$ \mathbf{Y}^{v} = \mathrm{reshape}(\mathbf{X}^{v} \mathbf{W}_{\downarrow}) \in \mathbb{R}^{C' \times h \times w}, $$</p>
     <p>这条式子是在把高斯的协方差从原始三维坐标系变换到相机或成像平面相关的坐标系中。这样后续光栅化时，模型才能正确知道每个高斯在当前视角下会拉伸成怎样的椭圆分布。</p>
     <p>$$ \mathbf{Z}^{v} = \tfrac{1}{3} \sum_{k \in \{3, 5, 7\}} \mathrm{DWConv}_{k}(\mathbf{Y}^{v}). $$</p>
@@ -289,7 +290,7 @@
 
 
     <h3>4.1 4.1 训练和评估设置</h3>
-    <p>我们在双视图和多视图设置下与一系列可推广的 3D 重建方法进行比较。此外，为了进一步评估我们提出的特征融合聚合器的有效性，我们使用五视图输入进行实验，并与依赖传统存储库<img width='800' height='450' class='paper-fig' src='../assets/2512_07165v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' />alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：与 NoPoSplat 和 PixelSplat 相比，我们的 MuSASplat 产生更完整的几何形状，并且遮挡区域中的伪影更少；主要差异用红色框突出显示</figcaption></figure>
+    <p>我们在双视图和多视图设置下与一系列可推广的 3D 重建方法进行比较。此外，为了进一步评估我们提出的特征融合聚合器的有效性，我们使用五视图输入进行实验，并与依赖传统存储库<img width='800' height='450' class='paper-fig' src='../assets/2512_07165v1/figure4_full.png' alt='Figure 4:' loading='lazy'lazy' decoding='async' />alt='Figure 4:' loading='lazy'lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：与 NoPoSplat 和 PixelSplat 相比，我们的 MuSASplat 产生更完整的几何形状，并且遮挡区域中的伪影更少；主要差异用红色框突出显示</figcaption></figure>
     <h3>4.2 4.2 主要结果</h3>
     <p>MuSASplat 在两个数据集上始终优于所有姿势要求基线，在 RE10K 上实现比最佳姿势要求方法 (MVSplat) 高 0.35 dB 的 PSNR，在 ACID 上比最佳姿势要求方法 (MVSplat) 高 0.29 dB。尽管 NoPoSplat 在 RE10K 上实现了稍好的 PSNR，但我们的方法在所有指标上提供了更平衡的性能，包括 ACID 上较低的 LPIPS（0.189 与 0.189）。</p>
     <p>它还在两个数据集上实现了最佳的 SSIM 和 LPIPS，展示了我们的前馈多视图聚合在高可见性设置中的有效性。</p>

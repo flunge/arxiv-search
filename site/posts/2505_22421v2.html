@@ -231,7 +231,8 @@
     <h2 id='summary'>简单摘要</h2>
     
       
-      <p>驾驶世界模型旨在模拟3D动态环境，支持轨迹一致的视图合成、物理合规的运动预测以及安全感知的场景重建与生成。生成式视频模型已成为自我运动预测和动态场景重建的有效工具，但其大多数方法在2D空间优化，缺乏足够的3D几何感知能力，导致跨新视图的结构不一致和物理上不合理的物体交互，对密集交通中的碰撞避免等安全关键任务尤为有害。此外，现有方法通常依赖密集标注（如高精地图序列、3D边界框轨迹）来实现可控性，仅能复现预设运动而无法理解车辆动力学。更灵活的方式是从单张或少量图像中推断动态先验，同时以期望的自我运动轨迹为条件，但当前基于数值相机参数微调的方法缺乏3D几何感知。GeoDrive针对这些局限，提出了一个混合神经-几何框架，从单目输入构建3D结构先验，沿用户指定的相机轨迹进行投影渲染以生成几何锚定的条件信号，再通过级联视频扩散进行3D注意力去噪，联合优化光度质量和几何保真度。对于动态物体，引入物理引导的编辑模块，在显式运动约束下变换智能体外观，确保物理合理的交互。实验表明GeoDrive在自我车辆动作可控性、视频质量指标以及新视图合成方面均显著优于基线方法。</p><figure style='margin-top:20px;'><img class='paper-fig' src='assets/2505_22421v2/figure1_full.png' alt='架构图：方法整体流程' loading='lazy' decoding='async' width='800' height='450' /><figcaption style='font-size:12px;'>图 1：方法整体架构与流程</figcaption></figure>
+      <p>驾驶世界模型旨在模拟3D动态环境，支持轨迹一致的视图合成、物理合规的运动预测以及安全感知的场景重建与生成。生成式视频模型已成为自我运动预测和动态场景重建的有效工具，但其大多数方法在2D空间优化，缺乏足够的3D几何感知能力，导致跨新视图的结构不一致和物理上不合理的物体交互，对密集交通中的碰撞避免等安全关键任务尤为有害。此外，现有方法通常依赖密集标注（如高精地图序列、3D边界框轨迹）来实现可控性，仅能复现预设运动而无法理解车辆动力学。更灵活的方式是从单张或少量图像中推断动态先验，同时以期望的自我运动轨迹为条件，但当前基于数值相机参数微调的方法缺乏3D几何感知。GeoDrive针对这些局限，提出了一个混合神经-几何框架，从单目输入构建3D结构先验，沿用户指定的相机轨迹进行投影渲染以生成几何锚定的条件信号，再通过级联视频扩散进行3D注意力去噪，联合优化光度质量和几何保真度。对于动态物体，引入物理引导的编辑模块，在显式运动约束下变换智能体外观，确保物理合理的交互。实验表明GeoDrive在自我车辆动作可控性、视频质量指标以及新视图合成方面均显著优于基线方法。</p><figure style='margin-top:20px;'><img class='paper-fig' src='assets/2505_22421v2/figure1_full.png' alt='架构图：方法整体流程' loading='lazy' decoding='async' width='800' height='450' /><img width='800' height='450' class='paper-fig' src='../assets/2505_22421v2/figure7_full.png' alt='Figure 7:' loading='lazy'lazy' decoding='async' / />
+      <figcaption style='font-size:12px;'>图 1：方法整体架构与流程</figcaption></figure>
     
     
     
@@ -269,10 +270,10 @@
     <p>我们专门在 nuScenes 上进行训练，通过 MonST3R 处理每个剪辑以获得公制尺度的 3D 重建和相机轨迹。初始帧的 3D 重建通过可微分光栅器沿着估计轨迹进行投影渲染，其中动态编辑利用 2D 边界框注释来编辑车辆位置。有关训练、推理和模型配置的更多详细信息，请参阅附录。</p>
     <h3>4.2 轨迹跟踪</h3>
     <p>我们将 GeoDrive 与两个最相关的基线（以单个图像和自我动作为条件）（Vista、Terra）以及其他几个驾驶世界模型进行比较。GeoDrive 在所有指标上都优于基线。如图所示，与基线方法相比，我们的方法产生的代理更精确地遵循指定的路径，而基线方法通常偏离预期轨迹。</p>
-<figure><img width='800' height='450' class='paper-fig' src='../assets/2505_22421v2/figure7_full.png' alt='Figure 7:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 7：车辆操纵的定性结果；我们的方法允许通过指定不同的边界框来操纵场景内的车辆运动方向</figcaption></figure>
+<figure> <figcaption style='font-size:12px;'>图 7：车辆操纵的定性结果；我们的方法允许通过指定不同的边界框来操纵场景内的车辆运动方向</figcaption></figure>
     <div class='card'><strong>源论文表 2（未内嵌原表）关键结论：</strong>Waymo 验证子集上 NVS 的定量结果；GeoDrive 仅在 NuScenes 数据集上进行训练，但它可以以零样本、前馈方式推广到 Waymo 场景。</div>
     <h3>4.3 新颖的视图合成</h3>
-    <p>我们将 GeoDrive 与场景重建方法 StreetGaussians 进行比较。我们在 Waymo 验证集上进行评估并筛选出 5 个场景进行测试。如表所示，与基于重建的基线相比，我们的方法实现了更低（因此更好）的 F<img width='800' height='450' class='paper-fig' src='../assets/2505_22421v2/figure8_full.png' alt='Figure 8:' loading='lazy' decoding='async' />lazy' decoding='async' /><figcaption style='font-size:12px;'>图 8：我们的方法可以移除或更换场景内的车辆，从而可以预测无缝的未来场景</figcaption></figure>
+    <p>我们将 GeoDrive 与场景重建方法 StreetGaussians 进行比较。我们在 Waymo 验证集上进行评估并筛选出 5 个场景进行测试。如表所示，与基于重建的基线相比，我们的方法实现了更低（因此更好）的 F<img width='800' height='450' class='paper-fig' src='../assets/2505_22421v2/figure8_full.png' alt='Figure 8:' loading='lazy'lazy' decoding='async' />lazy' decoding='async' /><figcaption style='font-size:12px;'>图 8：我们的方法可以移除或更换场景内的车辆，从而可以预测无缝的未来场景</figcaption></figure>
     <h3>4.4 应用领域</h3>
     <p>在本节中，我们将展示 GeoDrive 在自动驾驶的几个关键应用中的多功能性和实际影响。如图所示，给定其他车辆的额外条件输入（即一系列 2D 边界框），我们可以应用动态增强（第 2 节）。</p>
     <h3>4.5 消融研究</h3>

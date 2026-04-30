@@ -231,7 +231,9 @@
     <h2 id='summary'>简单摘要</h2>
     
       
-      <p>从NeRF利用MLP表示几何和视角依赖外观，到3DGS以显式3D高斯分布集合建模复杂场景并通过泼溅光栅化实现实时渲染，3D场景重建取得了显著进展。然而3DGS在超高分辨率场景（接近5K）中面临严峻的内存可扩展性瓶颈——传统实现需要超出主流GPU显存容量的大量VRAM，导致优化阶段发生灾难性内存溢出。HRGS针对这一问题提出了从粗到细的分层分块优化内存高效框架。方法首先使用低分辨率图像获取粗略的全局高斯表示，然后将场景划分为空间相邻的块进行并行精化。为解决高斯分布不均匀的问题，HRGS首先对有界和无界区域的高斯进行收缩映射（线性映射处理有界区域、非线性映射处理外部区域），在收缩空间上进行均匀网格细分以实现计算任务的均衡分配。在训练数据划分中，通过比较使用完整全局高斯表示渲染与移除目标块内高斯后渲染之间的SSIM损失来判断各观测对目标块的贡献程度。为缓解块边界伪影，额外纳入落入块区域的观测。在块级精化阶段，提出重要性驱动高斯剪枝策略加速收敛。</p>
+      <p>从NeRF利用MLP表示几何和视角依赖外观，到3DGS以显式3D高斯分布集合建模复杂场景并通过泼溅光栅化实现实时渲染，3D场景重建取得了显著进展。然而3DGS在超高分辨率场景（接近5K）中面临严峻的内存可扩展性瓶颈——传统实现需要超出主流GPU显存容量的大量VRAM，导致优化阶段发生灾难性内存溢出。HRGS针对这一问题提出了从粗到细的分层分块优化内存高效框架。方法首先使用低分辨率图像获取粗略的全局高斯表示，然后将场景划分为空间相邻的块进行并行精化。为解决高斯分布不均匀的问题，HRGS首先对有界和无界区域的高斯进行收缩映射（线性映射处理有界区域、非线性映射处理外部区域），在收缩空间上进行均匀网格细分以实现计算任务的均衡分配。在训练数据划分中，通过比较使用完整全局高斯表示渲染与移除目标块内高斯后渲染之间的SSIM损失来判断各观测对目标块的贡献程度。为缓解块边界伪影，额外纳入落入块区域的观测。在块级精化阶段，提出重要性驱动高斯剪枝策略加速收敛。</p><figure style='margin-top:20px;'><img class='paper-fig' src='assets/2506_14229v1/figure1_full.png' alt='架构图：方法整体流程' loading='lazy' decoding='async' /><img width='800' height='450' class='paper-fig' src='../assets/2506_14229v1/figure1_full.png' alt='Figure 1:' loading='lazy'lazy' decoding='async' / />
+      <figcaption style='font-size:12px;'>图 1：方法整体架构与流程</figcaption></figure>
+    
     
     
 
@@ -243,7 +245,7 @@
     
     <h2 id='technical'>技术细节</h2>
     <p>这种方法可以在有限的内存条件下实现精确的重建。为了重建场景表面，我们强制执行由预训练的单目深度神经网络预测的法线先验，以使用余弦损失来监督渲染的法线贴图。然后将优化的块连接起来形成最终的全局高斯表示，并通过新颖的视图合成（NVS）和表面重建任务进行验证。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
-<figure><img width='800' height='450' class='paper-fig' src='../assets/2506_14229v1/figure1_full.png' alt='Figure 1:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 2：(a) 来自 Mip-NeRF 360 数据集的“自行车”场景的高分辨率（5K）渲染，以及来自 3DGS、Mip-Splatting 和我们的方法的结果；(c) 整个数据集的平均资源使用情况表明我们的方法保持了最小的内存和模型占用空间</figcaption></figure>
+<figure> <figcaption style='font-size:12px;'>图 2：(a) 来自 Mip-NeRF 360 数据集的“自行车”场景的高分辨率（5K）渲染，以及来自 3DGS、Mip-Splatting 和我们的方法的结果；(c) 整个数据集的平均资源使用情况表明我们的方法保持了最小的内存和模型占用空间</figcaption></figure>
     <h3>3 方法</h3>    <p>这一节先处理的是 我们提出的 HRGS 可以有效地重建高分辨率场景。作者这样设计，是为了先把输入表示、约束条件或中间状态整理成后续模块能直接使用的形式。</p>
     <p>接着，论文还会处理 最后，本节描述了我们的方法中使用的损失函数。它的作用不是重复上一层计算，而是把这一阶段得到的结果继续传给后面的更新、渲染或决策步骤。</p>    <h4>3.1 初步的</h4>
     <p>我们首先简要概述 3D 高斯分布 (3DGS)。出于渲染目的，给定像素处多个高斯的组合颜色和不透明度贡献根据各自的不透明度进行加权。</p>
@@ -263,7 +265,8 @@
     <p>$$ H_i \;=\;\sum_{r\in\mathcal{R}_b}\mathbf{1}(p_i \cap r)\,T_{i,r}, \text{其中 } T_{i,r} =\prod_{\substack{p_k \cap r\\\mathrm{depth}(p_k)<\mathrm{depth}(p_i)}}\bigl(1 - \alpha_k\bigr). $$</p>
     <p>这条式子定义了高斯的重要性分数。它统计某个高斯在训练射线上的可见贡献：如果高斯经常出现在可见路径上，而且前面遮挡不强，它的分数就会更高；反之则可以被优先裁剪。这个分数正是 HRGS 在块级优化里做轻量剪枝的依据。</p>
     <h4>3.3 损失函数</h4>
-    <p>围绕 3.3 损失函数，为了优化粗略和细化阶段，损失函数定义如下。为了重建场景表面，我们强制执行由预训练的单目深度神经网络预测的法线先验，以使用余弦损失来监督渲染的法线贴图。D-法线是通过计算相邻点的水平和垂直有限差的叉积从渲染深度导出的。作者这样设计，是为了把这一节的输入<img width='800' height='450' class='paper-fig' src='../assets/2506_14229v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' />lazy' decoding='async' /><figcaption style='font-size:12px;'>图 3：Mip-NeRF 360 数据集的定性比较；三个代表性场景表明，与 3DGS 和 Mip-Splatting 相比，我们的方法更忠实地保留<img width='800' height='450' class='paper-fig' src='../assets/2506_14229v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' />alt='Figure 4:' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：TNT 数据集的定性比较。从左到右的重建——SuGar、NeuS、2DGS 和 VCR-Gaus——表明我们的方法提供了更完整的表面几何形状、增强了平面区域的平滑度以及出色地保留了精细结构数据</figcaption></figure>
+    <p>围绕 3.3 损失函数，为了优化粗略和细化阶段，损失函数定义如下。为了重建场景表面，我们强制执行由预训练的单目深度神经网络预测的法线先验，以使用余弦损失来监督渲染的法线贴图。D-法线是通过计算相邻点的水平和垂直有限差的叉积从渲染深度导出的。作者这样设计，是为了把这一节的输入<img width='800' height='450' class='paper-fig' src='../assets/2506_14229v1/figure3_full.png' alt='Figure 3:' loading='lazy'lazy' decoding='async' />lazy' decoding='async' /><img width='800' height='450' class='paper-fig' src='../assets/2506_14229v1/figure4_full.png' alt='Figure 4:' loading='lazy'lazy' decoding='async' / />
+      <figcaption style='font-size:12px;'>图 3：Mip-NeRF 360 数据集的定性比较；三个代表性场景表明，与 3DGS 和 Mip-Splatting 相比，我们的方法更忠实地保留 alt='Figure 4:' loading='lazy'lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：TNT 数据集的定性比较。从左到右的重建——SuGar、NeuS、2DGS 和 VCR-Gaus——表明我们的方法提供了更完整的表面几何形状、增强了平面区域的平滑度以及出色地保留了精细结构数据</figcaption></figure>
     <p>$$ \mathcal{L}_n = \| \hat{\mathbf{N}} - \mathbf{N} \|_1 + (1 - \hat{\mathbf{N}} \cdot \mathbf{N}). $$</p>
     <p>这条式子是法线监督损失：一方面用 L1 约束渲染法线接近先验法线，另一方面再用点积项约束两者方向一致。作者加入这项损失，是为了让 HRGS 在追求高分辨率细节时，不至于把表面几何优化成噪声化的薄片结构。</p>
     <p>$$ \overline{\mathbf{N}}_d = \frac{\nabla_v \mathbf{d} \times \nabla_h \mathbf{d}}{|\nabla_v \mathbf{d} \times \nabla_h \mathbf{d}|}, $$</p>
