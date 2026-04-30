@@ -2461,7 +2461,7 @@ def _build_tag_pages(site_dir: Path, manifest: List[Dict]) -> Dict[str, str]:
     return tag_paths
 
 
-def _pat3d_post_body(doc, figures: List[Dict], related: List[Dict], slug: str, table_evidence_html: str) -> str:
+def _pat3d_post_body(doc, figures: List[Dict], related: List[Dict], slug: str, table_evidence_html: str, docs_dir: Path) -> str:
     figure_map = {item.get('label'): item for item in figures}
     fig_counter = [0]
 
@@ -2503,13 +2503,14 @@ def _pat3d_post_body(doc, figures: List[Dict], related: List[Dict], slug: str, t
     related_block_html = _related_reading_block(f"<ul>{related_html}</ul>" if related_html else "")
     sidebar = _post_sidebar_html(DEEP_DIVE_SECTION_ITEMS)
     arxiv_url = f"https://arxiv.org/abs/{html.escape(doc.arxiv_id)}"
+    display_title = _format_post_title(doc.title, docs_dir)
 
     return fr"""
 <div class='layout'>
   {sidebar}
   <article class='article'>
-    <h1>PAT3D</h1>
-    <p class='meta'>原论文：<a href='{arxiv_url}' target='_blank'>{html.escape(doc.title)}</a> · 中文精读</p>
+        <h1>{html.escape(display_title)}</h1>
+        <p class='meta'>原文标题：<a href='{arxiv_url}' target='_blank'>{html.escape(doc.title)}</a></p>
 
     <div class='tip'>
       <strong>一句话总结：</strong>
@@ -2607,6 +2608,31 @@ def _paper_alias(title: str) -> str:
     return first or title
 
 
+def _title_keyword(title: str) -> str:
+    text = (title or "").strip()
+    if not text:
+        return "paper"
+    if ":" in text:
+        head = text.split(":", 1)[0].strip("：:- ")
+        head_clean = re.sub(r"[^A-Za-z0-9\- ]+", " ", head)
+        head_tokens = [tok for tok in head_clean.split() if tok]
+        if head_tokens and re.search(r"[A-Za-z]", head_tokens[0]):
+            return head_tokens[0].lower()
+    cleaned = re.sub(r"[^A-Za-z0-9\- ]+", " ", text)
+    for tok in cleaned.split():
+        if re.search(r"[A-Za-z]", tok):
+            return tok.lower()
+    return "paper"
+
+
+def _format_post_title(title: str, docs_dir: Path) -> str:
+    keyword = _title_keyword(title)
+    title_cn = _clean_cn_sentence(_translate_to_zh(title, docs_dir))
+    if not title_cn:
+        title_cn = _clean_text_block(title) or "论文解读"
+    return f"{keyword}：{title_cn}"
+
+
 def _translate_heading_to_zh(heading: str, docs_dir: Path) -> str:
     heading = _clean_text_block(heading)
     if not heading:
@@ -2671,6 +2697,11 @@ def _refresh_manifest_tags(site_dir: Path, manifest: List[Dict]) -> List[Dict]:
         inferred_tags = _infer_tags(parts[0] or parts[1], "\n".join(parts))
         if inferred_tags != item.get("tags", []):
             item["tags"] = inferred_tags
+            changed = True
+        full_title = str(item.get("full_title") or item.get("title") or "")
+        inferred_keyword = _title_keyword(full_title)
+        if inferred_keyword != str(item.get("title_keyword") or ""):
+            item["title_keyword"] = inferred_keyword
             changed = True
     if changed:
         _save_manifest(site_dir, manifest)
@@ -3919,7 +3950,7 @@ def _commit_site_snapshot(site_dir: Path, message: str, push: bool = False) -> b
     return True
 
 
-def _streetforward_post_body(doc, date_str: str, figures: List[Dict], related: List[Dict], slug: str, text: str) -> str:
+def _streetforward_post_body(doc, date_str: str, figures: List[Dict], related: List[Dict], slug: str, text: str, docs_dir: Path) -> str:
     figure_map = {item.get('label'): item for item in figures}
     # Counter tracks how many figures have actually been rendered so far in this post,
     # so captions always show sequential blog numbers regardless of paper numbering.
@@ -3962,13 +3993,14 @@ def _streetforward_post_body(doc, date_str: str, figures: List[Dict], related: L
     )
 
     arxiv_url_sf = f"https://arxiv.org/abs/{html.escape(doc.arxiv_id)}"
+    display_title = _format_post_title(doc.title, docs_dir)
     return fr"""
 <div class='layout'>
   {sidebar}
 
   <article class='article'>
-    <h1>StreetForward</h1>
-    <p class='meta'>原论文：<a href='{arxiv_url_sf}' target='_blank'>{html.escape(doc.title)}</a> · 中文精读</p>
+        <h1>{html.escape(display_title)}</h1>
+        <p class='meta'>原文标题：<a href='{arxiv_url_sf}' target='_blank'>{html.escape(doc.title)}</a></p>
 
     <div class='tip'>
       <strong>一句话总结：</strong>
@@ -5678,7 +5710,7 @@ def _generic_deep_dive_post_body(doc, figures: List[Dict], related: List[Dict], 
             "所以更合理的定位是：这是一篇把端到端安全链路讲清楚的系统论文，而不是已经完全解决真实部署问题的最终答案。后续更值得推进的方向，是把这套链路放到更大规模、更强分布漂移和更真实控制噪声的路网里继续验证，同时减少理论上界与工程实现之间的鸿沟。"
         )
 
-    alias = _paper_alias(doc.title)
+    display_title = _format_post_title(doc.title, docs_dir)
     abstract_paras = _cn_paragraphs(abstract_cn)
     intro_paras = _cn_paragraphs(intro_cn)
     innovation_paras = _cn_paragraphs(innovation_cn)
@@ -5692,8 +5724,8 @@ def _generic_deep_dive_post_body(doc, figures: List[Dict], related: List[Dict], 
 <div class='layout'>
   {sidebar}
   <article class='article'>
-    <h1>{html.escape(alias)}</h1>
-    <p class='meta'>原论文：<a href='{arxiv_url}' target='_blank'>{html.escape(doc.title)}</a> · 中文精读</p>
+        <h1>{html.escape(display_title)}</h1>
+        <p class='meta'>原文标题：<a href='{arxiv_url}' target='_blank'>{html.escape(doc.title)}</a></p>
 
     <div class='tip'>
       <strong>一句话总结：</strong>
@@ -5838,8 +5870,8 @@ def _review_like_post_body(doc, figures: List[Dict], related: List[Dict], slug: 
 <div class='layout'>
   {sidebar}
   <article class='article'>
-    <h1>{html.escape(_paper_alias(doc.title))}</h1>
-    <p class='meta'>原论文：<a href='{arxiv_url}' target='_blank'>{html.escape(doc.title)}</a> · 中文精读</p>
+        <h1>{html.escape(_format_post_title(doc.title, docs_dir))}</h1>
+        <p class='meta'>原文标题：<a href='{arxiv_url}' target='_blank'>{html.escape(doc.title)}</a></p>
 
     <div class='tip'>
       <strong>一句话总结：</strong>
@@ -5897,7 +5929,8 @@ def build_post_from_pdf(
     arxiv_id = doc.arxiv_id
     slug = _slug_from_id(arxiv_id)
     alias = _paper_alias(doc.title)
-    post_title = title_override.strip() if title_override else alias
+    title_keyword = _title_keyword(doc.title)
+    post_title = title_override.strip() if title_override else _format_post_title(doc.title, docs)
     date_str = datetime.now().strftime("%Y-%m-%d")
     page_path = posts_dir / f"{slug}.html"
 
@@ -5973,10 +6006,10 @@ def build_post_from_pdf(
         figure_entries = _combine_figure_entries(figure_files, fallback_captions)
 
     if "streetforward" in doc.title.lower():
-        body = _streetforward_post_body(doc, date_str, figure_entries, related, asset_slug, text)
+        body = _streetforward_post_body(doc, date_str, figure_entries, related, asset_slug, text, docs)
     elif alias.lower() == "pat3d":
         table_items = source_material.get("tables") if isinstance(source_material.get("tables"), list) else []
-        body = _pat3d_post_body(doc, figure_entries, related, asset_slug, _render_table_evidence(table_items, docs, max_items=2))
+        body = _pat3d_post_body(doc, figure_entries, related, asset_slug, _render_table_evidence(table_items, docs, max_items=2), docs)
     elif _is_review_like_paper(doc.title, source_material.get("sections", {}) if isinstance(source_material.get("sections"), dict) else {}):
         body = _review_like_post_body(doc, figure_entries, related, asset_slug, docs, source_material)
     else:
@@ -6018,6 +6051,7 @@ def build_post_from_pdf(
             "tags": tags,
             "featured": len(manifest) == 0,
             "full_title": doc.title,
+            "title_keyword": title_keyword,
         }
     )
     _save_manifest(site, manifest)
@@ -6124,15 +6158,15 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
             else ""
         )
         featured_display_title = featured.get("title", "")
-        featured_tagline = featured.get("tagline", "")
+        featured_full_title = str(featured.get("full_title", "") or "")
         latest_html = (
             "<section class='card' style='padding:18px 20px;'>"
             "<div class='meta'>推荐阅读 / Featured</div>"
             f"<div style='display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:18px;align-items:start;'>"
             f"<div>"
             f"<h2 style='border-left:none;padding-left:0;margin-top:8px;'><a href='{html.escape(featured['path'])}'>{html.escape(featured_display_title)}</a></h2>"
+            f"<p style='font-size:13px;color:#555;margin:8px 0 0;'><a href='https://arxiv.org/abs/{html.escape(str(featured.get('arxiv_id', '')))}' target='_blank'>{html.escape(featured_full_title)}</a></p>"
             f"<div style='margin:10px 0'>{render_tag_chips(featured.get('tags', []))}</div>"
-            f"<p style='font-size:13px;color:#555;'>{html.escape(featured_tagline)}</p>"
             f"</div><div>{cover}</div></div>"
             "</section>"
         )
@@ -6141,10 +6175,9 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
         (
             "<li style='margin:10px 0;'>"
             "<div style='display:flex;align-items:flex-start;justify-content:space-between;gap:12px;'>"
-            f"<a href='{html.escape(item['path'])}' style='flex:1 1 auto;'>{html.escape(item['title'])}</a>"
+            f"<a href='{html.escape(item['path'])}' style='flex:1 1 auto;'>{html.escape(str(item.get('title_keyword') or _title_keyword(str(item.get('full_title') or item.get('title') or ''))))} | {html.escape(str(item.get('full_title') or item.get('title') or ''))}</a>"
             f"<span style='font-size:12px;color:#666;white-space:nowrap;'>{html.escape(item.get('date', ''))}</span>"
             "</div>"
-            f"<div style='font-size:12px;color:#666;margin-top:2px;'>{html.escape(item.get('tagline', ''))}</div>"
             "</li>"
         )
         for item in manifest[:1]
@@ -6159,21 +6192,12 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
         for tag in unique_tags
     ) or "<span class='meta'>暂无标签</span>"
 
-    overview_chip_html = "".join(
-        f"<span style='display:inline-block;padding:4px 9px;border-radius:999px;border:1px solid #d9e5f2;background:#f7fbff;font-size:11px;color:#1769c2;'>{html.escape(tag)} · {tag_counts.get(tag, 0)}</span>"
-        for tag in unique_tags[:6]
-    )
-    domain_overview = (
-        f"当前共收录 {len(manifest)} 篇文章，已形成 {len(unique_tags)} 个细化标签。"
-        if unique_tags
-        else "当前站点尚未形成稳定标签。"
-    )
+    domain_overview = f"当前共收录 {len(manifest)} 篇文章，标签总数 {len(unique_tags)}。"
     latest_date = next((str(item.get("date", "") or "") for item in manifest if item.get("date")), "")
 
     card_grid = ""
     for item in manifest:
-        display_title = item.get("title", "")
-        tagline = item.get("tagline", "")
+        keyword = str(item.get("title_keyword") or _title_keyword(str(item.get("full_title") or item.get("title") or "")))
         thumb = (
             f"<img src='{html.escape(item['thumbnail_path'])}' alt='thumb' loading='lazy' decoding='async' class='post-thumb' />"
             if item.get("thumbnail_path")
@@ -6181,9 +6205,8 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
         )
         card_grid += (
             f"<article class='card post-card'>"
-            f"{thumb}"
-            f"<a href='{html.escape(item['path'])}' style='font-size:18px;font-weight:700;color:#1f1f1f;'>{html.escape(display_title)}</a>"
-            f"<div style='font-size:12px;color:#666;line-height:1.6;'>{html.escape(tagline)}</div>"
+            f"<a href='{html.escape(item['path'])}'>{thumb}</a>"
+            f"<div style='font-size:13px;color:#1f1f1f;line-height:1.6;'><strong>关键词：</strong><a href='{html.escape(item['path'])}'>{html.escape(keyword)}</a></div>"
             f"<div>{render_tag_chips(item.get('tags', []))}</div>"
             f"</article>"
         )
@@ -6201,7 +6224,7 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
 <section class='dashboard-grid'>
   <div class='card dashboard-card'>
     <div class='dashboard-content'>
-      <div class='meta' style='font-weight:700;'>最近更新</div>
+            <div class='meta' style='font-weight:700;'>最新更新</div>
       <div class='dashboard-scroll'>
         <ul style='padding-left:18px;margin-top:10px;'>{recent_list}</ul>
       </div>
@@ -6211,14 +6234,12 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
     <div class='dashboard-content'>
       <div class='meta' style='font-weight:700;'>站点概览</div>
             <p class='dashboard-overview-summary'>{html.escape(domain_overview)}</p>
-            <div class='dashboard-overview-chip-grid'>{overview_chip_html}</div>
             <div class='dashboard-overview-stats'>
                 <div class='dashboard-overview-stat'><strong>{len(manifest)}</strong><span>文章数</span></div>
                 <div class='dashboard-overview-stat'><strong>{len(unique_tags)}</strong><span>标签数</span></div>
             </div>
             <div class='dashboard-overview-note'>
-                {html.escape(f'最近更新：{latest_date}') if latest_date else '最近更新日期待生成。'}
-                {' 其余细分类请查看右侧分类目录。' if unique_tags else ''}
+                                {html.escape(f'最近更新：{latest_date}') if latest_date else '最近更新日期待生成。'}
             </div>
     </div>
   </div>
@@ -6232,7 +6253,7 @@ def build_home(site_dir: Union[str, Path] = "./site") -> Path:
 
 <section id='all-posts'>
   <h2 style='margin-top:26px;'>全部文章</h2>
-  <div class='meta'>按时间倒序展示，支持缩略图与摘要预览</div>
+    <div class='meta'>按时间倒序展示关键图、关键词与标签</div>
   <div class='post-grid'>
     {card_grid or '<p>暂无文章，请先生成一篇。</p>'}
   </div>
