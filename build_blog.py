@@ -56,7 +56,7 @@ _ARXIV_TITLE_CACHE: Dict[str, str] = {}
 def _load_dotenv_values() -> Dict[str, str]:
     global _DOTENV_VALUES
     if _DOTENV_VALUES is not None:
-        return _DOTENV_VALUES
+           return _DOTENV_VALUES.copy()
 
     dotenv_path = Path(__file__).resolve().parent / ".env"
     values: Dict[str, str] = {}
@@ -84,7 +84,7 @@ def _load_dotenv_values() -> Dict[str, str]:
 def _get_env(name: str, default: str = "") -> str:
     value = os.getenv(name)
     if value:
-        return value
+           return value.strip()
     return _load_dotenv_values().get(name, default)
 
 
@@ -2612,12 +2612,17 @@ def _paper_alias(title: str) -> str:
 def _title_keyword(title: str) -> str:
     text = (title or "").strip()
     if not text:
+<<<<<<< HEAD
         return "Paper"
+=======
+        return "paper"
+>>>>>>> c32ec9c (feat: reshape post titles and home cards)
     if ":" in text:
         head = text.split(":", 1)[0].strip("：:- ")
         head_clean = re.sub(r"[^A-Za-z0-9\- ]+", " ", head)
         head_tokens = [tok for tok in head_clean.split() if tok]
         if head_tokens and re.search(r"[A-Za-z]", head_tokens[0]):
+<<<<<<< HEAD
             return head_tokens[0]
     cleaned = re.sub(r"[^A-Za-z0-9\- ]+", " ", text)
     for tok in cleaned.split():
@@ -2755,6 +2760,24 @@ def repair_post_title_format(site_dir: Union[str, Path] = "./site", docs_dir: Un
     return repaired
 
 
+=======
+            return head_tokens[0].lower()
+    cleaned = re.sub(r"[^A-Za-z0-9\- ]+", " ", text)
+    for tok in cleaned.split():
+        if re.search(r"[A-Za-z]", tok):
+            return tok.lower()
+    return "paper"
+
+
+def _format_post_title(title: str, docs_dir: Path) -> str:
+    keyword = _title_keyword(title)
+    title_cn = _clean_cn_sentence(_translate_to_zh(title, docs_dir))
+    if not title_cn:
+        title_cn = _clean_text_block(title) or "论文解读"
+    return f"{keyword}：{title_cn}"
+
+
+>>>>>>> c32ec9c (feat: reshape post titles and home cards)
 def _translate_heading_to_zh(heading: str, docs_dir: Path) -> str:
     heading = _clean_text_block(heading)
     if not heading:
