@@ -2755,7 +2755,7 @@ def repair_post_title_format(site_dir: Union[str, Path] = "./site", docs_dir: Un
     return repaired
 
 
-=======
+def _fallback_first_token(text: str) -> str:
             return head_tokens[0].lower()
     cleaned = re.sub(r"[^A-Za-z0-9\- ]+", " ", text)
     for tok in cleaned.split():
