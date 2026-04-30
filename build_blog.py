@@ -2612,17 +2612,12 @@ def _paper_alias(title: str) -> str:
 def _title_keyword(title: str) -> str:
     text = (title or "").strip()
     if not text:
-<<<<<<< HEAD
         return "Paper"
-=======
-        return "paper"
->>>>>>> c32ec9c (feat: reshape post titles and home cards)
     if ":" in text:
         head = text.split(":", 1)[0].strip("：:- ")
         head_clean = re.sub(r"[^A-Za-z0-9\- ]+", " ", head)
         head_tokens = [tok for tok in head_clean.split() if tok]
         if head_tokens and re.search(r"[A-Za-z]", head_tokens[0]):
-<<<<<<< HEAD
             return head_tokens[0]
     cleaned = re.sub(r"[^A-Za-z0-9\- ]+", " ", text)
     for tok in cleaned.split():
