@@ -248,8 +248,7 @@
     <p>
       原论文的 Methodology 分为 3.1–3.4 四个部分。下面我按原始结构完整展开，并尽量用更直白的语言解释这些公式到底在描述什么。
     </p>
-
-    <h3>3.1 输入 Token 化（Input Tokenization）</h3>
+      <h3>3.1 输入 Token 化（Input Tokenization）</h3>
     <p>
       首先，输入视频的每一帧会被 DINO 编码器切成 patch，并得到高层视觉 token；这些 token 再进入 VGGT 风格的 alternating attention，在跨帧和帧内两个尺度上反复聚合信息。
     </p>
@@ -271,8 +270,7 @@
       进一步说，$F\cdot P$ 决定了 cross-frame attention 的有效感受野：如果 patch 数多、帧数也多，那么同一块区域就能在更多时刻里找到对应证据。
       这也是为什么作者沿用 VGGT 的 alternating attention 作为骨干——它先把“哪几个 patch 其实在描述同一处结构”这件事学出来，后面的位姿、深度和运动 head 才有稳定输入。
     </p>
-
-    <h3>3.2 位姿估计与静态场景重建（Pose Estimation and Static Scene Reconstruction）</h3>
+      <h3>3.2 位姿估计与静态场景重建（Pose Estimation and Static Scene Reconstruction）</h3>
     <p>
       从聚合后的 latent token 中，StreetForward 用多个 head 去预测相机参数和静态几何：
     </p>
@@ -317,8 +315,7 @@
       作者先把“足够像静态”的高斯从每帧里筛出来，再跨时间并起来形成全局静态集合。这样做相当于先把背景几何做稳，再把复杂的动态部分单独交给 motion 模块处理。
       从工程角度看，这一步极大降低了动态区域对背景建模的污染。
     </p>
-
-    <h3>3.3 因果动态建模（Causal Dynamics Modeling）</h3>
+      <h3>3.3 因果动态建模（Causal Dynamics Modeling）</h3>
     <p>
       这是整篇文章最核心的部分。作者先给每一帧 token 拼接时间编码：
     </p>
@@ -363,8 +360,7 @@
       这样一来，模型既可以把当前高斯传播到未来时刻，也可以传播到过去时刻，为后面的时间插值和 forward-backward consistency 奠定基础。
       与之配套的 $\sigma_{f,u}$ 则承担了“这里到底多像动态区域”的置信度角色，因此它既是一个 motion mask，也是后续 loss weighting 的门控变量。
     </p>
-
-    <h3>3.4 运动一致性（Motion Consistency）</h3>
+      <h3>3.4 运动一致性（Motion Consistency）</h3>
     <p>
       只靠渲染误差去学速度场通常不稳定，因为很多不同的速度场都可能产生相似的图像结果。所以作者在 3.4 中加入了两类关键约束。
     </p>
@@ -416,8 +412,7 @@
       如果某个点的前向速度和后向速度互为相反方向，这个损失就会很小；如果两者完全对不上，损失就会变大。
       因此它不是单纯在惩罚“速度大小”，而是在惩罚“时序上的自相矛盾”。这也是 StreetForward 能做时间插值的重要原因。
     </p>
-
-    <h3>3.5 把这些公式串起来看</h3>
+      <h3>3.5 把这些公式串起来看</h3>
     <p>
       如果把 3.1–3.4 放在一条链路里看，StreetForward 的逻辑其实非常清楚：
       先用 $X \rightarrow Z$ 建立跨帧共享表征，再用相机与深度公式把像素抬到 3D，随后用 causal mask 把“运动方向”写进特征，最后用 $L_{rigid}$ 和 $L_{fb}$ 把速度场收紧到一个几何上、时序上都更自洽的解。
