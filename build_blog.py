@@ -50,6 +50,7 @@ REWRITE_STYLE_VERSION = "v28"
 SOURCE_CACHE_DIRNAME = ".arxiv_source_cache"
 
 _DOTENV_VALUES: Optional[Dict[str, str]] = None
+_ARXIV_TITLE_CACHE: Dict[str, str] = {}
 
 
 def _load_dotenv_values() -> Dict[str, str]:
@@ -2611,26 +2612,147 @@ def _paper_alias(title: str) -> str:
 def _title_keyword(title: str) -> str:
     text = (title or "").strip()
     if not text:
-        return "paper"
+        return "Paper"
     if ":" in text:
         head = text.split(":", 1)[0].strip("：:- ")
         head_clean = re.sub(r"[^A-Za-z0-9\- ]+", " ", head)
         head_tokens = [tok for tok in head_clean.split() if tok]
         if head_tokens and re.search(r"[A-Za-z]", head_tokens[0]):
-            return head_tokens[0].lower()
+            return head_tokens[0]
     cleaned = re.sub(r"[^A-Za-z0-9\- ]+", " ", text)
     for tok in cleaned.split():
         if re.search(r"[A-Za-z]", tok):
-            return tok.lower()
-    return "paper"
+            return tok
+    return "Paper"
+
+
+def _split_title_keyword_and_remainder(title: str) -> Tuple[str, str]:
+    text = _clean_text_block(title)
+    if not text:
+        return "Paper", ""
+    normalized = text.replace("：", ":")
+    if ":" in normalized:
+        head, tail = normalized.split(":", 1)
+        keyword = _title_keyword(head)
+        return keyword, _clean_text_block(tail)
+
+    keyword = _title_keyword(text)
+    if text.startswith(keyword + " "):
+        return keyword, _clean_text_block(text[len(keyword):])
+    return keyword, text
+
+
+def _fetch_arxiv_title(arxiv_id: str) -> str:
+    key = (arxiv_id or "").strip()
+    if not key:
+        return ""
+    if key in _ARXIV_TITLE_CACHE:
+        return _ARXIV_TITLE_CACHE[key]
+
+    bare_id = re.sub(r"v\d+$", "", key)
+    url = f"https://export.arxiv.org/api/query?search_query=id:{bare_id}&max_results=1"
+    try:
+        resp = requests.get(url, timeout=10, headers={"User-Agent": "feedforward-blog-title-fixer/1.0"})
+        resp.raise_for_status()
+        match = re.search(r"<entry>.*?<title>(.*?)</title>", resp.text, flags=re.IGNORECASE | re.DOTALL)
+        if match:
+            title = html.unescape(re.sub(r"\s+", " ", match.group(1))).strip()
+            _ARXIV_TITLE_CACHE[key] = title
+            return title
+    except Exception:
+        pass
+    _ARXIV_TITLE_CACHE[key] = ""
+    return ""
+
+
+def _canonical_full_title(title: str, arxiv_id: str) -> str:
+    fetched = _fetch_arxiv_title(arxiv_id)
+    if fetched:
+        return fetched
+    return _clean_text_block(title)
+
+
+def _contains_cjk(text: str) -> bool:
+    return bool(re.search(r"[\u4e00-\u9fff]", text or ""))
 
 
 def _format_post_title(title: str, docs_dir: Path) -> str:
-    keyword = _title_keyword(title)
-    title_cn = _clean_cn_sentence(_translate_to_zh(title, docs_dir))
-    if not title_cn:
-        title_cn = _clean_text_block(title) or "论文解读"
+    keyword, remainder = _split_title_keyword_and_remainder(title)
+    target = remainder or title
+    title_cn = _clean_cn_sentence(_translate_to_zh(target, docs_dir))
+    if not title_cn or not _contains_cjk(title_cn):
+        alias_cn = _clean_cn_sentence(_translate_to_zh(_paper_alias(target), docs_dir))
+        if alias_cn and _contains_cjk(alias_cn):
+            title_cn = alias_cn
+        else:
+            title_cn = "论文解读"
     return f"{keyword}：{title_cn}"
+
+
+def repair_post_title_format(site_dir: Union[str, Path] = "./site", docs_dir: Union[str, Path] = "./docs") -> int:
+    site = Path(site_dir)
+    docs = Path(docs_dir)
+    manifest = _load_manifest(site)
+    if not manifest:
+        return 0
+
+    repaired = 0
+    for item in manifest:
+        full_title = str(item.get("full_title", "") or "").strip()
+        if not full_title:
+            full_title = str(item.get("title", "") or "").strip()
+        arxiv_id = str(item.get("arxiv_id", "") or "").strip()
+        canonical_title = _canonical_full_title(full_title, arxiv_id)
+        if canonical_title:
+            full_title = canonical_title
+        if not full_title:
+            continue
+
+        formatted_title = _format_post_title(full_title, docs)
+        title_keyword = _title_keyword(full_title)
+
+        changed = False
+        if item.get("full_title") != full_title:
+            item["full_title"] = full_title
+            changed = True
+        if item.get("title") != formatted_title:
+            item["title"] = formatted_title
+            changed = True
+        if item.get("title_keyword") != title_keyword:
+            item["title_keyword"] = title_keyword
+            changed = True
+
+        post_path = site / str(item.get("path", "") or "")
+        if post_path.exists():
+            content = post_path.read_text(encoding="utf-8")
+            new_content = re.sub(
+                r"<h1>.*?</h1>",
+                f"<h1>{html.escape(formatted_title)}</h1>",
+                content,
+                count=1,
+                flags=re.DOTALL,
+            )
+            arxiv_url = f"https://arxiv.org/abs/{html.escape(arxiv_id)}" if arxiv_id else "#"
+            meta_line = (
+                f"<p class='meta'>原文标题：<a href='{arxiv_url}' target='_blank'>{html.escape(full_title)}</a></p>"
+            )
+            new_content = re.sub(
+                r"<p\s+class=['\"]meta['\"]>.*?</p>",
+                meta_line,
+                new_content,
+                count=1,
+                flags=re.DOTALL,
+            )
+            if new_content != content:
+                post_path.write_text(new_content, encoding="utf-8")
+                changed = True
+
+        if changed:
+            repaired += 1
+
+    _save_manifest(site, manifest)
+    build_home(site)
+    return repaired
 
 
 def _translate_heading_to_zh(heading: str, docs_dir: Path) -> str:
@@ -5922,6 +6044,7 @@ def build_post_from_pdf(
 
     reader = PdfReaderTool(docs_dir=docs)
     doc = reader.get_document(selector)
+    doc.title = _canonical_full_title(doc.title, doc.arxiv_id) or doc.title
     paper = reader.read_document(doc.arxiv_id, max_chars=max_chars)
     text = paper.get("content", "")
     source_material = _extract_source_material(doc.arxiv_id, doc.title, docs)
@@ -6292,6 +6415,7 @@ def main() -> None:
     parser.add_argument("--title", default="", help="Optional blog title override")
     parser.add_argument("--rewrite-all", action="store_true", help="Rewrite all blog posts using the locked deep-dive template")
     parser.add_argument("--refresh-pages", action="store_true", help="Refresh already generated pages with the latest shared shell and lazy-loading behavior")
+    parser.add_argument("--repair-title-format", action="store_true", help="Repair all post and manifest titles to 'keyword：中文翻译标题' format")
     parser.add_argument("--validate-posts", action="store_true", help="Validate generated post HTML against quality gates")
     parser.add_argument("--commit-each", action="store_true", help="Commit site changes after each rewritten post")
     parser.add_argument("--push-each", action="store_true", help="Push after each commit (implies --commit-each)")
@@ -6306,6 +6430,9 @@ def main() -> None:
     if args.refresh_pages:
         pages = refresh_existing_pages(args.site_dir)
         print(f"Refreshed rendered pages: {len(pages)} files")
+    elif args.repair_title_format:
+        repaired = repair_post_title_format(site_dir=args.site_dir, docs_dir=args.docs_dir)
+        print(f"Repaired title format for {repaired} posts")
     elif args.rewrite_all:
         posts = rewrite_all_posts(
             docs_dir=args.docs_dir,
