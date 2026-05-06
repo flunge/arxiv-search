@@ -231,7 +231,7 @@
 
     <h2 id='summary'>简单摘要</h2>
     
-      <p>动态场景重建对于闭环自动驾驶仿真至关重要，需要同时精确建模静态结构和运动智能体。尽管从经典SfM到NeRF再到3DGS的大多数成熟方案仍依赖迭代的逐场景优化，计算代价高昂。为提升效率，近期的DUSt3R和VGGT等工作利用大规模数据集的学得先验减少甚至消除优化，实现快速前馈推理，但这些工作聚焦于静态场景而未解决4D重建。前馈4D重建面临两大瓶颈：运动条件下的几何退化以及运动建模——现有方法需要显式4D监督且受限于全局注意力结构。本文提出一种前馈4D重建框架，在VGGT交替注意力的基础上引入因果掩码注意力显式建模源帧到目标帧的有向注意力，通过跨帧渲染联合优化几何与运动。</p><figure style='margin-top:20px;'><img width='800' height='450' class='paper-fig' src='assets/2603_19552v1/figure1_full.png' alt='架构图：方法整体流程' loading='lazy' decoding='async' /><img width='800' height='450' class='paper-fig' src='../assets/2603_19552v1/figure4_full.png' alt='Figure 4:' loading='lazy'lazy' decoding='async' / />
+      <p>动态场景重建对于闭环自动驾驶仿真至关重要，需要同时精确建模静态结构和运动智能体。尽管从经典SfM到NeRF再到3DGS的大多数成熟方案仍依赖迭代的逐场景优化，计算代价高昂。为提升效率，近期的DUSt3R和VGGT等工作利用大规模数据集的学得先验减少甚至消除优化，实现快速前馈推理，但这些工作聚焦于静态场景而未解决4D重建。前馈4D重建面临两大瓶颈：运动条件下的几何退化以及运动建模——现有方法需要显式4D监督且受限于全局注意力结构。本文提出一种前馈4D重建框架，在VGGT交替注意力的基础上引入因果掩码注意力显式建模源帧到目标帧的有向注意力，通过跨帧渲染联合优化几何与运动。</p><figure style='margin-top:20px;'><img width='800' height='450' class='paper-fig' src='../assets/2603_19552v1/figure1_full.png' alt='架构图：方法整体流程' <img width='800' height='450' class='paper-fig' src='../assets/2603_19552v1/figure4_full.png' alt='Figure 4:' loading='lazy'lazy' decoding='async' / />
       <figcaption style='font-size:12px;'>图 1：方法整体架构与流程</figcaption></figure>
     
     
@@ -249,9 +249,7 @@
       原论文的 Methodology 分为 3.1–3.4 四个部分。下面我按原始结构完整展开，并尽量用更直白的语言解释这些公式到底在描述什么。
     </p>
       <h3>3.1 输入 Token 化（Input Tokenization）</h3>
-    <p>
-      首先，输入视频的每一帧会被 DINO 编码器切成 patch，并得到高层视觉 token；这些 token 再进入 VGGT 风格的 alternating attention，在跨帧和帧内两个尺度上反复聚合信息。
-    </p>
+    
     <p>$$z^{(L)}_{I,f,p} \in \mathbb{R}^D$$</p>
     <p>$$X \in \mathbb{R}^{BFPD},\quad X[b,f,p,:] = z^{(L)}_{I,f,p}$$</p>
     <p>
@@ -412,6 +410,7 @@
       如果某个点的前向速度和后向速度互为相反方向，这个损失就会很小；如果两者完全对不上，损失就会变大。
       因此它不是单纯在惩罚“速度大小”，而是在惩罚“时序上的自相矛盾”。这也是 StreetForward 能做时间插值的重要原因。
     </p>
+      </figcaption>
       <h3>3.5 把这些公式串起来看</h3>
     <p>
       如果把 3.1–3.4 放在一条链路里看，StreetForward 的逻辑其实非常清楚：
