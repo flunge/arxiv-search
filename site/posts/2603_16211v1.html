@@ -230,11 +230,11 @@
 
     <h2 id='summary'>简单摘要</h2>
     
-      <p>3D重建是增强现实/虚拟现实、自主系统和数字孪生应用的核心技术。传统流程依赖SfM和MVS通过迭代优化获得精确结果，但存在计算复杂度和纹理缺失区域脆弱性问题。近期前馈方法的范式转变推动了实时可泛化3D重建的发展，MASt3R和VGGT等强力基线展现了卓越能力。然而当输入视图稀疏时，前馈3DGS在外推视图渲染上存在根本局限：渲染结果出现几何不完整、纹理损坏和大面积空白区域等严重伪影。现有潜扩散模型擅长2D修复但缺乏底层3D结构知识，导致跨视角不一致的幻觉。本文提出Leveling3D，首个将前馈3D重建与几何条件扩散生成紧密耦合的框架，通过几何感知适配器将3D几何先验注入扩散模型，并将生成的外推视图反馈回3DGS表示进行细化，实现重建-生成-细化的完整闭环。</p><figure style='margin-top:20px;'><img class='paper-fig' src='../assets/2603_16211v1/fig_1.png' alt='架构图：方法整体流程' <img width='800' height='450' class='paper-fig' src='../assets/2603_16211v1/fig_5.png' alt='Figure 5:' loading='lazy' decoding='async' / />
-      <figcaption style='font-size:12px;'>图 1：方法整体架构与流程</figcaption></figure>
+      <p>3D重建是增强现实/虚拟现实、自主系统和数字孪生应用的核心技术。传统流程依赖SfM和MVS通过迭代优化获得精确结果，但存在计算复杂度和纹理缺失区域脆弱性问题。近期前馈方法的范式转变推动了实时可泛化3D重建的发展，MASt3R和VGGT等强力基线展现了卓越能力。然而当输入视图稀疏时，前馈3DGS在外推视图渲染上存在根本局限：渲染结果出现几何不完整、纹理损坏和大面积空白区域等严重伪影。现有潜扩散模型擅长2D修复但缺乏底层3D结构知识，导致跨视角不一致的幻觉。本文提出Leveling3D，首个将前馈3D重建与几何条件扩散生成紧密耦合的框架，通过几何感知适配器将3D几何先验注入扩散模型，并将生成的外推视图反馈回3DGS表示进行细化，实现重建-生成-细化的完整闭环。</p>
     
     
 
+    <figure style='margin-top:20px;'><img class='paper-fig' src='../assets/2603_16211v1/fig_1.png' alt='图 1' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1</figcaption></figure>
     <h2 id='innovation'>核心创新</h2>
     
       <p>1. 首次将前馈3D重建与几何条件扩散生成紧密耦合，建立重建-生成-细化反馈闭环，突破此前仅将扩散模型作为2D后处理的局限。</p>
@@ -244,6 +244,8 @@
     
     
     <h2 id='technical'>技术细节</h2>
+      <figure style='margin-top:20px;'><img class='paper-fig' src='../assets/2603_16211v1/fig_2.png' alt='架构图' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>架构图：方法整体流程</figcaption></figure>
+    
     
       <p>该工作在评估多种扩散条件方法在3D场景外推/补全任务中的表现时，系统比较了Stable Diffusion 2（SD2）基础修复流水线、ControlNet、T2I-Adapter以及提出方法的几何条件注入机制。</p>
       <p>SD2修复流水线：采用标准Stable Diffusion 2管道，包含图像编码（将输入图像编码到潜在空间）、掩码区域去噪（仅在掩码指示的缺失区域执行扩散去噪过程）、和潜在合并（将生成的潜在表示与已知区域的原潜在表示按掩码区域拼接）。具体地，SD2将噪声潜在z_t、缩放后的掩码M、以及掩码后的原始潜在z_0⊙(1-M)拼接为9通道UNet输入进行渐进去噪：z_{t-1} = UNet([z_t; M; z_0⊙(1-M)], t, c_text)，其中c_text为可选的文本条件。朴素SD2通常产生合理的结果，但因缺乏显式的控制条件，常导致不可信或有伪影的输出。</p>

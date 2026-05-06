@@ -231,12 +231,12 @@
     <h2 id='summary'>简单摘要</h2>
     
       
-      <p>前馈高斯泼溅已成为加速3D场景重建的重要方向，直接从输入图像预测3D高斯参数，绕过了耗时的逐场景优化。然而现有前馈模型的实际适用性常受限于严格假设，如需要精确的相机位姿、已标定的内参或固定且有限的输入视图数量。设计一个能跨多样化设置（不同视图数量、有位姿或无位姿、已标定或未标定）泛化的单一模型，仍是一个开放性挑战。YoNoSplat能够从任意数量的无位姿、未标定图像中重建3D场景，同时在真实相机信息可用时无缝集成。YoNoSplat采用了局部到全局范式：首先预测逐视图的局部高斯及其对应相机位姿，再聚合到全局坐标系。然而这种设计引入了核心训练挑战——相机位姿和3D几何的联合学习高度纠缠。YoNoSplat提出了mix-forcing训练策略来解决这一困境：训练从纯teacher-forcing开始建立稳定几何基础，随训练推进逐步引入模型自身预测位姿参与聚合。</p><figure style='margin-top:20px;'><img width='800' height='450' class='paper-fig' src='../assets/2511_07321v1/figure1_full.png' alt='架构图：方法整体流程' <img width='800' height='450' class='paper-fig' src='../assets/2511_07321v1/figure3_full.png' alt='Figure 3:' loading='lazy' decoding='async' / />
-      <figcaption style='font-size:12px;'>图 1：方法整体架构与流程</figcaption></figure>
+      <p>前馈高斯泼溅已成为加速3D场景重建的重要方向，直接从输入图像预测3D高斯参数，绕过了耗时的逐场景优化。然而现有前馈模型的实际适用性常受限于严格假设，如需要精确的相机位姿、已标定的内参或固定且有限的输入视图数量。设计一个能跨多样化设置（不同视图数量、有位姿或无位姿、已标定或未标定）泛化的单一模型，仍是一个开放性挑战。YoNoSplat能够从任意数量的无位姿、未标定图像中重建3D场景，同时在真实相机信息可用时无缝集成。YoNoSplat采用了局部到全局范式：首先预测逐视图的局部高斯及其对应相机位姿，再聚合到全局坐标系。然而这种设计引入了核心训练挑战——相机位姿和3D几何的联合学习高度纠缠。YoNoSplat提出了mix-forcing训练策略来解决这一困境：训练从纯teacher-forcing开始建立稳定几何基础，随训练推进逐步引入模型自身预测位姿参与聚合。</p>
     
     
     
 
+    <figure style='margin-top:20px;'><img class='paper-fig' src='../assets/2511_07321v1/figure1_full.png' alt='图 1' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1</figcaption></figure>
     <h2 id='innovation'>核心创新</h2>
     
       
@@ -244,6 +244,8 @@
     
     
     <h2 id='technical'>技术细节</h2>
+      <figure style='margin-top:20px;'><img class='paper-fig' src='../assets/2511_07321v1/figure2_full.png' alt='架构图' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>架构图：方法整体流程</figcaption></figure>
+    
     <p>围绕 技术总览，通过从训练数据中学习几何和外观先验，我们的方法直接重建新场景，而不需要耗时的优化。典型预测前馈重建模型的基本设计选择是其输出空间。这种设计通过使用预测的姿势进行聚合来实现无姿势重建的主要目标，但它还保留了与姿势相关工作流程的完全兼容性，其中地面真实姿势可以是。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
     <p>在训练过程中，我们随机采样 4 个目标视图，并使用其地面实况相机姿势渲染相应的图像，然后将渲染的图像与地面实况图像进行比较。具体来说，对于每对输入视图及其预测姿势，我们首先计算它们的相对姿势。(a) 使用 DINOv2 编码器提取特征，然后对图像进行局部全局关注，最后用于预测相机姿势和局部 3D 高斯。</p>
       <h3>3 方法</h3>    <p>围绕 3 方法，我们引入了一种从多个图像中前馈预测 3D 高斯函数的方法。我们的方法支持广泛的场景尺度，并且可以选择利用可用的地面实况相机姿势和内在特征。通过从训练数据中学习几何和外观先验，我们的方法直接重建新场景，而不需要耗时的优化。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>    <p>$$ f_{\boldsymbol{\theta}}:\{(\boldsymbol{I}^v)\}_{v=1}^V \mapsto\{ \cup (\boldsymbol{\mu}_j^v, \alpha_j^v, \boldsymbol{r}_j^v, \boldsymbol{s}_j^v, \boldsymbol{c}_j^v) , \boldsymbol{k}^v, \boldsymbol{p}^v\}_{j=1,\dots,H \times W}^{v=1,\dots,V}. $$</p>

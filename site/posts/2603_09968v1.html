@@ -230,11 +230,11 @@
 
     <h2 id='summary'>简单摘要</h2>
     
-      <p>前馈高斯泼溅直接从输入图像预测3D高斯体，绕过了逐场景优化，但现有方法面向离线重建场景——所有图像一次性可用。在自回归场景中，观测逐步到达，这对具身AI、AR/VR和视频生成至关重要，却几乎未被探索。在线新视角合成的关键设计选择在于训练时使用真实位姿还是预测位姿来组装高斯体：使用预测位姿会耦合高斯预测与位姿估计导致不稳定性，使用真实位姿则假设位姿已知。一种自然的替代方案是训练时使用真实位姿、推理时切换为预测位姿，但这引入了位姿分布不匹配问题。本文提出ReCoSplat，引入渲染-比较模块，受分析-合成范式启发，从组装位姿渲染当前重建并与新图像比较，渲染-观测对比对捕获位姿差异并提供了稳定的几何和视觉先验。此外，针对扩展到数百帧时的KV缓存内存瓶颈，提出混合KV缓存压缩策略。</p><figure style='margin-top:20px;'><img width='800' height='450' class='paper-fig' src='../assets/2603_09968v1/figure1_full.png' alt='架构图：方法整体流程' <img width='800' height='450' class='paper-fig' src='../assets/2603_09968v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' / />
-      <figcaption style='font-size:12px;'>图 1：方法整体架构与流程</figcaption></figure>
+      <p>前馈高斯泼溅直接从输入图像预测3D高斯体，绕过了逐场景优化，但现有方法面向离线重建场景——所有图像一次性可用。在自回归场景中，观测逐步到达，这对具身AI、AR/VR和视频生成至关重要，却几乎未被探索。在线新视角合成的关键设计选择在于训练时使用真实位姿还是预测位姿来组装高斯体：使用预测位姿会耦合高斯预测与位姿估计导致不稳定性，使用真实位姿则假设位姿已知。一种自然的替代方案是训练时使用真实位姿、推理时切换为预测位姿，但这引入了位姿分布不匹配问题。本文提出ReCoSplat，引入渲染-比较模块，受分析-合成范式启发，从组装位姿渲染当前重建并与新图像比较，渲染-观测对比对捕获位姿差异并提供了稳定的几何和视觉先验。此外，针对扩展到数百帧时的KV缓存内存瓶颈，提出混合KV缓存压缩策略。</p>
     
     
 
+    <figure style='margin-top:20px;'><img class='paper-fig' src='../assets/2603_09968v1/figure1_full.png' alt='图 1' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>图 1</figcaption></figure>
     <h2 id='innovation'>核心创新</h2>
     
       <p>1. 提出渲染-比较模块，将渲染结果与新观测图像进行对比，为高斯预测提供稳定的几何与视觉条件信号。</p>
@@ -243,6 +243,8 @@
       <p>4. 采用可变块大小的课程学习训练策略，支持测试时动态配置，在100帧以上序列中剪枝超90%的KV缓存token。</p>
     
     <h2 id='technical'>技术细节</h2>
+      <figure style='margin-top:20px;'><img class='paper-fig' src='../assets/2603_09968v1/figure2_full.png' alt='架构图' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>架构图：方法整体流程</figcaption></figure>
+    
     
       <p>ReCoSplat是一个自回归框架，从连续图像流中以非重叠块（chunk）逐步重建3D场景。其核心创新在于：自回归KV缓存机制、渲染-比较（Render-and-Compare）模块解决位姿分布不匹配、以及针对长序列的KV缓存压缩策略。</p>
       <p>自回归处理流程：在时间步t，网络接收新图像块I_t（含可选相机参数K_t, E_t）、此前所有块的KV缓存C_{t-1}、以及累积场景S_{t-1}（包含所有历史3D高斯）。模型估计：G_t^local = f(I_t, C_{t-1}, S_{t-1})，同时预测相机内外参(K̂_t, Ê_t)和更新后的KV缓存C_t。每块局部高斯G_t^local定义在对应图像的相机空间中，通过装配位姿（assembly pose）P_t^asm（可使用真值或预测位姿）变换到世界坐标后合并入累积场景：S_t = S_{t-1} ∪ Transform(G_t^local, P_t^asm)。</p>
