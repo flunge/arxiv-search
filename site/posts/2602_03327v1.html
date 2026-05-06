@@ -108,7 +108,7 @@
       requestAnimationFrame(applyPageScale);
     }
 
-    function applyPageScale {
+    function applyPageScale() {
       var stage = document.querySelector('.page-stage');
       var shell = document.getElementById('page-shell');
       if (!stage || !shell) return;
@@ -120,7 +120,7 @@
     window.addEventListener('orientationchange', applyPageScale);
     window.addEventListener('load', applyPageScale);
     document.addEventListener('DOMContentLoaded', applyPageScale);
-    document.addEventListener('DOMContentLoaded', function {
+    document.addEventListener('DOMContentLoaded', function() {
       var shell = document.getElementById('page-shell');
       if (!shell) return;
       shell.querySelectorAll('img').forEach(function(img) {
@@ -130,20 +130,20 @@
         }
       });
       if ('ResizeObserver' in window) {
-        var resizeObserver = new ResizeObserver(function {
+        var resizeObserver = new ResizeObserver(function() {
           requestAnimationFrame(applyPageScale);
         });
         resizeObserver.observe(shell);
       }
     });
 
-    function setupImageLightbox {
+    function setupImageLightbox() {
       var lightbox = document.getElementById('page-lightbox');
       var lightboxImage = document.getElementById('page-lightbox-image');
       var lightboxCaption = document.getElementById('page-lightbox-caption');
       if (!lightbox || !lightboxImage || !lightboxCaption) return;
 
-      function closeLightbox {
+      function closeLightbox() {
         lightbox.setAttribute('hidden', 'hidden');
         lightbox.setAttribute('aria-hidden', 'true');
         lightboxImage.removeAttribute('src');
@@ -159,7 +159,7 @@
         var caption = figure ? figure.querySelector('figcaption') : null;
         lightboxImage.src = src;
         lightboxImage.alt = img.alt || '';
-        lightboxCaption.textContent = caption ? caption.textContent.trim : (img.alt || '');
+        lightboxCaption.textContent = caption ? caption.textContent.trim() : (img.alt || '');
         lightbox.removeAttribute('hidden');
         lightbox.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
@@ -174,13 +174,13 @@
           return;
         }
         if (target === lightbox || target.closest('.page-lightbox-close')) {
-          closeLightbox;
+          closeLightbox();
         }
       });
 
       document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape' && !lightbox.hasAttribute('hidden')) {
-          closeLightbox;
+          closeLightbox();
         }
       });
     }
@@ -202,8 +202,8 @@
       },
       svg: { fontCache: 'global' },
       startup: {
-        pageReady:  => {
-          return MathJax.startup.defaultPageReady.then( => {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady.then(() => {
             requestAnimationFrame(applyPageScale);
           });
         }
@@ -246,12 +246,12 @@
     <h2 id='technical'>技术细节</h2>
       <figure style='margin-top:20px;'><img class='paper-fig' src='../assets/2602_03327v1/figure2_full.png' alt='架构图' loading='<figcaption style='font-size:12px;'>架构图：方法整体流程</figcaption></figure>
     
-    <p>我们首先概述高斯喷射和平面深度渲染的预备知识。这种场景表示相对于 NeRF 的另一个改进是实时渲染速度以及更快的训练时间。每个高斯可以由 3D 协方差矩阵和世界空间中的 3D 中心点来定义，为了将这个 3D 高斯投影到 2D 图像平面上进行渲染。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
-      <h3>3 方法</h3>    <p>我们首先概述高斯喷射和平面深度渲染的预备知识。详细介绍了针对稀疏设置对 PGSR 的修改，然后是我们在。然后，我们在 中展示我们的不确定性皮尔逊损失和无伪影正常监督。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>    <h4>3.1 预赛</h4>
-    <p>这种场景表示相对于 NeRF 的另一个改进是实时渲染速度以及更快的训练时间。每个高斯可以由 3D 协方差矩阵和世界空间中的 3D 中心点来定义，为了将这个 3D 高斯投影到 2D 图像平面上进行渲染。此外，为了渲染颜色 ，我们沿着光线混合每个高斯的颜色，如下所示。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <p>我们首先概述高斯喷射和平面深度渲染的预备知识。这种场景表示相对于 NeRF 的另一个改进是实时渲染速度以及更快的训练时间。每个高斯可以由 3D 协方差矩阵和世界空间中的 3D 中心点来定义，为了将这个 3D 高斯投影到 2D 图像平面上进行渲染。</p>
+      <h3>3 方法</h3>    <p>我们首先概述高斯喷射和平面深度渲染的预备知识。详细介绍了针对稀疏设置对 PGSR 的修改，然后是我们在。然后，我们在 中展示我们的不确定性皮尔逊损失和无伪影正常监督。</p>    <h4>1. 预赛</h4>
+    <p>这种场景表示相对于 NeRF 的另一个改进是实时渲染速度以及更快的训练时间。每个高斯可以由 3D 协方差矩阵和世界空间中的 3D 中心点来定义，为了将这个 3D 高斯投影到 2D 图像平面上进行渲染。此外，为了渲染颜色 ，我们沿着光线混合每个高斯的颜色，如下所示。</p>
     <p>计算像素深度的一种简单方法是使用深度累积，定义为。另一方面，PGSR 压缩 3D 高斯以获得平坦的 2D 平面，从中可以渲染无偏差的深度和法线贴图。因此，每条光线的法线 可以渲染如下。</p>
     <p>$$ G(x) = e^{-\frac{1}{2}(x - \mu_i)^T\Sigma^{-1}(x - \mu_i)}. $$</p>
-    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
+    
     <p>$$ \Sigma' = J W \Sigma W^T J^T, $$</p>
     <p>放在“方法”这一部分看，这条式子是在把 Sigma&#x27; 写成可直接计算的形式。右侧把若干状态、参数或几何关系组合起来，最终写成可直接复用的 Sigma&#x27;，方便后续模块把这一结果当成标准接口继续使用。</p>
     <p>$$ \Sigma = R S S^T R^T, $$</p>
@@ -269,14 +269,12 @@
     <p>$$ \mathcal{N} = \sum_{i=1}^N R_c^T n_i \alpha_i T_i, $$</p>
     <p>放在“方法”这一部分看，它重点在定义或约束 N 这一项。这条式子描述了多个分量的聚合或逐步合成过程。它通常表示模型如何把局部贡献、概率权重或多项损失累积成最终结果。</p>
     <p>$$ d_i = (R_c^T (\mu_i - T_c)) R_c^T n_i^T, $$</p>
-    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
-    <h4>3.2 PGSR 稀疏视图</h4>
-    <p>由于多视图观察者修剪，默认 PGSR 不适用于开箱即用的稀疏视图设置。另一个需要调整的参数是不透明度重置间隔。后墙的细节完全丢失，窗框上的伪影变得可见。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
-    <h4>3.3 密集初始化</h4>
-    <p>稀疏视图设置对 COLMAP 等标准 SfM 框架提出了根本性挑战，其中有限的图像重叠可能导致配准失败。该策略提供了高质量稀疏视图重建所需的密集几何初始化和准确姿态。COLMAP 重建仅包含 1,028 个点，但产生 1,013,106 个点。作者这样设计，是为了把这一节的输入</figure>
-    <h4>3.4 深度督导</h4>
-    <p>围绕 3.4 深度督导，从 中，我们获得了可用作深度图的每个视点点云。标准 L1 和 L2 损失通常会导致模型过度拟合推断深度图的有限保真度。借助置信度感知的 Pearson 相关性，经过 7,000 次迭代后所得到的渲染深度<img width='800' height='450' class='paper-fig' src='../assets/2602_03327v1/figure3_full.<img width='800' height='450' class='paper-fig' src='../assets/2602_03327v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' / />
-      <figcaption style='font-size:12px;'>图 3：信心感知皮森损失，用于<figcap的形式处理每个图像，因此相邻块之间的梯 3327v1/figure4_full.png'<figcaption style='font-size:12px;'>图 4：带有伪影的默认法线贴图，用于说明论文中的关键模块、输入输出关系或核心实验现象</f<figcaption style='font-size:12px;'>Figure 4:</figcaption>视图。这是通过将图像像素从一台相机投影到 3D 空间，然png'<img width='800' height='450' class='paper-fig' src='../assets/2602_03327v1/figure6_full.png' alt='Figure 6:' loading='lazy' decoding='async' / />
+    
+    <h4>2. PGSR 稀疏视图</h4>
+    <p>由于多视图观察者修剪，默认 PGSR 不适用于开箱即用的稀疏视图设置。另一个需要调整的参数是不透明度重置间隔。后墙的细节完全丢失，窗框上的伪影变得可见。</p>
+    <h4>3. 密集初始化</h4>
+    <p>稀疏视图设置对 COLMAP 等标准 SfM 框架提出了根本性挑战，其中有限的图像重叠可能导致配准失败。该策略提供了高质量稀疏视图重建所需的密集几何初始化和准确姿态。COLMAP 重建仅包含 1,028 个点，但产生 1,013,106 个点。标准 L1 和 L2 损失通常会导致模型过度拟合推断深度图的有限保真度。借助置信度感知的 Pearson 相关性，经过 7,000 次迭代后所得到的渲染深度<img width='800' height='450' class='paper-fig' src='../assets/2602_03327v1/figure3_full.<img width='800' height='450' class='paper-fig' src='../assets/2602_03327v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' / />
+      <figcaption style='font-size:12px;'>图 3：信心感知皮森损失，用于<figcap的形式处理每个图像，因此相邻块之间的梯 3327v1/figure4_full.png'<figcaption style='font-size:12px;'>图 4：带有伪影的默认法线贴图，用于说明论文中的关键模块、输入输出关系或核心实验现象<figcaption style='font-size:12px;'>Figure 4:</figcaption>视图。这是通过将图像像素从一台相机投影到 3D 空间，然png'<img width='800' height='450' class='paper-fig' src='../assets/2602_03327v1/figure6_full.png' alt='Figure 6:' loading='lazy' decoding='async' / />
       <figcaption style='font-size:12px;'>图 5：这两幅图显示了为 Tanks 和 Temples 数据集的 Barn 场景应用了蒙版的两个重投影示例</figcaption></figure>
 
 

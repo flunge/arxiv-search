@@ -108,7 +108,7 @@
       requestAnimationFrame(applyPageScale);
     }
 
-    function applyPageScale {
+    function applyPageScale() {
       var stage = document.querySelector('.page-stage');
       var shell = document.getElementById('page-shell');
       if (!stage || !shell) return;
@@ -120,7 +120,7 @@
     window.addEventListener('orientationchange', applyPageScale);
     window.addEventListener('load', applyPageScale);
     document.addEventListener('DOMContentLoaded', applyPageScale);
-    document.addEventListener('DOMContentLoaded', function {
+    document.addEventListener('DOMContentLoaded', function() {
       var shell = document.getElementById('page-shell');
       if (!shell) return;
       shell.querySelectorAll('img').forEach(function(img) {
@@ -130,20 +130,20 @@
         }
       });
       if ('ResizeObserver' in window) {
-        var resizeObserver = new ResizeObserver(function {
+        var resizeObserver = new ResizeObserver(function() {
           requestAnimationFrame(applyPageScale);
         });
         resizeObserver.observe(shell);
       }
     });
 
-    function setupImageLightbox {
+    function setupImageLightbox() {
       var lightbox = document.getElementById('page-lightbox');
       var lightboxImage = document.getElementById('page-lightbox-image');
       var lightboxCaption = document.getElementById('page-lightbox-caption');
       if (!lightbox || !lightboxImage || !lightboxCaption) return;
 
-      function closeLightbox {
+      function closeLightbox() {
         lightbox.setAttribute('hidden', 'hidden');
         lightbox.setAttribute('aria-hidden', 'true');
         lightboxImage.removeAttribute('src');
@@ -159,7 +159,7 @@
         var caption = figure ? figure.querySelector('figcaption') : null;
         lightboxImage.src = src;
         lightboxImage.alt = img.alt || '';
-        lightboxCaption.textContent = caption ? caption.textContent.trim : (img.alt || '');
+        lightboxCaption.textContent = caption ? caption.textContent.trim() : (img.alt || '');
         lightbox.removeAttribute('hidden');
         lightbox.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
@@ -174,13 +174,13 @@
           return;
         }
         if (target === lightbox || target.closest('.page-lightbox-close')) {
-          closeLightbox;
+          closeLightbox();
         }
       });
 
       document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape' && !lightbox.hasAttribute('hidden')) {
-          closeLightbox;
+          closeLightbox();
         }
       });
     }
@@ -202,8 +202,8 @@
       },
       svg: { fontCache: 'global' },
       startup: {
-        pageReady:  => {
-          return MathJax.startup.defaultPageReady.then( => {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady.then(() => {
             requestAnimationFrame(applyPageScale);
           });
         }
@@ -248,27 +248,27 @@
     
     <p>围绕 技术总览，是否可以对输入图像构建难以察觉的扰动，从而显着降低重建质量。与分类不同，重建不涉及离散标签。由于 3D 重建任务中的输入图像通常是高分辨率的，因此需要大量的查询。</p>
 <figure> <figcaption style='font-size:12px;'>图 2：针对 RE10K 数据集上的前馈 3DGS 模型（这里我们使用 NoPoSplat）的白盒攻击（这里我们使用 PGD 攻击）结果；第一行显示干净输入的结果，而第二行显示敌对扰动输入的结果</figcaption></figure>
-    <h3>3 方法</h3>    <p>1 我们首先通过使用 PGD 的白盒攻击揭示前馈 3DGS 模型的漏洞（假设可以访问权重）。然后，我们专注于黑盒攻击，并提出两种基于扰动的有效频域参数化的改进的、有效的和查询高效的攻击算法（基于梯度和无梯度）。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>    <h4>3.1 预赛</h4>
+    <h3>3 方法</h3>    <p>1 我们首先通过使用 PGD 的白盒攻击揭示前馈 3DGS 模型的漏洞（假设可以访问权重）。然后，我们专注于黑盒攻击，并提出两种基于扰动的有效频域参数化的改进的、有效的和查询高效的攻击算法（基于梯度和无梯度）。</p>    <h4>1. 预赛</h4>
     <h5>3.1.1 前馈 3DGS</h5>
-    <p>前馈 3DGS 的目标是学习从输入图像到 3D 高斯参数的映射。给定特定的相机姿势，每个像素颜色都是通过 Alpha 混合计算的。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <p>前馈 3DGS 的目标是学习从输入图像到 3D 高斯参数的映射。给定特定的相机姿势，每个像素颜色都是通过 Alpha 混合计算的。</p>
     <p>$$ \boldsymbol{f_{\theta}}:\{(\boldsymbol{I}^i,\boldsymbol{P}^i)\}_{i=1}^{N}\mapsto \{(\boldsymbol{\mu}_j,\alpha_j,\boldsymbol{\Sigma}_j,\boldsymbol{c}_j)\}_{j=1}^{H\times W\times N}, $$</p>
     <p>放在“方法”这一部分看，这条式子是在把 f theta : ( I i, P i) i 写成可直接计算的形式。右侧按元素列出了 f theta : ( I i, P i) i 的组成项，说明模型是在逐像素、逐高斯或逐候选地同时预测一整组属性，而不是只输出单个标量。</p>
     <p>$$ \boldsymbol{I}_r(p,q) = \sum_{j \in \mathcal{V}} c_j \alpha_j \prod_{l=1}^{j-1} (1 - \alpha_l), $$</p>
     <p>放在“方法”这一部分看。这条式子描述了多个分量的聚合或逐步合成过程。它通常表示模型如何把局部贡献、概率权重或多项损失累积成最终结果。</p>
     <h5>3.1.2 PGD​​ 攻击</h5>
-    <p>PGD​​ 是一种白盒对抗攻击算法，专为传统分类器设计，使用相对于输入的损失梯度迭代更新输入图像。每一步之后，中间对抗性样本都会被投影回到以原始输入为中心、具有指定半径的约束集中。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <p>PGD​​ 是一种白盒对抗攻击算法，专为传统分类器设计，使用相对于输入的损失梯度迭代更新输入图像。每一步之后，中间对抗性样本都会被投影回到以原始输入为中心、具有指定半径的约束集中。</p>
     <p>$$ x_{t+1} = \Pi_{x + \mathcal{S}} ( x_t + \eta \, \text{sgn} ( \nabla_x \mathcal{L}(\theta, f(x_t), y) ) ), $$</p>
-    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
-    <h4>3.2 前馈 3DGS 模型的漏洞</h4>
-    <p>是否可以对输入图像构建难以察觉的扰动，从而显着降低重建质量。与分类不同，重建不涉及离散标签。其中 MSE 代表均方误差，是步骤 处的输入图像，是步骤 处的渲染图像，具有相同的姿势，是平衡权重。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
-    <h4>3.3 对前馈 3DGS 模型的黑盒攻击</h4>
+    
+    <h4>2. 前馈 3DGS 模型的漏洞</h4>
+    <p>是否可以对输入图像构建难以察觉的扰动，从而显着降低重建质量。与分类不同，重建不涉及离散标签。其中 MSE 代表均方误差，是步骤 处的输入图像，是步骤 处的渲染图像，具有相同的姿势，是平衡权重。</p>
+    <h4>3. 对前馈 3DGS 模型的黑盒攻击</h4>
     <p>1 正如 中所讨论的，在模型 A 上制作的对抗性示例不会对模型 B 中的特征提取产生实质性影响。我们凭经验验证了这一点，结果在附录 C 中提供。此外，基于非优化查询的攻击对于前馈 3DGS 模型本质上是无效的。</p>
     <h5>3.3.1 扰动的频域参数化</h5>
     <p>由于 3D 重建任务中的输入图像通常是高分辨率的，因此需要大量的查询。尽管我们优化了频域中的扰动，但应用 iDCT 将其投影回像素空间，使我们能够获得所需的对抗性示例。接下来，我们将我们的方法应用于两种黑盒攻击技术来构建对抗性示例。</p>
     <p>$$ \boldsymbol{C}_{k,i}=\gamma(k)\cos(\frac{\pi}{n}(i+\frac{1}{2})k), $$</p>
     <p>放在“方法”这一部分看，它重点在定义或约束 C k,i 这一项。这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
     <p>$$ \boldsymbol{F}^j = \boldsymbol{C}^j \boldsymbol{I}_b^j \boldsymbol{C}^{j\top}, $$</p>
-    <p>放在“方法”这一部分看，这条式子重点不是孤立地罗列符号，而是交代 F j 如何承接前面的输入并把结果交给后续步骤。</p>
+    
     <p>$$ {\boldsymbol{I}_b^j}' = \boldsymbol{C}^{j\top} \begin{bmatrix} \boldsymbol{F}_{0:s-1,\;0:s-1}^j+\boldsymbol{\delta}^j & \boldsymbol{F}_{0:s-1,\;s:n-1}^j\\[3pt] \boldsymbol{F}_{s:n-1,\;0:s-1}^j & \boldsymbol{F}_{s:n-1,\;s:n-1}^j \end{bmatrix}\boldsymbol{C}^j, $$</p>
     <p>放在“方法”这一部分看，它重点在定义或约束 I b j &#x27; 这一项。这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
     <h5>3.3.2 基于梯度的方法</h5>
@@ -276,15 +276,15 @@
     
     
     <p>$$ \nabla_{\boldsymbol{I}}\mathcal{L}(\theta) \approx \frac{1}{2M\sigma}\sum_{m=1}^{M} (\mathcal{L}(\boldsymbol{I}_m'^+,\boldsymbol{I}_{r,(m)}'^+)-\mathcal{L}(\boldsymbol{I}_m'^-,\boldsymbol{I}_{r,(m)}'^-)\mathbf{u}_m, $$</p>
-    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
+    
     <p>$$ \boldsymbol{I}_m'^+={\text{cat}}_{j=1}^J(\boldsymbol{C}^{j\top}(\boldsymbol{F}_{ss}^j+\sigma\boldsymbol{u}_m^j)\boldsymbol{C}^j), \boldsymbol{I}_m'^-={\text{cat}}_{j=1}^J(\boldsymbol{C}^{j\top}(\boldsymbol{F}_{ss}^j-\sigma\boldsymbol{u}_m^j)\boldsymbol{C}^j), $$</p>
-    <p>放在“方法”这一部分看，这条式子重点不是孤立地罗列符号，而是交代 I m&#x27; + 如何承接前面的输入并把结果交给后续步骤。</p>
+    
     <h5>3.3.3 无梯度方法</h5>
-    <p>尽管基于梯度的方法直观且高效，但当模型对噪声不敏感或梯度不平滑时，它们可能会失败。CMA-ES 从多元高斯分布中迭代地对候选扰动进行采样，并根据性能最佳的样本调整其均值和协方差，以引导搜索走向更好的最优值。我们使用 back to img eq 中的第一个表达式来获得扰动图像 ，然后对模型进行前向传递以获得渲染图像。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <p>尽管基于梯度的方法直观且高效，但当模型对噪声不敏感或梯度不平滑时，它们可能会失败。CMA-ES 从多元高斯分布中迭代地对候选扰动进行采样，并根据性能最佳的样本调整其均值和协方差，以引导搜索走向更好的最优值。我们使用 back to img eq 中的第一个表达式来获得扰动图像 ，然后对模型进行前向传递以获得渲染图像。</p>
     <div class='card'><strong>表 1</strong><div style='margin-top:6px;'>受害者模型性能与对比模型的定量比较；GB 表示基于梯度的变体，GF 表示无梯度变体。</div><div style='overflow-x:auto;margin-top:10px;'><table style='width:100%;border-collapse:collapse;font-size:12px;'><tr><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Victim Models</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>gray!20PSNR</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>gray!20SSIM</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>gray!20LPIPS</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>gray!20CLIP</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>gray!20DINO</th></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>DepthSplat</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>21.09</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.710</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.228</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.956</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.930</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>DepthSplat+Ours (GB)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>7.57B7282E(-64.1%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.289B7282E(-59.3%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.581B7282E(+154.8%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.740B7282E(-22.3%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.492B7282E(-47.1%)</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>DepthSplat+Ours (GF)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>9.73B7282E(-53.9%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.437B7282E(-38.5%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.514B7282E(+125.4%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.803B7282E(-16.0%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.727B7282E(-21.8%)</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>NoPoSplat</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>22.50</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.781</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.165</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.957</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.938</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>NoPoSplat+Ours (GB)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>17.64B7282E(-21.6%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.523B7282E(-33.0%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.417B7282E(+152.7%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.893B7282E(-6.7%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.816B7282E(-13.0%)</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>NoPoSplat+Ours (GF)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>14.02B7282E(-37.7%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.397B7282E(-49.2%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.549B7282E(+232.7%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.856B7282E(-10.6%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.729B7282E(-22.3%)</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>AnySplat</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>18.94</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.672</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.271</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.928</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.938</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>AnySplat+Ours (GB)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>12.80B7282E(-32.4%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.431B7282E(-35.9%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.588B7282E(+117.0%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.813B7282E(-12.4%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.791B7282E(-15.7%)</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>AnySplat+Ours (GF)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>14.49B7282E(-23.5%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.460B7282E(-31.5%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.561B7282E(+107.0%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.859B7282E(-7.4%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.832B7282E(-11.3%)</td></tr></table></div></div>
     <div class='card'><strong>表 2</strong><div style='margin-top:6px;'>受害者模型性能与对比模型的定量比较；GB 表示基于梯度的变体，GF 表示无梯度变体。</div><div style='overflow-x:auto;margin-top:10px;'><table style='width:100%;border-collapse:collapse;font-size:12px;'><tr><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Victim Models</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>gray!20PSNR</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>gray!20SSIM</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>gray!20LPIPS</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>gray!20CLIP</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>gray!20DINO</th></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>DepthSplat</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>22.21</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.785</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.165</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.963</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.909</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>DepthSplat+Ours (GB)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>14.38B7282E(-35.3%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.546B7282E(-30.4%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.448B7282E(+171.5%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.837B7282E(-13.1%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.738B7282E(-18.8%)</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>DepthSplat+Ours (GF)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>16.59B7282E(-25.3%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.588B7282E(-25.1%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.396B7282E(+140.0%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.851B7282E(-11.6%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.798B7282E(-12.2%)</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>NoPoSplat</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>21.91</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.745</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.173</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.960</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.903</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>NoPoSplat+Ours (GB)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>19.80B7282E(-9.6%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.582B7282E(-21.9%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.338B7282E(+95.4%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.886B7282E(-7.7%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.819B7282E(-9.3%)</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>NoPoSplat+Ours (GF)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>17.17B7282E(-21.6%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.425B7282E(-43.0%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.439B7282E(+153.8%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.858B7282E(-10.6%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.722B7282E(-20.0%)</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>AnySplat</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>19.34</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.639</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.285</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.950</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.923</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>AnySplat+Ours (GB)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>15.47B7282E(-20.0%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.467B7282E(-26.9%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.502B7282E(+76.1%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.867B7282E(-8.7%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.815B7282E(-11.7%)</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>AnySplat+Ours (GF)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>17.52B7282E(-9.4%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.497B7282E(-22.2%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.481B7282E(+68.8%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.876B7282E(-7.8%)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.839B7282E(-9.1%)</td></tr></table></div></div>
     <p>$$ \boldsymbol{\delta}_{\beta}^{j,(t)} \sim \mathcal{N}_\beta\bigl(\boldsymbol{a}^{(t)},\,\boldsymbol{V}^{(t)}\bigr), \qquad \beta=1,2,\ldots,\mathcal{B}, $$</p>
-    <p>放在“方法”这一部分看，这条式子重点不是孤立地罗列符号，而是交代 这一项中间量 如何承接前面的输入并把结果交给后续步骤。</p>
+    
 
 
 

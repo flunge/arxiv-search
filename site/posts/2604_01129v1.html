@@ -108,7 +108,7 @@
       requestAnimationFrame(applyPageScale);
     }
 
-    function applyPageScale {
+    function applyPageScale() {
       var stage = document.querySelector('.page-stage');
       var shell = document.getElementById('page-shell');
       if (!stage || !shell) return;
@@ -120,7 +120,7 @@
     window.addEventListener('orientationchange', applyPageScale);
     window.addEventListener('load', applyPageScale);
     document.addEventListener('DOMContentLoaded', applyPageScale);
-    document.addEventListener('DOMContentLoaded', function {
+    document.addEventListener('DOMContentLoaded', function() {
       var shell = document.getElementById('page-shell');
       if (!shell) return;
       shell.querySelectorAll('img').forEach(function(img) {
@@ -130,20 +130,20 @@
         }
       });
       if ('ResizeObserver' in window) {
-        var resizeObserver = new ResizeObserver(function {
+        var resizeObserver = new ResizeObserver(function() {
           requestAnimationFrame(applyPageScale);
         });
         resizeObserver.observe(shell);
       }
     });
 
-    function setupImageLightbox {
+    function setupImageLightbox() {
       var lightbox = document.getElementById('page-lightbox');
       var lightboxImage = document.getElementById('page-lightbox-image');
       var lightboxCaption = document.getElementById('page-lightbox-caption');
       if (!lightbox || !lightboxImage || !lightboxCaption) return;
 
-      function closeLightbox {
+      function closeLightbox() {
         lightbox.setAttribute('hidden', 'hidden');
         lightbox.setAttribute('aria-hidden', 'true');
         lightboxImage.removeAttribute('src');
@@ -159,7 +159,7 @@
         var caption = figure ? figure.querySelector('figcaption') : null;
         lightboxImage.src = src;
         lightboxImage.alt = img.alt || '';
-        lightboxCaption.textContent = caption ? caption.textContent.trim : (img.alt || '');
+        lightboxCaption.textContent = caption ? caption.textContent.trim() : (img.alt || '');
         lightbox.removeAttribute('hidden');
         lightbox.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
@@ -174,13 +174,13 @@
           return;
         }
         if (target === lightbox || target.closest('.page-lightbox-close')) {
-          closeLightbox;
+          closeLightbox();
         }
       });
 
       document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape' && !lightbox.hasAttribute('hidden')) {
-          closeLightbox;
+          closeLightbox();
         }
       });
     }
@@ -202,8 +202,8 @@
       },
       svg: { fontCache: 'global' },
       startup: {
-        pageReady:  => {
-          return MathJax.startup.defaultPageReady.then( => {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady.then(() => {
             requestAnimationFrame(applyPageScale);
           });
         }
@@ -245,30 +245,28 @@
     <h2 id='technical'>技术细节</h2>
       <figure style='margin-top:20px;'><img class='paper-fig' src='../assets/2604_01129v1/figure2_full.png' alt='架构图' loading='<figcaption style='font-size:12px;'>架构图：方法整体流程</figcaption></figure>
     
-    <p>在这两种情况下，渲染的伪图像条件与 SFT 期间看到的条件明显不同，表现出新颖的遮挡模式、不熟悉的车辆方向和无纹理的完整表面。为了解决这个限制，我们提出了一种基于强化学习的后训练框架，该框架可以直接优化 OOD 条件下的车辆生成质量，而不需要配对的地面实况监督。我们的模拟器编辑动态点云并完成车辆几何形状以渲染结构伪图像，这为视频扩散模型提供了逼真的合成条件。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
-      <h3>3 方法</h3>    <p>围绕 3 方法，这一节先处理的是 我们的方法由两个核心组件组成，如图 1 所示。作者这样设计，是为了先把输入表示、约束条件或中间状态整理成后续模块能直接使用的形式。</p>    <h4>3.1 点云条件视频扩散模拟器</h4>
+    <p>在这两种情况下，渲染的伪图像条件与 SFT 期间看到的条件明显不同，表现出新颖的遮挡模式、不熟悉的车辆方向和无纹理的完整表面。为了解决这个限制，我们提出了一种基于强化学习的后训练框架，该框架可以直接优化 OOD 条件下的车辆生成质量，而不需要配对的地面实况监督。我们的模拟器编辑动态点云并完成车辆几何形状以渲染结构伪图像，这为视频扩散模型提供了逼真的合成条件。</p>
+      <h3>3 方法</h3>    <p>围绕 3 方法，这一节先处理的是 我们的方法由两个核心组件组成，如图 1 所示。作者这样设计，是为了先把输入表示、约束条件或中间状态整理成后续模块能直接使用的形式。</p>    <h4>1. 点云条件视频扩散模拟器</h4>
     <p>围绕 3.1 点云条件视频扩散模拟器，如果没有明确的 3D 场景表示，视频扩散模型通常很难保持多视图几何一致性。因此，我们采用动态 3D 点云作为我们的 3D 主干，并将它们渲染成 2D 伪图像，为视频扩散模型提供像素级条件，灵感来自。</p>
     <h5>3.1.1 动态 3D 点云构建</h5>
     <p>单次激光雷达扫描太稀疏，无法作为可靠的条件。因此，我们利用 Waymo 为所有动态参与者（车辆、行人和骑自行车者）提供的带注释的 3D 边界框，以类别感知的方式跨帧聚合点。对于每辆车，我们使用带注释的边界框将其每帧 LiDAR 点转换为对象的规范框架并聚合所有帧。</p>
     <h5>3.1.2 车辆完成</h5>
-    <p>围绕 3.1.2 车辆完成，即使在多帧聚合之后，由于遮挡和有限的记录视点，车辆通常也只能被部分观察到。我们应用 AdaPoinTr（一种点云补全方法）来重建完整的 360° 车辆几何形状。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <p>围绕 3.1.2 车辆完成，即使在多帧聚合之后，由于遮挡和有限的记录视点，车辆通常也只能被部分观察到。我们应用 AdaPoinTr（一种点云补全方法）来重建完整的 360° 车辆几何形状。</p>
     <h5>3.1.3 场景编辑和渲染</h5>
-    <p>围绕 3.1.3 场景编辑和渲染，通过完整车辆增强的动态 3D 点云，我们可以在重建场景中自由编辑演员轨迹和自我车辆视点。未被任何激光雷达点覆盖的区域保留为黑色。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <p>围绕 3.1.3 场景编辑和渲染，通过完整车辆增强的动态 3D 点云，我们可以在重建场景中自由编辑演员轨迹和自我车辆视点。未被任何激光雷达点覆盖的区域保留为黑色。</p>
     <h5>3.1.4 条件视频生成</h5>
-    <p>从编辑的点云渲染的伪图像提供了几何指导，但由于 LiDAR 稀疏性、多帧累积伪影和无纹理的完整表面，不可避免地存在噪声和不完整。采用视频扩散模型将这些粗略渲染转换为逼真的驾驶视频。以参考图像和渲染的伪图像序列为条件，视频扩散模型填充由参考图像引导的 LiDAR 未观察到的区域，校正多帧累积伪影。作者这样设计，是为了把这一节的输入</figure>
-    <h4>3.2 基于强化学习的后期训练</h4>
-    <p>视频扩散模型中描述的对渲染的伪图像和真实视频对的监督微调（SFT）阶段。在这两种情况下，渲染的伪图像条件与 SFT 期间看到的条件明显不同，表现出新颖的遮挡模式、不熟悉的车辆方向和无纹理的完整表面。为了解决这个限制，我们提出了一种基于强化学习的后训练框架，该框架可以直接优化 OOD 条件下的车辆生成质量，而不需要配对的地面实况监督。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <p>从编辑的点云渲染的伪图像提供了几何指导，但由于 LiDAR 稀疏性、多帧累积伪影和无纹理的完整表面，不可避免地存在噪声和不完整。采用视频扩散模型将这些粗略渲染转换为逼真的驾驶视频。以参考图像和渲染的伪图像序列为条件，视频扩散模型填充由参考图像引导的 LiDAR 未观察到的区域，校正多帧累积伪影。在这两种情况下，渲染的伪图像条件与 SFT 期间看到的条件明显不同，表现出新颖的遮挡模式、不熟悉的车辆方向和无纹理的完整表面。为了解决这个限制，我们提出了一种基于强化学习的后训练框架，该框架可以直接优化 OOD 条件下的车辆生成质量，而不需要配对的地面实况监督。</p>
     <h5>3.2.1 将 DiffusionNFT 扩展到视频生成</h5>
-    <p>让 表示由 参数化的视频扩散策略，并让 表示由参考帧和渲染的伪图像序列组成的条件。对于每个条件，参考策略都会生成一组候选视频。奖励模型对每个候选者进行评分，并且这些分数用于优化以下改编自 扩散NFT 的对比目标。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <p>让 表示由 参数化的视频扩散策略，并让 表示由参考帧和渲染的伪图像序列组成的条件。对于每个条件，参考策略都会生成一组候选视频。奖励模型对每个候选者进行评分，并且这些分数用于优化以下改编自 扩散NFT 的对比目标。</p>
     <p>$$ \mathcal{L}(\theta) = \mathbb{E}_{\mathbf{c},\; \pi^{\mathrm{old}}(\mathbf{x}_0|\mathbf{c}),\; t} \Big[\, r\,\big\lVert v_\theta^{+}(\mathbf{x}_t,\mathbf{c},t)-\mathbf{v} \big\rVert_2^{2} + (1-r)\,\big\lVert v_\theta^{-}(\mathbf{x}_t,\mathbf{c},t)-\mathbf{v} \big\rVert_2^{2} \,\Big], $$</p>
-    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
+    
     <h5>3.2.2 成对偏好模型</h5>
     <p>强化学习后训练的一个关键组成部分是奖励模型，用于评估生成的驾驶视频中车辆的质量。当使用 SFT 模型生成视频时，对伪图像调节进行二次采样（每帧而不是每帧提供渲染的伪图像）会逐渐降低车辆的视觉质量。这提供了一种自然且可控的机制，用于构建偏好对，而无需手动注释。</p>
     <p>两个特征向量按两个顺序连接并通过共享 MLP 头以生成标量 logits 和。然后通过反对称公式定义偏好概率。在构建的偏好对上使用二元交叉熵损失来<img width='800' height='450' class='paper-fig' src='../assets/2604_01129v1/figure4_full.<<img width='800' height='450' class='paper-fig' src='../assets/2604_01129v1/figure5_full.png'1129v1/figure5_full.png'<img width='800' height='450' class='paper-fig' src='../assets/2604_01129v1/figure6_full.png' alt='Figure 6:' loading='lazy' decoding='async' / />
       <figcaption style='font-size:12px;'>图 5：车辆轨迹编辑的定性比较；目标车辆向右移动6m，向后移动1m</figcaption></figure>
     <p>$$ P(I_1 \succ I_2) =可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
     <h5>3.2.3 成对奖励机制</h5>
-    <p>给定经过训练的成对偏好模型，我们提出了一种成对奖励机制，将成对比较结果聚合为每个组内每个候选者的奖励。在每次迭代中，参考策略根据条件生成候选视频，成对奖励机制为每个候选生成标量奖励，并且策略通过 扩散NFT 目标进行更新（等式 1）。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <p>给定经过训练的成对偏好模型，我们提出了一种成对奖励机制，将成对比较结果聚合为每个组内每个候选者的奖励。在每次迭代中，参考策略根据条件生成候选视频，成对奖励机制为每个候选生成标量奖励，并且策略通过 扩散NFT 目标进行更新（等式 1）。</p>
     <p>$$ R_m^i = \frac{1}{N-1}\sum_{j\neq i} \mathds{1}\Big[P(a_m^i\succa_m^j)>\tau\Big], $$</p>
     <p>放在“方法”这一部分看，它重点在定义或约束 R m i 这一项。这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
 

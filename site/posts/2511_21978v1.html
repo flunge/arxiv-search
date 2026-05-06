@@ -108,7 +108,7 @@
       requestAnimationFrame(applyPageScale);
     }
 
-    function applyPageScale {
+    function applyPageScale() {
       var stage = document.querySelector('.page-stage');
       var shell = document.getElementById('page-shell');
       if (!stage || !shell) return;
@@ -120,7 +120,7 @@
     window.addEventListener('orientationchange', applyPageScale);
     window.addEventListener('load', applyPageScale);
     document.addEventListener('DOMContentLoaded', applyPageScale);
-    document.addEventListener('DOMContentLoaded', function {
+    document.addEventListener('DOMContentLoaded', function() {
       var shell = document.getElementById('page-shell');
       if (!shell) return;
       shell.querySelectorAll('img').forEach(function(img) {
@@ -130,20 +130,20 @@
         }
       });
       if ('ResizeObserver' in window) {
-        var resizeObserver = new ResizeObserver(function {
+        var resizeObserver = new ResizeObserver(function() {
           requestAnimationFrame(applyPageScale);
         });
         resizeObserver.observe(shell);
       }
     });
 
-    function setupImageLightbox {
+    function setupImageLightbox() {
       var lightbox = document.getElementById('page-lightbox');
       var lightboxImage = document.getElementById('page-lightbox-image');
       var lightboxCaption = document.getElementById('page-lightbox-caption');
       if (!lightbox || !lightboxImage || !lightboxCaption) return;
 
-      function closeLightbox {
+      function closeLightbox() {
         lightbox.setAttribute('hidden', 'hidden');
         lightbox.setAttribute('aria-hidden', 'true');
         lightboxImage.removeAttribute('src');
@@ -159,7 +159,7 @@
         var caption = figure ? figure.querySelector('figcaption') : null;
         lightboxImage.src = src;
         lightboxImage.alt = img.alt || '';
-        lightboxCaption.textContent = caption ? caption.textContent.trim : (img.alt || '');
+        lightboxCaption.textContent = caption ? caption.textContent.trim() : (img.alt || '');
         lightbox.removeAttribute('hidden');
         lightbox.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
@@ -174,13 +174,13 @@
           return;
         }
         if (target === lightbox || target.closest('.page-lightbox-close')) {
-          closeLightbox;
+          closeLightbox();
         }
       });
 
       document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape' && !lightbox.hasAttribute('hidden')) {
-          closeLightbox;
+          closeLightbox();
         }
       });
     }
@@ -202,8 +202,8 @@
       },
       svg: { fontCache: 'global' },
       startup: {
-        pageReady:  => {
-          return MathJax.startup.defaultPageReady.then( => {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady.then(() => {
             requestAnimationFrame(applyPageScale);
           });
         }
@@ -250,15 +250,15 @@
     <p>原文的 Method 章节按三步展开：先抽取 3D 物体与空间关系，再生成无穿插的初始布局，最后做 simulation-in-the-loop 优化。PAT3D 的重点不在某一个孤立模块，而在于它如何把“资产生成—关系建模—布局初始化—仿真优</figure>
     <h3>3.1 3D 对象和空间关系提取</h3>
     <p>作者没有直接让大模型一步生成完整 3D 场景，而是先用文生图模型生成参考图像，再围绕这张图做两件事：一是借助视觉语言模型识别对象类别，并用 Grounded-SAM 分割对应区域；二是针对每个区域补充材质、颜色、朝向等描述，再送入文生三维流程生成单体 3D 资产。这样做的好处是把“单个物体长什么样”和“物体之间怎样摆”分开处理，从而提高资产质量和可控性。</p>
-    <h4>3.1.1 3D 对象生成</h4>
+    <h4>1. 3.1.1 3D 对象生成</h4>
     <p>为了为文本提示指定的场景生成单独的对象，使用参考图像查询 VLM 以获得对象类标签，并相应地使用 Grounded-SAM 对图像进行分割。基于分割的对象区域，我们进一步提示 VLM 生成包含对象语义、材质、颜色和方向的详细文本描述。这些描述被输入到文本到 3D 管道中，以合成语义一致且视觉逼真的高质量、有纹理的 3D 资源。</p>
-    <h4>3.1.2 空间关系提取</h4>
+    <h4>2. 3.1.2 空间关系提取</h4>
     <p>接着，PAT3D 不只是抽取“谁在左边、谁在右边”这类二维关系，而是重点分析沿重力方向的物理依赖，例如“放在上面”“被包含”“提供支撑”。作者把这些两两关系组织成一棵层次化场景树：地面是根节点，其余物体按照支撑或包含关系递归挂接进去。这个表示会直接约束后续初始化与优化，因为它明确规定了哪些物体必须落在容器内，哪些物体必须由某个父物体支撑。</p>
       <h3>3.2 布局初始化</h3>
     <p>第二步的目标不是一次得到最终最优场景，而是先构造一个<strong>尺度合理、尽量符合参考图、并且没有明显穿插</strong>的初始布局，为后续物理求解提供良好的起点。</p>
-    <h4>3.2.1 初步布局</h4>
+    <h4>3. 3.2.1 初步布局</h4>
     <p>论文先通过单目深度估计把 2D 参考图像反投影成 3D 点云，再根据各对象投影区域和点云质心计算平移与尺度。但作者也指出，遮挡会让直接从局部点云恢复尺度变得很不稳定，因此他们先用 VLM 找到场景中遮挡最少的对象作为锚点，估计全局缩放；其余对象再结合修补后的可见区域估计相对尺度。这样得到的 preliminary layout 更接近参考图所表达的空间关系。</p>
-    <h4>3.2.2 精致的初始布局</h4>
+    <h4>4. 3.2.2 精致的初始布局</h4>
     <p>更关键的是由场景树驱动的细化初始布局。作者以广度优先遍历场景树，对每个节点施加两类修正：水平方向上，要求子物体投影落在父物体投影内部、兄弟节点之间尽量不重叠；垂直方向上，则把子物体抬到父物体包围盒上方。它本质上是在仿真前先把明显违反支撑/包含关系的布局排掉，从而得到无穿插且更符合物理依赖的初值。</p>
       <h3>3.3 布局优化</h3>
     <p>模拟后，重力导致子对象落到各自的父对象上或落入其各自的父对象中，并且兄弟对象自然地采取物理上合理的姿势。然而，由于复杂的对象间交互，仅进行模拟可能会导致场景偏离其预期语义。为了解决这个问题，我们引入了循环仿真优化来提高模拟场景中的语义一致性。</p>

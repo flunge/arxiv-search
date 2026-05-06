@@ -108,7 +108,7 @@
       requestAnimationFrame(applyPageScale);
     }
 
-    function applyPageScale {
+    function applyPageScale() {
       var stage = document.querySelector('.page-stage');
       var shell = document.getElementById('page-shell');
       if (!stage || !shell) return;
@@ -120,7 +120,7 @@
     window.addEventListener('orientationchange', applyPageScale);
     window.addEventListener('load', applyPageScale);
     document.addEventListener('DOMContentLoaded', applyPageScale);
-    document.addEventListener('DOMContentLoaded', function {
+    document.addEventListener('DOMContentLoaded', function() {
       var shell = document.getElementById('page-shell');
       if (!shell) return;
       shell.querySelectorAll('img').forEach(function(img) {
@@ -130,20 +130,20 @@
         }
       });
       if ('ResizeObserver' in window) {
-        var resizeObserver = new ResizeObserver(function {
+        var resizeObserver = new ResizeObserver(function() {
           requestAnimationFrame(applyPageScale);
         });
         resizeObserver.observe(shell);
       }
     });
 
-    function setupImageLightbox {
+    function setupImageLightbox() {
       var lightbox = document.getElementById('page-lightbox');
       var lightboxImage = document.getElementById('page-lightbox-image');
       var lightboxCaption = document.getElementById('page-lightbox-caption');
       if (!lightbox || !lightboxImage || !lightboxCaption) return;
 
-      function closeLightbox {
+      function closeLightbox() {
         lightbox.setAttribute('hidden', 'hidden');
         lightbox.setAttribute('aria-hidden', 'true');
         lightboxImage.removeAttribute('src');
@@ -159,7 +159,7 @@
         var caption = figure ? figure.querySelector('figcaption') : null;
         lightboxImage.src = src;
         lightboxImage.alt = img.alt || '';
-        lightboxCaption.textContent = caption ? caption.textContent.trim : (img.alt || '');
+        lightboxCaption.textContent = caption ? caption.textContent.trim() : (img.alt || '');
         lightbox.removeAttribute('hidden');
         lightbox.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
@@ -174,13 +174,13 @@
           return;
         }
         if (target === lightbox || target.closest('.page-lightbox-close')) {
-          closeLightbox;
+          closeLightbox();
         }
       });
 
       document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape' && !lightbox.hasAttribute('hidden')) {
-          closeLightbox;
+          closeLightbox();
         }
       });
     }
@@ -202,8 +202,8 @@
       },
       svg: { fontCache: 'global' },
       startup: {
-        pageReady:  => {
-          return MathJax.startup.defaultPageReady.then( => {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady.then(() => {
             requestAnimationFrame(applyPageScale);
           });
         }
@@ -246,47 +246,44 @@
     <h2 id='technical'>技术细节</h2>
     <p>RaWMPC 的目标是根据驾驶历史记录，从候选车辆中选择最好的一辆，使车辆能够在确保安全和遵守交通规则的情况下驶向目的地。行动建议网络对应于采样和伪标签中所示的“指导”模块。这种构造将 RaWMPC 的知识（低风险/高质量的行动）转移到提案网络，同时避免任何外部监督。</p>
 <figure> <figcaption style='font-size:12px;'>图 2：现有E2E-AD方法与RaWMPC的比较，重点说明方法流程、比较对象以及最终结果之间的关系。</figcaption></figure>
-    <h3>3 方法</h3>    <p>为了演示我们的解决方案、RaWMPC 的整体网络结构和管道。我们的培训方案，即风险意识互动培训，以实现高效优化。为了确保整个E2E-AD系统在测试过程中高效运行，采用自评估蒸馏方法来训练行动建议网络。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>    <h4>3.1 RaWMPC的网络结构</h4>
+    <h3>3 方法</h3>    <p>为了演示我们的解决方案、RaWMPC 的整体网络结构和管道。我们的培训方案，即风险意识互动培训，以实现高效优化。为了确保整个E2E-AD系统在测试过程中高效运行，采用自评估蒸馏方法来训练行动建议网络。</p>    <h4>1. RaWMPC的网络结构</h4>
     <h5>3.1.1 问题设置</h5>
     <p>这一节先处理的是 我们考虑闭环端到端自动驾驶（E2E-AD）设置。作者这样设计，是为了先把输入表示、约束条件或中间状态整理成后续模块能直接使用的形式。</p>
     
     
     
     <h5>3.1.2 概述</h5>
-    <p>视觉编码器、动作编码器和自我状态编码器分别用于将 、 、 和 映射到嵌入 、 、 和。然后，根据观察到的状态，我们使用世界模型来估计其以每个动作嵌入为条件的未来状态。与模仿学习方案相比，RaWMPC 提供了改进的可解释性，并引入了用于决策验证和风险缓解的明确机制。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <p>视觉编码器、动作编码器和自我状态编码器分别用于将 、 、 和 映射到嵌入 、 、 和。然后，根据观察到的状态，我们使用世界模型来估计其以每个动作嵌入为条件的未来状态。与模仿学习方案相比，RaWMPC 提供了改进的可解释性，并引入了用于决策验证和风险缓解的明确机制。</p>
     <p>$$ \begin{aligned} &\mathbf{A}^{\star}_{t:t+H-1} = \mathbf{A}^{n^\star}_{t:t+H-1}, \\ &\text{其中}\,\,\, n^\star = \underset{n\in\{1,\dots,N\}}{\arg\min} C\big(\hat{\mathbf{s}}^{n}_{t+1:t+H}\big). \end{aligned} $$</p>
     <p>放在“方法”这一部分看，这条式子是在把 A star t:t+H-1 写成可直接计算的形式。这实际上是在求一个使目标最优的 A star t:t+H-1，作者把问题显式写成优化形式，是为了让后面的选择、配准或规划过程可解释且可计算。</p>
     <h5>3.1.3 世界模特</h5>
-    <p>围绕 3.1.3 世界模特，在我们的管道中，世界模型（表示为 ）用于预测给定动作的未来状态。具体来说，根据观察到的状态和潜在的下一步行动，世界模型预测近期的状态。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <p>围绕 3.1.3 世界模特，在我们的管道中，世界模型（表示为 ）用于预测给定动作的未来状态。具体来说，根据观察到的状态和潜在的下一步行动，世界模型预测近期的状态。</p>
     <h5>3.1.4 语义引导解码</h5>
-    <p>围绕 3.1.4 语义引导解码，一旦世界模型预测出一系列未来状态， ，三个变压器解码器就会分别将这些状态映射到特定于任务的输出。语义分割、潜在的交通事件（例如碰撞）和未来的自我状态（例如位置）。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <p>围绕 3.1.4 语义引导解码，一旦世界模型预测出一系列未来状态， ，三个变压器解码器就会分别将这些状态映射到特定于任务的输出。语义分割、潜在的交通事件（例如碰撞）和未来的自我状态（例如位置）。</p>
     <p>$$ \mathtt{Att_{seg}}(\mathbf{Q}_c,\mathbf{K}_c,\mathbf{V}_c) = \mathtt{softmax}(\mathtt{sim}(\mathbf{Q}_c,\mathbf{K}_c))\cdot\mathbf{V}_c, $$</p>
-    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
+    
     <p>$$ \begin{aligned} \mathbf{Z}_e &= \mathbf{Q}_e \mathbf{K}_e^\top, \,\,\,\mathbf{Z}_c = \mathrm{pad}(\mathbf{Q}_c \mathbf{K}_c^\top), \\ \hat{E}^{n}_{t+k} &= \mathrm{sigmoid}( \mathrm{softmax}( \mathbf{W}_e * [\mathbf{Z}_e, \mathbf{Z}_c] ) \mathbf{V}_e ). \end{aligned} $$</p>
     <p>这条式子是在把高斯的协方差从原始三维坐标系变换到相机或成像平面相关的坐标系中。这样后续光栅化时，模型才能正确知道每个高斯在当前视角下会拉伸成怎样的椭圆分布。</p>
-    <h4>3.2 风险意识互动培训</h4>
-    <p>为了使 RaWMPC 能够评估不同的动作并识别风险场景，我们提出了一种两阶段风险感知交互式训练方案，如图 1 所示。我们首先从记录的驾驶轨迹热启动世界模型。然后，我们通过在线模拟器交互对其进行改进，有意收集好的（安全的、目标导向的）和坏的（危险的）推出，以提高分布外控制下的泛化能力并学习罕见的。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <h4>2. 风险意识互动培训</h4>
+    <p>为了使 RaWMPC 能够评估不同的动作并识别风险场景，我们提出了一种两阶段风险感知交互式训练方案，如图 1 所示。我们首先从记录的驾驶轨迹热启动世界模型。然后，我们通过在线模拟器交互对其进行改进，有意收集好的（安全的、目标导向的）和坏的（危险的）推出，以提高分布外控制下的泛化能力并学习罕见的。</p>
     <h5>3.2.1 离线世界模型热身</h5>
-    <p>我们使用一组记录的轨迹来引导 RaWMPC，以实现简单且基本的状态预测功能。给定来自 NAVSIM 或 CARLA 的状态-动作序列，世界模型会预测下一个状态并进行训练以匹配真实情况。我们使用模拟器提供的注释来监督分段和自我状态解码器。作者这样设计，是为了把这一节的输入<img width='800' height='450' class='paper-fig' src='../assets/2602_23259v1/figure3_full.png'<img width='800' height='450' class='paper-fig' src='../assets/2602_23259v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' / />
-      <figcaption style='font-size:12px;'>图 3：在线模拟器交互中三种驾驶模式下不同的动作选择范围；rand 从所有候选区域中统一采样，坏样本来自高成本区域，好样本来自低成本区域，重点说明方法流程、比较对象以及最终结果之间的关系</figcaption></figure>
-    <h5>3.2.2 在线模拟器互动培训</h5>
-    <p>围绕 3.2.2 在线模拟器互动培训，离线预热数据主要集中在类人安全行为上，因此对危险或非常规行为的覆盖范围有限。为了了解危险行为的后果，我们进行世界模型引导的探索。给定具有成本的排序候选动作，我们构建两个成本分位数集。</p>
+    <p>我们使用一组记录的轨迹来引导 RaWMPC，以实现简单且基本的状态预测功能。给定来自 NAVSIM 或 CARLA 的状态-动作序列，世界模型会预测下一个状态并进行训练以匹配真实情况。我们使用模拟器提供的注释来监督分段和自我状态解码器。为了了解危险行为的后果，我们进行世界模型引导的探索。给定具有成本的排序候选动作，我们构建两个成本分位数集。</p>
     <p>与 argmax 选择相比，这种软采样策略可以防止过度集中于极端或退化故障，同时仍然使交互偏向高风险区域。通过这种方式，分段交互和基于软成本的采样偏差探索朝着时间连贯且信息丰富</figure>
     <p>$$ m_r = \begin{cases} \texttt{rand}, & \text{w.p. } \varepsilon_1,\\ \texttt{bad}, & \text{w.p. } (1-\varepsilon_1)\varepsilon_2,\\ \texttt{good}, & \text{w.p. } (1-\varepsilon_1)(1-\varepsilon_2), \end{cases} $$</p>
     <p>放在“方法”这一部分看，它重点在定义或约束 m r 这一项。这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
     <p>$$ P(n \mid \texttt{good}) \propto \exp(-C^n/\tau_g), \quad n \in \mathcal{N}_{\texttt{good}}. $$</p>
-    <p>放在“方法”这一部分看，这条式子重点不是孤立地罗列符号，而是交代 good 如何承接前面的输入并把结果交给后续步骤。</p>
-    <h4>3.3 政策学习的自我评价蒸馏</h4>
+    
+    <h4>3. 政策学习的自我评价蒸馏</h4>
     <p>经过风险意识交互训练后，RaWMPC 可以通过预测候选动作序列的长期后果来可靠地对其进行评分。为了降低测试时在线优化的成本，我们将这种评估能力提炼成轻量级的动作建议网络，无需专家演示即可实现高效推理。行动建议网络对应于图 1 所示的“指导”模块。</p>
     <h5>3.3.1 动作采样和伪标签</h5>
-    <p>给定状态历史（简化为 ），我们随机采样水平动作序列（简化为 ）并使用预训练的 RaWMPC 计算其成本。成本最低的序列被视为正例，成本最高的序列被视为负例。这种构造将 RaWMPC 的知识（低风险/高质量的行动）转移到提案网络，同时避免任何外部监督。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <p>给定状态历史（简化为 ），我们随机采样水平动作序列（简化为 ）并使用预训练的 RaWMPC 计算其成本。成本最低的序列被视为正例，成本最高的序列被视为负例。这种构造将 RaWMPC 的知识（低风险/高质量的行动）转移到提案网络，同时避免任何外部监督。</p>
     <h5>3.3.2 行动提案网络</h5>
-    <p>接下来，我们采用带有动作编码器、条件先验和解码器的条件 VAE (cVAE)。对于积极的行动，我们获得高斯后验并训练解码器来重建。对于每个负面动作 ，我们计算 ，但不重构负面动作，以防止生成器模仿不安全行为。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <p>接下来，我们采用带有动作编码器、条件先验和解码器的条件 VAE (cVAE)。对于积极的行动，我们获得高斯后验并训练解码器来重建。对于每个负面动作 ，我们计算 ，但不重构负面动作，以防止生成器模仿不安全行为。</p>
     <h5>3.3.3 对比训练目标</h5>
-    <p>为了解决政策学习中缺乏专家监督的问题，我们使用 InfoNCE 目标来对高质量行动进行条件先验预测。我们根据经验发现，前者经常产生优化不足的轨迹。相比之下，后者明确地拉向正后验的统计中心，并通过 间接将其与负后验分开，从而导致更稳定的学习和更高质量的轨迹。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <p>为了解决政策学习中缺乏专家监督的问题，我们使用 InfoNCE 目标来对高质量行动进行条件先验预测。我们根据经验发现，前者经常产生优化不足的轨迹。相比之下，后者明确地拉向正后验的统计中心，并通过 间接将其与负后验分开，从而导致更稳定的学习和更高质量的轨迹。</p>
     <div class='card'><strong>表 1</strong><div style='margin-top:6px;'>在 CARLA 模拟器上的闭环 Bench2Drive 基准测试中与 SOTA 方法进行比较；DS 被作为比较的主要指标，我们对所有方法进行相应的排名，粗体表示最佳性能。</div><div style='overflow-x:auto;margin-top:10px;'><table style='width:100%;border-collapse:collapse;font-size:12px;'><tr><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Method</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Venue</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Scheme</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>DS</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>SR(%)</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Efficiency</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Comfortness</th></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>VAD</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>ICCV 2023</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>IL</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>42.35</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>15.00</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>157.94</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>46.01</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>SparseDrive</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>ICRA 2025</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>IL</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>44.54</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>16.71</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>170.21</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>48.63</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>GenAD</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>ECCV 2024</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>IL</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>44.81</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>15.90</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>-</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>-</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>UniAD</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>CVPR 2023</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>IL</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>45.81</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>16.36</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>129.21</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>43.58</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>MomAD</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>CVPR 2025</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>IL</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>47.91</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>18.11</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>174.91</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>51.20</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>UAD</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>T-PAMI 2025</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>IL</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>49.22</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>20.45</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>189.53</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>52.71</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>BridgeAD</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>CVPR 2025</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>IL</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>50.06</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>22.73</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>-</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>-</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>TCP</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>NeurIPS 2022</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>IL</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>59.90</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>30.00</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>76.54</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>18.08</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>WoTE</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>ICCV 2025</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>IL</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>61.71</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>31.36</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>-</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>-</td></tr></table></div></div>
     <h5>3.3.4 行动提案网络总体损失</h5>
-    <p>我们的 cVAE 的总损失结合了重建、KL 正则化和对比损失。这种自我评估蒸馏训练了一个快速提案策略，该策略生成与 RaWMPC 评估一致的候选动作序列，从而消除了策略学习期间专家演示的需要。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <p>我们的 cVAE 的总损失结合了重建、KL 正则化和对比损失。这种自我评估蒸馏训练了一个快速提案策略，该策略生成与 RaWMPC 评估一致的候选动作序列，从而消除了策略学习期间专家演示的需要。</p>
 
 
 

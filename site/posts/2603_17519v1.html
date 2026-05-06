@@ -108,7 +108,7 @@
       requestAnimationFrame(applyPageScale);
     }
 
-    function applyPageScale {
+    function applyPageScale() {
       var stage = document.querySelector('.page-stage');
       var shell = document.getElementById('page-shell');
       if (!stage || !shell) return;
@@ -120,7 +120,7 @@
     window.addEventListener('orientationchange', applyPageScale);
     window.addEventListener('load', applyPageScale);
     document.addEventListener('DOMContentLoaded', applyPageScale);
-    document.addEventListener('DOMContentLoaded', function {
+    document.addEventListener('DOMContentLoaded', function() {
       var shell = document.getElementById('page-shell');
       if (!shell) return;
       shell.querySelectorAll('img').forEach(function(img) {
@@ -130,20 +130,20 @@
         }
       });
       if ('ResizeObserver' in window) {
-        var resizeObserver = new ResizeObserver(function {
+        var resizeObserver = new ResizeObserver(function() {
           requestAnimationFrame(applyPageScale);
         });
         resizeObserver.observe(shell);
       }
     });
 
-    function setupImageLightbox {
+    function setupImageLightbox() {
       var lightbox = document.getElementById('page-lightbox');
       var lightboxImage = document.getElementById('page-lightbox-image');
       var lightboxCaption = document.getElementById('page-lightbox-caption');
       if (!lightbox || !lightboxImage || !lightboxCaption) return;
 
-      function closeLightbox {
+      function closeLightbox() {
         lightbox.setAttribute('hidden', 'hidden');
         lightbox.setAttribute('aria-hidden', 'true');
         lightboxImage.removeAttribute('src');
@@ -159,7 +159,7 @@
         var caption = figure ? figure.querySelector('figcaption') : null;
         lightboxImage.src = src;
         lightboxImage.alt = img.alt || '';
-        lightboxCaption.textContent = caption ? caption.textContent.trim : (img.alt || '');
+        lightboxCaption.textContent = caption ? caption.textContent.trim() : (img.alt || '');
         lightbox.removeAttribute('hidden');
         lightbox.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
@@ -174,13 +174,13 @@
           return;
         }
         if (target === lightbox || target.closest('.page-lightbox-close')) {
-          closeLightbox;
+          closeLightbox();
         }
       });
 
       document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape' && !lightbox.hasAttribute('hidden')) {
-          closeLightbox;
+          closeLightbox();
         }
       });
     }
@@ -202,8 +202,8 @@
       },
       svg: { fontCache: 'global' },
       startup: {
-        pageReady:  => {
-          return MathJax.startup.defaultPageReady.then( => {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady.then(() => {
             requestAnimationFrame(applyPageScale);
           });
         }
@@ -245,18 +245,18 @@
     <h2 id='technical'>技术细节</h2>
       <figure style='margin-top:20px;'><img class='paper-fig' src='../assets/2603_17519v1/figure3_full.png' alt='架构图' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>架构图：方法整体流程</figcaption></figure>
     
-    <p>对于每个像素对齐的高斯 ，我们计算其相关像素位置 处的重建误差。(a) 为了稳定深度估计，我们引入了误差感知高斯丢失（EGD），它计算每个像素的重建误差并通过渐进式、误差引导的丢失来抑制过于密集的高斯。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
-      <h3>4 方法论</h3>    <p>给定一组稀疏的未设置输入图像，UniSem 在单次前向传递中预测 3D 高斯场景表示（第 1 节）。UniSem 结合了可泛化语义 3DGS 中的两个关键组件。错误感知高斯辍学（EGD）用于错误引导容量控制以稳定几何结构（第 2 节）。</p>    <h4>4.1 前馈语义高斯分布</h4>
-    <p>输入图像被分为补丁令牌，并与可学习的相机固有令牌连接。这些令牌由具有 DINOv2 架构的 ViT 主干进行处理，以进行特征提取。然后，这些特征由跨视图 Transformer 编码器（类似于 VGG-T ）处理，该编码器在视图内自注意力和跨视图注意力之间交替。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <p>对于每个像素对齐的高斯 ，我们计算其相关像素位置 处的重建误差。(a) 为了稳定深度估计，我们引入了误差感知高斯丢失（EGD），它计算每个像素的重建误差并通过渐进式、误差引导的丢失来抑制过于密集的高斯。</p>
+      <h3>4 方法论</h3>    <p>给定一组稀疏的未设置输入图像，UniSem 在单次前向传递中预测 3D 高斯场景表示（第 1 节）。UniSem 结合了可泛化语义 3DGS 中的两个关键组件。错误感知高斯辍学（EGD）用于错误引导容量控制以稳定几何结构（第 2 节）。</p>    <h4>1. 前馈语义高斯分布</h4>
+    <p>输入图像被分为补丁令牌，并与可学习的相机固有令牌连接。这些令牌由具有 DINOv2 架构的 ViT 主干进行处理，以进行特征提取。然后，这些特征由跨视图 Transformer 编码器（类似于 VGG-T ）处理，该编码器在视图内自注意力和跨视图注意力之间交替。</p>
     <p>$$ G_{k} = \{\mu_{k}, s_{k}, r_{k}, \alpha_{k}, c_{k}, f_{k}\}, $$</p>
-    <p>放在“方法论”这一部分看，这条式子重点不是孤立地罗列符号，而是交代 G k 如何承接前面的输入并把结果交给后续步骤。</p>
-    <h4>4.2 错误感知高斯 Dropout (EGD)</h4>
+    
+    <h4>2. 错误感知高斯 Dropout (EGD)</h4>
     <p>围绕 4.2 错误感知高斯 Dropout (EGD)，这一节先处理的是 对于每个像素对齐的高斯 ，我们计算其相关像素位置 处的重建误差。作者这样设计，是为了先把输入表示、约束条件或中间状态整理成后续模块能直接使用的形式。</p>
     
     
     
     <p>$$ E_k = \| \hat{I}_k - I_k \|_1 , $$</p>
-    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
+    
     <p>$$ \tilde{E}_k = \frac{E_k - \min_j E_j}{\max_j E_j - \min_j E_j + \epsilon}, $$</p>
     <p>放在“方法论”这一部分看，它重点在定义或约束 E k 这一项。这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
     <p>$$ p_k^{\text{drop}} = {\eta}_t ( 1 - \tilde{E}_k )^{\beta}, $$</p>
@@ -264,19 +264,19 @@
     <p>$$ \eta_t = \eta_{\min} + \frac{1}{2}(\eta_{\max} - \eta_{\min}) [1 - \cos(2\pi \frac{t}{T})], $$</p>
     <p>放在“方法论”这一部分看，它重点在定义或约束 eta t 这一项。这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
     <p>$$ m_k = \mathds{1}[\xi_k > p_k^{\text{drop}}], \qquad \xi_k \sim \mathcal{U}(0,1), $$</p>
-    <p>放在“方法论”这一部分看，这条式子重点不是孤立地罗列符号，而是交代 m k 如何承接前面的输入并把结果交给后续步骤。</p>
-    <h4>4.3 混合培训课程（MTC）</h4>
-    <p>我们引入了混合训练课程（MTC），它通过模型涌现的 3D 语义先验来补充 2D 提升监督，以实现混合监督。渲染的语义特征是通过与像素重叠的混合高斯计算的。具体来说，对于稀疏源视图（ ）和目标视图（ ，从源视图中的中间帧中选择，如 ）。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    
+    <h4>3. 混合培训课程（MTC）</h4>
+    <p>我们引入了混合训练课程（MTC），它通过模型涌现的 3D 语义先验来补充 2D 提升监督，以实现混合监督。渲染的语义特征是通过与像素重叠的混合高斯计算的。具体来说，对于稀疏源视图（ ）和目标视图（ ，从源视图中的中间帧中选择，如 ）。</p>
     <p>为了考虑可靠性，每个高斯均按其局部几何密度进行加权，通过平均成对距离测量。因此，位于更密集和结构更稳定区域的高斯函数受到更高的重视，从而产生更可靠的学习信号。通过注入源自 3D 可泛化模型的语义，我们的模型有效地增强了语义一致性、完整性和跨场景泛化。</p>
     <p>$$ \hat{{F}} = \sum_{i \in \mathcal{N}} {{f}}_i \alpha_i \prod_{j=1}^{i-1} (1 - \alpha_j), $$</p>
     <p>放在“方法论”这一部分看，它重点在定义或约束 F 这一项。这条式子描述了多个分量的聚合或逐步合成过程。它通常表示模型如何把局部贡献、概率权重或多项损失累积成最终结果。</p>
     <p>$$ \mathcal{L}_{\text{sem}}^{\text{2D}} = \mathcal{L}_{\cos} \big(\mathcal{F}_{MLP}(\hat{{{F}}}), \tilde{F} \big), $$</p>
     <p>放在“方法论”这一部分看，它重点在定义或约束 L sem 2D 这一项。这条式子给出了训练阶段的优化目标。阅读时可以先看左侧到底在约束什么，再区分右侧每一项对应的是重建误差、正则项还是辅助监督。</p>
     <p>$$ {E}^{\text{tar}}(x) = 1 - \text{cos} \big( \mathcal{F}_{\text{MLP}}(\hat{F}^{\text{tar}}(x)), \tilde{F}^{\text{tar}}(x) \big). $$</p>
-    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
+    
     <p>$$ \mathbf{M}^{\text{tar}}, \{\mathbf{M}^{\text{s}_i}\}_{i=1}^{n} = \text{SAM2} (I^{\text{tar}}, \{I^{\text{s}_i}\}_{i=1}^{n}, \mathbf{x}_{\text{max}}^{\text{tar}}), $$</p>
-    <p>放在“方法论”这一部分看，这条式子重点不是孤立地罗列符号，而是交代 M tar , M s i i 如何承接前面的输入并把结果交给后续步骤。</p>
-    <h4>4.4 模型训练</h4>
+    
+    <h4>4. 模型训练</h4>
     <p>我们的模型通过最小化复合损失进行端到端训练，这增强了外观、语义和几何结构的保真度。我们结合使用 L1 和 LPIPS 感知损失来确保渲染视图与输入图像匹配。我们没有像 中那样纯粹提取 2D LSeg 特征，而是利用提出的混合训练课程（等式 1）。</p>
 
 

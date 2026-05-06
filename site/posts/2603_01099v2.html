@@ -108,7 +108,7 @@
       requestAnimationFrame(applyPageScale);
     }
 
-    function applyPageScale {
+    function applyPageScale() {
       var stage = document.querySelector('.page-stage');
       var shell = document.getElementById('page-shell');
       if (!stage || !shell) return;
@@ -120,7 +120,7 @@
     window.addEventListener('orientationchange', applyPageScale);
     window.addEventListener('load', applyPageScale);
     document.addEventListener('DOMContentLoaded', applyPageScale);
-    document.addEventListener('DOMContentLoaded', function {
+    document.addEventListener('DOMContentLoaded', function() {
       var shell = document.getElementById('page-shell');
       if (!shell) return;
       shell.querySelectorAll('img').forEach(function(img) {
@@ -130,20 +130,20 @@
         }
       });
       if ('ResizeObserver' in window) {
-        var resizeObserver = new ResizeObserver(function {
+        var resizeObserver = new ResizeObserver(function() {
           requestAnimationFrame(applyPageScale);
         });
         resizeObserver.observe(shell);
       }
     });
 
-    function setupImageLightbox {
+    function setupImageLightbox() {
       var lightbox = document.getElementById('page-lightbox');
       var lightboxImage = document.getElementById('page-lightbox-image');
       var lightboxCaption = document.getElementById('page-lightbox-caption');
       if (!lightbox || !lightboxImage || !lightboxCaption) return;
 
-      function closeLightbox {
+      function closeLightbox() {
         lightbox.setAttribute('hidden', 'hidden');
         lightbox.setAttribute('aria-hidden', 'true');
         lightboxImage.removeAttribute('src');
@@ -159,7 +159,7 @@
         var caption = figure ? figure.querySelector('figcaption') : null;
         lightboxImage.src = src;
         lightboxImage.alt = img.alt || '';
-        lightboxCaption.textContent = caption ? caption.textContent.trim : (img.alt || '');
+        lightboxCaption.textContent = caption ? caption.textContent.trim() : (img.alt || '');
         lightbox.removeAttribute('hidden');
         lightbox.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
@@ -174,13 +174,13 @@
           return;
         }
         if (target === lightbox || target.closest('.page-lightbox-close')) {
-          closeLightbox;
+          closeLightbox();
         }
       });
 
       document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape' && !lightbox.hasAttribute('hidden')) {
-          closeLightbox;
+          closeLightbox();
         }
       });
     }
@@ -202,8 +202,8 @@
       },
       svg: { fontCache: 'global' },
       startup: {
-        pageReady:  => {
-          return MathJax.startup.defaultPageReady.then( => {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady.then(() => {
             requestAnimationFrame(applyPageScale);
           });
         }
@@ -248,15 +248,14 @@
     
     <p>由于观察到更密集的输入会产生更好的重建，我们建议在相邻训练视图之间生成中间视点，并将其相应的 RGB 图像合成为。与 类似，我们的训练目标集成了对生成图像的光度监督（通过 L1 和 D-SSIM 损失测量）以及对渲染深度图的几何监督。本质上，前一阶段获得的全局细化高斯分布提供了更完整的结构基础。</p>
     <p>CPG 包含两个辅助高斯场，它们与主场联合训练。这些级别形成具有互连（虚线）的分层指导，共同约束和优化高斯场，以提高结构保真度，消除不一致的高斯。与没有 CPG 的情况相比，全流程生成的新颖视图渲染。</p>
-      <h3>3 方法</h3>    <p>为了缓解这一限制，我们提出了 HeroGS，这是一个统一的多级（图像、特征和参数）指导框架，它提供多样化和互补的监督信号来细化和正则化高斯。这种增强的监督丰富了梯度传播，导致更加全局一致和结构​​良好的高斯场。作者这样设计，是为了把这一节的输</figure>    <h4>3.1 图像级别</h4>
-    <p>由于观察到更密集的输入会产生更好的重建，我们建议在相邻训练视图之间生成中间视点，并将其相应的 RGB 图像合成为。在训练阶段，从生成的视点渲染场景，并通过将结果与伪标记图像进行比较来应用监督。与 类似，我们的训练目标集成了对生成图像的光度监督（通过 L1 和 D-SSIM 损失测量）以及对渲染深度图的几何监督。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+      <h3>3 方法</h3>    <p>为了缓解这一限制，我们提出了 HeroGS，这是一个统一的多级（图像、特征和参数）指导框架，它提供多样化和互补的监督信号来细化和正则化高斯。这种增强的监督丰富了梯度传播，导致更加全局一致和结构​​良好的高斯场。在训练阶段，从生成的视点渲染场景，并通过将结果与伪标记图像进行比较来应用监督。与 类似，我们的训练目标集成了对生成图像的光度监督（通过 L1 和 D-SSIM 损失测量）以及对渲染深度图的几何监督。</p>
     <p>$$ \mathbf{I}^{(\alpha)}_{n} = \mathrm{VFI}\big(\mathbf{I}_{n}, \mathbf{I}_{n+1},\alpha \big). $$</p>
-    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
+    
     <p>$$ \begin{split} \mathbf{R}^{(\alpha)}_n & = \mathrm{slerp}(\mathbf{R}_{n}, \mathbf{R}_{n+1}, \alpha), \\ \mathbf{T}^{(\alpha)}_n & = (1 - \alpha) \mathbf{T}_{n} + \alpha \mathbf{T}_{n+1}. \end{split} $$</p>
-    <p>放在“方法”这一部分看，这条式子重点不是孤立地罗列符号，而是交代 R ( alpha) n 如何承接前面的输入并把结果交给后续步骤。</p>
+    
     <p>$$ \hat{\mathbf{D}}_{n}^{(\alpha)} = \sum_{i=1}^{L} d_i o_i \prod_{j=1}^{i-1}(1-o_j). $$</p>
     <p>放在“方法”这一部分看。这条式子描述了多个分量的聚合或逐步合成过程。它通常表示模型如何把局部贡献、概率权重或多项损失累积成最终结果。</p>
-    <h4>3.2 功能级别</h4>
+    <h4>2. 功能级别</h4>
     <p>虽然伪标签提供了有价值的全局监督，但它们在细节上的精度有限，使得很难准确地约束高频几何结构（图 1）。为了解决这个问题并增强几何细节，引入了特征自适应致密化和修剪（FADP）。本质上，前一阶段获得的全局细化高斯分布提供了更完整的结构基础。</p>
     <p>基于边缘的致密化侧重于在对象边界附近添加高频细节，而基于补丁的控制可确保此类添加不会导致其他地方局部过度集中或稀疏。这种协同作用可以实现有效的几何细化，而不会破坏场景的全局空间连贯性。</p>
     <div class='card'><strong>源论文表 1（未内嵌原表）关键结论：</strong>最好和第二好的条目分别用粗体和下划线表示；基于 3DGS 的方法需要从 COLMAP 进行多视图立体估计，这在 2 个训练视图的 3 个场景上失败。</div>
@@ -265,14 +264,14 @@
     <p>放在“方法”这一部分看，它重点在定义或约束 A 这一项。这条式子描述了多个分量的聚合或逐步合成过程。它通常表示模型如何把局部贡献、概率权重或多项损失累积成最终结果。</p>
     <p>$$ \mathcal{C'} arrow \text{round}( \mathcal{C'} \cdot \frac{\sum_i c_i}{\sum_i c_i'} ). $$</p>
     <p>放在“方法”这一部分看，它重点在定义或约束 arrow 这一项。这条式子描述了多个分量的聚合或逐步合成过程。它通常表示模型如何把局部贡献、概率权重或多项损失累积成最终结果。</p>
-    <h4>3.3 参数级别</h4>
-    <p>CPG 包含两个辅助高斯场，它们与主场联合训练。为了促进更有效的共同剪枝，辅助高斯场的参数在预定义的训练迭代之后被冻结。通过比较所有三个字段中相应高斯的一致性，我们通过全面的联合剪枝策略识别并删除不一致的点。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <h4>3. 参数级别</h4>
+    <p>CPG 包含两个辅助高斯场，它们与主场联合训练。为了促进更有效的共同剪枝，辅助高斯场的参数在预定义的训练迭代之后被冻结。通过比较所有三个字段中相应高斯的一致性，我们通过全面的联合剪枝策略识别并删除不一致的点。</p>
     <p>$$ z^* = \arg\min_z \| \mathbf{p}_y^s - \mathbf{p}_z^t \|_2, $$</p>
     <p>放在“方法”这一部分看，它重点在定义或约束 z * 这一项。这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
     <p>$$ w_y = \| \mathbf{p}_y^s - \mathbf{p}_{z^*}^t \|_2. $$</p>
     <p>放在“方法”这一部分看，它重点在定义或约束 w y 这一项。这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
     <p>$$ \mathcal{L} = \lambda_{g}\mathcal{L}_{g}+\mathcal{L}_{r}, $$</p>
-    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
+    
 
 
 

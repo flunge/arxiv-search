@@ -108,7 +108,7 @@
       requestAnimationFrame(applyPageScale);
     }
 
-    function applyPageScale {
+    function applyPageScale() {
       var stage = document.querySelector('.page-stage');
       var shell = document.getElementById('page-shell');
       if (!stage || !shell) return;
@@ -120,7 +120,7 @@
     window.addEventListener('orientationchange', applyPageScale);
     window.addEventListener('load', applyPageScale);
     document.addEventListener('DOMContentLoaded', applyPageScale);
-    document.addEventListener('DOMContentLoaded', function {
+    document.addEventListener('DOMContentLoaded', function() {
       var shell = document.getElementById('page-shell');
       if (!shell) return;
       shell.querySelectorAll('img').forEach(function(img) {
@@ -130,20 +130,20 @@
         }
       });
       if ('ResizeObserver' in window) {
-        var resizeObserver = new ResizeObserver(function {
+        var resizeObserver = new ResizeObserver(function() {
           requestAnimationFrame(applyPageScale);
         });
         resizeObserver.observe(shell);
       }
     });
 
-    function setupImageLightbox {
+    function setupImageLightbox() {
       var lightbox = document.getElementById('page-lightbox');
       var lightboxImage = document.getElementById('page-lightbox-image');
       var lightboxCaption = document.getElementById('page-lightbox-caption');
       if (!lightbox || !lightboxImage || !lightboxCaption) return;
 
-      function closeLightbox {
+      function closeLightbox() {
         lightbox.setAttribute('hidden', 'hidden');
         lightbox.setAttribute('aria-hidden', 'true');
         lightboxImage.removeAttribute('src');
@@ -159,7 +159,7 @@
         var caption = figure ? figure.querySelector('figcaption') : null;
         lightboxImage.src = src;
         lightboxImage.alt = img.alt || '';
-        lightboxCaption.textContent = caption ? caption.textContent.trim : (img.alt || '');
+        lightboxCaption.textContent = caption ? caption.textContent.trim() : (img.alt || '');
         lightbox.removeAttribute('hidden');
         lightbox.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
@@ -174,13 +174,13 @@
           return;
         }
         if (target === lightbox || target.closest('.page-lightbox-close')) {
-          closeLightbox;
+          closeLightbox();
         }
       });
 
       document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape' && !lightbox.hasAttribute('hidden')) {
-          closeLightbox;
+          closeLightbox();
         }
       });
     }
@@ -202,8 +202,8 @@
       },
       svg: { fontCache: 'global' },
       startup: {
-        pageReady:  => {
-          return MathJax.startup.defaultPageReady.then( => {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady.then(() => {
             requestAnimationFrame(applyPageScale);
           });
         }
@@ -247,23 +247,23 @@
     <h2 id='technical'>技术细节</h2>
       <figure style='margin-top:20px;'><img class='paper-fig' src='../assets/2512_04021v1/fig_2.png' alt='架构图' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>架构图：方法整体流程</figcaption></figure>
     
-    <p>围绕 技术总览，尽管可以考虑其他格式的 3D 场景表示（例如，点云、多边形），但我们采用 3D 高斯作为默认表示，因为它们具有高效的渲染速度和简单性。这些标记充当抽象单元，学习从提取的多视图特征中聚合相关信息以形成连贯的 3D 高斯。尽管我们没有对查询标记如何划分场景提供任何监督，但我们观察到模型最终学会了有效估计一组最能重建场景的高斯函数。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <p>围绕 技术总览，尽管可以考虑其他格式的 3D 场景表示（例如，点云、多边形），但我们采用 3D 高斯作为默认表示，因为它们具有高效的渲染速度和简单性。这些标记充当抽象单元，学习从提取的多视图特征中聚合相关信息以形成连贯的 3D 高斯。尽管我们没有对查询标记如何划分场景提供任何监督，但我们观察到模型最终学会了有效估计一组最能重建场景的高斯函数。</p>
     <p>我们将从输入视图 ((a)) 中提取的基于 DINOv2 的特征（充当表示自动编码器 (RAE) 的潜在特征）提升到 3D 高斯，并在新的视点处渲染它们。来自估计高斯的标准 RGB 渲染提供了忠实的重建，但在高频区域表现出一些模糊。通过 RAE 的扩散变换器和 1 步去噪过程对渲染的特征图进行解码，我们恢复了明显更清晰的纹理和边缘。</p>
-      <h3>3 方法论</h3>    <p>围绕 3 方法论，我们介绍了一种基于变压器的紧凑型 3D 高斯泼溅解码器，该解码器将场景的多视图图像作为输入，并生成最能代表场景的紧凑型 3D 高斯集。我们首先介绍问题 ，然后介绍架构细节  和训练设置 。我们进一步分析了我们学习到的涌现属性 ，并展示了如何利用该属性以视图不变的方式有效地将任何 2D 特征提升为 3D 。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>    <h4>3.1 问题定义和符号</h4>
-    <p>围绕 3.1 问题定义和符号，尽管可以考虑其他格式的 3D 场景表示（例如，点云、多边形），但我们采用 3D 高斯作为默认表示，因为它们具有高效的渲染速度和简单性。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
-    <h4>3.2 建筑学</h4>
-    <p>围绕 3.2 建筑学，从人类如何通过选择性注意自然地形成抽象场景表示中汲取灵感，我们设计了一个非常简单的架构，可以学习从多视图解码紧凑的 3D 高斯函数。这些标记充当抽象单元，学习从提取的多视图特征中聚合相关信息以形成连贯的 3D 高斯。(1) 聚合所有输入视图中特定区域的相关视觉信息，(2) 与其他查询标记交换信息以避免冗余并确保全面覆盖。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
-    <h4>3.3 训练</h4>
-    <p>围绕 3.3 训练，给定从我们的查询标记预测的 3D 高斯函数，我们通过在新的目标视点渲染这些高斯函数并最小化与地面真实图像的光度差异来训练模型。目标视图图像的每个像素根据其深度顺序通过高斯颜色属性的 alpha 混合进行渲染。我们的训练目标将渲染图像和真实图像之间的均方误差以及感知损失结合起来。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+      <h3>3 方法论</h3>    <p>围绕 3 方法论，我们介绍了一种基于变压器的紧凑型 3D 高斯泼溅解码器，该解码器将场景的多视图图像作为输入，并生成最能代表场景的紧凑型 3D 高斯集。我们首先介绍问题 ，然后介绍架构细节  和训练设置 。我们进一步分析了我们学习到的涌现属性 ，并展示了如何利用该属性以视图不变的方式有效地将任何 2D 特征提升为 3D 。</p>    <h4>1. 问题定义和符号</h4>
+    <p>围绕 3.1 问题定义和符号，尽管可以考虑其他格式的 3D 场景表示（例如，点云、多边形），但我们采用 3D 高斯作为默认表示，因为它们具有高效的渲染速度和简单性。</p>
+    <h4>2. 建筑学</h4>
+    <p>围绕 3.2 建筑学，从人类如何通过选择性注意自然地形成抽象场景表示中汲取灵感，我们设计了一个非常简单的架构，可以学习从多视图解码紧凑的 3D 高斯函数。这些标记充当抽象单元，学习从提取的多视图特征中聚合相关信息以形成连贯的 3D 高斯。(1) 聚合所有输入视图中特定区域的相关视觉信息，(2) 与其他查询标记交换信息以避免冗余并确保全面覆盖。</p>
+    <h4>3. 训练</h4>
+    <p>围绕 3.3 训练，给定从我们的查询标记预测的 3D 高斯函数，我们通过在新的目标视点渲染这些高斯函数并最小化与地面真实图像的光度差异来训练模型。目标视图图像的每个像素根据其深度顺序通过高斯颜色属性的 alpha 混合进行渲染。我们的训练目标将渲染图像和真实图像之间的均方误差以及感知损失结合起来。</p>
     <p>$$ \hat{I}_t({p}) = \sum_{i=1}^N {c}_i\sigma_i\mathbf{G}^\text{2D}_i({p}) \prod_{j=1}^{i-1}(1-\sigma_j \mathbf{G}^\text{2D}_j({p})), $$</p>
     <p>放在“方法论”这一部分看。这条式子描述了多个分量的聚合或逐步合成过程。它通常表示模型如何把局部贡献、概率权重或多项损失累积成最终结果。</p>
     <p>$$ \mathcal{L}_\text{novel} = \lambda_{\text{MSE}} \mathcal{L}_{\text{MSE}}(\hat{I}_t,I_t) + \lambda_{\text{LPIPS}} \mathcal{L}_{\text{LPIPS}}(\hat{I}_t,I_t), $$</p>
-    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
+    
     <p>$$ \mathbf{G}^\text{2D}_{i}(p) = e^{-\frac{1}{2}(p-\mu_{i}^\text{2D})^T(\Sigma_{i}^\text{2D}+s\mathbf{I})^{-1}(p-\mu_{i}^\text{2D})}, $$</p>
     <p>放在“方法论”这一部分看。这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
-    <h4>3.4 分析</h4>
-    <p>围绕 3.4 分析，尽管我们没有对查询标记如何划分场景提供任何监督，但我们观察到模型最终学会了有效估计一组最能重建场景的高斯函数。为了了解每个查询标记如何学习聚合来自多视图特征的信息，我们检查了可学习标记与自注意力块内的多视图图像特征之间的注意力权重。为了用有限数量的高斯模型准确地重建新的视图，该模型学会了将 3D 高斯模型定位到几何相干区域。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
-    <h4>3.5 任意功能 3D 提升</h4>
+    <h4>4. 分析</h4>
+    <p>围绕 3.4 分析，尽管我们没有对查询标记如何划分场景提供任何监督，但我们观察到模型最终学会了有效估计一组最能重建场景的高斯函数。为了了解每个查询标记如何学习聚合来自多视图特征的信息，我们检查了可学习标记与自注意力块内的多视图图像特征之间的注意力权重。为了用有限数量的高斯模型准确地重建新的视图，该模型学会了将 3D 高斯模型定位到几何相干区域。</p>
+    <h4>5. 任意功能 3D 提升</h4>
     <p>围绕 3.5 任意功能 3D 提升，这一节先处理的是 对于每个需要提升特征的 2D 块，他们必须识别哪些 3D 高斯有助于渲染该像素位置，这通常需要计算成本高昂的反向映射操作。作者这样设计，是为了先把输入表示、约束条件或中间状态整理成后续模块能直接使用的形式。</p>
     
     

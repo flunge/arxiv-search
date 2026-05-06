@@ -108,7 +108,7 @@
       requestAnimationFrame(applyPageScale);
     }
 
-    function applyPageScale {
+    function applyPageScale() {
       var stage = document.querySelector('.page-stage');
       var shell = document.getElementById('page-shell');
       if (!stage || !shell) return;
@@ -120,7 +120,7 @@
     window.addEventListener('orientationchange', applyPageScale);
     window.addEventListener('load', applyPageScale);
     document.addEventListener('DOMContentLoaded', applyPageScale);
-    document.addEventListener('DOMContentLoaded', function {
+    document.addEventListener('DOMContentLoaded', function() {
       var shell = document.getElementById('page-shell');
       if (!shell) return;
       shell.querySelectorAll('img').forEach(function(img) {
@@ -130,20 +130,20 @@
         }
       });
       if ('ResizeObserver' in window) {
-        var resizeObserver = new ResizeObserver(function {
+        var resizeObserver = new ResizeObserver(function() {
           requestAnimationFrame(applyPageScale);
         });
         resizeObserver.observe(shell);
       }
     });
 
-    function setupImageLightbox {
+    function setupImageLightbox() {
       var lightbox = document.getElementById('page-lightbox');
       var lightboxImage = document.getElementById('page-lightbox-image');
       var lightboxCaption = document.getElementById('page-lightbox-caption');
       if (!lightbox || !lightboxImage || !lightboxCaption) return;
 
-      function closeLightbox {
+      function closeLightbox() {
         lightbox.setAttribute('hidden', 'hidden');
         lightbox.setAttribute('aria-hidden', 'true');
         lightboxImage.removeAttribute('src');
@@ -159,7 +159,7 @@
         var caption = figure ? figure.querySelector('figcaption') : null;
         lightboxImage.src = src;
         lightboxImage.alt = img.alt || '';
-        lightboxCaption.textContent = caption ? caption.textContent.trim : (img.alt || '');
+        lightboxCaption.textContent = caption ? caption.textContent.trim() : (img.alt || '');
         lightbox.removeAttribute('hidden');
         lightbox.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
@@ -174,13 +174,13 @@
           return;
         }
         if (target === lightbox || target.closest('.page-lightbox-close')) {
-          closeLightbox;
+          closeLightbox();
         }
       });
 
       document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape' && !lightbox.hasAttribute('hidden')) {
-          closeLightbox;
+          closeLightbox();
         }
       });
     }
@@ -202,8 +202,8 @@
       },
       svg: { fontCache: 'global' },
       startup: {
-        pageReady:  => {
-          return MathJax.startup.defaultPageReady.then( => {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady.then(() => {
             requestAnimationFrame(applyPageScale);
           });
         }
@@ -246,28 +246,28 @@
     <h2 id='technical'>技术细节</h2>
       <figure style='margin-top:20px;'><img class='paper-fig' src='../assets/2603_24587v2/figure2_full.png' alt='架构图' loading='<figcaption style='font-size:12px;'>架构图：方法整体流程</figcaption></figure>
     
-    <p>第二个组件使用从预定义的高质量词汇中采样的轨迹来优化策略。我们首先提出用于构建潜在空间预测表示的基础世界模型，然后描述所提出的 SF-WM，该模型在保持预测保真度的同时显着减少采样步骤。Epona 是一种基于流匹配的自回归扩散模型，它统一了视频生成和轨迹规划，从而实现了以动作控制为条件的未来视频预测。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <p>第二个组件使用从预定义的高质量词汇中采样的轨迹来优化策略。我们首先提出用于构建潜在空间预测表示的基础世界模型，然后描述所提出的 SF-WM，该模型在保持预测保真度的同时显着减少采样步骤。Epona 是一种基于流匹配的自回归扩散模型，它统一了视频生成和轨迹规划，从而实现了以动作控制为条件的未来视频预测。</p>
     <p>受捷径模型和扩散强迫的启发，SF-WM 引入了一种递归捷径强迫机制，将连续流过程离散化为由 2 的幂定义的多分辨率步骤空间。该模型通过步长嵌入以信号电平和请求的步长为条件。在修正流框架内，给定条件潜在特征 ，我们定义插值，其中 和 表示干净的数据潜在表示。</figure>
-    <h3>3 方法</h3>    <p>第二个组件使用从预定义的高质量词汇中采样的轨迹来优化策略。我们首先提出用于构建潜在空间预测表示的基础世界模型，然后描述所提出的 SF-WM，该模型在保持预测保真度的同时显着减少采样步骤。Epona 是一种基于流匹配的自回归扩散模型，它统一了视频生成和轨迹规划，从而实现了以动作控制为条件的未来视频预测。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
-    <p>受捷径模型和扩散强迫的启发，SF-WM 引入了一种递归捷径强迫机制，将连续流过程离散化为由 2 的幂定义的多分辨率步骤空间。该模型通过步长嵌入以信号电平和请求的步长为条件。在修正流框架内，给定条件潜在特征 ，我们定义插值，其中 和 表示干净的数据潜在表示。</p>    <h4>3.1 全面的</h4>
-    <p>DreamerAD 的整体流程由两个紧密耦合的组件组成。第一个组件完全在潜在空间内执行基于想象的轨迹评估。第二个组件使用从预定义的高质量词汇中采样的轨迹来优化策略。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
-    <h4>3.2 具有潜在奖励模型的世界模型</h4>
-    <p>本节介绍我们的潜在世界建模框架，该框架旨在共同捕获未来的场景动态和轨迹演化。我们首先提出用于构建潜在空间预测表示的基础世界模型，然后描述所提出的 SF-WM，该模型在保持预测保真度的同时显着减少采样步骤。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <h3>3 方法</h3>    <p>第二个组件使用从预定义的高质量词汇中采样的轨迹来优化策略。我们首先提出用于构建潜在空间预测表示的基础世界模型，然后描述所提出的 SF-WM，该模型在保持预测保真度的同时显着减少采样步骤。Epona 是一种基于流匹配的自回归扩散模型，它统一了视频生成和轨迹规划，从而实现了以动作控制为条件的未来视频预测。</p>
+    <p>受捷径模型和扩散强迫的启发，SF-WM 引入了一种递归捷径强迫机制，将连续流过程离散化为由 2 的幂定义的多分辨率步骤空间。该模型通过步长嵌入以信号电平和请求的步长为条件。在修正流框架内，给定条件潜在特征 ，我们定义插值，其中 和 表示干净的数据潜在表示。</p>    <h4>1. 全面的</h4>
+    <p>DreamerAD 的整体流程由两个紧密耦合的组件组成。第一个组件完全在潜在空间内执行基于想象的轨迹评估。第二个组件使用从预定义的高质量词汇中采样的轨迹来优化策略。</p>
+    <h4>2. 具有潜在奖励模型的世界模型</h4>
+    <p>本节介绍我们的潜在世界建模框架，该框架旨在共同捕获未来的场景动态和轨迹演化。我们首先提出用于构建潜在空间预测表示的基础世界模型，然后描述所提出的 SF-WM，该模型在保持预测保真度的同时显着减少采样步骤。</p>
     <h5>3.2.1 强制世界模型的捷径</h5>
-    <p>围绕 3.2.1 强制世界模型的捷径，Epona 是一种基于流匹配的自回归扩散模型，它统一了视频生成和轨迹规划，从而实现了以动作控制为条件的未来视频预测。然后通过时间投影模块处理图像嵌入以获得。的最终帧用作流匹配生成器的紧凑条件，以预测下一帧潜在和未来轨迹。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <p>围绕 3.2.1 强制世界模型的捷径，Epona 是一种基于流匹配的自回归扩散模型，它统一了视频生成和轨迹规划，从而实现了以动作控制为条件的未来视频预测。然后通过时间投影模块处理图像嵌入以获得。的最终帧用作流匹配生成器的紧凑条件，以预测下一帧潜在和未来轨迹。</p>
     <p>SF-WM 在一步推理下保持了敏锐的自回归预测质量，而原始模型存在严重<img width='800' height='450' class='paper-fig' src='../assets/2603_24587v2/figure4_full.<img width='800' height='450' class='paper-fig' src='../assets/2603_24587v2/figure5_full.png' alt='Figure 5:' loading='lazy' decoding='async' / />
       <figcaption style='font-size:12px;'>图 4：累积误差随着时间的推移而增加，导致一步推理过程中场景模糊</figcaption></\times C}, \quad a = \text{MLP}(A) \in \mathbb{R}^{B \times P \times 3 \times D} $$</p>
-    <p>放在“方法”这一部分看，这条式子重点不是孤立地罗列符号，而是交代 Z 如何承接前面的输入并把结果交给后续步骤。</p>
+    
     <p>$$ x_t = t x_1 + (1-t)x_0,\quad v=\frac{dx_t}{dt}=x_1-x_0. $$</p>
-    <p>放在“方法”这一部分看，这条式子重点不是孤立地罗列符号，而是交代 x t 如何承接前面的输入并把结果交给后续步骤。</p>
+    
     <p>$$ d \sim 1/\mathcal{U}(\{1,2,4,8,\dots,K_{max}\}),\quad t \sim \mathcal{U}(\{0,d,2d,\dots,1-d\}). $$</p>
-    <p>放在“方法”这一部分看，这条式子重点不是孤立地罗列符号，而是交代 dots 如何承接前面的输入并把结果交给后续步骤。</p>
+    
     <p>$$ v_{target}= \begin{cases} x_1-x_0,& d=d_{min},\\ \text{sg}((v_1+v_2)/2),& \text{otherwise}. \end{cases} $$</p>
     <p>放在“方法”这一部分看，这条式子是在把 v target 写成可直接计算的形式。它用分段规则来定义 v target 在不同条件下该取什么值，这样后续决策或推理过程就能按场景切换计算路径。</p>
     <p>$$ \mathcal{L}(\theta)= \mathbb{E}_{x_0,x_1,t,d} [ \omega(t)\|\phi_\theta(x_t,t,d)-v_{target}\|^2 ], $$</p>
-    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
+    
     <h5>3.2.2 自回归密集奖励模型</h5>
-    <p>为了缓解这个问题，我们构建了一个空间受限的探索词汇表。这确保奖励模型观察具有不同偏差水平的轨迹。过滤后的轨迹在 NavSim PDM 模拟器中进行评估，以获得八个奖励维度。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <p>为了缓解这个问题，我们构建了一个空间受限的探索词汇表。这确保奖励模型观察具有不同偏差水平的轨迹。过滤后的轨迹在 NavSim PDM 模拟器中进行评估，以获得八个奖励维度。</p>
     <p>$$ \Delta \theta = \min(|\theta_{\text{vocab}}-\theta_{\text{gt}}|,\,2\pi-|\theta_{\text{vocab}}-\theta_{\text{gt}}|) \le \theta_{\text{thresh}}. $$</p>
     <p>放在“方法”这一部分看，它重点在定义或约束 Delta theta 这一项。这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
     <p>$$ r_{\text{pred}}^t=\text{RewardModel}(\text{traj}_{0:t},\text{his}_{-3:t}), $$</p>
@@ -278,8 +278,8 @@
     <p>放在“方法”这一部分看，它重点在定义或约束 C dyn 这一项。这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
     <p>$$ Q_r=Q_{\text{base}}+C_{\text{dyn}}. $$</p>
     <p>放在“方法”这一部分看，它重点在定义或约束 Q r 这一项。这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
-    <h4>3.3 通过词汇采样进行强化学习</h4>
-    <p>围绕 3.3 通过词汇采样进行强化学习，我们设计了一种安全优先的奖励公式，将安全合规性和任务绩效信号分开，引入密集的时间奖励聚合以减少奖励稀疏性。对数融合机制确保安全违规主导奖励信号，因为碰撞事件将安全项推向零，从而推向负无穷大。为了减轻轨迹级评分中奖励的稀疏性，我们为时间信用分配引入了步骤级密集奖励。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <h4>3. 通过词汇采样进行强化学习</h4>
+    <p>围绕 3.3 通过词汇采样进行强化学习，我们设计了一种安全优先的奖励公式，将安全合规性和任务绩效信号分开，引入密集的时间奖励聚合以减少奖励稀疏性。对数融合机制确保安全违规主导奖励信号，因为碰撞事件将安全项推向零，从而推向负无穷大。为了减轻轨迹级评分中奖励的稀疏性，我们为时间信用分配引入了步骤级密集奖励。</p>
     <p>采用混合采样策略，根据 softmax 概率选择轨迹进行判别，并从高斯邻域中选择轨迹进行局部探索。采样的轨迹通过奖励模型进行评估以获得最终奖励。标准化组优势计算如下： 为了约束策略更新，使用重要性比。</p>
 
 

@@ -108,7 +108,7 @@
       requestAnimationFrame(applyPageScale);
     }
 
-    function applyPageScale {
+    function applyPageScale() {
       var stage = document.querySelector('.page-stage');
       var shell = document.getElementById('page-shell');
       if (!stage || !shell) return;
@@ -120,7 +120,7 @@
     window.addEventListener('orientationchange', applyPageScale);
     window.addEventListener('load', applyPageScale);
     document.addEventListener('DOMContentLoaded', applyPageScale);
-    document.addEventListener('DOMContentLoaded', function {
+    document.addEventListener('DOMContentLoaded', function() {
       var shell = document.getElementById('page-shell');
       if (!shell) return;
       shell.querySelectorAll('img').forEach(function(img) {
@@ -130,20 +130,20 @@
         }
       });
       if ('ResizeObserver' in window) {
-        var resizeObserver = new ResizeObserver(function {
+        var resizeObserver = new ResizeObserver(function() {
           requestAnimationFrame(applyPageScale);
         });
         resizeObserver.observe(shell);
       }
     });
 
-    function setupImageLightbox {
+    function setupImageLightbox() {
       var lightbox = document.getElementById('page-lightbox');
       var lightboxImage = document.getElementById('page-lightbox-image');
       var lightboxCaption = document.getElementById('page-lightbox-caption');
       if (!lightbox || !lightboxImage || !lightboxCaption) return;
 
-      function closeLightbox {
+      function closeLightbox() {
         lightbox.setAttribute('hidden', 'hidden');
         lightbox.setAttribute('aria-hidden', 'true');
         lightboxImage.removeAttribute('src');
@@ -159,7 +159,7 @@
         var caption = figure ? figure.querySelector('figcaption') : null;
         lightboxImage.src = src;
         lightboxImage.alt = img.alt || '';
-        lightboxCaption.textContent = caption ? caption.textContent.trim : (img.alt || '');
+        lightboxCaption.textContent = caption ? caption.textContent.trim() : (img.alt || '');
         lightbox.removeAttribute('hidden');
         lightbox.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
@@ -174,13 +174,13 @@
           return;
         }
         if (target === lightbox || target.closest('.page-lightbox-close')) {
-          closeLightbox;
+          closeLightbox();
         }
       });
 
       document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape' && !lightbox.hasAttribute('hidden')) {
-          closeLightbox;
+          closeLightbox();
         }
       });
     }
@@ -202,8 +202,8 @@
       },
       svg: { fontCache: 'global' },
       startup: {
-        pageReady:  => {
-          return MathJax.startup.defaultPageReady.then( => {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady.then(() => {
             requestAnimationFrame(applyPageScale);
           });
         }
@@ -249,15 +249,15 @@
     <p>围绕 技术总览，从纯噪声 开始，逆过程从噪声中重建数据，并建模为高斯转换。给定修复掩模及其相应的上下文值，扩散模型学习根据局部时空和全局场景信息重建未观察到的元素。由于 、 、 和 在每个步骤中都是固定的，因此 的条件分布完全由模型估计的干净样本 表征。</p>
     <p>为了方便起见，我们将此高斯转变表示为 ，表示反向核锚定于 ，而其方差和线性系数由 固定。此更新可以分解为三个可解释的组件。这种观点强调，每个反向扩散步骤都构成了一个基于预测的干净样本的条件采样过程。</p>
       <h3>3 方法</h3>    <p>围绕 3 方法，从纯噪声 开始，逆过程从噪声中重建数据，并建模为高斯转换。给定修复掩模及其相应的上下文值，扩散模型学习根据局部时空和全局场景信息重建未观察到的元素。由于 、 、 和 在每个步骤中都是固定的，因此 的条件分布完全由模型估计的干净样本 表征。</p>
-    <p>为了方便起见，我们将此高斯转变表示为 ，表示反向核锚定于 ，而其方差和线性系数由 固定。这种观点强调，每个反向扩散步骤都构成了一个基于预测的干净样本的条件采样过程。优化的anchor是通过求解约束最大化问题获得的。</p>    <h4>3.1 初步的</h4>
-    <p>围绕 3.1 初步的，条件的解析边际分布为。从纯噪声 开始，逆过程从噪声中重建数据，并建模为高斯转换。给定修复掩模及其相应的上下文值，扩散模型学习根据局部时空和全局场景信息重建未观察到的元素。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <p>为了方便起见，我们将此高斯转变表示为 ，表示反向核锚定于 ，而其方差和线性系数由 固定。这种观点强调，每个反向扩散步骤都构成了一个基于预测的干净样本的条件采样过程。优化的anchor是通过求解约束最大化问题获得的。</p>    <h4>1. 初步的</h4>
+    <p>围绕 3.1 初步的，条件的解析边际分布为。从纯噪声 开始，逆过程从噪声中重建数据，并建模为高斯转换。给定修复掩模及其相应的上下文值，扩散模型学习根据局部时空和全局场景信息重建未观察到的元素。</p>
     <p>$$ \begin{aligned} q(x_t \mid x_0) &= \mathcal{N}\big(\sqrt{\bar{\alpha}_t}\,x_0,\; (1-\bar{\alpha}_t)I\big), \\ x_t &= \sqrt{\bar{\alpha}_t}\,x_0 + \sqrt{1-\bar{\alpha}_t}\,\epsilon, \end{aligned} $$</p>
     <p>这条式子给出了扩散过程的闭式写法：无需逐步递推，也能直接得到任意时间步的带噪状态。这样训练时可以随机采样时间步，提高学习效率。</p>
     <p>$$ p_\theta(x_{t-1}\mid x_t) = \mathcal{N}\big(\mu_\theta(x_t, t),\, \Sigma_\theta(x_t, t)\big), $$</p>
     <p>这条式子给出了反向扩散一步的条件分布：在当前噪声状态下，模型需要预测前一时刻样本大致落在哪个高斯分布里。它对应的是从噪声逐步回到数据的基本采样接口。</p>
     <p>$$ x_{t-1} = \frac{1}{\sqrt{\alpha_t}} (x_t - \frac{1 - \alpha_t}{\sqrt{1 - \bar{\alpha}_t}}\, \epsilon_\theta(x_t, t)) + \sigma_t z, $$</p>
     <p>这条式子把一次反向扩散更新拆成三部分：沿预测噪声方向做确定性修正，再加上当前时间步保留的随机噪声。它说明 OMEGA 的引导并不是重写整个扩散过程，而是插在标准去噪更新里调整轨迹。</p>
-    <h4>3.2 优化引导的约束扩散</h4>
+    <h4>2. 优化引导的约束扩散</h4>
     <p>围绕 3.2 优化引导的约束扩散，由于 、 、 和 在每个步骤中都是固定的，因此 的条件分布完全由模型估计的干净样本 表征。这种观点强调，每个反向扩散步骤都构成了一个基于预测的干净样本的条件采样过程。优化的anchor是通过求解约束最大化问题获得的。</p>
     <p>此约束可防止过度漂移或模式崩溃，稳定去噪动态并保持对预训练扩散模型编码的生成流形的保真度。通过这种平衡，采样器隐式地将反向过渡的均值转移到约束一致的区域，调整其轨迹，同时保持生成空间内的分布一致性。在这里，捕获轨迹级偏好（例如平滑度），强制执行平等关系（例如运动可行性），并定义不平等条件（例如避免碰撞或边界遵守）。</figure>
     <p>$$ \tilde{x}_0 = \frac{x_t - \sqrt{1-\bar{\alpha}_t}\,\epsilon_\theta(x_t, t)}{\sqrt{\bar{\alpha}_t}}. $$</p>
@@ -271,16 +271,16 @@
     <p>$$ \begin{aligned} \hat{x}_0 = \arg\max_{x}\; &\Big[ \lambda_t R(x) - \, \mathrm{KL}\big(P_t(x) \,\Vert\, Q_t(\tilde{x}_0)\big) \Big], \\ \text{s.t.}\quad &\mathrm{KL}\big(P_t(x) \,\Vert\, Q_t(\tilde{x}_0)\big) \le \kappa_t. \end{aligned} $$</p>
     <p>这条优化目标是在奖励和分布偏移之间做权衡：一方面希望新锚点提升目标行为，另一方面又要求它保持在当前扩散分布允许的范围内。这样生成结果才不会为了追求某个约束而彻底偏离真实场景流形。</p>
     <p>$$ \begin{aligned} \hat{x}_0 &=\arg\max_x\; \lambda_t\, r(x) -\frac{A_t}{2\sigma_t^2}\,\|x-\tilde{x}_0\|_2^2, \\ &\text{s.t.}\;\; \|x-\tilde{x}_0\|_2 \le \sqrt{2\kappa_t}\,\frac{\sigma_t}{|A_t|}, \\ &\qquad h(x)=0,\quad g(x)\le0. \end{aligned} $$</p>
-    <p>放在“方法”这一部分看，这条式子重点不是孤立地罗列符号，而是交代 x 0 如何承接前面的输入并把结果交给后续步骤。</p>
-    <h4>3.3 两阶段噪声调度</h4>
+    
+    <h4>3. 两阶段噪声调度</h4>
     <p>围绕 3.3 两阶段噪声调度，为了平衡多智能体场景生成中的全局一致性和局部响应性，我们引入了一种两阶段噪声调度方案，称为“Warmup”和“Rolling-Zero”。预热阶段 预热阶段在逐渐降低的噪声计划下对每个智能体的轨迹执行全序列去噪。在每一步中，一个框架都会根据之前清理的状态进行细化，从而实现框架级适应不断变化的代理间<img width='800' height='450' class='paper-fig' src='../assets/2512_07661v2/figure3_full.<img width='800' height='450' class='paper-fig' src='../assets/2512_07661v2/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' / />
       <figcaption style='font-size:12px;'>图 3：两阶段噪声调度的图示；深蓝色表示噪声较高，浅蓝色表示噪声较低</figcaption></figure>
-    <h4>3.4 敏感性增强的对抗生成</h4>
-    <p>灵敏度增强的迭代条件，关于攻击者决策的敏感性可以表示为。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <h4>4. 敏感性增强的对抗生成</h4>
+    <p>灵敏度增强的迭代条件，关于攻击者决策的敏感性可以表示为。</p>
     <p>直观上，这会引导攻击者采取有效减少自我可行机动集的策略，从而引发自我的反应性回避反应。由于避免碰撞约束仅在自我的责任区域内激活，因此这种设计间接确保生成的对抗行为对应于合理且有意义的交互。为了提高在实践中进入这种活跃状态的可能性，我们在预热阶段将攻击者路线初始化偏向与自我责任区域相交的空间走廊。</p>
     <div class='card'><strong>表 1</strong><div style='margin-top:6px;'>nuPlan 上的自由探索场景生成结果和 Waymo 上的零样本评估；Oracle引用数据集中的原始日志。</div><div style='overflow-x:auto;margin-top:10px;'><table style='width:100%;border-collapse:collapse;font-size:12px;'><tr><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>c</th><td>—</td><th colspan='4' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Distributional JSD</th><th colspan='2' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Collision Rate</th><th colspan='2' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Off-road Rate</th><th colspan='2' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Kinematic Feasibility</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Valid Rate</th></tr><tr><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Dataset</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Method</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>N-Dist.</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>L-Dev.</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>A-Dev.</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Spd.</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>P-Ag.</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>P-Sc.</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>P-Ag.</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>P-Sc.</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>P-Ag.</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>P-Sc.</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>P-Sc.</th></tr><tr><td>—</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Oracle</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.000</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.000</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.000</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.000</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.38</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>13.62</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.00</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.00</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>97.40</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>81.22</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>71.67</td></tr><tr><td>—</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>D. Policy</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.701</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.056</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.423</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.369</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>1.19</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>36.58</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>4.37</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>39.47</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>98.46</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>87.18</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>34.49</td></tr><tr><td>—</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>SceneD.</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.933</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.046</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.395</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.234</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>1.19</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>37.80</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>4.84</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>41.68</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>98.48</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>86.96</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>33.27</td></tr><tr><td>—</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Nexus</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>1.162</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.041</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.461</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>1.018</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>1.41</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>43.12</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>4.70</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>40.13</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>98.72</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>88.63</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>32.35</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>-5*nuPlan</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Nexus-</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.203</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.025</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.081</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.333</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.19</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>17.36</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.91</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>10.39</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>99.19</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>91.91</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>72.27</td></tr><tr><td>—</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Oracle</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.000</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.000</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.000</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.000</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.22</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>7.47</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.00</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.00</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>99.77</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>96.33</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>89.33</td></tr><tr><td>—</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>D. Policy</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.034</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.026</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.081</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.229</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.35</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>19.23</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>1.04</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>11.35</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>98.86</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>86.74</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>64.55</td></tr><tr><td>—</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>SceneD.</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.077</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.022</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.148</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.249</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.39</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>22.94</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>1.22</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>12.18</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>98.81</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>86.57</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>61.01</td></tr></table></div></div>
     <p>$$ \begin{aligned} \hat{x}_0^e = &\arg\max_{x^e} \; J^e(x^e) \\ \text{s.t.}\quad &\|x^e - \tilde{x}_0^e\|_2 \le \rho_t, \; h(x^e)=0,\; g(x^e)\le0, \\ &\gamma_e(x^e,x^a)\le 0, \end{aligned} $$</p>
-    <p>放在“方法”这一部分看，这条式子重点不是孤立地罗列符号，而是交代 x 0 e 如何承接前面的输入并把结果交给后续步骤。</p>
+    
 
 
 

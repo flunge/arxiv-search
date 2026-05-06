@@ -108,7 +108,7 @@
       requestAnimationFrame(applyPageScale);
     }
 
-    function applyPageScale {
+    function applyPageScale() {
       var stage = document.querySelector('.page-stage');
       var shell = document.getElementById('page-shell');
       if (!stage || !shell) return;
@@ -120,7 +120,7 @@
     window.addEventListener('orientationchange', applyPageScale);
     window.addEventListener('load', applyPageScale);
     document.addEventListener('DOMContentLoaded', applyPageScale);
-    document.addEventListener('DOMContentLoaded', function {
+    document.addEventListener('DOMContentLoaded', function() {
       var shell = document.getElementById('page-shell');
       if (!shell) return;
       shell.querySelectorAll('img').forEach(function(img) {
@@ -130,20 +130,20 @@
         }
       });
       if ('ResizeObserver' in window) {
-        var resizeObserver = new ResizeObserver(function {
+        var resizeObserver = new ResizeObserver(function() {
           requestAnimationFrame(applyPageScale);
         });
         resizeObserver.observe(shell);
       }
     });
 
-    function setupImageLightbox {
+    function setupImageLightbox() {
       var lightbox = document.getElementById('page-lightbox');
       var lightboxImage = document.getElementById('page-lightbox-image');
       var lightboxCaption = document.getElementById('page-lightbox-caption');
       if (!lightbox || !lightboxImage || !lightboxCaption) return;
 
-      function closeLightbox {
+      function closeLightbox() {
         lightbox.setAttribute('hidden', 'hidden');
         lightbox.setAttribute('aria-hidden', 'true');
         lightboxImage.removeAttribute('src');
@@ -159,7 +159,7 @@
         var caption = figure ? figure.querySelector('figcaption') : null;
         lightboxImage.src = src;
         lightboxImage.alt = img.alt || '';
-        lightboxCaption.textContent = caption ? caption.textContent.trim : (img.alt || '');
+        lightboxCaption.textContent = caption ? caption.textContent.trim() : (img.alt || '');
         lightbox.removeAttribute('hidden');
         lightbox.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
@@ -174,13 +174,13 @@
           return;
         }
         if (target === lightbox || target.closest('.page-lightbox-close')) {
-          closeLightbox;
+          closeLightbox();
         }
       });
 
       document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape' && !lightbox.hasAttribute('hidden')) {
-          closeLightbox;
+          closeLightbox();
         }
       });
     }
@@ -202,8 +202,8 @@
       },
       svg: { fontCache: 'global' },
       startup: {
-        pageReady:  => {
-          return MathJax.startup.defaultPageReady.then( => {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady.then(() => {
             requestAnimationFrame(applyPageScale);
           });
         }
@@ -245,31 +245,31 @@
     <h2 id='technical'>技术细节</h2>
       <figure style='margin-top:20px;'><img class='paper-fig' src='../assets/2603_29192v1/figure2_full.png' alt='架构图' loading='<figcaption style='font-size:12px;'>架构图：方法整体流程</figcaption></figure>
     
-    <p>围绕 技术总览，通过重建度量一致的 3D 工作空间而无需严格的相机校准，GenSplat 致密了训练数据的连续空间支持。为了解决传统方法中参考视点选择不当导致的重建不稳定和伪影问题，我们设计了前馈排列等变架构。根据专家演示，GenSplat 采用前馈 3D 重建流程，在受控扰动下渲染几何一致的新颖视点，显着提高相机姿势多样性。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <p>围绕 技术总览，通过重建度量一致的 3D 工作空间而无需严格的相机校准，GenSplat 致密了训练数据的连续空间支持。为了解决传统方法中参考视点选择不当导致的重建不稳定和伪影问题，我们设计了前馈排列等变架构。根据专家演示，GenSplat 采用前馈 3D 重建流程，在受控扰动下渲染几何一致的新颖视点，显着提高相机姿势多样性。</p>
     <p>重建的场景能够实现几何一致的新颖视图合成，以扩展观察流形，显着提高机器人策略的视点泛化。</p>
-      <h3>3 方法</h3>    <p>我们详细介绍了 GenSplat，这是一种前馈 3D 高斯分布 (3DGS) 框架，旨在通过稀疏、未校准的视觉演示的新颖视图合成来扩展观测流形。通过重建度量一致的 3D 工作空间而无需严格的相机校准，GenSplat 致密了训练数据的连续空间支持。总体架构流程如图所示。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>    <h4>3.1 问题表述</h4>
+      <h3>3 方法</h3>    <p>我们详细介绍了 GenSplat，这是一种前馈 3D 高斯分布 (3DGS) 框架，旨在通过稀疏、未校准的视觉演示的新颖视图合成来扩展观测流形。通过重建度量一致的 3D 工作空间而无需严格的相机校准，GenSplat 致密了训练数据的连续空间支持。总体架构流程如图所示。</p>    <h4>1. 问题表述</h4>
     <p>围绕 3.1 问题表述，这一节先处理的是 我们考虑一个机器人模仿学习数据集，其中每个演示都包含一系列观察、配对动作和语言指令。作者这样设计，是为了先把输入表示、约束条件或中间状态整理成后续模块能直接使用的形式。</p>
     
     
     
-    <h4>3.2 模型架构</h4>
-    <p>围绕 3.2 模型架构，为了解决传统方法中参考视点选择不当导致的重建不稳定和伪影问题，我们设计了前馈排列等变架构。为了在不强加严格的时间或空间顺序的情况下建立多视图上下文，这些标记通过交替的帧内和全局自注意力层进行聚合。这种对称聚合机制确保提取的表示严格排列等变。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <h4>2. 模型架构</h4>
+    <p>围绕 3.2 模型架构，为了解决传统方法中参考视点选择不当导致的重建不稳定和伪影问题，我们设计了前馈排列等变架构。为了在不强加严格的时间或空间顺序的情况下建立多视图上下文，这些标记通过交替的帧内和全局自注意力层进行聚合。这种对称聚合机制确保提取的表示严格排列等变。</p>
     <p>$$ \begin{cases} (\boldsymbol{P}_i, \boldsymbol{C}_i) = D_{\text{p}}(\boldsymbol{h}_i),\; \boldsymbol{\mu}_g = \text{trans}(\boldsymbol{P}_i, \boldsymbol{p}_i), \\ (\sigma_g, \boldsymbol{r}_g, \boldsymbol{s}_g, \boldsymbol{c}_g) = H_\text{G}(F_{\text{DPT}}(\boldsymbol{h}_i) + F_{\text{RGB}}(I_i)). \end{cases} $$</p>
     <p>这条式子给出了渲染/成像算子的整体输入输出：模型把相机参数与场景表示一起送入渲染器，得到最终图像或投影结果。它相当于把整条前向生成链路压缩成一个明确的计算接口。</p>
-    <h4>3.3 通过 3D 事先蒸馏进行无姿势预训练</h4>
-    <p>围绕 3.3 通过 3D 事先蒸馏进行无姿势预训练，在机器人领域直接部署前馈 3D 高斯泼溅经常会受到严重重影和渲染伪影的阻碍。正如 .2 中的经验可视化所示，这种显式 3D 监督显着减少了高斯渲染中的新颖视图伪影，例如漂浮物和边界撕裂。为了在没有绝对跟踪数据的情况下构建一致的全局坐标系，我们提取相机位姿先验以获得相对仿射不变变换。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <h4>3. 通过 3D 事先蒸馏进行无姿势预训练</h4>
+    <p>围绕 3.3 通过 3D 事先蒸馏进行无姿势预训练，在机器人领域直接部署前馈 3D 高斯泼溅经常会受到严重重影和渲染伪影的阻碍。正如 .2 中的经验可视化所示，这种显式 3D 监督显着减少了高斯渲染中的新颖视图伪影，例如漂浮物和边界撕裂。为了在没有绝对跟踪数据的情况下构建一致的全局坐标系，我们提取相机位姿先验以获得相对仿射不变变换。</p>
     <p>与传统的基于深度的伪标签表现出尖锐的边界不连续性并导致撕裂伪影不同，密集点图明确地增强了空间平滑度和拓扑一致性。提炼这些先验施加了强大的结构约束，加速了收敛并产生了可靠的机器人操作所必需的高保真表示。</p>
     <p>$$ \mathcal{L}_{\text{3D}} = \frac{1}{HW} \sum_{u,v} \| \hat{\boldsymbol{P}}(u,v) - \boldsymbol{P}(u,v) \|_2^2, $$</p>
     <p>这条式子给出了噪声预测训练目标：模型在随机时间步接收带噪输入和条件信息，然后尽量把真实噪声估计准确。训练好这一项之后，反向采样时才能稳定地把噪声状态一步步拉回真实场景分布。</p>
     <p>$$ \mathcal{L}_{\text{cam}} = \sum_{i \neq j} \Big( \ell_{\text{rot}}(\boldsymbol{\hat{R}}_{iarrow j}, \boldsymbol{R}_{iarrow j}) + \mathcal{H}_{\delta}(\boldsymbol{\hat{T}}_{iarrow j} - \boldsymbol{T}_{iarrow j})\Big). $$</p>
-    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
+    
     <p>$$ \mathcal{L}_{\text{3D-prior}} = \lambda_{\text{3D}} \mathcal{L}_{\text{3D}} + \lambda_{\text{cam}} \mathcal{L}_{\text{cam}}. $$</p>
     <p>放在“方法”这一部分看，它重点在定义或约束 L 3D-prior 这一项。这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
-    <h4>3.4 政策部署</h4>
-    <p>围绕 3.4 政策部署，我们在两个代表性的模仿学习架构中实例化了我们的视图广义框架。两个模型都在扩展的观测流形上进行了优化。形式上，该策略处理视觉观察以及机器人的本体感受状态，以预测未来的一系列运动动作。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <h4>4. 政策部署</h4>
+    <p>围绕 3.4 政策部署，我们在两个代表性的模仿学习架构中实例化了我们的视图广义框架。两个模型都在扩展的观测流形上进行了优化。形式上，该策略处理视觉观察以及机器人的本体感受状态，以预测未来的一系列运动动作。</p>
     <p>$$ \max_{\theta}\sum_{(\boldsymbol{o},\,\boldsymbol{a}) \in \mathcal{D}_{\text{train}}} \log \pi_{\theta}(\boldsymbol{a}\mid \boldsymbol{o}), $$</p>
     <p>放在“方法”这一部分看，它重点在定义或约束 max_ theta 这一项。这条式子描述了多个分量的聚合或逐步合成过程。它通常表示模型如何把局部贡献、概率权重或多项损失累积成最终结果。</p>
-    <h4>3.5 训练设置</h4>
+    <h4>5. 训练设置</h4>
     <p>围绕 3.5 训练设置，这一节先处理的是 GenSplat 通过最小化光度、几何和蒸馏目标的协同组合进行端到端优化。作者这样设计，是为了先把输入表示、约束条件或中间状态整理成后续模块能直接使用的形式。</p>
     
     

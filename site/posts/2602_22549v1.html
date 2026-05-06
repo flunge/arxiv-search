@@ -108,7 +108,7 @@
       requestAnimationFrame(applyPageScale);
     }
 
-    function applyPageScale {
+    function applyPageScale() {
       var stage = document.querySelector('.page-stage');
       var shell = document.getElementById('page-shell');
       if (!stage || !shell) return;
@@ -120,7 +120,7 @@
     window.addEventListener('orientationchange', applyPageScale);
     window.addEventListener('load', applyPageScale);
     document.addEventListener('DOMContentLoaded', applyPageScale);
-    document.addEventListener('DOMContentLoaded', function {
+    document.addEventListener('DOMContentLoaded', function() {
       var shell = document.getElementById('page-shell');
       if (!shell) return;
       shell.querySelectorAll('img').forEach(function(img) {
@@ -130,20 +130,20 @@
         }
       });
       if ('ResizeObserver' in window) {
-        var resizeObserver = new ResizeObserver(function {
+        var resizeObserver = new ResizeObserver(function() {
           requestAnimationFrame(applyPageScale);
         });
         resizeObserver.observe(shell);
       }
     });
 
-    function setupImageLightbox {
+    function setupImageLightbox() {
       var lightbox = document.getElementById('page-lightbox');
       var lightboxImage = document.getElementById('page-lightbox-image');
       var lightboxCaption = document.getElementById('page-lightbox-caption');
       if (!lightbox || !lightboxImage || !lightboxCaption) return;
 
-      function closeLightbox {
+      function closeLightbox() {
         lightbox.setAttribute('hidden', 'hidden');
         lightbox.setAttribute('aria-hidden', 'true');
         lightboxImage.removeAttribute('src');
@@ -159,7 +159,7 @@
         var caption = figure ? figure.querySelector('figcaption') : null;
         lightboxImage.src = src;
         lightboxImage.alt = img.alt || '';
-        lightboxCaption.textContent = caption ? caption.textContent.trim : (img.alt || '');
+        lightboxCaption.textContent = caption ? caption.textContent.trim() : (img.alt || '');
         lightbox.removeAttribute('hidden');
         lightbox.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
@@ -174,13 +174,13 @@
           return;
         }
         if (target === lightbox || target.closest('.page-lightbox-close')) {
-          closeLightbox;
+          closeLightbox();
         }
       });
 
       document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape' && !lightbox.hasAttribute('hidden')) {
-          closeLightbox;
+          closeLightbox();
         }
       });
     }
@@ -202,8 +202,8 @@
       },
       svg: { fontCache: 'global' },
       startup: {
-        pageReady:  => {
-          return MathJax.startup.defaultPageReady.then( => {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady.then(() => {
             requestAnimationFrame(applyPageScale);
           });
         }
@@ -246,37 +246,37 @@
     <h2 id='technical'>技术细节</h2>
       <figure style='margin-top:20px;'><img class='paper-fig' src='../assets/2602_22549v1/figure2_full.png' alt='架构图' loading='<figcaption style='font-size:12px;'>架构图：方法整体流程</figcaption></figure>
     
-    <p>在本节中，我们首先提供稳定扩散去噪过程和用于几何条件的 T2I-Adapter 架构的初步背景。表示条件信息，是UNet降噪器函数。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
-      <h3>3 方法</h3>    <p>在本节中，我们首先提供稳定扩散去噪过程和用于几何条件的 T2I-Adapter 架构的初步背景。然后我们展示我们的 DrivePTS 框架，如图 1 所示。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>    <h4>3.1 初步的</h4>
+    <p>在本节中，我们首先提供稳定扩散去噪过程和用于几何条件的 T2I-Adapter 架构的初步背景。表示条件信息，是UNet降噪器函数。</p>
+      <h3>3 方法</h3>    <p>在本节中，我们首先提供稳定扩散去噪过程和用于几何条件的 T2I-Adapter 架构的初步背景。然后我们展示我们的 DrivePTS 框架，如图 1 所示。</p>    <h4>1. 初步的</h4>
     <h5>3.1.1 稳定的扩散</h5>
-    <p>我们基于稳定扩散（SD）实现我们的方法，这是一种文本到图像的 LDM，通过 UNet 降噪器在潜在空间中执行降噪。表示条件信息，是UNet降噪器函数。在推理过程中，潜伏通过以 和 为条件逐渐去噪。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <p>我们基于稳定扩散（SD）实现我们的方法，这是一种文本到图像的 LDM，通过 UNet 降噪器在潜在空间中执行降噪。表示条件信息，是UNet降噪器函数。在推理过程中，潜伏通过以 和 为条件逐渐去噪。</p>
     <p>$$ L_{\text{diff}} = \mathbb{E}_{Z_{t},C,\epsilon,t}[\|\epsilon - \epsilon_{\theta}(Z_t,C)\|_2^2] $$</p>
-    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
+    
     <h5>3.1.2 T2I 适配器</h5>
     <p>以前的方法通常通过 控制Net 合并各种条件，其中涉及复杂的分支结构。由于我们的框架被设计为分别处理两个几何条件，因此利用并行组成的 控制Net 将显着增加计算成本。具体来说，我们将几何条件视为图像输入并将其输入相应的适配器，提取多尺度特征并直接注入 UNet 编码器。</p>
     <p>$$ F_c = T(C), \quad \hat{F}_{enc}^{i} = F_{enc}^{i} + F_{c}^{i},\ i\in \{1,2,3,4\}, $$</p>
     <p>这条式子把前面若干观测、条件或中间特征，经过一个显式模块映射成新的状态变量。它的意义在于把复杂流程压缩成清晰的函数接口，方便后续模块继续消费这个中间结果。</p>
-    <h4>3.2 几何条件的渐进学习</h4>
-    <p>围绕 3.2 几何条件的渐进学习，本文提出了渐进式学习策略，强调生成模型在引入交通对象之前应首先关注构建道路的原则。为了实现这一原则，两种类型的几何条件被分别处理并通过不同的训练阶段合并到模型中。利用高清地图和文本描述作为条件输入来生成道路和背景元素。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <h4>2. 几何条件的渐进学习</h4>
+    <p>围绕 3.2 几何条件的渐进学习，本文提出了渐进式学习策略，强调生成模型在引入交通对象之前应首先关注构建道路的原则。为了实现这一原则，两种类型的几何条件被分别处理并通过不同的训练阶段合并到模型中。利用高清地图和文本描述作为条件输入来生成道路和背景元素。</p>
     <p>通过最小化这种损失，鼓励模型减少地图与其相应框特征之间的相似性，从而促进每个条件的独立学习。</p>
     <p>$$ {L}_{\text{MI}} = \mathbb{E}_{(f_m, f_b^+)} [ \log \frac{\exp(\text{sim}(f_m, f_b^+))}{\sum\limits_{j=1}^{N} \exp(\text{sim}(f_m, f_{b,j}))} ], $$</p>
     <p>放在“方法”这一部分看，它重点在定义或约束 L MI 这一项。这条式子描述了多个分量的聚合或逐步合成过程。它通常表示模型如何把局部贡献、概率权重或多项损失累积成最终结果。</p>
-    <h4>3.3 多视图分层场景描述生成</h4>
-    <p>先前的研究利用现有数据集提供的简洁且视图不变的场景描述作为图像生成的文本条件。然而，这些简短的描述往往缺乏重建复杂环境背景所需的细节，并且无法捕捉不同视角之间固有的异质性。为了进一步将生成的字幕与实际场景属性对齐，我们应用直接偏好优化（DPO）作为强化校正机制，引导模型获得与人类一致的输出。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
-    <h4>3.4 频率引导结构损失</h4>
+    <h4>3. 多视图分层场景描述生成</h4>
+    <p>先前的研究利用现有数据集提供的简洁且视图不变的场景描述作为图像生成的文本条件。然而，这些简短的描述往往缺乏重建复杂环境背景所需的细节，并且无法捕捉不同视角之间固有的异质性。为了进一步将生成的字幕与实际场景属性对齐，我们应用直接偏好优化（DPO）作为强化校正机制，引导模型获得与人类一致的输出。</p>
+    <h4>4. 频率引导结构损失</h4>
     <p>围绕 3.4 频率引导结构损失，现有的场景生成方法在计算去噪损失时平等对待所有区域，未能强调关键的前景细节，例如边界和纹理。然而，有效的场景生成不应仅仅涉及用合理的内容粗略地填充区域。为了解决这个限制，我们引入了频率引导结构损失，强调前景中的高频细节，包括道路和物体区域。</p>
     <p>$$ \begin{aligned} \mathcal{H}(x) &= \mathcal{F}^{-1}(M(\omega) \cdot \mathcal{F}(x)), \\ M(\omega) &= \begin{cases} 0, & \|\omega\| \le \tau, \\ 1, & \|\omega\| > \tau, \end{cases} \end{aligned} $$</p>
     <p>放在“方法”这一部分看，这条式子是在把 这一项中间量 写成可直接计算的形式。它用分段规则来定义 这一项中间量 在不同条件下该取什么值，这样后续决策或推理过程就能按场景切换计算路径。</p>
     <p>$$ L_{\text{freq}} = \| \mathcal{H}(x_{\text{pred}}) - \mathcal{H}(x_{\text{target}}) \|_2^2. $$</p>
     <p>放在“方法”这一部分看，它重点在定义或约束 L freq 这一项。这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
-    <h4>3.5 总体培训目标</h4>
-    <p>围绕 3.5 总体培训目标，总体培训目标整合了多个损失组件，以在我们的渐进式学习策略中实现不同的目标。在此阶段，通过交替训练策略分别学习道路和物体生成。其中 和 分别表示地图和背景区域的二进制掩模，表示区域特定损失的逐元素乘法，是频率引导结构损失的加权系数。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <h4>5. 总体培训目标</h4>
+    <p>围绕 3.5 总体培训目标，总体培训目标整合了多个损失组件，以在我们的渐进式学习策略中实现不同的目标。在此阶段，通过交替训练策略分别学习道路和物体生成。其中 和 分别表示地图和背景区域的二进制掩模，表示区域特定损失的逐元素乘法，是频率引导结构损失的加权系数。</p>
     <p>$$ L_{\text{road}} = L_{\text{diff}} \odot (M_{\text{map}} + M_{\text{bg}}) + \lambda_{\text{freq}} \cdot L_{\text{freq}} \odot M_{\text{map}}, $$</p>
     <p>放在“方法”这一部分看，它重点在定义或约束 L road 这一项。这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
     <p>$$ L_{\text{object}} = L_{\text{diff}} \odot M_{\text{box}} + \lambda_{\text{freq}} \cdot L_{\text{freq}} \odot M_{\text{box}}, $$</p>
     <p>放在“方法”这一部分看，它重点在定义或约束 L object 这一项。这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
     <p>$$ L_{\text{stage2}} = L_{\text{diff}} + \lambda_{\text{freq}} \cdot L_{\text{freq}} \odot (M_{\text{map}} + M_{\text{box}}) + \lambda_{\text{MI}} \cdot L_{\text{MI}}, $$</p>
-    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
+    
 
 
 

@@ -108,7 +108,7 @@
       requestAnimationFrame(applyPageScale);
     }
 
-    function applyPageScale {
+    function applyPageScale() {
       var stage = document.querySelector('.page-stage');
       var shell = document.getElementById('page-shell');
       if (!stage || !shell) return;
@@ -120,7 +120,7 @@
     window.addEventListener('orientationchange', applyPageScale);
     window.addEventListener('load', applyPageScale);
     document.addEventListener('DOMContentLoaded', applyPageScale);
-    document.addEventListener('DOMContentLoaded', function {
+    document.addEventListener('DOMContentLoaded', function() {
       var shell = document.getElementById('page-shell');
       if (!shell) return;
       shell.querySelectorAll('img').forEach(function(img) {
@@ -130,20 +130,20 @@
         }
       });
       if ('ResizeObserver' in window) {
-        var resizeObserver = new ResizeObserver(function {
+        var resizeObserver = new ResizeObserver(function() {
           requestAnimationFrame(applyPageScale);
         });
         resizeObserver.observe(shell);
       }
     });
 
-    function setupImageLightbox {
+    function setupImageLightbox() {
       var lightbox = document.getElementById('page-lightbox');
       var lightboxImage = document.getElementById('page-lightbox-image');
       var lightboxCaption = document.getElementById('page-lightbox-caption');
       if (!lightbox || !lightboxImage || !lightboxCaption) return;
 
-      function closeLightbox {
+      function closeLightbox() {
         lightbox.setAttribute('hidden', 'hidden');
         lightbox.setAttribute('aria-hidden', 'true');
         lightboxImage.removeAttribute('src');
@@ -159,7 +159,7 @@
         var caption = figure ? figure.querySelector('figcaption') : null;
         lightboxImage.src = src;
         lightboxImage.alt = img.alt || '';
-        lightboxCaption.textContent = caption ? caption.textContent.trim : (img.alt || '');
+        lightboxCaption.textContent = caption ? caption.textContent.trim() : (img.alt || '');
         lightbox.removeAttribute('hidden');
         lightbox.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
@@ -174,13 +174,13 @@
           return;
         }
         if (target === lightbox || target.closest('.page-lightbox-close')) {
-          closeLightbox;
+          closeLightbox();
         }
       });
 
       document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape' && !lightbox.hasAttribute('hidden')) {
-          closeLightbox;
+          closeLightbox();
         }
       });
     }
@@ -202,8 +202,8 @@
       },
       svg: { fontCache: 'global' },
       startup: {
-        pageReady:  => {
-          return MathJax.startup.defaultPageReady.then( => {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady.then(() => {
             requestAnimationFrame(applyPageScale);
           });
         }
@@ -246,26 +246,24 @@
     <h2 id='technical'>技术细节</h2>
       <figure style='margin-top:20px;'><img class='paper-fig' src='../assets/2511_07321v1/figure2_full.png' alt='架构图' loading='<figcaption style='font-size:12px;'>架构图：方法整体流程</figcaption></figure>
     
-    <p>围绕 技术总览，通过从训练数据中学习几何和外观先验，我们的方法直接重建新场景，而不需要耗时的优化。典型预测前馈重建模型的基本设计选择是其输出空间。这种设计通过使用预测的姿势进行聚合来实现无姿势重建的主要目标，但它还保留了与姿势相关工作流程的完全兼容性，其中地面真实姿势可以是。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <p>围绕 技术总览，通过从训练数据中学习几何和外观先验，我们的方法直接重建新场景，而不需要耗时的优化。典型预测前馈重建模型的基本设计选择是其输出空间。这种设计通过使用预测的姿势进行聚合来实现无姿势重建的主要目标，但它还保留了与姿势相关工作流程的完全兼容性，其中地面真实姿势可以是。</p>
     <p>在训练过程中，我们随机采样 4 个目标视图，并使用其地面实况相机姿势渲染相应的图像，然后将渲染的图像与地面实况图像进行比较。具体来说，对于每对输入视图及其预测姿势，我们首先计算它们的相对姿势。(a) 使用 DINOv2 编码器提取特征，然后对图像进行局部全局关注，最后用于预测相机姿势和局部 3D 高斯。</p>
-      <h3>3 方法</h3>    <p>围绕 3 方法，我们引入了一种从多个图像中前馈预测 3D 高斯函数的方法。我们的方法支持广泛的场景尺度，并且可以选择利用可用的地面实况相机姿势和内在特征。通过从训练数据中学习几何和外观先验，我们的方法直接重建新场景，而不需要耗时的优化。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>    <p>$$ f_{\boldsymbol{\theta}}:\{(\boldsymbol{I}^v)\}_{v=1}^V \mapsto\{ \cup (\boldsymbol{\mu}_j^v, \alpha_j^v, \boldsymbol{r}_j^v, \boldsymbol{s}_j^v, \boldsymbol{c}_j^v) , \boldsymbol{k}^v, \boldsymbol{p}^v\}_{j=1,\dots,H \times W}^{v=1,\dots,V}. $$</p>
-    <p>放在“方法”这一部分看，这条式子是在把 f theta : ( I v) v 写成可直接计算的形式。右侧按元素列出了 f theta : ( I v) v 的组成项，说明模型是在逐像素、逐高斯或逐候选地同时预测一整组属性，而不是只输出单个标量。</p>    <h4>3.1 高斯输出空间分析及训练策略</h4>
-    <p>围绕 3.1 高斯输出空间分析及训练策略，典型预测前馈重建模型的基本设计选择是其输出空间。这种设计通过使用预测的姿势进行聚合来实现无姿势重建的主要目标，但它还保留了与姿势相关工作流程的完全兼容性，其中地面真实姿势可以是。这种灵活性对于现实世界的应用至关重要，例如地图重建，其中需要与预先存在的准确姿态分布对齐。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
-    <h4>3.2 模型架构</h4>
-    <p>我们建立在 Vision Transformer (ViT) 主干之上，并采用 VGGT 中的局部全局注意力机制来实现稳健的多视图特征融合。此外，对相机内在参数的调节有助于解决尺度模糊问题，如第 2 节中详细介绍的。具体来说，我们将一个内在令牌与输入图像令牌连接起来，然后由编码器网络进行处理，从而允许内在令牌聚合图像信息。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
-    <h4>3.3 解决量表歧义</h4>
-    <p>围绕 3.3 解决量表歧义，随后，为了实现内在条件，将预测参数转换为相机光线，通过线性层以获得嵌入特征，然后添加到原始图像特征中。当真实的内在函数可用时，我们直接使用它们来提供更准确的调节，从而实现更好的性能。在没有它们的情况下，我们使用预测的内在函数来进行网络调节。作者这样设计，是为了把这一节的输入</figure>
-    <h4>3.4 模型训练</h4>
-    <p>围绕 3.4 模型训练，这一节先处理的是 在训练过程中，我们随机采样 4 个目标视图，并使用其地面实况相机姿势渲染相应的图像，然后将渲染的图像与地面实况图像进行比较。作者这样设计，是为了先把输入表示、约束条件或中间状态整理成后续模块能直接使用的形式。</p>
+      <h3>3 方法</h3>    <p>围绕 3 方法，我们引入了一种从多个图像中前馈预测 3D 高斯函数的方法。我们的方法支持广泛的场景尺度，并且可以选择利用可用的地面实况相机姿势和内在特征。通过从训练数据中学习几何和外观先验，我们的方法直接重建新场景，而不需要耗时的优化。</p>    <p>$$ f_{\boldsymbol{\theta}}:\{(\boldsymbol{I}^v)\}_{v=1}^V \mapsto\{ \cup (\boldsymbol{\mu}_j^v, \alpha_j^v, \boldsymbol{r}_j^v, \boldsymbol{s}_j^v, \boldsymbol{c}_j^v) , \boldsymbol{k}^v, \boldsymbol{p}^v\}_{j=1,\dots,H \times W}^{v=1,\dots,V}. $$</p>
+    <p>放在“方法”这一部分看，这条式子是在把 f theta : ( I v) v 写成可直接计算的形式。右侧按元素列出了 f theta : ( I v) v 的组成项，说明模型是在逐像素、逐高斯或逐候选地同时预测一整组属性，而不是只输出单个标量。</p>    <h4>1. 高斯输出空间分析及训练策略</h4>
+    <p>围绕 3.1 高斯输出空间分析及训练策略，典型预测前馈重建模型的基本设计选择是其输出空间。这种设计通过使用预测的姿势进行聚合来实现无姿势重建的主要目标，但它还保留了与姿势相关工作流程的完全兼容性，其中地面真实姿势可以是。这种灵活性对于现实世界的应用至关重要，例如地图重建，其中需要与预先存在的准确姿态分布对齐。</p>
+    <h4>2. 模型架构</h4>
+    <p>我们建立在 Vision Transformer (ViT) 主干之上，并采用 VGGT 中的局部全局注意力机制来实现稳健的多视图特征融合。此外，对相机内在参数的调节有助于解决尺度模糊问题，如第 2 节中详细介绍的。具体来说，我们将一个内在令牌与输入图像令牌连接起来，然后由编码器网络进行处理，从而允许内在令牌聚合图像信息。</p>
+    <h4>3. 解决量表歧义</h4>
+    <p>围绕 3.3 解决量表歧义，随后，为了实现内在条件，将预测参数转换为相机光线，通过线性层以获得嵌入特征，然后添加到原始图像特征中。当真实的内在函数可用时，我们直接使用它们来提供更准确的调节，从而实现更好的性能。在没有它们的情况下，我们使用预测的内在函数来进行网络调节。作者这样设计，是为了先把输入表示、约束条件或中间状态整理成后续模块能直接使用的形式。</p>
     
     
     
     <p>$$ \mathcal{L} = \mathcal{L}_{\text{image}} + \lambda_{\text{intrin}}\mathcal{L}_{\text{intrin}} + \lambda_{\text{pose}}\mathcal{L}_{\text{pose}} + \lambda_{\text{opacity}}\mathcal{L}_{\text{opacity}}. $$</p>
-    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
+    
     <p>$$ \mathcal{L}_{\text{R}}(i, j) = \arccos((\operatorname{tr}((\mathbf{R}_{i arrow j})^\top \hat{\mathbf{R}}_{i arrow j}) - 1) / 2), \mathcal{L}_{\text{t}}(i, j) = \mathcal{H}_{\delta}(\hat{\mathbf{t}}_{i arrow j} - \mathbf{t}_{i arrow j}). $$</p>
     <p>放在“方法”这一部分看。这条式子给出了训练阶段的优化目标。阅读时可以先看左侧到底在约束什么，再区分右侧每一项对应的是重建误差、正则项还是辅助监督。</p>
-    <h4>3.5 评估</h4>
-    <p>围绕 3.5 评估，为了在与姿势相关的设置中进行评估，我们使用相应的地面实况相机姿势来渲染目标视图。为了忠实地评估高斯重建的质量，我们遵循先前的无姿势方法，该方法首先预测目标相机姿势，然后使用这些预测姿势渲染图像以进行评估。目标相机姿态的预测如下，它通过基于预测的 3D 高斯的光度损失来优化姿态。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <h4>5. 评估</h4>
+    <p>围绕 3.5 评估，为了在与姿势相关的设置中进行评估，我们使用相应的地面实况相机姿势来渲染目标视图。为了忠实地评估高斯重建的质量，我们遵循先前的无姿势方法，该方法首先预测目标相机姿势，然后使用这些预测姿势渲染图像以进行评估。目标相机姿态的预测如下，它通过基于预测的 3D 高斯的光度损失来优化姿态。</p>
 
 
 

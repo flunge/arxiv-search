@@ -108,7 +108,7 @@
       requestAnimationFrame(applyPageScale);
     }
 
-    function applyPageScale {
+    function applyPageScale() {
       var stage = document.querySelector('.page-stage');
       var shell = document.getElementById('page-shell');
       if (!stage || !shell) return;
@@ -120,7 +120,7 @@
     window.addEventListener('orientationchange', applyPageScale);
     window.addEventListener('load', applyPageScale);
     document.addEventListener('DOMContentLoaded', applyPageScale);
-    document.addEventListener('DOMContentLoaded', function {
+    document.addEventListener('DOMContentLoaded', function() {
       var shell = document.getElementById('page-shell');
       if (!shell) return;
       shell.querySelectorAll('img').forEach(function(img) {
@@ -130,20 +130,20 @@
         }
       });
       if ('ResizeObserver' in window) {
-        var resizeObserver = new ResizeObserver(function {
+        var resizeObserver = new ResizeObserver(function() {
           requestAnimationFrame(applyPageScale);
         });
         resizeObserver.observe(shell);
       }
     });
 
-    function setupImageLightbox {
+    function setupImageLightbox() {
       var lightbox = document.getElementById('page-lightbox');
       var lightboxImage = document.getElementById('page-lightbox-image');
       var lightboxCaption = document.getElementById('page-lightbox-caption');
       if (!lightbox || !lightboxImage || !lightboxCaption) return;
 
-      function closeLightbox {
+      function closeLightbox() {
         lightbox.setAttribute('hidden', 'hidden');
         lightbox.setAttribute('aria-hidden', 'true');
         lightboxImage.removeAttribute('src');
@@ -159,7 +159,7 @@
         var caption = figure ? figure.querySelector('figcaption') : null;
         lightboxImage.src = src;
         lightboxImage.alt = img.alt || '';
-        lightboxCaption.textContent = caption ? caption.textContent.trim : (img.alt || '');
+        lightboxCaption.textContent = caption ? caption.textContent.trim() : (img.alt || '');
         lightbox.removeAttribute('hidden');
         lightbox.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
@@ -174,13 +174,13 @@
           return;
         }
         if (target === lightbox || target.closest('.page-lightbox-close')) {
-          closeLightbox;
+          closeLightbox();
         }
       });
 
       document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape' && !lightbox.hasAttribute('hidden')) {
-          closeLightbox;
+          closeLightbox();
         }
       });
     }
@@ -202,8 +202,8 @@
       },
       svg: { fontCache: 'global' },
       startup: {
-        pageReady:  => {
-          return MathJax.startup.defaultPageReady.then( => {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady.then(() => {
             requestAnimationFrame(applyPageScale);
           });
         }
@@ -245,13 +245,13 @@
     <h2 id='technical'>技术细节</h2>
       <figure style='margin-top:20px;'><img class='paper-fig' src='../assets/2603_04770v1/figure2_full.png' alt='架构图' loading='<figcaption style='font-size:12px;'>架构图：方法整体流程</figcaption></figure>
     
-    <p>对于每个视图，我们根据其相应收集的几何参数构建投影矩阵。DSA-SRGS 旨在从这些稀疏采样的低分辨率动态投影直接重建高保真四维血管模型。此外，该策略引入了残差引导机制，该机制使用渲染图像和地面实况图像之间的差异图主动在高残差区域中添加 尺度高斯核。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <p>对于每个视图，我们根据其相应收集的几何参数构建投影矩阵。DSA-SRGS 旨在从这些稀疏采样的低分辨率动态投影直接重建高保真四维血管模型。此外，该策略引入了残差引导机制，该机制使用渲染图像和地面实况图像之间的差异图主动在高残差区域中添加 尺度高斯核。</p>
     <p>为了提供 4D 重建的外部先验，我们引入了 DSA 专用的超分辨率 (SR) 模型来生成高分辨率纹理。具体来说，构建了一个具有置信度感知的教学参考图像，它保留了高置信度区域中的 SR 增强纹理，同时在低置信度区域中恢复到原始的上采样观察结果。</p>
-      <h3>2 方法</h3>    <p>对于每个视图，我们根据其相应收集的几何参数构建投影矩阵。DSA-SRGS 旨在从这些稀疏采样的低分辨率动态投影直接重建高保真四维血管模型。此外，该策略引入了残差引导机制，该机制使用渲染图像和地面实况图像之间的差异图主动在高残差区域中添加 尺度高斯核。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
-    <p>为了提供 4D 重建的外部先验，我们引入了 DSA 专用的超分辨率 (SR) 模型来生成高分辨率纹理。具体来说，构建了一个具有置信度感知的教学参考图像，它保留了高置信度区域中的 SR 增强纹理，同时在低置信度区域中恢复到原始的上采样观察结果。</p>    <h4>2.1 问题定义</h4>
-    <p>给定动态 DSA 序列的低分辨率投影输入，其中 和 分别表示总时间帧和稀疏视点。对于每个视图，我们根据其相应收集的几何参数构建投影矩阵。DSA-SRGS 旨在从这些稀疏采样的低分辨率动态投影直接重建高保真四维血管模型。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
-    <h4>2.2 辐射亚像素致密化</h4>
-    <p>对于渲染，我们采用 X 射线光栅化管道和累积衰减修剪策略。对于每个满足条件的种子内核，RSD 生成子内核，并且新生成的内核在父内核周围形成更精细的覆盖。此外，该策略引入了残差引导机制，该机制使用渲染图像和地面实况图像之间的差异图主动在高残差区域中添加 尺度高斯核。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+      <h3>2 方法</h3>    <p>对于每个视图，我们根据其相应收集的几何参数构建投影矩阵。DSA-SRGS 旨在从这些稀疏采样的低分辨率动态投影直接重建高保真四维血管模型。此外，该策略引入了残差引导机制，该机制使用渲染图像和地面实况图像之间的差异图主动在高残差区域中添加 尺度高斯核。</p>
+    <p>为了提供 4D 重建的外部先验，我们引入了 DSA 专用的超分辨率 (SR) 模型来生成高分辨率纹理。具体来说，构建了一个具有置信度感知的教学参考图像，它保留了高置信度区域中的 SR 增强纹理，同时在低置信度区域中恢复到原始的上采样观察结果。</p>    <h4>1. 问题定义</h4>
+    <p>给定动态 DSA 序列的低分辨率投影输入，其中 和 分别表示总时间帧和稀疏视点。对于每个视图，我们根据其相应收集的几何参数构建投影矩阵。DSA-SRGS 旨在从这些稀疏采样的低分辨率动态投影直接重建高保真四维血管模型。</p>
+    <h4>2. 辐射亚像素致密化</h4>
+    <p>对于渲染，我们采用 X 射线光栅化管道和累积衰减修剪策略。对于每个满足条件的种子内核，RSD 生成子内核，并且新生成的内核在父内核周围形成更精细的覆盖。此外，该策略引入了残差引导机制，该机制使用渲染图像和地面实况图像之间的差异图主动在高残差区域中添加 尺度高斯核。</p>
     <p>$$ \rho_i(t) = \Phi(H_{3D}(\boldsymbol{\mu}_i) \oplus H_{4D}(\boldsymbol{\mu}_i, t)), $$</p>
     <p>这条式子给出了时间相关的重要性评分：模型把三维位置编码和四维时空编码拼接后送入映射函数，得到第 i 个高斯在时刻 t 的重要程度。这个分数后面会直接影响哪些高斯应该被重点保留或更新。</p>
     <p>$$ \bar{\rho}_i = \frac{1}{N_{\text{iter}}} \sum_{k=1}^{N_{\text{iter}}} \rho_i(t_k), $$</p>
@@ -262,8 +262,8 @@
     <p>这条式子表示作者会在当前位置附近加入一个随机扰动，得到若干候选位移。这样做不是为了盲目加噪，而是为了在局部邻域里探索更合适的几何位置。</p>
     <p>$$ \boldsymbol{s}_{i}^{(k)} = \beta \cdot \boldsymbol{s}_i, \quad \beta \in (0,1), $$</p>
     <p>这条式子通过缩放因子 beta 调整高斯尺度，生成更紧或更松的候选形状。作者借它控制局部高斯的覆盖范围，避免形状始终固定不变。</p>
-    <h4>2.3 多保真纹理学习</h4>
-    <p>为了提供 4D 重建的外部先验，我们引入了 DSA 专用的超分辨率 (SR) 模型来生成高分辨率纹理。具体来说，构建了一个具有置信度感知的教学参考图像，它保留了高置信度区域中的 SR 增强纹理，同时在低置信度区域中恢复到原始的上采样观察结果。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <h4>3. 多保真纹理学习</h4>
+    <p>为了提供 4D 重建的外部先验，我们引入了 DSA 专用的超分辨率 (SR) 模型来生成高分辨率纹理。具体来说，构建了一个具有置信度感知的教学参考图像，它保留了高置信度区域中的 SR 增强纹理，同时在低置信度区域中恢复到原始的上采样观察结果。</p>
     <p>$$ C = \sigma(\alpha \cdot \mathcal{S}(I_{\text{SR}}, I_{\text{LR}}^{\uparrow}) + \beta \cdot \mathcal{T}(I_{\text{SR}})), $$</p>
     <p>这条式子用一个 Sigmoid 门控把不同图像分支的得分压到 0 到 1 之间，得到融合权重图。它的作用是告诉模型在每个像素位置更该相信高分辨率结果还是低分辨率/参考结果。</p>
     <p>$$ I_{\text{teach}} = C \odot I_{\text{SR}} + (1 - C) \odot I_{\text{LR}}^{\uparrow}, $$</p>

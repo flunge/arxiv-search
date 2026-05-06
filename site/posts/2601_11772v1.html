@@ -108,7 +108,7 @@
       requestAnimationFrame(applyPageScale);
     }
 
-    function applyPageScale {
+    function applyPageScale() {
       var stage = document.querySelector('.page-stage');
       var shell = document.getElementById('page-shell');
       if (!stage || !shell) return;
@@ -120,7 +120,7 @@
     window.addEventListener('orientationchange', applyPageScale);
     window.addEventListener('load', applyPageScale);
     document.addEventListener('DOMContentLoaded', applyPageScale);
-    document.addEventListener('DOMContentLoaded', function {
+    document.addEventListener('DOMContentLoaded', function() {
       var shell = document.getElementById('page-shell');
       if (!shell) return;
       shell.querySelectorAll('img').forEach(function(img) {
@@ -130,20 +130,20 @@
         }
       });
       if ('ResizeObserver' in window) {
-        var resizeObserver = new ResizeObserver(function {
+        var resizeObserver = new ResizeObserver(function() {
           requestAnimationFrame(applyPageScale);
         });
         resizeObserver.observe(shell);
       }
     });
 
-    function setupImageLightbox {
+    function setupImageLightbox() {
       var lightbox = document.getElementById('page-lightbox');
       var lightboxImage = document.getElementById('page-lightbox-image');
       var lightboxCaption = document.getElementById('page-lightbox-caption');
       if (!lightbox || !lightboxImage || !lightboxCaption) return;
 
-      function closeLightbox {
+      function closeLightbox() {
         lightbox.setAttribute('hidden', 'hidden');
         lightbox.setAttribute('aria-hidden', 'true');
         lightboxImage.removeAttribute('src');
@@ -159,7 +159,7 @@
         var caption = figure ? figure.querySelector('figcaption') : null;
         lightboxImage.src = src;
         lightboxImage.alt = img.alt || '';
-        lightboxCaption.textContent = caption ? caption.textContent.trim : (img.alt || '');
+        lightboxCaption.textContent = caption ? caption.textContent.trim() : (img.alt || '');
         lightbox.removeAttribute('hidden');
         lightbox.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
@@ -174,13 +174,13 @@
           return;
         }
         if (target === lightbox || target.closest('.page-lightbox-close')) {
-          closeLightbox;
+          closeLightbox();
         }
       });
 
       document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape' && !lightbox.hasAttribute('hidden')) {
-          closeLightbox;
+          closeLightbox();
         }
       });
     }
@@ -202,8 +202,8 @@
       },
       svg: { fontCache: 'global' },
       startup: {
-        pageReady:  => {
-          return MathJax.startup.defaultPageReady.then( => {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady.then(() => {
             requestAnimationFrame(applyPageScale);
           });
         }
@@ -246,20 +246,20 @@
     <h2 id='technical'>技术细节</h2>
       <figure style='margin-top:20px;'><img class='paper-fig' src='../assets/2601_11772v1/figure2_full.png' alt='架构图' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>架构图：方法整体流程</figcaption></figure>
     
-    <p>我们采用多视图 3DGS 教师网络来提供几何监督，采用新颖的视图来提供光度监督，并采用外推器网络来完成缺失的上下文。为了构造良好的 3D 高斯并最小化扭曲，我们还需要鼓励局部结构的一致性。此外， 的存在允许学生模型通过为置信度较低的区域生成较低的不透明度来平衡重建的完整性和置信度。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <p>我们采用多视图 3DGS 教师网络来提供几何监督，采用新颖的视图来提供光度监督，并采用外推器网络来完成缺失的上下文。为了构造良好的 3D 高斯并最小化扭曲，我们还需要鼓励局部结构的一致性。此外， 的存在允许学生模型通过为置信度较低的区域生成较低的不透明度来平衡重建的完整性和置信度。</p>
 <figure> <figcaption style='font-size:12px;'>图 2：所有结果都是使用我们的 StudentSplat 和教师细化（详见附录）仅使用一张输入图像生成的；StudentSplat 在文本转 3D 应用程序中直接从稳定扩散中获取生成的图像</figcaption></figure>
-    <h3>3 我们的方法</h3>    <p>整体流程如图所示。我们采用多视图 3DGS 教师网络来提供几何监督，采用新颖的视图来提供光度监督，并采用外推器网络来完成缺失的上下文。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>    <h4>3.1 前馈 3D 高斯分布</h4>
-    <p>在多视图 3DGS 中，我们有稀疏视图图像 、  及其相应的相机投影矩阵 ，其中 、 和 是固有矩阵、旋转和平移矩阵。与多视图 3DGS 模型不同，单视图 3DGS 模型更容易出现尺度模糊和外推问题。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <h3>3 我们的方法</h3>    <p>整体流程如图所示。我们采用多视图 3DGS 教师网络来提供几何监督，采用新颖的视图来提供光度监督，并采用外推器网络来完成缺失的上下文。</p>    <h4>1. 前馈 3D 高斯分布</h4>
+    <p>在多视图 3DGS 中，我们有稀疏视图图像 、  及其相应的相机投影矩阵 ，其中 、 和 是固有矩阵、旋转和平移矩阵。与多视图 3DGS 模型不同，单视图 3DGS 模型更容易出现尺度模糊和外推问题。</p>
     <p>$$ f^{K}_{\boldsymbol \theta}: \{ ({\boldsymbol I}^{i}, {\boldsymbol P}^i) \}_{i=1}^K \mapsto \{(\boldsymbol{\mu}^j, \alpha^j, \boldsymbol{\Sigma}^j, \boldsymbol{c}^j )\}^{H \times W \times K}_{j=1}. $$</p>
-    <p>放在“我们的方法”这一部分看，这条式子重点不是孤立地罗列符号，而是交代 f K theta : ( I i , P i) i 如何承接前面的输入并把结果交给后续步骤。</p>
+    
     <p>$$ f^1_{\boldsymbol \theta}: {\boldsymbol I^i} \mapsto \{(\boldsymbol{\mu}^j, \alpha^j, \boldsymbol{\Sigma}^j, \boldsymbol{c}^j )\}^{H \times W \times 1}_{j=1}. $$</p>
-    <p>放在“我们的方法”这一部分看，这条式子重点不是孤立地罗列符号，而是交代 这一项中间量 如何承接前面的输入并把结果交给后续步骤。</p>
+    
     <p>$$ \mathcal{L}_{studentSplat}=\underbrace{\mathcal{L}_{geo}+\mathcal{L}_{grad}}_{\text{Teacher supervision}}+\underbrace{\mathcal{L}_{photo}}_{\text{Novel-view supervision}}. $$</p>
-    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
-    <h4>3.2 师生模式</h4>
+    
+    <h4>2. 师生模式</h4>
     <p>师生模型的目的是解决训练期间的尺度模糊问题，以便为具有有效 3D 几何结构的学生模型启用单视图 3DGS。为了构造良好的 3D 高斯并最小化扭曲，我们还需要鼓励局部结构的一致性。因此，我们只需要一个输入视图，换句话说，我们放宽了对多个输入视图及其相应相机位姿的要求，以执行 3D 重建。</p>
     <p>更重要的是，所得模型自然地作为单视图深度估计模型，将 3D 重建任务与单视图视觉任务连接起来，这超出了教师模型的能力。</p>
-    <h4>3.3 外推法</h4>
+    <h4>3. 外推法</h4>
     <p>围绕 3.3 外推法，我们不是直接监督光栅化的新颖视图，而是通过网络进一步处理新颖视图重建，并使用光度损失监督输出。</p>
     <p>此外， 的存在允许学生模型通过为置信度较低的区域生成较低的不透明度来平衡重建的完整性和置信度。可以应用更好的外推网络（例如基于扩散的方法）来实现更好的新颖视图重建质量，但它们使训练流程更加复杂。这样，假设教师模型比学生模型表现更好，我们可以使用教师模型来处理学生模型的输出视图，以进一步改善重建结果。</p>
 

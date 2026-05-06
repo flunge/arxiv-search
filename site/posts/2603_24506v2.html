@@ -108,7 +108,7 @@
       requestAnimationFrame(applyPageScale);
     }
 
-    function applyPageScale {
+    function applyPageScale() {
       var stage = document.querySelector('.page-stage');
       var shell = document.getElementById('page-shell');
       if (!stage || !shell) return;
@@ -120,7 +120,7 @@
     window.addEventListener('orientationchange', applyPageScale);
     window.addEventListener('load', applyPageScale);
     document.addEventListener('DOMContentLoaded', applyPageScale);
-    document.addEventListener('DOMContentLoaded', function {
+    document.addEventListener('DOMContentLoaded', function() {
       var shell = document.getElementById('page-shell');
       if (!shell) return;
       shell.querySelectorAll('img').forEach(function(img) {
@@ -130,20 +130,20 @@
         }
       });
       if ('ResizeObserver' in window) {
-        var resizeObserver = new ResizeObserver(function {
+        var resizeObserver = new ResizeObserver(function() {
           requestAnimationFrame(applyPageScale);
         });
         resizeObserver.observe(shell);
       }
     });
 
-    function setupImageLightbox {
+    function setupImageLightbox() {
       var lightbox = document.getElementById('page-lightbox');
       var lightboxImage = document.getElementById('page-lightbox-image');
       var lightboxCaption = document.getElementById('page-lightbox-caption');
       if (!lightbox || !lightboxImage || !lightboxCaption) return;
 
-      function closeLightbox {
+      function closeLightbox() {
         lightbox.setAttribute('hidden', 'hidden');
         lightbox.setAttribute('aria-hidden', 'true');
         lightboxImage.removeAttribute('src');
@@ -159,7 +159,7 @@
         var caption = figure ? figure.querySelector('figcaption') : null;
         lightboxImage.src = src;
         lightboxImage.alt = img.alt || '';
-        lightboxCaption.textContent = caption ? caption.textContent.trim : (img.alt || '');
+        lightboxCaption.textContent = caption ? caption.textContent.trim() : (img.alt || '');
         lightbox.removeAttribute('hidden');
         lightbox.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
@@ -174,13 +174,13 @@
           return;
         }
         if (target === lightbox || target.closest('.page-lightbox-close')) {
-          closeLightbox;
+          closeLightbox();
         }
       });
 
       document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape' && !lightbox.hasAttribute('hidden')) {
-          closeLightbox;
+          closeLightbox();
         }
       });
     }
@@ -202,8 +202,8 @@
       },
       svg: { fontCache: 'global' },
       startup: {
-        pageReady:  => {
-          return MathJax.startup.defaultPageReady.then( => {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady.then(() => {
             requestAnimationFrame(applyPageScale);
           });
         }
@@ -243,38 +243,38 @@
       <p>4. 同时解决轨迹可行性感知和物理一致性生成两个互补问题，在具有挑战性的轨迹条件下大幅超越现有方法。</p>
     
     <h2 id='technical'>技术细节</h2>
-    <p>PhyGenesis 概述 我们的 PhyGenesis 框架的概述如图所示。如图（a）所示，我们的框架是在异构多视图数据集（第 1 节）上进行训练的，这使得模型即使在具有挑战性的场景下也能够学习高视觉保真度和物理一致性。然后，这些校正后的条件会传递到物理增强型多视图视频生成器 (PE-MVGen)（第 1 节），该生成器会合成多视图视频序列。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <p>PhyGenesis 概述 我们的 PhyGenesis 框架的概述如图所示。如图（a）所示，我们的框架是在异构多视图数据集（第 1 节）上进行训练的，这使得模型即使在具有挑战性的场景下也能够学习高视觉保真度和物理一致性。然后，这些校正后的条件会传递到物理增强型多视图视频生成器 (PE-MVGen)（第 1 节），该生成器会合成多视图视频序列。</p>
     <p>ReSim 等之前的工作尝试将合成数据纳入世界模型训练中，以减轻现实世界分布的有限覆盖范围。他们的合成数据仅限于只有自我轨迹注释的单一视图，这使得训练控制多个代理的模型变得困难。此外，他们的数据收集并没有明确关注物理挑战事件，为加强模型的物理先验提供了有限的监督。</p>
 <figure> <figcaption style='font-size:12px;'>图 2：不同轨迹条件下视频生成的定性比较（显示了多视图输出的前视图）；先前的方法（例如 DiST-4D）在物理上具有挑战性的轨迹下表现出伪影和几何扭曲，而 PhyGenesis 保留了物理一致性和高视觉保真度</figcaption></figure>
-    <h3>3 方法</h3>    <p>PhyGenesis 概述 我们的 PhyGenesis 框架的概述如图所示。如图（a）所示，我们的框架是在异构多视图数据集（第 1 节）上进行训练的，这使得模型即使在具有挑战性的场景下也能够学习高视觉保真度和物理一致性。然后，这些校正后的条件会传递到物理增强型多视图视频生成器 (PE-MVGen)（第 1 节），该生成器会合成多视图视频序列。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
-    <p>ReSim 等之前的工作尝试将合成数据纳入世界模型训练中，以减轻现实世界分布的有限覆盖范围。他们的合成数据仅限于只有自我轨迹注释的单一视图，这使得训练控制多个代理的模型变得困难。利用显式碰撞传感器信号和地图元数据，我们设计了一种基于规则的过滤机制来精确定位物理交互的时间戳，提取 9.7 小时的高 pH 值。</p>    <h4>3.1 PhyGenesis 概述</h4>
-    <p>我们的 PhyGenesis 框架的概述如图所示。如图（a）所示，我们的框架是在异构多视图数据集（第 1 节）上进行训练的，这使得模型即使在具有挑战性的场景下也能够学习高视觉保真度和物理一致性。然后，这些校正后的条件会传递到物理增强型多视图视频生成器 (PE-MVGen)（第 1 节），该生成器会合成多视图视频序列。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
-    <h4>3.2 异构多视图数据</h4>
+    <h3>3 方法</h3>    <p>PhyGenesis 概述 我们的 PhyGenesis 框架的概述如图所示。如图（a）所示，我们的框架是在异构多视图数据集（第 1 节）上进行训练的，这使得模型即使在具有挑战性的场景下也能够学习高视觉保真度和物理一致性。然后，这些校正后的条件会传递到物理增强型多视图视频生成器 (PE-MVGen)（第 1 节），该生成器会合成多视图视频序列。</p>
+    <p>ReSim 等之前的工作尝试将合成数据纳入世界模型训练中，以减轻现实世界分布的有限覆盖范围。他们的合成数据仅限于只有自我轨迹注释的单一视图，这使得训练控制多个代理的模型变得困难。利用显式碰撞传感器信号和地图元数据，我们设计了一种基于规则的过滤机制来精确定位物理交互的时间戳，提取 9.7 小时的高 pH 值。</p>    <h4>1. PhyGenesis 概述</h4>
+    <p>我们的 PhyGenesis 框架的概述如图所示。如图（a）所示，我们的框架是在异构多视图数据集（第 1 节）上进行训练的，这使得模型即使在具有挑战性的场景下也能够学习高视觉保真度和物理一致性。然后，这些校正后的条件会传递到物理增强型多视图视频生成器 (PE-MVGen)（第 1 节），该生成器会合成多视图视频序列。</p>
+    <h4>2. 异构多视图数据</h4>
     <p>围绕 3.2 异构多视图数据，遵循最近的多视图驾驶世界模型，我们利用 nuScenes 数据集中的名义现实世界驾驶日志来建立对复杂城市环境的基础理解。然而，这些数据严重偏向于安全驾驶行为，并且本质上缺乏复杂的物理交互（碰撞、越野驾驶）。这种数据缺乏导致生成模型在具有物理挑战性的轨迹下产生伪影和物理不一致的运动。</p>
     <p>至关重要的是，为了准确捕获物理异常，我们还集成了碰撞传感器和高清 (HD) 地图元数据。利用显式碰撞传感器信号和地图元数据，我们设计了一种基于规则的过滤机制来精确定位物理交互的时间戳，提取 9。最后，我们将这 9.7 小时的模拟剪辑与 4.6 小时的真实数据结合起来，构建我们的异构数据集。</p>
-    <h4>3.3 身体状况发生器</h4>
-    <p>围绕 3.3 身体状况发生器，其动态地将可能违反物理的帧 2D 轨迹纠正为物理上合理的 6-DoF 轨迹序列。向 6-DoF（包括俯仰、偏航、横滚）的过渡至关重要，因为极端的物理交互通常会导致垂直轴和旋转轴发生剧烈变化，而这是 2D 坐标无法捕获的。最后，应用前馈网络对聚合特征进行非线性转换，在轨迹预测之前产生完全细化的查询。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <h4>3. 身体状况发生器</h4>
+    <p>围绕 3.3 身体状况发生器，其动态地将可能违反物理的帧 2D 轨迹纠正为物理上合理的 6-DoF 轨迹序列。向 6-DoF（包括俯仰、偏航、横滚）的过渡至关重要，因为极端的物理交互通常会导致垂直轴和旋转轴发生剧烈变化，而这是 2D 坐标无法捕获的。最后，应用前馈网络对聚合特征进行非线性转换，在轨迹预测之前产生完全细化的查询。</p>
     <p>为了实现这一目标，我们提出了一种系统的反事实轨迹腐败策略。对于碰撞后帧，我们通过在碰撞前以相同的速度延伸它们的路径来故意破坏所有代理的轨迹。此外，为了避免扭曲自然驾驶条件，我们还包括来自 nuScenes 的真实世界标称轨迹条件对，而不应用反事实腐败。<img width='800' height='450' class='paper-fig' src='../assets/2603_24506v2/figure3_full.png'lazy' decoding='async' /><img width='800' height='450' class='paper-fig' src='../assets/2603_24506v2/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' / />
       <figcaption style='font-size:12px;'>图 3：nuScenes、CARLA Ego 和 CARLA ADV 的最大自我车辆加速度分布；模拟的 CARLA 数据集显示出明显的向更高加速度的转变，表明与 nuScenes 中主要的标称驾驶行为相比，更具攻击性的动态和身体挑战事件，重点说明方<figcaption style='font-size:12px;'>图 4：MLP 和时间输出头在模拟碰撞动力学方面的比较；MLP 显示碰撞后速度逐渐下降，而 GT 和时间方向头部显示瞬时下降到零，产生更真实的动态</figcaption></figure>
     <p>$$ \mathbf{q}_{s} = \text{SpatialCrossAttn}(\mathbf{q}, \mathcal{F}_{pv}) $$</p>
-    <p>放在“方法”这一部分看，这条式子重点不是孤立地罗列符号，而是交代 q s 如何承接前面的输入并把结果交给后续步骤。</p>
+    
     <p>$$ \mathbf{q}_{a} = \text{AgentSelfAttn}(\mathbf{q}_{s}) $$</p>
-    <p>放在“方法”这一部分看，这条式子重点不是孤立地罗列符号，而是交代 q a 如何承接前面的输入并把结果交给后续步骤。</p>
+    
     <p>$$ \mathbf{q}_{m} = \text{MapCrossAttn}(\mathbf{q}_{a}, \mathbf{E}_{map}) $$</p>
-    <p>放在“方法”这一部分看，这条式子重点不是孤立地罗列符号，而是交代 q m 如何承接前面的输入并把结果交给后续步骤。</p>
+    
     <p>$$ \mathbf{q}_{f} = \text{FFN}(\mathbf{q}_{m}) $$</p>
-    <p>放在“方法”这一部分看，这条式子重点不是孤立地罗列符号，而是交代 q f 如何承接前面的输入并把结果交给后续步骤。</p>
+    
     <p>$$ \mathbf{h}_{i,t} = \text{TCN} ( \text{Proj}(\mathbf{q}_f[i] \parallel \mathbf{E}_{time}(t)) ) $$</p>
-    <p>放在“方法”这一部分看，这条式子重点不是孤立地罗列符号，而是交代 h i,t 如何承接前面的输入并把结果交给后续步骤。</p>
+    
     <p>$$ \hat{\mathcal{T}}_{i,t}^{6dof} = \text{MLP}(\mathbf{h}_{i,t}) \in \mathbb{R}^6 $$</p>
-    <p>放在“方法”这一部分看，这条式子重点不是孤立地罗列符号，而是交代 T i,t 6dof 如何承接前面的输入并把结果交给后续步骤。</p>
+    
     <p>$$ \mathcal{T}_{phy} = \frac{1}{N \times T} \sum_{i=1}^{N} \sum_{t=1}^{T} W_{i,t} \| \hat{\mathcal{T}}_{i,t}^{6dof} - \mathcal{T}_{i,t}^{gt} \|_1 $$</p>
     <p>放在“方法”这一部分看，它重点在定义或约束 T phy 这一项。这条式子描述了多个分量的聚合或逐步合成过程。它通常表示模型如何把局部贡献、概率权重或多项损失累积成最终结果。</p>
-    <h4>3.4 物理增强型多视图视频生成器</h4>
-    <p>基于 2.1（一种最初以图像和文本为条件的高容量扩散变压器（DiT）），我们将其改编为专为自动驾驶领域设计的可控多视图生成器。此外，为了明确在结构布局上生成条件，我们使用校准的内在函数和外在函数来投影未来帧 3D 代理框并将折线映射到每个摄像机视图上。生成器受到地面真实物理轨迹的监督，将物理校正与渲染分离。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <h4>4. 物理增强型多视图视频生成器</h4>
+    <p>基于 2.1（一种最初以图像和文本为条件的高容量扩散变压器（DiT）），我们将其改编为专为自动驾驶领域设计的可控多视图生成器。此外，为了明确在结构布局上生成条件，我们使用校准的内在函数和外在函数来投影未来帧 3D 代理框并将折线映射到每个摄像机视图上。生成器受到地面真实物理轨迹的监督，将物理校正与渲染分离。</p>
     <p>其中预测速度取决于三个关键因素。表示单个初始上下文帧的潜在特征，表示场景标题，并对未来的多视图布局图像进行编码。以较低分辨率  进行预训练，以快速学习多视图几何形状和物理上具有挑战性的布局映射，然后进行高分辨率  微调以确保视觉保真度。</p>
     <p>$$ \mathbf{z}_t = t\mathbf{z}_1 + (1 - t)\mathbf{z}_0 $$</p>
-    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
+    
     <p>$$ \mathcal{L}_{FM} = \mathbb{E}_{\mathbf{z}_0, \mathbf{z}_1, t} \| u_\theta(\mathbf{z}_t, t, \mathbf{c}_{init}, \mathbf{c}_{text}, \mathbf{c}_{layout}) - \mathbf{v}_t \|_2^2 $$</p>
     <p>这条式子给出了噪声预测训练目标：模型在随机时间步接收带噪输入和条件信息，然后尽量把真实噪声估计准确。训练好这一项之后，反向采样时才能稳定地把噪声状态一步步拉回真实场景分布。</p>
 

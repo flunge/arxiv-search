@@ -108,7 +108,7 @@
       requestAnimationFrame(applyPageScale);
     }
 
-    function applyPageScale {
+    function applyPageScale() {
       var stage = document.querySelector('.page-stage');
       var shell = document.getElementById('page-shell');
       if (!stage || !shell) return;
@@ -120,7 +120,7 @@
     window.addEventListener('orientationchange', applyPageScale);
     window.addEventListener('load', applyPageScale);
     document.addEventListener('DOMContentLoaded', applyPageScale);
-    document.addEventListener('DOMContentLoaded', function {
+    document.addEventListener('DOMContentLoaded', function() {
       var shell = document.getElementById('page-shell');
       if (!shell) return;
       shell.querySelectorAll('img').forEach(function(img) {
@@ -130,20 +130,20 @@
         }
       });
       if ('ResizeObserver' in window) {
-        var resizeObserver = new ResizeObserver(function {
+        var resizeObserver = new ResizeObserver(function() {
           requestAnimationFrame(applyPageScale);
         });
         resizeObserver.observe(shell);
       }
     });
 
-    function setupImageLightbox {
+    function setupImageLightbox() {
       var lightbox = document.getElementById('page-lightbox');
       var lightboxImage = document.getElementById('page-lightbox-image');
       var lightboxCaption = document.getElementById('page-lightbox-caption');
       if (!lightbox || !lightboxImage || !lightboxCaption) return;
 
-      function closeLightbox {
+      function closeLightbox() {
         lightbox.setAttribute('hidden', 'hidden');
         lightbox.setAttribute('aria-hidden', 'true');
         lightboxImage.removeAttribute('src');
@@ -159,7 +159,7 @@
         var caption = figure ? figure.querySelector('figcaption') : null;
         lightboxImage.src = src;
         lightboxImage.alt = img.alt || '';
-        lightboxCaption.textContent = caption ? caption.textContent.trim : (img.alt || '');
+        lightboxCaption.textContent = caption ? caption.textContent.trim() : (img.alt || '');
         lightbox.removeAttribute('hidden');
         lightbox.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
@@ -174,13 +174,13 @@
           return;
         }
         if (target === lightbox || target.closest('.page-lightbox-close')) {
-          closeLightbox;
+          closeLightbox();
         }
       });
 
       document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape' && !lightbox.hasAttribute('hidden')) {
-          closeLightbox;
+          closeLightbox();
         }
       });
     }
@@ -202,8 +202,8 @@
       },
       svg: { fontCache: 'global' },
       startup: {
-        pageReady:  => {
-          return MathJax.startup.defaultPageReady.then( => {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady.then(() => {
             requestAnimationFrame(applyPageScale);
           });
         }
@@ -244,50 +244,48 @@
     <h2 id='technical'>技术细节</h2>
       <figure style='margin-top:20px;'><img class='paper-fig' src='../assets/2603_26067v1/figure2_full.png' alt='架构图' loading='<figcaption style='font-size:12px;'>架构图：方法整体流程</figcaption></figure>
     
-    <p>为了从根本上解决这个问题，我们使用显式的基于物理的渲染（PBR）属性来增强高斯基元。我们用基于物理的着色模型替换标准颜色渲染。具体来说，沿观察方向的 3D 高斯分布的出射辐射率通过渲染方程计算。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <p>为了从根本上解决这个问题，我们使用显式的基于物理的渲染（PBR）属性来增强高斯基元。我们用基于物理的着色模型替换标准颜色渲染。具体来说，沿观察方向的 3D 高斯分布的出射辐射率通过渲染方程计算。</p>
     <p>对于 BRDF 项，我们采用广泛采用的 Disney Micro-facet 模型，该模型利用优化后的模型来准确地模拟表面反射。然后，我们重建一组 3D 高斯，并通过最小化渲染图像和地面真实图像之间的像素差异来优化它们的属性。然而，在 R-PGA 中，我们观察到尝试在整个场景上重建和执行材质分解会导致重建质量崩溃。</p>
-      <h3>3 预赛</h3>    <p>这一节先处理的是 本节介绍 3D 高斯分布 (3DGS) 和物理对抗攻击公式，然后分析模拟保真度和优化目标中的先前限制。作者这样设计，是为了先把输入表示、约束条件或中间状态整理成后续模块能直接使用的形式。</p>    <h4>3.1 3D 高斯泼溅</h4>
-    <p>为了重建新场景，3DGS 只需要来自不同视点的少量图像作为训练输入。从 SfM 初始化的点云开始，它优化和调整每个点的参数，使渲染与真实图像非常相似。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+      <h3>3 预赛</h3>    <p>这一节先处理的是 本节介绍 3D 高斯分布 (3DGS) 和物理对抗攻击公式，然后分析模拟保真度和优化目标中的先前限制。作者这样设计，是为了先把输入表示、约束条件或中间状态整理成后续模块能直接使用的形式。</p>    <h4>1. 3D 高斯泼溅</h4>
+    <p>为了重建新场景，3DGS 只需要来自不同视点的少量图像作为训练输入。从 SfM 初始化的点云开始，它优化和调整每个点的参数，使渲染与真实图像非常相似。</p>
     <p>$$ \boldsymbol{g}(\boldsymbol{x}) = exp(-\frac{1}{2}(\boldsymbol{x}-\boldsymbol{\mu_g})^T\boldsymbol{\Sigma}_g^{-1}(\boldsymbol{x}-\boldsymbol{\mu_g})), $$</p>
     <p>这条式子把前面若干观测、条件或中间特征，经过一个显式模块映射成新的状态变量。它的意义在于把复杂流程压缩成清晰的函数接口，方便后续模块继续消费这个中间结果。</p>
-    <h4>3.2 物理攻击的制定</h4>
+    <h4>2. 物理攻击的制定</h4>
     <p>围绕 3.2 物理攻击的制定，物理对抗性攻击的主要目标是生成强大的对抗性伪装，该伪装在现实世界观看和环境条件的分布中仍然有效，表示为。由于直接优化不可微分和复杂的图像是很困难的，因此物理攻击方法采用渲染管道，通过将渲染的前景与。这里，表示从模拟器配置空间采样的物理配置，包括摄像机俯仰角、方位角、拍摄距离和基于图像的照明中使用的环境图。</p>
     <p>$$ \min_{\boldsymbol{\mathcal{T}}} \mathbb{E}_{\boldsymbol{c} \sim \mathcal{C}} [ \mathcal{L}_{\text{adv}}(\mathcal{F}(\mathcal{R}(\boldsymbol{\mathcal{T}},\boldsymbol{c})+\mathcal{B}), y) ], $$</p>
     <p>放在“预赛”这一部分看，它重点在定义或约束 min_ T 这一项。这条式子给出了训练阶段的优化目标。阅读时可以先看左侧到底在约束什么，再区分右侧每一项对应的是重建误差、正则项还是辅助监督。</p>
-    <h4>3.3 问题分析</h4>
-    <p>围绕 3.3 问题分析，尽管该公式被广泛采用，但我们观察到，现有方法生成的对抗性伪装在实践中往往表现出不足的稳健性和对抗有效性。我们将这些性能限制归因于简化模拟与复杂物理世界之间的差异，以及优化策略本身的陷阱。渲染图像（其中 ）和现实世界捕获图像之间存在分布变化。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>    <h3>4 方法论</h3>    <p>为了从根本上解决这个问题，我们使用显式的基于物理的渲染（PBR）属性来增强高斯基元。我们用基于物理的着色模型替换标准颜色渲染。具体来说，沿观察方向的 3D 高斯分布的出射辐射率通过渲染方程计算。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
-    <p>对于 BRDF 项，我们采用广泛采用的 Disney Micro-facet 模型，该模型利用优化后的模型来准确地模拟表面反射。然后，我们重建一组 3D 高斯，并通过最小化渲染图像和地面真实图像之间的像素差异来优化它们的属性。然而，在 R-PGA 中，我们观察到尝试在整个场景上重建和执行材质分解会导致重建质量崩溃。</p>    <h4>4.1 概述</h4>
+    <h4>3. 问题分析</h4>
+    <p>围绕 3.3 问题分析，尽管该公式被广泛采用，但我们观察到，现有方法生成的对抗性伪装在实践中往往表现出不足的稳健性和对抗有效性。我们将这些性能限制归因于简化模拟与复杂物理世界之间的差异，以及优化策略本身的陷阱。渲染图像（其中 ）和现实世界捕获图像之间存在分布变化。</p>    <h3>4 方法论</h3>    <p>为了从根本上解决这个问题，我们使用显式的基于物理的渲染（PBR）属性来增强高斯基元。我们用基于物理的着色模型替换标准颜色渲染。具体来说，沿观察方向的 3D 高斯分布的出射辐射率通过渲染方程计算。</p>
+    <p>对于 BRDF 项，我们采用广泛采用的 Disney Micro-facet 模型，该模型利用优化后的模型来准确地模拟表面反射。然后，我们重建一组 3D 高斯，并通过最小化渲染图像和地面真实图像之间的像素差异来优化它们的属性。然而，在 R-PGA 中，我们观察到尝试在整个场景上重建和执行材质分解会导致重建质量崩溃。</p>    <h4>4. 概述</h4>
     <p>为了解决降低对抗有效性和鲁棒性的两个关键问题，我们提出了 R-PGA，一种基于可重新启动 3DGS 的新型物理攻击框架。利用这两个核心组件，我们建立了 R-PGA 框架来迭代细化高斯的属性，产生强大的对抗性高斯。随后，使用误导检测器中提出的方法提取对抗性伪装。</p>
-    <h4>4.2 高保真可重新照明场景模拟器</h4>
+    <h4>5. 高保真可重新照明场景模拟器</h4>
     <h5>4.2.1 物理解缠重建模块</h5>
-    <p>为了从根本上解决这个问题，我们使用显式的基于物理的渲染（PBR）属性来增强高斯基元。我们用基于物理的着色模型替换标准颜色渲染。然后，我们重建一组 3D 高斯，并通过最小化渲染图像和地面真实图像之间的像素差异来优化它们的属性。作者这样设计，是为了把这一节的输入</figure>
-    <p>$$ L_o(\boldsymbol{\omega}_o, \mathbf{x}) = \int_{\Omega} f_r(\boldsymbol{\omega}_i, \boldsymbol{\omega}_o, \mathbf{x}) L_i(\boldsymbol{\omega}_i, \mathbf{x}) (\boldsymbol{\omega}_i \cdot \mathbf{n}) d\boldsymbol{\omega}_i, $$</p>
-    <p>这条式子就是渲染方程：出射光由所有入射方向的光照、材质反射函数以及与法线夹角共同积分得到。作者把它写出来，是为了说明夜间场景里的亮度不是直接回归出来的，而是受物理光照传输约束。</p>
+    <p>为了从根本上解决这个问题，我们使用显式的基于物理的渲染（PBR）属性来增强高斯基元。我们用基于物理的着色模型替换标准颜色渲染。然后，我们重建一组 3D 高斯，并通过最小化渲染图像和地面真实图像之间的像素差异来优化它们的属性。作者把它写出来，是为了说明夜间场景里的亮度不是直接回归出来的，而是受物理光照传输约束。</p>
     <h5>4.2.2 混合渲染模块</h5>
-    <p>在我们之前的会议工作 PGA 中，我们使用 3DGS 来重建整个场景，利用目标掩模来限制高斯属性对目标物体表面的更新。然而，在 R-PGA 中，我们观察到尝试在整个场景上重建和执行材质分解会导致重建质量崩溃。在渲染过程中，LBM 充当条件生成器。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <p>在我们之前的会议工作 PGA 中，我们使用 3DGS 来重建整个场景，利用目标掩模来限制高斯属性对目标物体表面的更新。然而，在 R-PGA 中，我们观察到尝试在整个场景上重建和执行材质分解会导致重建质量崩溃。在渲染过程中，LBM 充当条件生成器。</p>
     <p>它将目标环境图、地面实况图像和渲染前景的光度线索（由我们的 Relightable 3DGS 生成）作为输入。然后，模型推断相应的背景，确保背景照明与前景的照明条件自然一致。最后，使用 mask<img width='800' height='450' class='paper-fig' src='../assets/2603_26067v1/figure3_full.<img width='800' height='450' class='paper-fig' src='../assets/2603_26067v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' / />
       <figcaption style='font-size:12px;'>图 3：跨方位角和俯仰角的检测热图（红色：检测到，蓝色：躲避），对其他配置尺寸和多个探测器进行平均，以及三种基于 EoT 的 SOTA 方法表现出类似的故障区域</figcaption></figure>
     <p>$$ \mathcal{I}_{\{\text{obj}} \odot \mathcal{I}_{\text{gt}}, $$</p>
-    <p>放在“方法论”这一部分看，这条式子重点不是孤立地罗列符号，而是交代 I gt obj 如何承接前面的输入并把结果交给后续步骤。</p>
+    
     <p>$$ \mathcal{I}_{\text{fg}} = \mathcal{R}(\mathcal{G}_{\text{obj}}, c) \odot \mathcal{M}_{\text{tar}} + \mathcal{I}_{\text{gt}}^{\text{obj}} \odot (\mathcal{M}_{\text{obj}}-\mathcal{M}_{\text{tar}}), $$</p>
-    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
+    
     <p>$$ \mathcal{I}_{\text{bg}} = \mathcal{H}(\mathcal{I}_{\text{fg}}, \mathcal{I}_{\text{gt}}, \boldsymbol{E}), $$</p>
-    <p>放在“方法论”这一部分看，这条式子重点不是孤立地罗列符号，而是交代 I bg 如何承接前面的输入并把结果交给后续步骤。</p>
+    
     <p>$$ \mathcal{I}_{\text{det}} = \mathcal{M}_{\text{obj}} \odot \mathcal{I}_{\text{fg}} + (1 - \mathcal{M}_{\text{obj}}) \odot \mathcal{I}_{\text{bg}}. $$</p>
     <p>放在“方法论”这一部分看，它重点在定义或约束 I det 这一项。这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
-    <h4>4.3 硬物理配置挖矿模块</h4>
-    <p>围绕 4.3 硬物理配置挖矿模块，我们将这种性质称为固有构型硬度，它源于目标物体的固有几何结构和非伪装区域。为了鼓励优化器在早期阶段全面探索整个配置空间，我们将所有条目初始化为一个高常数值（例如 ）。为了获得对构型固有硬度的稳定、宏观评估，我们采用了基于动量的更新机制。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <h4>6. 硬物理配置挖矿模块</h4>
+    <p>围绕 4.3 硬物理配置挖矿模块，我们将这种性质称为固有构型硬度，它源于目标物体的固有几何结构和非伪装区域。为了鼓励优化器在早期阶段全面探索整个配置空间，我们将所有条目初始化为一个高常数值（例如 ）。为了获得对构型固有硬度的稳定、宏观评估，我们采用了基于动量的更新机制。</p>
     <p>这种时间平滑会累积历史梯度，确保高值反映在整个优化轨迹中始终难以攻击的配置。利用这种全局难度信息，我们用难度感知采样机制代替统一采样。在每次迭代中，对配置进行采样的概率与其难度分数成正比，通过 Softmax 分布表示。</p>
     <p>$$ s_i^{(t)} = \mu \cdot s_i^{(t-1)} + (1 - \mu) \cdot \mathcal{L}_{\text{curr}}, $$</p>
     <p>放在“方法论”这一部分看。这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
     <p>$$ P(c_i) = \frac{\exp(s_i / \tau)}{\sum_{j=1}^{M} \exp(s_j / \tau)}, $$</p>
     <p>放在“方法论”这一部分看。这条式子描述了多个分量的聚合或逐步合成过程。它通常表示模型如何把局部贡献、概率权重或多项损失累积成最终结果。</p>
-    <h4>4.4 总损失和优化目标</h4>
+    <h4>7. 总损失和优化目标</h4>
     <p>在R-PGA中，我们将混合渲染图像输入受害白盒检测器以获得检测结果。 6067v1/figure4_full.png'<figcaption style='font-size:12px;'>图 4：不同攻击方法在不同天气条件下的检测结果比较，特别报告了不同探测器在不同拍摄距离和俯仰角度下的平均 AP@0.5</figcaption></figure>
     <div class='card'><strong>表 1</strong><div style='margin-top:6px;'>不同物理攻击方法的 AP@0.5 与各种检测模型的比较；报告的结果代表了跨多个视点、拍摄距离和天气条件收集的测试数据集的平均检测性能。</div><div style='overflow-x:auto;ma solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>c|cc|cc|cc|c@ 2*Method</th><th colspan='2' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>One-Stage</th><th colspan='2' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Two-Stage</th><th colspan='2' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Transformer-based</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Average</th></tr><tr><td>—</td><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Yolo-V3</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>YoloX*</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>FrRCN*</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>MkRCN*</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>D-DETR*</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>PVT*</th><td>—</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>ORI</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.5251</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.7395</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.5712</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.6270</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.5877</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.7312</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.6126</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>FCA</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.4982</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.6550</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.3511</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.4035</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.4070</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.6875</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.4758</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>ACTIVE</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.1934</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.3749</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.1460</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.1841</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.2175</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.4160</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.2376</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>DTA</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.3462</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.4069</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.2292</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.3143</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.2924</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.5600</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.3240</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>RAUCA</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.1869</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.3643</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.1474</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.1725</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.1059</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.5081</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.2256</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>GCAC</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.1207</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.3084</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.1216</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.1614</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.0949</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.3556</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.1793</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>GRAC</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.1515</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.3695</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.1389</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.1888</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.1052</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.4563</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.2160</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>RAUCA-E2E</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.1121</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.1303</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.0256</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.1305</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.0389</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.4041</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.1333</td></tr></table></div></div>
     <p>$$ \mathcal{B} = \mathcal{F}(\mathcal{I}_{\text{det}}; \boldsymbol{\theta}_{\mathcal{F}}) = \{\boldsymbol{b}_1, \boldsymbol{b}_2, \dots \}. $$</p>
-    <p>放在“方法论”这一部分看，这条式子重点不是孤立地罗列符号，而是交代 B 如何承接前面的输入并把结果交给后续步骤。</p>
-    <h4>4.5 理论分析</h4>
+    
+    <h4>8. 理论分析</h4>
     <p>然而，直接求解内部最大化在计算上很困难，因为它需要在每个训练步骤中对复杂的渲染<img width='800' height='450' class='paper-fig' src='../assets/2603_26067v1/figure5_full.png'ig' src='../assets/2603_26067v1/figure5_full.png'<img width='800' height='450' class='paper-fig' src='../assets/2603_26067v1/figure6_full.png'igure><img class='paper-fig' src='../assets/2603_26067v1/figure6_full.png' alt='Figure 6:' loading<img width='800' height='450' class='paper-fig' src='../assets/2603_26067v1/figure7_full.png'</figcaption></figure>
 <figure><img class='paper-fig' src='../assets/2603_26067v1/figure7_full.p<img width='800' height='450' class='paper-fig' src='../assets/2603_26067v1/figure8_full.png'同探测器在不同天气条件和距离下的平均 AP@0.5</figcaption></figure>
 <figure><img class='paper-fig' src='../assets/2603_26067v1/figure8_full.png'<figcaption style='font-size:12px;'>图 8：对不同物理配置中不同攻击方法的损失情况进行视觉比较；为了使可视化更加清晰，我们报告了天气条件、距离和目标探测器的平均结果</figcaption></figure>

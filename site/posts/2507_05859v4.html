@@ -108,7 +108,7 @@
       requestAnimationFrame(applyPageScale);
     }
 
-    function applyPageScale {
+    function applyPageScale() {
       var stage = document.querySelector('.page-stage');
       var shell = document.getElementById('page-shell');
       if (!stage || !shell) return;
@@ -120,7 +120,7 @@
     window.addEventListener('orientationchange', applyPageScale);
     window.addEventListener('load', applyPageScale);
     document.addEventListener('DOMContentLoaded', applyPageScale);
-    document.addEventListener('DOMContentLoaded', function {
+    document.addEventListener('DOMContentLoaded', function() {
       var shell = document.getElementById('page-shell');
       if (!shell) return;
       shell.querySelectorAll('img').forEach(function(img) {
@@ -130,20 +130,20 @@
         }
       });
       if ('ResizeObserver' in window) {
-        var resizeObserver = new ResizeObserver(function {
+        var resizeObserver = new ResizeObserver(function() {
           requestAnimationFrame(applyPageScale);
         });
         resizeObserver.observe(shell);
       }
     });
 
-    function setupImageLightbox {
+    function setupImageLightbox() {
       var lightbox = document.getElementById('page-lightbox');
       var lightboxImage = document.getElementById('page-lightbox-image');
       var lightboxCaption = document.getElementById('page-lightbox-caption');
       if (!lightbox || !lightboxImage || !lightboxCaption) return;
 
-      function closeLightbox {
+      function closeLightbox() {
         lightbox.setAttribute('hidden', 'hidden');
         lightbox.setAttribute('aria-hidden', 'true');
         lightboxImage.removeAttribute('src');
@@ -159,7 +159,7 @@
         var caption = figure ? figure.querySelector('figcaption') : null;
         lightboxImage.src = src;
         lightboxImage.alt = img.alt || '';
-        lightboxCaption.textContent = caption ? caption.textContent.trim : (img.alt || '');
+        lightboxCaption.textContent = caption ? caption.textContent.trim() : (img.alt || '');
         lightbox.removeAttribute('hidden');
         lightbox.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
@@ -174,13 +174,13 @@
           return;
         }
         if (target === lightbox || target.closest('.page-lightbox-close')) {
-          closeLightbox;
+          closeLightbox();
         }
       });
 
       document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape' && !lightbox.hasAttribute('hidden')) {
-          closeLightbox;
+          closeLightbox();
         }
       });
     }
@@ -202,8 +202,8 @@
       },
       svg: { fontCache: 'global' },
       startup: {
-        pageReady:  => {
-          return MathJax.startup.defaultPageReady.then( => {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady.then(() => {
             requestAnimationFrame(applyPageScale);
           });
         }
@@ -246,18 +246,18 @@
     <h2 id='technical'>技术细节</h2>
       <figure style='margin-top:20px;'><img class='paper-fig' src='../assets/2507_05859v4/figure2_full.png' alt='架构图' loading='<figcaption style='font-size:12px;'>架构图：方法整体流程</figcaption></figure>
     
-    <p>我们的前馈压缩方法采用逐帧标准 3DGS 作为输入，表示为高斯帧，并且每个帧都根据各自时间戳的多视图图像进行预优化。在给定的高斯框架内，每个高斯原语的特征如下。在解码过程中，我们通过控制点引导的运动补偿和颜色细化进行重建，同时将其存储到缓冲区中以供将来参考。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <p>我们的前馈压缩方法采用逐帧标准 3DGS 作为输入，表示为高斯帧，并且每个帧都根据各自时间戳的多视图图像进行预优化。在给定的高斯框架内，每个高斯原语的特征如下。在解码过程中，我们通过控制点引导的运动补偿和颜色细化进行重建，同时将其存储到缓冲区中以供将来参考。</p>
     <p>然后将获得的稀疏运动张量输入到我们的端到端压缩模块中。在解码器侧，使用算术解码 (AD) 将比特流解压缩回运动张量以进行帧重建。</p>
-      <h3>3 初步的</h3>    <p>我们的前馈压缩方法采用逐帧标准 3DGS 作为输入，表示为高斯帧，并且每个帧都根据各自时间戳的多视图图像进行预优化。在给定的高斯框架内，每个高斯原语的特征如下。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>    <p>$$ G(\boldsymbol{x}) = e^{-\frac{1}{2}(\boldsymbol{x} - \boldsymbol{\mu})^T \boldsymbol{\Sigma}^{-1} (\boldsymbol{x} - \boldsymbol{\mu})}, $$</p>
-    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
+      <h3>3 初步的</h3>    <p>我们的前馈压缩方法采用逐帧标准 3DGS 作为输入，表示为高斯帧，并且每个帧都根据各自时间戳的多视图图像进行预优化。在给定的高斯框架内，每个高斯原语的特征如下。</p>    <p>$$ G(\boldsymbol{x}) = e^{-\frac{1}{2}(\boldsymbol{x} - \boldsymbol{\mu})^T \boldsymbol{\Sigma}^{-1} (\boldsymbol{x} - \boldsymbol{\mu})}, $$</p>
+    
     <p>$$ C = \sum_i c_i \alpha_i \prod_{j=1}^{i-1} (1-\alpha_j), $$</p>
     <p>放在“初步的”这一部分看，它重点在定义或约束 C 这一项。这条式子描述了多个分量的聚合或逐步合成过程。它通常表示模型如何把局部贡献、概率权重或多项损失累积成最终结果。</p>
     <p>$$ L_{\text{render}} = \lambda L_{\text{D-SSIM}} + (1-\lambda) L_1. $$</p>
-    <p>放在“初步的”这一部分看，它重点在定义或约束 L render 这一项。这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>    <h3>4 方法</h3>    <p>在解码过程中，我们通过控制点引导的运动补偿和颜色细化进行重建，同时将其存储到缓冲区中以供将来参考。然后将获得的稀疏运动张量输入到我们的端到端压缩模块中。在解码器侧，使用算术解码 (AD) 将比特流解压缩回运动张量以进行帧重建。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
-    <p>其中 和 分别是量化潜在代码的估计概率质量函数（PMF）和真实概率质量函数（PMF）。由于算术编码可以实现接近此界限的比特率，因此我们的目标是设计一个准确估计的熵模型。显示了所提出的双先验熵模型，该模型结合了超先验和时空上下文先验，以进行精确的分布估计。</p>    <h4>4.1 概述</h4>
+    <p>放在“初步的”这一部分看，它重点在定义或约束 L render 这一项。这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>    <h3>4 方法</h3>    <p>在解码过程中，我们通过控制点引导的运动补偿和颜色细化进行重建，同时将其存储到缓冲区中以供将来参考。然后将获得的稀疏运动张量输入到我们的端到端压缩模块中。在解码器侧，使用算术解码 (AD) 将比特流解压缩回运动张量以进行帧重建。</p>
+    <p>其中 和 分别是量化潜在代码的估计概率质量函数（PMF）和真实概率质量函数（PMF）。由于算术编码可以实现接近此界限的比特率，因此我们的目标是设计一个准确估计的熵模型。显示了所提出的双先验熵模型，该模型结合了超先验和时空上下文先验，以进行精确的分布估计。</p>    <h4>1. 概述</h4>
     <p>如图所示，我们的 D-FCGS 框架包含三个关键组件。(1) 稀疏运动提取 ，(2) 前馈运动压缩  和 (3) 运动补偿和细化 。在解码过程中，我们通过控制点引导的运动补偿和颜色细化进行重建，同时将其存储到缓冲区中以供将来参考。</p>
-    <h4>4.2 通过控制点进行稀疏运动提取</h4>
-    <p>围绕 4.2 通过控制点进行稀疏运动提取，基于大多数高斯模型表现出局部运动相干性的观察，我们提出了一种有效的稀疏表示。该过程有效地降低了存储需求和处理成本，同时保留了运动特征。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <h4>2. 通过控制点进行稀疏运动提取</h4>
+    <p>围绕 4.2 通过控制点进行稀疏运动提取，基于大多数高斯模型表现出局部运动相干性的观察，我们提出了一种有效的稀疏表示。该过程有效地降低了存储需求和处理成本，同时保留了运动特征。</p>
     <p>$$ \boldsymbol{\mu^c} = FPS(\{\mu_i\}_{i\in N}, \frac{N}{M}), $$</p>
     <p>这条式子是在从整组高斯中心里挑出更少但更有代表性的控制点。作者用最远点采样先保住空间覆盖范围，再把后续运动建模压缩到这些关键点上，从而减少需要编码和传输的自由度。</p>
     <p>$$ \boldsymbol{x^{c}} = Index(\boldsymbol{x}, \boldsymbol{\mu^c}), $$</p>
@@ -268,17 +268,17 @@
     <p>这条式子把前面若干观测、条件或中间特征，经过一个显式模块映射成新的状态变量。它的意义在于把复杂流程压缩成清晰的函数接口，方便后续模块继续消费这个中间结果。</p>
     <p>$$ \boldsymbol{m^c_{t}} = Converter (\boldsymbol{y^c_{t}} - \boldsymbol{\hat{y}^c_{t-1})}, $$</p>
     <p>这条式子把当前控制点特征与参考特征之间的差异，转换成可编码的运动残差表示。它对应的核心思想是：真正需要压缩的不是绝对状态，而是相邻帧之间的变化量。</p>
-    <h4>4.3 前馈运动压缩</h4>
-    <p>然后将获得的稀疏运动张量输入到我们的端到端压缩模块中。该过程从数据编码开始，然后是由加性均匀噪声模拟的可微分量化，以实现梯度反向传播。在解码器侧，使用算术解码 (AD) 将比特流解压缩回运动张量以进行帧重建。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    <h4>3. 前馈运动压缩</h4>
+    <p>然后将获得的稀疏运动张量输入到我们的端到端压缩模块中。该过程从数据编码开始，然后是由加性均匀噪声模拟的可微分量化，以实现梯度反向传播。在解码器侧，使用算术解码 (AD) 将比特流解压缩回运动张量以进行帧重建。</p>
     <p>每个量化潜在值的概率质量是通过在量化仓上积分 PMF 来计算的。其中对应于某个控制点的索引。速率损失结合了运动</figure>
     <p>$$ \begin{aligned} \boldsymbol{\hat{y}^m_t} =Q(\boldsymbol{y^m_t}) & = \boldsymbol{y^m_t} + \mathcal{U}(-\frac{q'}{2}, \frac{q'}{2}), \text{ for training} \\ & = Round(\frac{\boldsymbol{y^m_t}}{q'}) \cdot q', \text{ for testing} \\ \end{aligned} $$</p>
     <p>放在“方法”这一部分看，它重点在定义或约束 y m t 这一项。这条式子把前面若干观测、条件或中间特征，经过一个显式模块映射成新的状态变量。它的意义在于把复杂流程压缩成清晰的函数接口，方便后续模块继续消费这个中间结果。</p>
     <p>$$ R(\boldsymbol{\hat{y}^m_t}) \ge \mathbb{E}_{\boldsymbol{\hat{y}^m_t} \sim q_{\boldsymbol{\hat{y}^m_t}}}[-\log _2p_{\boldsymbol{\hat{y}^m_t}}(\boldsymbol{\hat{y}^m_t})], $$</p>
-    <p>放在“方法”这一部分看，这条式子重点不是孤立地罗列符号，而是交代 m_t 如何承接前面的输入并把结果交给后续步骤。</p>
-    <h4>4.4 运动补偿和细化</h4>
-    <p>围绕 4.4 运动补偿和细化，解码后的控制点运动以距离感知补偿方式传播到整个高斯集。最终通过加法应用聚合的运动矢量来调整参考帧的几何参数。来自熵模型模块的时空先验被重新用于预测颜色残差，这些残差在解码过程中动态添加，无需额外存储。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
-    <h4>4.5 D-FCGS 的训练和推理管道</h4>
-    <p>围绕 4.5 D-FCGS 的训练和推理管道，遵循既定实践，我们采用框架组（GoF）范例，其结构如下。在解码过程中，系统首先重建 ，然后将其与时空先验相结合来估计解码的分布参数 。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
+    
+    <h4>4. 运动补偿和细化</h4>
+    <p>围绕 4.4 运动补偿和细化，解码后的控制点运动以距离感知补偿方式传播到整个高斯集。最终通过加法应用聚合的运动矢量来调整参考帧的几何参数。来自熵模型模块的时空先验被重新用于预测颜色残差，这些残差在解码过程中动态添加，无需额外存储。</p>
+    <h4>5. D-FCGS 的训练和推理管道</h4>
+    <p>围绕 4.5 D-FCGS 的训练和推理管道，遵循既定实践，我们采用框架组（GoF）范例，其结构如下。在解码过程中，系统首先重建 ，然后将其与时空先验相结合来估计解码的分布参数 。</p>
 
 
 

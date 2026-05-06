@@ -108,7 +108,7 @@
       requestAnimationFrame(applyPageScale);
     }
 
-    function applyPageScale {
+    function applyPageScale() {
       var stage = document.querySelector('.page-stage');
       var shell = document.getElementById('page-shell');
       if (!stage || !shell) return;
@@ -120,7 +120,7 @@
     window.addEventListener('orientationchange', applyPageScale);
     window.addEventListener('load', applyPageScale);
     document.addEventListener('DOMContentLoaded', applyPageScale);
-    document.addEventListener('DOMContentLoaded', function {
+    document.addEventListener('DOMContentLoaded', function() {
       var shell = document.getElementById('page-shell');
       if (!shell) return;
       shell.querySelectorAll('img').forEach(function(img) {
@@ -130,20 +130,20 @@
         }
       });
       if ('ResizeObserver' in window) {
-        var resizeObserver = new ResizeObserver(function {
+        var resizeObserver = new ResizeObserver(function() {
           requestAnimationFrame(applyPageScale);
         });
         resizeObserver.observe(shell);
       }
     });
 
-    function setupImageLightbox {
+    function setupImageLightbox() {
       var lightbox = document.getElementById('page-lightbox');
       var lightboxImage = document.getElementById('page-lightbox-image');
       var lightboxCaption = document.getElementById('page-lightbox-caption');
       if (!lightbox || !lightboxImage || !lightboxCaption) return;
 
-      function closeLightbox {
+      function closeLightbox() {
         lightbox.setAttribute('hidden', 'hidden');
         lightbox.setAttribute('aria-hidden', 'true');
         lightboxImage.removeAttribute('src');
@@ -159,7 +159,7 @@
         var caption = figure ? figure.querySelector('figcaption') : null;
         lightboxImage.src = src;
         lightboxImage.alt = img.alt || '';
-        lightboxCaption.textContent = caption ? caption.textContent.trim : (img.alt || '');
+        lightboxCaption.textContent = caption ? caption.textContent.trim() : (img.alt || '');
         lightbox.removeAttribute('hidden');
         lightbox.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
@@ -174,13 +174,13 @@
           return;
         }
         if (target === lightbox || target.closest('.page-lightbox-close')) {
-          closeLightbox;
+          closeLightbox();
         }
       });
 
       document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape' && !lightbox.hasAttribute('hidden')) {
-          closeLightbox;
+          closeLightbox();
         }
       });
     }
@@ -202,8 +202,8 @@
       },
       svg: { fontCache: 'global' },
       startup: {
-        pageReady:  => {
-          return MathJax.startup.defaultPageReady.then( => {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady.then(() => {
             requestAnimationFrame(applyPageScale);
           });
         }
@@ -251,14 +251,14 @@
       <h3>3 问题表述</h3>    <p>论文先把任务拆成三个同时成立的目标：一是未来交通状态预测不仅要准，还要给出满足覆盖率约束的预测区间；二是对每个空间位置输出异常 p 值，并在空间时间相关性存在时仍控制 FDR；三是学习满足交通安全约束的控制策略，而不是只最大化奖励。</p>    <p>$$ \mathbb{P}(Y_{t+h}^{(i)} \in [L_{t+h}^{(i)}, U_{t+h}^{(i)}]) \geq 1 - \alpha, \quad \forall i, h $$</p>
     <p>放在“问题表述”这一部分看，它重点在定义或约束 Y t+h i 这一项。这条不等式给出了预测区间的覆盖率保证：真实未来值落在上下界之间的概率至少达到 1-α。它强调的是不确定性区间的可靠性保证，不是普通训练损失。</p>
     <p>$$ \text{FDR} = \mathbb{E}[\frac{|\{i: H_i^0 \text{ true}, p_t^{(i)} \leq \tau\}|}{|\{i: p_t^{(i)} \leq \tau\}| \vee 1}] \leq \alpha $$</p>
-    <p>放在“问题表述”这一部分看，它重点在定义或约束 FDR 这一项。这条式子把误报发现率写成一个期望比例，并要求它整体不超过阈值 α。作者用它保证异常检测系统即使在大量决策里运行，也能把错误报警的总体占比控制在可接受范围内。</p>    <h3>4 方法论</h3>    <p>整条方法链分成预测、异常检测和安全控制三段。它们不是三块并列模块，而是前一段产出的不确定性会继续成为后一段的输入。</p>    <h4>4.1 PU-GAT+：置信度单调的预测器</h4>    <p>作者首先指出传统温度缩放注意力的问题：它只会整体压平 softmax 分布，却无法回答两个邻居里谁更可信、应该给谁更高权重。因此 PU-GAT+ 把注意力改写成显式比较邻居不确定性的成对机制，并用 softplus 把 γ 约束为非负，保证相对注意力会单调偏向低不确定性的邻居。</p>    <p>$$ \alpha_{ij}^{\text{temp}} = \frac{\exp(e_{ij} / (1 + \beta\sigma_i))}{\sum_{k \in \mathcal{N}(i)} \exp(e_{ik} / (1 + \beta\sigma_i))} $$</p>
+    <p>放在“问题表述”这一部分看，它重点在定义或约束 FDR 这一项。这条式子把误报发现率写成一个期望比例，并要求它整体不超过阈值 α。作者用它保证异常检测系统即使在大量决策里运行，也能把错误报警的总体占比控制在可接受范围内。</p>    <h3>4 方法论</h3>    <p>整条方法链分成预测、异常检测和安全控制三段。它们不是三块并列模块，而是前一段产出的不确定性会继续成为后一段的输入。</p>    <h4>1. PU-GAT+：置信度单调的预测器</h4>    <p>作者首先指出传统温度缩放注意力的问题：它只会整体压平 softmax 分布，却无法回答两个邻居里谁更可信、应该给谁更高权重。因此 PU-GAT+ 把注意力改写成显式比较邻居不确定性的成对机制，并用 softplus 把 γ 约束为非负，保证相对注意力会单调偏向低不确定性的邻居。</p>    <p>$$ \alpha_{ij}^{\text{temp}} = \frac{\exp(e_{ij} / (1 + \beta\sigma_i))}{\sum_{k \in \mathcal{N}(i)} \exp(e_{ik} / (1 + \beta\sigma_i))} $$</p>
     <p>放在“方法论”这一部分看。这条式子是带不确定性温度缩放的注意力：源节点越不确定，分母里的温度越大，注意力分布就会被压平。作者把它作为对比基线，是为了说明仅靠缩放源节点温度并不能得到理想的不确定性传播机制。</p>
     <p>$$ \frac{\alpha_{ij}}{\alpha_{ik}} = \exp\big((e_{ij} - e_{ik}) + \gamma(\sigma_k - \sigma_j)\big) $$</p>
     <p>放在“方法论”这一部分看。这条式子比较同一个源节点分配给两个邻居的相对注意力强度。它直接说明该机制更偏向低不确定性的邻居，因此单调性约束真正被写进了注意力比值里。</p>    <p>在这之后，模型不是只输出一个预测均值，而是让每一层同时更新特征和不确定性，让这种不确定性直接参与跨层消息传递。时间建模上，作者又把交通序列拆成趋势流与残差流，分别编码周期性模式和突发事件，再把两路方差与相关性项合成为总不确定性。为了把神经网络输出的 σ 变成真正可用的预测区间，作者进一步采用分割保形预测、空间聚类和 ACI 更新，在簇级别做异构校准与漂移修正。</p>    <p>$$ \sigma_{\text{total}}^2 = \sigma_{\text{trend}}^2 + \sigma_{\text{res}}^2 + 2\rho \cdot \sigma_{\text{trend}} \cdot \sigma_{\text{res}} $$</p>
     <p>放在“方法论”这一部分看。这条式子把趋势分支和残差分支的不确定性合成为总方差，并显式保留两者相关性项。这样模型在做后续异常检测和安全控制时，用到的是完整的不确定性，而不是把多个来源简单相加。</p>    <p>$$ \alpha_{t+1}^{(k)} = \alpha_t^{(k)} + \gamma_{\text{ACI}} \cdot (\alpha - \text{err}_t^{(k)}) $$</p>
-    <p>这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
+    
     <p>$$ \limsup_{T \to \infty} \frac{1}{T}\sum_{t=1}^T \mathbf{1}[Y_t \notin \mathcal{I}_t] \leq \alpha + O(\frac{C\rho^{\tau_{\text{gap}}}}{1-\rho}) + O(\gamma_{\text{ACI}}) $$</p>
-    <p>放在“方法论”这一部分看。这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>    <h4>4.2 CRFN-BY：把异常分数变成有 FDR 保证的告警</h4>    <p>第二段的输入不是原始残差，而是用上一步校准不确定性标准化后的残差 z。这样异常检测判断的不是残差大不大，而是残差相对于当前不确定性是否异常。作者随后用条件 Real-NVP 为 z 建模条件密度，其中上下文同时编码空间邻居与时间历史，因此异常分数本质上是条件负对数似然。</p>    <p>真正关键的两步在后面。第一步是把异常分数通过校准集转成保形 p 值，而不是直接拿流模型分数阈值做检测；第二步是不用只对独立或 PRDS 假设成立的 BH，而改用对任意依赖结构都有效的 BY 程序控制 FDR。论文还讨论校准集被污染的情况，因此引入截尾校准，并用区块自助法验证空间时间依赖下的 FDR 行为。</p>    <h4>4.3 LyCon-WRL+：把预测不确定性接进安全控制</h4>    <p>最后一段不是把强化学习当成黑箱终点，而是先显式写出队列长度、最大等待时间和吞吐量三类安全约束，再把网格级预测聚合到路口级控制状态。强化学习状态里不仅有交通状态，还包含聚合后的预测均值、预测不确定性、异常 p 值和异常标志，因此策略能区分环境危险与信息本身不可靠。</p>    <p>在安全性保证上，作者训练 5 个世界模型组成集成来估计动态误差，并定义李雅普诺夫网络约束下一步状态应该朝更安全区域移动。更关键的是，他们没有把利普希茨有界性只写成证明前提，而是通过谱归一化给李雅普诺夫网络和世界模型都施加上界，从而导出一个可检查的误差阈值 ε*：只要模型误差低于这个阈值，就能推出长期约束违例有上界。最后，探索概率和奖励函数也都显式依赖预测不确定性、异常 p 值与世界模型不确定性，形成真正闭环。</p>
+    <p>放在“方法论”这一部分看。这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>    <h4>2. CRFN-BY：把异常分数变成有 FDR 保证的告警</h4>    <p>第二段的输入不是原始残差，而是用上一步校准不确定性标准化后的残差 z。这样异常检测判断的不是残差大不大，而是残差相对于当前不确定性是否异常。作者随后用条件 Real-NVP 为 z 建模条件密度，其中上下文同时编码空间邻居与时间历史，因此异常分数本质上是条件负对数似然。</p>    <p>真正关键的两步在后面。第一步是把异常分数通过校准集转成保形 p 值，而不是直接拿流模型分数阈值做检测；第二步是不用只对独立或 PRDS 假设成立的 BH，而改用对任意依赖结构都有效的 BY 程序控制 FDR。论文还讨论校准集被污染的情况，因此引入截尾校准，并用区块自助法验证空间时间依赖下的 FDR 行为。</p>    <h4>3. LyCon-WRL+：把预测不确定性接进安全控制</h4>    <p>最后一段不是把强化学习当成黑箱终点，而是先显式写出队列长度、最大等待时间和吞吐量三类安全约束，再把网格级预测聚合到路口级控制状态。强化学习状态里不仅有交通状态，还包含聚合后的预测均值、预测不确定性、异常 p 值和异常标志，因此策略能区分环境危险与信息本身不可靠。</p>    <p>在安全性保证上，作者训练 5 个世界模型组成集成来估计动态误差，并定义李雅普诺夫网络约束下一步状态应该朝更安全区域移动。更关键的是，他们没有把利普希茨有界性只写成证明前提，而是通过谱归一化给李雅普诺夫网络和世界模型都施加上界，从而导出一个可检查的误差阈值 ε*：只要模型误差低于这个阈值，就能推出长期约束违例有上界。最后，探索概率和奖励函数也都显式依赖预测不确定性、异常 p 值与世界模型不确定性，形成真正闭环。</p>
 
 
 
