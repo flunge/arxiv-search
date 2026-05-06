@@ -231,7 +231,7 @@
     <h2 id='summary'>简单摘要</h2>
     
       
-      <p>从多视图图像进行逼真3D重建是计算机视觉和图形学的基础问题。NeRF通过利用隐式表示和体渲染取得了重大突破；3DGS引入显式基于点的表示支持快速训练和高质量实时渲染。然而3DGS主要为静态场景设计，通常依赖稠密采集图像来重建详细3D几何。现有研究通过引入共视和几何约束或利用数据驱动前馈方法来探索稀疏视角重建，但主要针对静态场景。另一条研究方向旨在将NeRF或3DGS扩展到存在瞬态目标的动态环境——大多数无干扰物方法依赖显式或隐式的颜色残差异启发式来引导训练过程，但这些启发式在稀疏视角条件下效果不佳。一个重要问题是：能否在优化之前识别瞬态信息？本文探索如何提取丰富的掩码先验信息来增强稀疏视角3D重建。传统数据准备管线依赖SfM工具（如COLMAP）估计相机参数和稀疏点，但在稀疏视角或有大量瞬态内容的场景中常失败。本文利用几何基础模型VGGT估计相机参数——不仅运行更快还能产生稠密初始点云。有趣的是VGGT的注意力图具有高度信息性，能跨视角一致地识别相同目标而无需人工监督。</p><figure style='margin-top:20px;'><img width='800' height='450' class='paper-fig' src='../assets/2603_01603v1/figure1_full.png' alt='架构图：方法整体流程' <img width='800' height='450' class='paper-fig' src='../assets/2603_01603v1/figure2_full.png' alt='Figure 2:' loading='lazy'lazy' decoding='async' / />
+      <p>从多视图图像进行逼真3D重建是计算机视觉和图形学的基础问题。NeRF通过利用隐式表示和体渲染取得了重大突破；3DGS引入显式基于点的表示支持快速训练和高质量实时渲染。然而3DGS主要为静态场景设计，通常依赖稠密采集图像来重建详细3D几何。现有研究通过引入共视和几何约束或利用数据驱动前馈方法来探索稀疏视角重建，但主要针对静态场景。另一条研究方向旨在将NeRF或3DGS扩展到存在瞬态目标的动态环境——大多数无干扰物方法依赖显式或隐式的颜色残差异启发式来引导训练过程，但这些启发式在稀疏视角条件下效果不佳。一个重要问题是：能否在优化之前识别瞬态信息？本文探索如何提取丰富的掩码先验信息来增强稀疏视角3D重建。传统数据准备管线依赖SfM工具（如COLMAP）估计相机参数和稀疏点，但在稀疏视角或有大量瞬态内容的场景中常失败。本文利用几何基础模型VGGT估计相机参数——不仅运行更快还能产生稠密初始点云。有趣的是VGGT的注意力图具有高度信息性，能跨视角一致地识别相同目标而无需人工监督。</p><figure style='margin-top:20px;'><img width='800' height='450' class='paper-fig' src='../assets/2603_01603v1/figure1_full.png' alt='架构图：方法整体流程' <img width='800' height='450' class='paper-fig' src='../assets/2603_01603v1/figure2_full.png' alt='Figure 2:' loading='lazy' decoding='async' / />
       <figcaption style='font-size:12px;'>图 1：方法整体架构与流程</figcaption></figure>
     
     
@@ -245,10 +245,10 @@
     
     <h2 id='technical'>技术细节</h2>
     <p>3DGS 允许快速混合渲染。像素的渲染颜色可以通过-blending的方式得到。全局自注意力共同关注所有帧中的标记，它聚合来自多个视图的信息，没有任何归纳偏差。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
-    <p>考虑到颜色残差启发法在稀疏视图设置中不可靠，我们决定在 GS 训练之前加入丰富的掩模先验信息。具体来说，我们利用 VGGT 的注意力图来实现快速实体匹配（第 2 节）。基于这些观察，我们的目标是在几何和语义层面上解决这个问题。这一步的作用，是把当前结果继续传给后面的模块或训练目标。</p>
+    <p>考虑到颜色残差启发法在稀疏视图设置中不可靠，我们决定在 GS 训练之前加入丰富的掩模先验信息。具体来说，我们利用 VGGT 的注意力图来实现快速实体匹配（第 2 节）。基于这些观察，我们的目标是在几何和语义层面上解决这个问题。</p>
       <h3>3 预赛</h3>    <p>3DGS 允许快速混合渲染。像素的渲染颜色可以通过-blending的方式得到。全局自注意力共同关注所有帧中的标记，它聚合来自多个视图的信息，没有任何归纳偏差。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>    <p>$$ f((I_i)_{i=1}^N) = (\bg_i, D_i, P_i, T_i)_{i=1}^N. $$</p>
     <p>放在“预赛”这一部分看，这条式子重点不是孤立地罗列符号，而是交代 这一项中间量 如何承接前面的输入并把结果交给后续步骤。</p>    <h3>4 方法</h3>    <p>围绕 4 方法，基于这些观察，我们的目标是在几何和语义层面上解决这个问题。通过对层维度进行平均，我们将得到聚合的注意力图。作者这样设计，是为了把这一节的输入、约束和输出关系讲清楚。</p>
-    <p>然后，我们通过选择注意力值最高的索引来获得最佳匹配标记。该操作可以看作是一个投影过程，它考虑了特征和几何层面的相关性。为了过滤 中的噪声无关标记，我们重新投影 来参与图像。这一步的作用，是把当前结果继续传给后面的模块或训练目标。</p>    <h4>4.1 方法概述</h4>
+    <p>然后，我们通过选择注意力值最高的索引来获得最佳匹配标记。该操作可以看作是一个投影过程，它考虑了特征和几何层面的相关性。为了过滤 中的噪声无关标记，我们重新投影 来参与图像。</p>    <h4>4.1 方法概述</h4>
     <p>这一节先处理的是 给定彩色图像，我们首先使用 VGGT 来获取初始点云和相机参数。作者这样设计，是为了先把输入表示、约束条件或中间状态整理成后续模块能直接使用的形式。</p>
     
     
@@ -265,10 +265,10 @@
     <p>$$ Score = (Threshold_{CD}-CD) / Threshold_{CD}. $$</p>
     <p>放在“方法”这一部分看，它重点在定义或约束 Score 这一项。这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
     <h4>4.3 VLM 增强掩模生成</h4>
-    <p>一方面，正如引言中所讨论的和我们的实验所证实的，当前的 VLM 在识别瞬态物体方面表现出一些零样本能力。因此，直接将 VLM 与 Grounding-SAM 结合可能会导致结果不理想。另一方面，VG<img width='800' height='450' class='paper-fig' src='../assets/2603_01603v1/figure3_full.png' alt='Figure 3:' loading='lazy'lazy' decoding='async' />alt='Figure 3:' loading='lazy'lazy' decoding='async' /><img width='800' height='450' class='paper-fig' src='../assets/2603_01603v1/figure4_full.png' alt='Figure 4:' loading='lazy'lazy' decoding='async' / />
+    <p>一方面，正如引言中所讨论的和我们的实验所证实的，当前的 VLM 在识别瞬态物体方面表现出一些零样本能力。因此，直接将 VLM 与 Grounding-SAM 结合可能会导致结果不理想。另一方面，VG<img width='800' height='450' class='paper-fig' src='../assets/2603_01603v1/figure3_full.png'alt='Figure 3:' loading='lazy' decoding='async' /><img width='800' height='450' class='paper-fig' src='../assets/2603_01603v1/figure4_full.png' alt='Figure 4:' loading='lazy' decoding='async' / />
       <figcaption style='font-size:12px;'>图 3：对 NeRF On-the-go 和 RobustNeRF 数据集上的基线方法和方法进行定性评估</figcaption></figure>
     <h4>4.4 与 RobustGS 集成</h4>
-    <p>RobustGS使用逻辑回归来灵活学习决策边界阈值。RobustGS 使用掩模图像损失来优化掩模生成模型。我们根据经验观察到，允许优化相机内 1603v1/figure4_full.png' alt='Figure 4:' loading='lazy'lazy' decoding='async' /><figcaption style='font-size:12px;'>图 4：瞬态掩模生成的定量和定性评估；我们的方法始终优于基线方法，提供更可靠和稳定的掩模预测</figcaption></figure>
+    <p>RobustGS使用逻辑回归来灵活学习决策边界阈值。RobustGS 使用掩模图像损失来优化掩模生成模型。我们根据经验观察到，允许优化相机内 1603v1/figure4_full.png'<figcaption style='font-size:12px;'>图 4：瞬态掩模生成的定量和定性评估；我们的方法始终优于基线方法，提供更可靠和稳定的掩模预测</figcaption></figure>
     <p>$$ \mathcal{L}_{mask} = \hat{\mathcal{M}} \circ \mathcal{L}_{GS} + \mathcal{L}_{reg}, $$</p>
     <p>放在“方法”这一部分看，它重点在定义或约束 L mask 这一项。这条式子是在定义一个可直接计算的中间量：右侧把相对位置、方向、权重或比例关系组合起来，左侧则把这个组合结果记成后续模块要反复使用的变量。</p>
     <p>$$ \mathcal{L}^{\prime}_{mask} = \mathcal{M} \circ \mathcal{L}_{GS}. $$</p>
@@ -291,7 +291,7 @@
 
 
     <h3>5.1 掩盖先前的结果</h3>
-    <p>总体而言，在我们的任务中，与闭源 VLM 相比，开源 VLM 的表<img width='800' height='450' class='paper-fig' src='../assets/2603_01603v1/figure6_full.png' alt='Figure 6:' loading='lazy'lazy' decoding='async' />ig' src='../assets/2603_01603v1/figure6_full.png' alt='Figure 6:' loading='lazy'lazy' decoding='async' /><figcaption style='font-size:12px;'>图 5：第一行显示前视图，第二行显示鸟瞰图；我们的掩模先验显着增强了 BA + 对准过程的稳健性和可靠性</figcaption></figure>
+    <p>总体而言，在我们的任务中，与闭源 VLM 相比，开源 VLM 的表<img width='800' height='450' class='paper-fig' src='../assets/2603_01603v1/figure6_full.png'ig' src='../assets/2603_01603v1/figure6_full.png'<figcaption style='font-size:12px;'>图 5：第一行显示前视图，第二行显示鸟瞰图；我们的掩模先验显着增强了 BA + 对准过程的稳健性和可靠性</figcaption></figure>
     <h3>5.2 稀疏视图、无干扰的 3DGS 结果</h3>
     <p>尽管如此，我们的改进变体（RobustGS* + 我们的）取得了有竞争力的结果，增强了 RobustGS，PSNR 增益为 2-4 dB，RobustGS* 增益为 1-4 dB。如表所示，我们的方法在 18 个案例中的 10 个中实现了最佳性能，优于所有基线。我们对四个场景（Yoda、Crab2、Corner 和 Spot）进行消融研究，每个场景都有 8 个输入视图。</p>
 
