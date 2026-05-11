@@ -243,9 +243,7 @@
       <p>4. 整体设计高效，仅需约10分钟训练即可完成高质量反射表面重建。</p>
     
     <h2 id='technical'>技术细节</h2>
-      <figure style='margin-top:20px;'><img class='paper-fig' src='../assets/2603_10801v1/figure2_full.pngpng' alt='架构图' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>架构图：方法整体流程</figcaption></figure>
-    
-    
+      
       <p>该框架将多视图偏振图像、对应掩码及相机位姿信息集成，输出包含漫反射和镜面反射分量（以Stokes向量表示的多视图分量）、重建的几何网格、以及估计的环境光照。其核心创新在于将偏振物理信息融入3DGS重建框架，并通过深度引导的可视性掩码实现多视图切线空间一致性约束。</p>
       <p>法向表示的分析基础：首先对比了SDF隐式方法与3DGS方法中表面法向的表征差异。在隐式网络如NeuS中，表面法向通过SDF的梯度获得：n = ∇SDF(p)/||∇SDF(p)||，不透明度通过S形函数Φ(SDF(p))给出，优化过程中表面法向与不透明度相互制约——远离表面的点往往具有较低的不透明度值，最终法向由位于表面上的点主导决定。而在3DGS中，对于单个高斯核，不透明度与法向之间缺乏内在关联。像素级约束创建的是一种概率表示，多个高斯核配置可能表示等价的表面几何，引入固有的重建歧义性。这是将偏振信息引入3DGS的理论动机：偏振角（AoP）可以直接约束表面法向。</p>
       <p>偏振BRDF（pBRDF）渲染模型：将pBRDF模型融入渲染公式以引入偏振约束。最终渲染模型为：L_total = L_diffuse + L_specular，其中L_diffuse为高斯Surfels渲染后的漫反射颜色，L_specular为CubeMap Encoder评估的镜面反射颜色。镜面反射通过CubeMap方式高效处理，能够处理反射/粗糙表面且由于CUDA实现而维持高计算效率。</p>
@@ -257,6 +255,7 @@
       <p>(4) 定义可视性掩码：M_vis = 1 if |d_geo - D_nbr(u',v')| < ε else 0，ε为考虑高斯混合和离散化导致深度不确定性的容差阈值。该策略无需显式射线追踪即可获得与SDF方法可比的可视性结果。</p>
       <p>多视图切线空间一致性损失：基于pBRDF模型和深度引导的可视性掩码：L_tangent = Σ_{p∈S_surf} M_vis(p) · ||A(p) n(p) - b||²，其中n(p)为表面法向，A和b由多视图偏振测量构成的线性系统定义。该损失仅在可视性掩码确认表面点从对应视角可见时才施加切线平面一致性约束。</p>
       <p>综合损失函数：L_total = λ_rgb L_rgb + λ_stokes L_stokes + λ_tangent L_tangent + λ_normal L_normal + λ_depth L_depth。其中L_stokes结合非偏振图像渲染损失和偏振Stokes向量渲染损失（类比3DGS的L1+SSIM组合）。</p>
+    
     
 
 

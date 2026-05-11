@@ -249,9 +249,7 @@
     
     
     <h2 id='technical'>技术细节</h2>
-      <figure style='margin-top:20px;'><img class='paper-fig' src='../assets/2505_02175v1/figure2_full.png' alt='架构图' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>架构图：方法整体流程</figcaption></figure>
-    
-    
+      
       <p>SparSplat提出了首个基于可泛化2D Gaussian Splatting的前馈方法，从稀疏视图图像中通过单次前向传播同时实现3D重建和新视图合成。核心思路是学习一个MVS-based的可泛化模型，将输入图像映射到任意目标视图的2DGS平面表面元素参数图。</p>
       <p>**2D高斯溅射（2DGS）基础**</p>
       <p>3DGS将场景表示为3D各向异性高斯集合，每个高斯由中心mu、缩放s、旋转q、不透明度alpha和SH编码颜色定义。协方差Sigma=RSS^T R^T，可通过世界到相机变换矩阵W和局部仿射变换J投影到屏幕空间。渲染时将预排序的高斯投影到图像平面并通过alpha合成混合。但3D基元在不同视角下可能产生歧义——同一个2D足迹可能对应多种3D基元配置，且3D高斯投影到图像平面所用的透视仿射近似随着点远离基元中心变得不准确。</p>
@@ -269,6 +267,7 @@
       <p>每阶段的损失函数包含：L_mse（渲染图像与真值之间的MSE损失）、L_ssim（结构相似性损失）、L_perc（感知损失，基于VGG特征）、L_depth（预测深度与真值深度之间的L1损失）、L_dist（深度失真损失，最初在Mip-NeRF 360中引入，用于集中射线上权重分布，惩罚权重分散在多峰上）以及L_normal（法向一致性损失，确保2D面片局部与实际表面几何对齐）。</p>
       <p>深度失真损失L_dist = Sigma_{i,j} w_i w_j |z_i - z_j|，其中w_i、w_j为混合权重，z_i、z_j为沿观察方向的深度值。法向一致性损失L_normal = Sigma_i w_i (1 - n_i^T n_hat)，其中n_i为面片法向，n_hat为从渲染深度图推导的法向。</p>
       <p>由于MVS架构采用金字塔设计，L_s表示第s阶段的损失加权组合。总损失为各阶段损失的加权和。值得注意的是，与无法在训练时渲染全图和全深度（受计算时间限制）的隐式方法不同，基于高效高斯溅射渲染的本方法能够在训练时将损失施加于整张图像。</p>
+    
     
     <h2 id='experiment'>实验结论</h2>
     <p>其次，我们对三个常用的多视图数据集（即 DTU 、 BlendedMVS 和 Tanks and Temples ）进行了定量和定性比较。最后，我们进行消融研究来评估我们提出的方法的组成部分的影响。此外，为了评估我们提出的框架的泛化能力，我们在 BlendedMVS 数据集上定性比较我们的方法，并提供 Tanks 和 Temples 数据集的一些额外示例。</p>

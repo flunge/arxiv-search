@@ -243,9 +243,7 @@
       <p>4. 提出未来感知奖励器（FAR），通过面向规划的蒸馏机制直接从冻结世界模型蒸馏未来潜变量来评估候选轨迹，保持实时推理速度。</p>
     
     <h2 id='technical'>技术细节</h2>
-      <figure style='margin-top:20px<img class='paper-fig' src='../assets/2603_14948v1/figure2_full.pngpng' alt='架构图' loading='lazy'font-size:12px;'> />;'>架构图：方法整体流程</figcaption></figure>
-    
-    
+      
       <p>WorldDrive将场景生成与轨迹规划统一在一个整体框架中，通过统一视觉与运动表示桥接两个任务。系统在两个不同但耦合的阶段运行：视觉仿真阶段和轨迹优化阶段。</p>
       <p>阶段一：轨迹感知驾驶世界模型（TA-DWM, Trajectory-aware Driving World Model）</p>
       <p>基于强大的视频扩散模型构建，引入轨迹词汇表作为运动先验。具体组件：</p>
@@ -262,6 +260,7 @@
       <p>训练时对齐F_fut与TA-DWM生成的目标未来潜在X_0_target：L_distill = ||F_fut - X_0_target||²。未来感知解码器随后用轨迹嵌入查询蒸馏特征：F_state = FutureAwareDecoder(Q=E_traj, K=F_fut, V=F_fut)。MLP将F_state映射为标量奖励r，选择最高奖励的轨迹。</p>
       <p>偏好排序训练：将轨迹选择建模为Bradley-Terry偏好排序问题。构建偏好对：使用神谕驾驶分数对比最优候选τ_best与top-K中的次优候选。优化目标最大化正样本获得更高奖励分的似然：L_BT = -log σ(r_best - r_sub)，其中σ为sigmoid函数。</p>
       <p>解耦两阶段训练：(1) 仅优化TA-DWM学习以历史上下文和专家运动为条件的潜在动态；(2) 冻结WM后优化多模态轨迹规划器（目标为交叉熵模仿损失+二元交叉熵仿真损失+L1偏移回归）和FAR（目标为L_distill + λ_BT L_BT）。</p>
+    
     
     <h2 id='experiment'>实验结论</h2>
     <p>这些指标共同提供了对闭环驾驶行为的更全面的评估。我们使用 L2 距离误差和碰撞率作为评估开环规划性能的指标。</p>

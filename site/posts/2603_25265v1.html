@@ -244,41 +244,14 @@
     
     
     <h2 id='technical'>技术细节</h2>
-      <figure style='margin-top:20px;'><img class='paper-fig' src='../assets/2603_25265v1/figure2_full.png' alt='架构图' loading='lazy' decoding='async' /><figcaption style='font-size:12px;'>架构图：方法整体流程</figcaption></figure>
+      
+      <p>ViewSplat构建了一种视角自适应的前馈3D高斯泼溅框架，用于从无位姿图像中进行新视角合成，其核心创新在于将范式从静态图元回归转变为视角感知的动态泼溅。</p>
+      <p>框架首先通过特征提取与匹配网络从稀疏输入视图中联合估计相机位姿和初始3D高斯图元。输入图像经过共享的视觉编码器提取多视图特征，这些特征通过交叉注意力机制进行跨视图信息融合。相机位姿估计模块利用这些融合特征在统一规范空间中预测每张输入图像的相机外参。由于不需要真实相机位姿作为输入，该设计消除了对SfM预处理或已知相机参数的依赖。</p>
+      <p>3D高斯图元预测模块并行地从融合特征中回归每个像素对齐高斯图元的初始属性，包括3D位置、协方差（通过缩放和旋转参数化）、不透明度和球谐系数。这些属性构成基础高斯图元集合，但其关键设计在于：这些是初始估计值，而非最终渲染用的静态图元。</p>
+      <p>视角自适应动态泼溅机制是ViewSplat的核心。框架额外为每个高斯图元预测一组动态MLP的权重参数。在渲染阶段，给定目标视角的相机坐标，这些MLP接收归一化的目标视线方向和对数尺度距离作为输入，输出每个高斯属性的残差更新量。对数尺度距离重参数化是精心设计的：相比线性距离，对数变换使距离特征对近场变化更加敏感，更好地匹配透视投影的非线性特性，从而更精确地捕捉近距离的视角依赖效果。</p>
+      <p>具体而言，对于每个高斯图元的5类属性（3D位置、缩放、旋转、不透明度、颜色），MLP分别预测残差偏移量。位置残差允许图元根据目标视角微调其空间位置，补偿初始回归的不准确性；缩放和旋转残差调整图元的形状和朝向以适应视角变化；不透明度和颜色残差捕捉镜面反射、高光等视角依赖外观。这种自适应调整使得每个高斯图元能够在渲染前根据观察者视角进行针对性修正，而非试图用一个静态表示满足所有可能的视角。</p>
+      <p>训练损失组合了光度损失和感知损失。推理时，16-17 FPS的前馈速度和约150 FPS的渲染速度使该框架保持了实时性。该设计从根本上解决了单步前馈网络预测最优静态高斯图元这一本质上病态问题，通过将优化负担从预测阶段转移到渲染阶段，实现了高保真度新视角合成。</p>
     
-    <p> 技术总览，本节详细介绍了 3D 单位观察方向和 1D 对数距离与原始目标外在矩阵 的形式数学推导，遵循主论文中描述的公式。渲染损失通过将真实目标图像与渲染输出进行比较来监督新颖视图合成的质量。这种公式鼓励模型实现像素级光度精度和特征级感知相似性，从而获得高质量的渲染结果。</p>
-    <p>由于我们的框架在没有地面实况姿势的规范空间中学习 3D 高斯中心，因此仅依赖渲染损失可能会导致训练不稳定以及对规范坐标系的过度拟合。这种组合目标能够稳定地训练像素对齐的 3D 高斯和视图相关的渲染，而无需地面实况姿势。在 中，我们引入了目标姿态的 4D 重新参数化特征作为视图 MLP 的输入，以促进与视图相关的高斯偏移的预测。</p>
-      <h3>1 其他方法细节</h3>    <p> 1 其他方法细节，本节详细介绍了 3D 单位观察方向和 1D 对数距离与原始目标外在矩阵 的形式数学推导，遵循主论文中描述的公式。渲染损失通过将真实目标图像与渲染输出进行比较来监督新颖视图合成的质量。这种公式鼓励模型实现像素级光度精度和特征级感知相似性，从而获得高质量的渲染结果。</p>
-    <p>由于我们的框架在没有地面实况姿势的规范空间中学习 3D 高斯中心，因此仅依赖渲染损失可能会导致训练不稳定以及对规范坐标系的过度拟合。为了减轻这种情况并确保在没有地面实况姿势的情况下的几何一致性，我们利用 ，它为 3D 高斯位置和估计的相机参数提供了明确的监督。这种组合目标能够稳定地训练像素对齐的 3D 高斯和视图相关的渲染，而无需地面实况姿势。</p>    <h4>1. 目标姿态重新参数化的详细信息</h4>
-    <p>在 中，我们引入了目标姿态的 4D 重新参数化特征作为视图 MLP 的输入，以促进与视图相关的高斯偏移的预测。本节详细介绍了 3D 单位观察方向和 1D 对数距离与原始目标外在矩阵 的形式数学推导，遵循主论文中描述的公式。</p>
-    <h5>1.1.1 计算世界坐标中的相机中心</h5>
-    <p> 1.1.1 计算世界坐标中的相机中心，预测的目标外部参数代表世界到相机（W2C）的转换。由于相机中心C对应于相机坐标系中的原点，因此我们推导出其世界坐标位置如下。</p>
-    <p>$$ 0 = R^{t \to 1}C^{t \to 1} + t^{t \to 1} \implies C^{t \to 1} = -(R^{t \to 1})^Tt^{t \to 1}. $$</p>
-    <p>这条式子是在从世界到相机变换里反推出目标相机中心的世界坐标。得到相机中心后，模型才能继续构造目标视角相关的方向和距离特征。</p>
-    <h5>1.1.2 4D 目标姿势特征的构建</h5>
-    <p>对于中心位置源自上下文视图 v 的像素 j 的每个规范高斯，我们计算从高斯中心到目标相机中心的相对像素位移向量为。然后，视图 MLP 接收 4D 输入 ，该输入由单位观看方向和对数尺度距离 组成，由位移向量导出，如下所示。</p>
-    <p>$$ \mathbf{u}^v_j = \frac{\mathbf{d}^v_j}{\|\mathbf{d}^v_j\|_2}, \quad l^v_j = \log(\|\mathbf{d}^v_j\|_2 + \epsilon), $$</p>
-    <p>这条并列公式把相对位移分解成单位观察方向和对数尺度距离，组成视图相关 MLP 的 4D 输入。这样模型既知道目标相机朝哪个方向看，也知道高斯离相机有多远。</p>
-    <h5>1.1.3 对数尺度变换的基本原理</h5>
-    <p> 1.1.3 对数尺度变换的基本原理，距离参数的对数尺度的选择是由透视投影固有的非线性敏感性驱动的。在 3D 到 2D 映射中，对于距离较近的物体，摄像机移动的视觉影响更为明显。通过应用变换，我们压缩了距离的动态范围并保持对近场变化的更高灵敏度。</p>
-    <h4>2. 损失函数的详细公式</h4>
-    <h5>1.2.1 图像渲染损失</h5>
-    <p>渲染损失通过将真实目标图像与渲染输出进行比较来监督新颖视图合成的质量。正如主论文中所述，该目标被定义为 MSE 光度损失和 LPIPS 感知损失的加权组合。这种公式鼓励模型实现像素级光度精度和特征级感知相似性，从而获得高质量的渲染结果。</p>
-    <p>$$ \mathcal{L}_{render} = \mathcal{L}_{MSE}(I^t, \hat{I}^t) + \lambda_{LPIPS} \mathcal{L}_{LPIPS}(I^t, \hat{I}^t), $$</p>
-    <p>这条式子把像素级重建误差和感知相似度损失组合成渲染目标。作者希望模型不仅在数值上贴近目标图像，也在视觉纹理和结构上保持一致。</p>
-    <h5>1.2.2 重投影损失</h5>
-    <p> 1.2.2 重投影损失，由于我们的框架在没有地面实况姿势的规范空间中学习 3D 高斯中心，因此仅依赖渲染损失可能会导致训练不稳定以及对规范坐标系的过度拟合。为了减轻这种情况并确保在没有地面实况姿势的情况下的几何一致性，我们利用 ，它为 3D 高斯位置和估计的相机参数提供了明确的监督。该损失衡量了规范 3D 表示与其相应的 2D 观测值之间的对齐情况。</p>
-    <p>$$ \mathcal{L}_{reproj} = \sum_{v=1}^N \sum_{j=1}^{H \times W} \|p_j^v - \pi(K^v, P^{v \to 1}, \mu_j^{v \to 1})\|, $$</p>
-    <p>放在“其他方法细节”这一部分看，它重点在定义或约束 L reproj 这一项。这条式子给出了训练阶段的优化目标。阅读时可以先看左侧到底在约束什么，再区分右侧每一项对应的是重建误差、正则项还是辅助监督。</p>
-    <h5>1.2.3 全损</h5>
-    <p> 1.2.3 全损，总训练目标是上述各项的加权和。这种组合目标能够稳定地训练像素对齐的 3D 高斯和视图相关的渲染，而无需地面实况姿势。在我们的实验中，我们将超参数设置为 和。</p>
-    <p>$$ \mathcal{L}_{total} = \mathcal{L}_{render} + \lambda_{reproj}\mathcal{L}_{reproj}, $$</p>
-    <p>这条式子把渲染损失和重投影约束合并成最终训练目标。这样模型既要把图像渲染对，又要让学到的规范空间几何和估计位姿在投影关系上保持一致。</p>
-
-
-
-
-    <!-- table-placement: source=2||2; rendered=2||2; tail_pile=0 -->
     <h2 id='experiment'>实验结论</h2>
     <p>在本节中，我们提供进一步的消融研究来验证 ViewSplat 框架的设计选择。为了凭经验验证我们提出的对数尺度距离的有效性，我们进行了一项消融研究，将其与标准线性距离度量进行比较。PSNR 的改进表明对数变换为视图 MLP 提供了更多信息的信号来细化高斯参数。</p>
     <div class='card'><strong>表 1</strong><div style='margin-top:6px;'>所提出的对数尺度距离与作为视图 MLP 输入的标准线性距离的有效性比较。</div><div style='overflow-x:auto;margin-top:10px;'><table style='width:100%;border-collapse:collapse;font-size:12px;'><tr><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Method</th><th colspan='3' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>RE10K</th><th colspan='3' style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>ACID</th></tr><tr><td>—</td><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>PSNR</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>SSIM</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>LPIPS</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>PSNR</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>SSIM</th><th style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>LPIPS</th></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Linear Dist.</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>26.296</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.857</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.144</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>26.618</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.790</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.177</td></tr><tr><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>Log-scale Dist. (Ours)</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>26.317</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.857</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.144</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>26.661</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.790</td><td style='border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top;white-space:nowrap;'>0.177</td></tr></table></div></div>

@@ -243,9 +243,7 @@
       <p>4. 采用可变块大小的课程学习训练策略，支持测试时动态配置，在100帧以上序列中剪枝超90%的KV缓存token。</p>
     
     <h2 id='technical'>技术细节</h2>
-      <figure style='margin-top:20px<img class='paper-fig' src='../assets/2603_09968v1/figure2_full.pngpng' alt='架构图' loading='lazy'font-size:12px;'> />;'>架构图：方法整体流程</figcaption></figure>
-    
-    
+      
       <p>ReCoSplat是一个自回归框架，从连续图像流中以非重叠块（chunk）逐步重建3D场景。其核心创新在于：自回归KV缓存机制、渲染-比较（Render-and-Compare）模块解决位姿分布不匹配、以及针对长序列的KV缓存压缩策略。</p>
       <p>自回归处理流程：在时间步t，网络接收新图像块I_t（含可选相机参数K_t, E_t）、此前所有块的KV缓存C_{t-1}、以及累积场景S_{t-1}（包含所有历史3D高斯）。模型估计：G_t^local = f(I_t, C_{t-1}, S_{t-1})，同时预测相机内外参(K̂_t, Ê_t)和更新后的KV缓存C_t。每块局部高斯G_t^local定义在对应图像的相机空间中，通过装配位姿（assembly pose）P_t^asm（可使用真值或预测位姿）变换到世界坐标后合并入累积场景：S_t = S_{t-1} ∪ Transform(G_t^local, P_t^asm)。</p>
       <p>自回归主干网络（基于YoNoSplat扩展）：ViT编码器（DINOv2初始化）将每张图像映射为全局相机token c_t和patch token f_t。相机内参由两层的MLP从相机token预测：K̂ = MLP_K(c_t)。Patch token通过36层交替注意力Transformer解码器处理，帧注意力和全局注意力交错，产生多视图特征F_t^dec。</p>
@@ -256,6 +254,7 @@
       <p>空间复杂度分析：标准多视图Transformer对N张图像的每个全局注意力层存储逐图像KV token，空间复杂度O(N·L)。本方法在10个早期层无缓存，剩余8层按压缩策略存储（8个初始token集合 + (N_blocks-1)个后续token集合），总计O(L_init + N_blocks)而非O(N)，常量因子大幅降低。对N=576、k=8的场景（72个块），标准缓存存储4608个token集合，本方法仅312个，内存减少93%。</p>
       <p>三阶段训练：(1) 150k步，从YoNoSplat的DL3DV-10K检查点初始化，冻结编码器，采样2-64个上下文视图，块大小固定为8，无缓存压缩；(2) 50k步，引入可变块大小（首块固定8，后续块采样自[4,8]），线性退火最小值从8到4；(3) 50k步，启用完整KV缓存压缩策略。</p>
       <p>多任务损失：L = λ_rgb(L_MSE + L_perc) + λ_intr L_intr + λ_extr L_extr + λ_sparse L_1(α)，其中L_perc为LPIPS等感知损失，L_intr惩罚预测焦距与真值的误差，L_extr对所有输入应用成对相对位姿损失，L_sparse对高斯不透明度施加L1正则化并在α<0.005时剪枝。</p>
+    
     
     <h2 id='experiment'>实验结论</h2>
     <p>我们在 DL3DV（9,894 次训练/140 次测试）和 ScanNet++（968 次训练/50 次测试）上训练和评估 ReCoSplat，在训练期间以 10:1 的比例采样。对于 ScanNet，我们对以下 8 个场景进行评估，以进行公平比较。我们还包括删除渲染和比较模块的消融，表示为 KV 缓存。</p>
